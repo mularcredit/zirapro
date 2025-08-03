@@ -11,31 +11,40 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
- const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
-    toast.error(error.message);
-    setLoading(false);
-  } else {
-    toast.success('Login successful!');
-    // This will trigger a page reload after login
-    window.location.reload();
-  }
-};
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+    } else {
+      toast.success('Login successful!');
+      // This will trigger a page reload after login
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="flex min-h-screen">
       {/* Image Section - Left Side */}
-      <div className="hidden lg:flex w-1/2 bg-gradient-to-r from-emerald-500 to-lime-600 items-center justify-center p-12 relative">
+      <div className="hidden lg:flex w-1/2 bg-gradient-to-r from-emerald-500 to-lime-600 items-center justify-center p-12 relative overflow-hidden">
+        {/* Background image with faint opacity */}
+        <div className="absolute inset-0">
+          <img 
+            src="/leaf.gif"  // Replace with your image path
+            alt="Decorative background" 
+            className="h-full w-full object-cover opacity-30" 
+          />
+        </div>
+        
         {/* Logo at top left */}
-        <div className="absolute top-8 left-8">
+        <div className="absolute top-8 left-8 z-10">
           <img 
             src="/logo1.png" 
             alt="Zira HR Logo" 
@@ -43,7 +52,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           />
         </div>
         
-        <div className="max-w-md text-white">
+        <div className="max-w-md text-white relative z-10">
           <div className="mb-8">
             <h1 className="text-4xl font-semibold mb-2">Zira<span className='font-light'>HR</span></h1>
             <p className="text-green-100">Smiles Start Here</p>

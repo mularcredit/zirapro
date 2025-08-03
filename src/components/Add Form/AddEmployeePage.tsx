@@ -273,7 +273,7 @@ const AddEmployeePage = () => {
           <div className="flex items-center">
             <div className="mr-4">
               <img 
-                src="https://i.ibb.co/j9CqXyt6/avatar.png" 
+                src="/avatar.png" 
                 alt="avatar" 
                 className="w-16 h-16 rounded-full border-2 border-white shadow-sm"
               />
@@ -359,7 +359,7 @@ const AddEmployeePage = () => {
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <div className="relative">
                             <img 
-                              src="https://i.ibb.co/My2ydmL9/avat.png" 
+                              src="/avat.png" 
                               alt="Default avatar" 
                               className="w-50 h-50 opacity-70"
                             />
