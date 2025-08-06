@@ -27,7 +27,7 @@ const ViewEmployeePage = () => {
         const { data, error } = await supabase
           .from('employees')
           .select('*')
-          .eq('Employee Id', id)
+          .eq('Employee Number', id)
           .single();
 
         if (error) throw error;
@@ -66,7 +66,7 @@ const ViewEmployeePage = () => {
 
   const handleEdit = () => {
     if (employee) {
-      navigate(`/employees/edit/${employee['Employee Id']}`);
+      navigate(`/employees/edit/${employee['Employee Number']}`);
     }
   };
 

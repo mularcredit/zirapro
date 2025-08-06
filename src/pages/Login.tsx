@@ -37,7 +37,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         {/* Background image with faint opacity */}
         <div className="absolute inset-0">
           <img 
-            src="/leaf.gif"  // Replace with your image path
+            src="/leaf.png"  // Replace with your image path
             alt="Decorative background" 
             className="h-full w-full object-cover opacity-30" 
           />

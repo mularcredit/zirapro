@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
-import { X, Plus, ArrowLeft, SendToBackIcon, User, Briefcase, Phone, CreditCard, MapPin, Upload, AlertCircle, Users } from 'lucide-react';
+import { X, Plus, ArrowLeft, SendToBackIcon, User, Briefcase, Phone, CreditCard, MapPin, Upload, AlertCircle, Users, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
@@ -12,9 +11,10 @@ type Employee = Database['public']['Tables']['employees']['Row'];
 type DropdownOptions = {
   employmentTypes: string[];
   branches: string[];
-  departments: string[];
   jobLevels: string[];
-  categories: string[];
+  jobGroup: string[];
+  office: string[];
+  jobTitles: string[];
   supervisors: string[];
 };
 
@@ -31,6 +31,12 @@ type Dependent = {
   dateOfBirth?: string;
 };
 
+type StatutoryDeduction = {
+  name: string;
+  number: string;
+  isActive: boolean;
+};
+
 const AddEmployeePage = () => {
   const navigate = useNavigate();
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
@@ -41,49 +47,73 @@ const AddEmployeePage = () => {
   const [dropdownOptions, setDropdownOptions] = useState<DropdownOptions>({
     employmentTypes: [],
     branches: [],
-    departments: [],
     jobLevels: [],
-    categories: [],
+    jobGroup: [],
+    office: [],
+    jobTitles: [],
     supervisors: []
   });
   const [fetchingOptions, setFetchingOptions] = useState(true);
   const [activeTab, setActiveTab] = useState('personal');
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([{ name: '', relationship: '', phone: '' }]);
   const [dependents, setDependents] = useState<Dependent[]>([{ name: '', relationship: '' }]);
+  const [statutoryDeductions, setStatutoryDeductions] = useState<StatutoryDeduction[]>([
+    { name: 'KRA PIN', number: '', isActive: false },
+    { name: 'NHIF', number: '', isActive: false },
+    { name: 'NSSF', number: '', isActive: false },
+    { name: 'HELB', number: '', isActive: false },
+    { name: 'NITA', number: '', isActive: false }
+  ]);
+  const [isPageLoading, setIsPageLoading] = useState(true);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsPageLoading(false);
+    }, 1000);
+
     const fetchDropdownOptions = async () => {
       try {
+        setLoading(true);
         setFetchingOptions(true);
+        
         const { data: empTypes } = await supabase
           .from('employees')
           .select('"Employee Type"')
-          .not('"Employee Type"', 'is', null)
+          .not('Employee Type', 'is', null)
           .order('"Employee Type"', { ascending: true });
 
         const { data: branches } = await supabase
           .from('employees')
           .select('"Branch"')
-          .not('"Branch"', 'is', null)
+          .not('Branch', 'is', null)
           .order('"Branch"', { ascending: true });
 
-        const { data: departments } = await supabase
-          .from('departments')
-          .select('name')
-          .order('name', { ascending: true });
-
         const { data: jobLevels } = await supabase
-          .from('job_levels')
-          .select('name')
-          .order('name', { ascending: true });
+          .from('employees')
+          .select('"Job Level"')
+          .not('Job Level', 'is', null)
+          .order('"Job Level"', { ascending: true });
 
-        const { data: categories } = await supabase
-          .from('categories')
-          .select('name')
-          .order('name', { ascending: true });
+        const { data: jobGroup } = await supabase
+          .from('employees')
+          .select('"Job Group"')
+          .not('Job Group', 'is', null)
+          .order('"Job Group"', { ascending: true });
+
+        const { data: office } = await supabase
+          .from('employees')
+          .select('"Town"')
+          .not('Town', 'is', null)
+          .order('"Town"', { ascending: true });
+
+        const { data: jobTitles } = await supabase
+          .from('employees')
+          .select('"Job Title"')
+          .not('Job Title', 'is', null)
+          .order('"Job Title"', { ascending: true });
 
         const { data: supervisors } = await supabase
           .from('employees')
@@ -93,19 +123,23 @@ const AddEmployeePage = () => {
         setDropdownOptions({
           employmentTypes: [...new Set(empTypes?.map(item => item['Employee Type'] as string))],
           branches: [...new Set(branches?.map(item => item.Branch as string))],
-          departments: departments?.map(item => item.name as string) || [],
-          jobLevels: jobLevels?.map(item => item.name as string) || [],
-          categories: categories?.map(item => item.name as string) || [],
+          jobLevels: [...new Set(jobLevels?.map(item => item['Job Level'] as string))],
+          jobGroup: [...new Set(jobGroup?.map(item => item['Job Group'] as string))],
+          office: [...new Set(office?.map(item => item.Town as string))],
+          jobTitles: [...new Set(jobTitles?.map(item => item['Job Title'] as string))],
           supervisors: supervisors?.map(item => `${item['First Name']} ${item['Last Name']}`) || []
         });
       } catch (err) {
         console.error('Error fetching dropdown options:', err);
       } finally {
         setFetchingOptions(false);
+        setLoading(false);
       }
     };
 
     fetchDropdownOptions();
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +185,15 @@ const AddEmployeePage = () => {
     setDependents(updatedDependents);
   };
 
+  const handleStatutoryDeductionChange = (index: number, field: keyof StatutoryDeduction, value: string | boolean) => {
+    const updatedDeductions = [...statutoryDeductions];
+    updatedDeductions[index] = {
+      ...updatedDeductions[index],
+      [field]: value
+    };
+    setStatutoryDeductions(updatedDeductions);
+  };
+
   const addEmergencyContact = () => {
     setEmergencyContacts([...emergencyContacts, { name: '', relationship: '', phone: '' }]);
   };
@@ -184,61 +227,121 @@ const AddEmployeePage = () => {
         throw new Error('First Name and Last Name are required');
       }
 
-      // Upload profile image if exists
       let imageUrl = null;
       if (profileImage) {
         const fileExt = profileImage.name.split('.').pop();
-        const fileName = `${newEmployee['Employee Number'] || `EMP-${Date.now().toString().slice(-6)}`}.${fileExt}`;
+        const fileName = `${newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`}.${fileExt}`;
         const filePath = `profile_images/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('employee-photos')
+          .from('employeeavatar')
           .upload(filePath, profileImage);
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('employee-photos')
+          .from('employeeavatar')
           .getPublicUrl(filePath);
 
         imageUrl = publicUrl;
       }
 
-      const { error } = await supabase
+      const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
         .insert([{
           ...newEmployee,
-          'Employee Number': newEmployee['Employee Number'] || `EMP-${Date.now().toString().slice(-6)}`,
-          'Profile Image': imageUrl,
-          'Emergency Contacts': emergencyContacts,
-          'Dependents': dependents
-        }]);
+          'Employee Number': newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`,
+          'Profile Image': imageUrl
+        }])
+        .select();
       
-      if (error) throw error;
+      if (employeeError) throw employeeError;
       
-      navigate('/employees', { state: { success: true } });
+      const employeeId = employeeData?.[0]?.["Employee Number"];
+      if (!employeeId) throw new Error('Failed to get employee Number after creation');
+
+      if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
+        const contactsToInsert = emergencyContacts.map(contact => ({
+          "Employee Number": employeeId,
+          full_name: contact.name,
+          relationship: contact.relationship,
+          phone_number: contact.phone,
+          email: contact.email || null
+        }));
+
+        const { error: contactsError } = await supabase
+          .from('emergency_contact')
+          .insert(contactsToInsert);
+
+        if (contactsError) throw contactsError;
+      }
+
+      if (dependents.length > 0 && dependents[0].name) {
+        const dependentsToInsert = dependents.map(dependent => ({
+          "Employee Number": employeeId,
+          full_name: dependent.name,
+          relationship: dependent.relationship,
+          date_birth: dependent.dateOfBirth || null
+        }));
+
+        const { error: dependentsError } = await supabase
+          .from('dependents')
+          .insert(dependentsToInsert);
+
+        if (dependentsError) throw dependentsError;
+      }
+
+      const deductionsToInsert = statutoryDeductions
+        .filter(deduction => deduction.isActive && deduction.number)
+        .map(deduction => ({
+          employee_id: employeeId,
+          type: deduction.name,
+          number: deduction.number,
+          is_active: deduction.isActive
+        }));
+
+      if (deductionsToInsert.length > 0) {
+        const { error: deductionsError } = await supabase
+          .from('statutory_deductions')
+          .insert(deductionsToInsert);
+
+        if (deductionsError) throw deductionsError;
+      }
+      
+      navigate('/employee-added', { 
+        state: { 
+          success: true,
+          employeeNumber: employeeId,
+          employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
+          workEmail: newEmployee['Work Email'],
+          personalEmail: newEmployee['Personal Email']
+        } 
+      });
+
     } catch (err) {
+      console.error('Error adding employee:', err);
       setError(err instanceof Error ? err.message : 'Failed to add employee');
     } finally {
       setLoading(false);
     }
   };
 
-  if (fetchingOptions) {
+  if (isPageLoading) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
-      >
-        <div className="text-center">
-          <div className="animate-pulse flex flex-col items-center">
-            <div className="w-16 h-16 bg-gradient-to-r from-green-50 to-green-200 rounded-full mb-6"></div>
-            <div className="h-5 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full w-64 mb-4"></div>
-            <div className="h-4 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full w-48"></div>
-          </div>
-        </div>
-      </motion.div>
+      <div className="flex items-center justify-center h-screen">
+        <motion.div
+          animate={{ 
+            rotate: 360,
+            scale: [1, 1.2, 1]
+          }}
+          transition={{ 
+            duration: 1,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+          className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full"
+        />
+      </div>
     );
   }
 
@@ -417,7 +520,7 @@ const AddEmployeePage = () => {
                   <FormField
                     label="Employee Number (Autogenerated)"
                     name="Employee Number"
-                    value={newEmployee['Employee Number'] || `EMP-${Date.now().toString().slice(-6)}`}
+                    value={newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`}
                     onChange={handleInputChange}
                     disabled
                   />
@@ -426,7 +529,7 @@ const AddEmployeePage = () => {
                     name="First Name"
                     value={newEmployee['First Name'] || ''}
                     onChange={handleInputChange}
-                    required
+                    
                   />
                   <FormField
                     label="Middle Name"
@@ -439,7 +542,7 @@ const AddEmployeePage = () => {
                     name="Last Name"
                     value={newEmployee['Last Name'] || ''}
                     onChange={handleInputChange}
-                    required
+                    
                   />
                 </div>
               </div>
@@ -468,20 +571,28 @@ const AddEmployeePage = () => {
                       label="Gender"
                       name="Gender"
                       type="select"
-                      value={newEmployee['Gender'] || ''}
+                      value={newEmployee.Gender || ''}
                       onChange={handleInputChange}
                       options={['Male', 'Female', 'Other']}
                     />
                     <FormField
                       label="National ID"
-                      name="National ID"
-                      value={newEmployee['National ID'] || ''}
-                      onChange={handleInputChange}
+                      name="ID Number"
+                      type="number"
+                      value={newEmployee['ID Number'] ? String(newEmployee['ID Number']) : ''}
+                      onChange={(e) => {
+                        const numValue = e.target.value ? parseInt(e.target.value) : null;
+                        setNewEmployee(prev => ({
+                          ...prev,
+                          "ID Number": numValue
+                        }));
+                      }}
                     />
                     <FormField
                       label="Passport Number"
-                      name="Passport Number"
-                      value={newEmployee['Passport Number'] || ''}
+                      name="passport_number"
+                     
+                      value={newEmployee.passport_number || ''}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -502,30 +613,30 @@ const AddEmployeePage = () => {
                     />
                     <FormField
                       label="Blood Group"
-                      name="Blood Group"
+                      name="blood_group"
                       type="select"
-                      value={newEmployee['Blood Group'] || ''}
+                      value={newEmployee.blood_group || ''}
                       onChange={handleInputChange}
                       options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']}
                     />
                     <FormField
                       label="Disability Status"
-                      name="Disability Status"
+                      name="Disability Cert No"
                       type="select"
-                      value={newEmployee['Disability Status'] || ''}
+                      value={newEmployee['Disability Cert No'] || ''}
                       onChange={handleInputChange}
                       options={['None', 'Physical', 'Visual', 'Hearing', 'Other']}
                     />
                     <FormField
                       label="Religion"
-                      name="Religion"
-                      value={newEmployee['Religion'] || ''}
+                      name="religion"
+                      value={newEmployee.religion || ''}
                       onChange={handleInputChange}
                     />
                     <FormField
                       label="Nationality"
-                      name="Nationality"
-                      value={newEmployee['Nationality'] || ''}
+                      name="Country"
+                      value={newEmployee.Country|| ''}
                       onChange={handleInputChange}
                     />
                   </div>
@@ -549,7 +660,7 @@ const AddEmployeePage = () => {
                     value={newEmployee['Employee Type'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.employmentTypes}
-                    required
+                    
                   />
                   <FormField
                     label="Employment Start Date"
@@ -557,10 +668,10 @@ const AddEmployeePage = () => {
                     type="date"
                     value={newEmployee['Start Date'] || ''}
                     onChange={handleInputChange}
-                    required
+                    
                   />
                   <FormField
-                    label="Job Level"
+                    label="Department"
                     name="Job Level"
                     type="select"
                     value={newEmployee['Job Level'] || ''}
@@ -570,52 +681,39 @@ const AddEmployeePage = () => {
                   <FormField
                     label="Job Title"
                     name="Job Title"
+                    type="select"
                     value={newEmployee['Job Title'] || ''}
                     onChange={handleInputChange}
+                    options={dropdownOptions.jobTitles}
                   />
+                  
                   <FormField
-                    label="Job Description"
-                    name="Job Description"
-                    value={newEmployee['Job Description'] || ''}
-                    onChange={handleInputChange}
-                  />
-                  <FormField
-                    label="Category"
-                    name="Category"
+                    label="Branch"
+                    name="Branch"
                     type="select"
-                    value={newEmployee['Category'] || ''}
+                    value={newEmployee.Branch || ''}
                     onChange={handleInputChange}
-                    options={dropdownOptions.categories}
-                  />
-                  <FormField
-                    label="Direct Supervisor"
-                    name="Direct Supervisor"
-                    type="select"
-                    value={newEmployee['Direct Supervisor'] || ''}
-                    onChange={handleInputChange}
-                    options={dropdownOptions.supervisors}
-                    required
+                    options={dropdownOptions.branches}
+                    
                   />
                   <FormField
                     label="Office"
-                    name="Office"
-                    value={newEmployee['Office'] || ''}
-                    onChange={handleInputChange}
-                  />
-                  <FormField
-                    label="Department"
-                    name="Department"
+                    name="Town"
                     type="select"
-                    value={newEmployee['Department'] || ''}
+                    value={newEmployee.Town || ''}
                     onChange={handleInputChange}
-                    options={dropdownOptions.departments}
-                    required
+                    options={dropdownOptions.office}
+                    
                   />
-                  <FormField
-                    label="Department Unit"
-                    name="Department Unit"
-                    value={newEmployee['Department Unit'] || ''}
+
+                   <FormField
+                    label="Manager"
+                    name="Manager"
+                    type="select"
+                    value={newEmployee['Manager'] || ''}
                     onChange={handleInputChange}
+                    options={dropdownOptions.supervisors}
+                    
                   />
                   <FormField
                     label="Work Email"
@@ -623,7 +721,7 @@ const AddEmployeePage = () => {
                     type="email"
                     value={newEmployee['Work Email'] || ''}
                     onChange={handleInputChange}
-                    required
+                    
                   />
                 </div>
 
@@ -644,27 +742,34 @@ const AddEmployeePage = () => {
                       />
                       <FormField
                         label="Alternate Leave Approver"
-                        name="Alternate Leave Approver"
+                        name="Alternate Approver"
                         type="select"
-                        value={newEmployee['Alternate Leave Approver'] || ''}
+                        value={newEmployee['Alternate Approver'] || ''}
                         onChange={handleInputChange}
                         options={dropdownOptions.supervisors}
                       />
                       <FormField
                         label="Second Level Leave Approver"
-                        name="Second Level Leave Approver"
+                        name="second_level_leave_approver"
                         type="select"
-                        value={newEmployee['Second Level Leave Approver'] || ''}
+                        value={newEmployee['second_level_leave_approver'] || ''}
                         onChange={handleInputChange}
                         options={dropdownOptions.supervisors}
                       />
                       <FormField
                         label="Alternate Second Level Leave Approver"
-                        name="Alternate Second Level Leave Approver"
+                        name="alternate_second_level_approver"
                         type="select"
-                        value={newEmployee['Alternate Second Level Leave Approver'] || ''}
+                        value={newEmployee['alternate_second_level_approver'] || ''}
                         onChange={handleInputChange}
                         options={dropdownOptions.supervisors}
+                      />
+                      <FormField
+                        label="Internship Start Date"
+                        name="internship_start_date"
+                        type="date"
+                        value={newEmployee['internship_start_date'] || ''}
+                        onChange={handleInputChange}
                       />
                     </div>
                   </div>
@@ -805,23 +910,23 @@ const AddEmployeePage = () => {
                     />
                     <FormField
                       label="Account Name"
-                      name="Account Name"
-                      value={newEmployee['Account Name'] || ''}
+                      name="account_number_name"
+                      value={newEmployee.account_number_name || ''}
                       onChange={handleInputChange}
                     />
                     <FormField
                       label="Branch Name"
-                      name="Branch Name"
-                      value={newEmployee['Branch Name'] || ''}
+                      name="Bank Branch"
+                      value={newEmployee['Bank Branch'] || ''}
                       onChange={handleInputChange}
                     />
                     <FormField
                       label="Payment Method"
-                      name="Payment Method"
+                      name="payment_method"
                       type="select"
-                      value={newEmployee['Payment Method'] || ''}
+                      value={newEmployee['payment_method'] || ''}
                       onChange={handleInputChange}
-                      options={['Bank Transfer', 'Cash', 'Mobile Money']}
+                      options={['Bank Transfer', 'Cash', 'MPESA']}
                     />
                   </div>
                 </div>
@@ -832,13 +937,27 @@ const AddEmployeePage = () => {
                     icon={CreditCard} 
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                    <FormField
-                      label="Basic Salary"
-                      name="Basic Salary"
-                      type="number"
-                      value={newEmployee['Basic Salary'] || ''}
+                     <FormField
+                      label="Job Group"
+                      name="Job Group"
+                      type="select"
+                      value={newEmployee['Job Group'] || ''}
                       onChange={handleInputChange}
+                      options={dropdownOptions.jobGroup}
                     />
+                        <FormField
+                            label="Basic Salary"
+                            name="Basic Salary"
+                            type="number"
+                            value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
+                            onChange={(e) => {
+                              const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                              setNewEmployee(prev => ({
+                                ...prev,
+                                "Basic Salary": numValue
+                              }));
+                            }}
+                         />
                     <FormField
                       label="Currency"
                       name="Currency"
@@ -855,50 +974,30 @@ const AddEmployeePage = () => {
                     title="Statutory Deductions" 
                     icon={CreditCard} 
                   />
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                    <FormField
-                      label="KRA PIN"
-                      name="Tax PIN"
-                      value={newEmployee['Tax PIN'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="NHIF Number"
-                      name="NHIF"
-                      value={newEmployee['NHIF'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="NSSF Number"
-                      name="NSSF"
-                      value={newEmployee['NSSF'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="AHL Number"
-                      name="AHL"
-                      value={newEmployee['AHL'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="HELB Number"
-                      name="HELB"
-                      value={newEmployee['HELB'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="NITA Number"
-                      name="NITA"
-                      value={newEmployee['NITA'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="PAYE Rate"
-                      name="PAYE"
-                      type="number"
-                      value={newEmployee['PAYE'] || ''}
-                      onChange={handleInputChange}
-                    />
+                  <div className="grid grid-cols-1 gap-6 mt-4">
+                    {statutoryDeductions.map((deduction, index) => (
+                      <div key={index} className="flex items-center gap-4">
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            className={`w-6 h-6 rounded flex items-center justify-center border ${deduction.isActive ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}
+                            onClick={() => handleStatutoryDeductionChange(index, 'isActive', !deduction.isActive)}
+                          >
+                            {deduction.isActive && <Check className="w-4 h-4 text-white" />}
+                          </button>
+                          <span className="ml-2 font-medium min-w-[100px]">{deduction.name}</span>
+                        </div>
+                        {deduction.isActive && (
+                          <input
+                            type="text"
+                            value={deduction.number}
+                            onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
+                            className="flex-1 h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                            placeholder={`Enter ${deduction.name}`}
+                          />
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

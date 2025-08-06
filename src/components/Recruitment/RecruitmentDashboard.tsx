@@ -18,7 +18,9 @@ import {
   MapPin,
   GraduationCap,
   Code,
-  FileText
+  FileText,
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -26,6 +28,363 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// PDF Viewer Component
+const PDFViewer = ({ 
+  fileName, 
+  isPublic = true, 
+  onClose 
+}: { 
+  fileName: string; 
+  isPublic?: boolean; 
+  onClose: () => void 
+}) => {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getPdfUrl = async () => {
+      try {
+        if (isPublic) {
+          // Get public URL
+          const { data } = supabase.storage
+            .from('resumes')
+            .getPublicUrl(`public/${fileName}`);
+          setPdfUrl(data.publicUrl);
+        } else {
+          // Get signed URL for private files
+          const { data, error } = await supabase.storage
+            .from('resumes')
+            .createSignedUrl(`private/${fileName}`, 60 * 60); // 1 hour expiry
+          
+          if (error) {
+            setError('Error loading PDF: ' + error.message);
+          } else {
+            setPdfUrl(data.signedUrl);
+          }
+        }
+      } catch (err) {
+        setError('Error loading PDF');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getPdfUrl();
+  }, [fileName, isPublic]);
+
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6">
+          <div className="flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600"></div>
+            <span>Loading PDF...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-md">
+          <div className="flex items-center gap-3 text-red-600 mb-4">
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+          </div>
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex justify-between items-center p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">Resume: {fileName}</h3>
+          <div className="flex items-center gap-2">
+            <a 
+              href={pdfUrl || '#'} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm flex items-center gap-2"
+            >
+              <ExternalLink className="w-4 h-4" />
+              Open in New Tab
+            </a>
+            <a 
+              href={pdfUrl || '#'} 
+              download={fileName}
+              className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </a>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        
+        {/* PDF Viewer */}
+        <div className="flex-1 p-4">
+          <iframe 
+            src={pdfUrl || ''}
+            className="w-full h-full border border-gray-200 rounded-lg"
+            title={`Resume: ${fileName}`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced DetailItem component with PDF support
+const DetailItem = ({ 
+  label, 
+  value, 
+  isTextArea = false,
+  isPdf = false,
+  fileName = '',
+  onViewPdf
+}: { 
+  label: string; 
+  value: string | null; 
+  isTextArea?: boolean;
+  isPdf?: boolean;
+  fileName?: string;
+  onViewPdf?: (fileName: string) => void;
+}) => {
+  if (!value && !isPdf) return null;
+  
+  if (isPdf) {
+    return (
+      <div className="space-y-1">
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <div className="flex gap-2">
+          <a 
+            href={value || '#'} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-gray-50 transition-colors"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            {fileName || 'Download Resume'}
+          </a>
+          {/* {onViewPdf && (
+            <button
+              onClick={() => onViewPdf(fileName)}
+              className="inline-flex items-center px-3 py-2 border border-green-300 rounded-md shadow-sm text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 transition-colors"
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              View PDF
+            </button>
+          )} */}
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-1">
+      <label className="block text-sm font-medium text-gray-700">{label}</label>
+      {isTextArea ? (
+        <textarea 
+          readOnly 
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm h-24"
+          value={value}
+        />
+      ) : (
+        <input 
+          type="text" 
+          readOnly 
+          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm" 
+          value={value} 
+        />
+      )}
+    </div>
+  );
+};
+
+// Enhanced Application Detail Modal with PDF viewer
+const ApplicationDetailModal = ({ 
+  application, 
+  onClose 
+}: { 
+  application: any | null; 
+  onClose: () => void 
+}) => {
+  const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [currentPdfFile, setCurrentPdfFile] = useState('');
+
+  if (!application) return null;
+
+  const handleViewPdf = (fileName: string) => {
+    setCurrentPdfFile(fileName);
+    setShowPdfViewer(true);
+  };
+
+  // Extract filename from URL or use the provided filename
+  const getResumeFileName = () => {
+    if (application.resume_file_name) {
+      return application.resume_file_name;
+    }
+    if (application.resume_file_url) {
+      const urlParts = application.resume_file_url.split('/');
+      return urlParts[urlParts.length - 1];
+    }
+    return 'resume.pdf';
+  };
+
+  return (
+    <>
+      <div className="fixed text-sm inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white shadow-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">
+              Application from {application.first_name} {application.last_name}
+            </h3>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Personal Information */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <User className="w-5 h-5 text-blue-500" />
+                Personal Information
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="Full Name" value={`${application.first_name} ${application.last_name}`} />
+                <DetailItem label="Email" value={application.email} />
+                <DetailItem label="Phone" value={application.phone} />
+                <DetailItem label="ID Number" value={application.id_number} />
+                <DetailItem label="Nationality" value={application.nationality} />
+              </div>
+            </div>
+            
+            {/* Address Information */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-blue-500" />
+                Address Information
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="Address" value={application.address} isTextArea />
+                <DetailItem label="County" value={application.county} />
+                <DetailItem label="Constituency" value={application.constituency} />
+                <DetailItem label="Preferred Location" value={application.preferred_location} />
+              </div>
+            </div>
+            
+            {/* Education */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-blue-500" />
+                Education
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="University" value={application.university} />
+                <DetailItem label="Education Level" value={application.education} />
+                <DetailItem label="Graduation Year" value={application.graduation_year || 'N/A'} />
+              </div>
+            </div>
+            
+            {/* Work Experience */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-blue-500" />
+                Work Experience
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="Previous Company" value={application.previous_company} />
+                <DetailItem label="Previous Role" value={application.previous_role} />
+                <DetailItem label="Work Experience" value={application.work_experience} isTextArea />
+                <DetailItem label="Previous Salary" value={application.previous_salary} />
+                <DetailItem label="Expected Salary" value={application.expected_salary} />
+              </div>
+            </div>
+            
+            {/* Skills & Languages */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <Code className="w-5 h-5 text-blue-500" />
+                Skills & Languages
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="Skills" value={application.skills} isTextArea />
+                <DetailItem label="Languages" value={application.languages} />
+                <DetailItem label="Markets Worked" value={application.markets_worked || 'N/A'} />
+              </div>
+            </div>
+            
+            {/* Application Materials */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-500" />
+                Application Materials
+              </h4>
+              <div className="space-y-3">
+                <DetailItem label="Cover Letter" value={application.cover_letter} isTextArea />
+                <DetailItem 
+                  label="Resume" 
+                  value={application.resume_file_url}
+                  fileName={getResumeFileName()}
+                  isPdf={true}
+                  onViewPdf={handleViewPdf}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end gap-3">
+            <button 
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+            >
+              Close
+            </button>
+            <button className="px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm flex items-center gap-2">
+              <Check className="w-4 h-4" />
+              Shortlist Candidate
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* PDF Viewer Modal */}
+      {showPdfViewer && (
+        <PDFViewer 
+          fileName={currentPdfFile}
+          isPublic={true} // Change based on your file storage structure
+          onClose={() => setShowPdfViewer(false)}
+        />
+      )}
+    </>
+  );
+};
+
+// Rest of your existing component code would go here...
+// (StatusBadge, SummaryCard, GlowButton components remain the same)
 
 // Employee Type and Department Data
 const employeeTypes = ['Full-time', 'Part-time', 'Contract', 'Temporary', 'Intern'];
@@ -59,7 +418,8 @@ const GlowButton = ({
   icon: Icon, 
   size = 'md', 
   onClick, 
-  disabled = false 
+  disabled = false,
+  className = ''
 }: { 
   children: React.ReactNode; 
   variant?: 'primary' | 'secondary' | 'danger'; 
@@ -67,6 +427,7 @@ const GlowButton = ({
   size?: 'sm' | 'md' | 'lg';
   onClick?: () => void;
   disabled?: boolean;
+  className?: string;
 }) => {
   const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
   const sizeClasses = {
@@ -82,7 +443,7 @@ const GlowButton = ({
 
   return (
     <button 
-      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
       onClick={onClick}
       disabled={disabled}
     >
@@ -109,179 +470,6 @@ const StatusBadge = ({ status }: { status: string }) => {
       {status}
     </span>
   );
-};
-
-const DetailItem = ({ 
-  label, 
-  value, 
-  isTextArea = false 
-}: { 
-  label: string; 
-  value: string | null; 
-  isTextArea?: boolean 
-}) => {
-  if (!value) return null;
-  
-  return (
-    <div className="space-y-1">
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      {isTextArea ? (
-        <textarea 
-          readOnly 
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm h-24"
-          value={value}
-        />
-      ) : (
-        <input 
-          type="text" 
-          readOnly 
-          className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm" 
-          value={value} 
-        />
-      )}
-    </div>
-  );
-};
-
-const ApplicationDetailModal = ({ 
-  application, 
-  onClose 
-}: { 
-  application: any | null; 
-  onClose: () => void 
-}) => {
-  if (!application) return null;
-
-  return (
-  <div className="fixed text-sm inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div className="bg-white  shadow-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-xl font-semibold text-gray-900">
-          Application from {application.first_name} {application.last_name}
-        </h3>
-        <button 
-          onClick={onClose}
-          className="text-gray-500 hover:text-gray-700 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Personal Information */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <User className="w-5 h-5 text-blue-500" />
-            Personal Information
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="Full Name" value={`${application.first_name} ${application.last_name}`} />
-            <DetailItem label="Email" value={application.email} />
-            <DetailItem label="Phone" value={application.phone} />
-            <DetailItem label="ID Number" value={application.id_number} />
-            <DetailItem label="Nationality" value={application.nationality} />
-          </div>
-        </div>
-        
-        {/* Address Information */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-blue-500" />
-            Address Information
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="Address" value={application.address} isTextArea />
-            <DetailItem label="County" value={application.county} />
-            <DetailItem label="Constituency" value={application.constituency} />
-            <DetailItem label="Preferred Location" value={application.preferred_location} />
-          </div>
-        </div>
-        
-        {/* Education */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-blue-500" />
-            Education
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="University" value={application.university} />
-            <DetailItem label="Education Level" value={application.education} />
-            <DetailItem label="Graduation Year" value={application.graduation_year || 'N/A'} />
-          </div>
-        </div>
-        
-        {/* Work Experience */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <Briefcase className="w-5 h-5 text-blue-500" />
-            Work Experience
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="Previous Company" value={application.previous_company} />
-            <DetailItem label="Previous Role" value={application.previous_role} />
-            <DetailItem label="Work Experience" value={application.work_experience} isTextArea />
-            <DetailItem label="Previous Salary" value={application.previous_salary} />
-            <DetailItem label="Expected Salary" value={application.expected_salary} />
-          </div>
-        </div>
-        
-        {/* Skills & Languages */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <Code className="w-5 h-5 text-blue-500" />
-            Skills & Languages
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="Skills" value={application.skills} isTextArea />
-            <DetailItem label="Languages" value={application.languages} />
-            <DetailItem label="Markets Worked" value={application.markets_worked || 'N/A'} />
-          </div>
-        </div>
-        
-        {/* Application Materials */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="font-medium text-gray-900 text-lg mb-3 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-blue-500" />
-            Application Materials
-          </h4>
-          <div className="space-y-3">
-            <DetailItem label="Cover Letter" value={application.cover_letter} isTextArea />
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Resume</label>
-              <a 
-                href={application.resume_file_url} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-gray-50 transition-colors"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                {application.resume_file_name || 'Download Resume'}
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="mt-8 pt-6 border-t border-gray-200 flex justify-end gap-3">
-        <GlowButton 
-          variant="secondary"
-          size="sm"
-          onClick={onClose}
-          className="px-4"
-        >
-          Close
-        </GlowButton>
-        <GlowButton 
-          icon={Check}
-          size="sm"
-          className="px-4"
-        >
-          Shortlist Candidate
-        </GlowButton>
-      </div>
-    </div>
-  </div>
-);
 };
 
 function SummaryCard({
@@ -727,6 +915,7 @@ export default function RecruitmentDashboard() {
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Position</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Branch</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Experience</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Resume</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Date Applied</th>
                   <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
@@ -734,7 +923,17 @@ export default function RecruitmentDashboard() {
               </thead>
               <tbody>
                 {filteredApplications.map((application) => {
-                  const branch = branches.find(b => b.id === application.branch);
+                  const getResumeFileName = () => {
+                    if (application.resume_file_name) {
+                      return application.resume_file_name;
+                    }
+                    if (application.resume_file_url) {
+                      const urlParts = application.resume_file_url.split('/');
+                      return urlParts[urlParts.length - 1];
+                    }
+                    return 'resume.pdf';
+                  };
+
                   return (
                     <tr key={application.id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-4 px-4">
@@ -753,6 +952,33 @@ export default function RecruitmentDashboard() {
                       </td>
                       <td className="py-4 px-4">
                         <p className="text-gray-700">{application.work_experience || 'N/A'}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        {application.resume_file_url && (
+                          <div className="flex gap-1">
+                            {/* <a 
+                              href={application.resume_file_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs flex items-center gap-1"
+                            >
+                              <Download className="w-3 h-3" />
+                              Download
+                            </a> */}
+                            <button
+                              onClick={() => {
+                                // Create a temporary PDF viewer state
+                                const fileName = getResumeFileName();
+                                // You can implement a quick view modal here
+                                window.open(application.resume_file_url, '_blank');
+                              }}
+                              className="px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" />
+                              View
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-4">
                         <StatusBadge status={application.status || 'New'} />

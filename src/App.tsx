@@ -5,10 +5,12 @@ import ViewEmployeePage from '../src/components/view_form/EmployeeDetails';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
+import SuccessPage from './components/Add Form/SuccessPage';
 import Dashboard from './components/Dashboard/Dashboard';
 import EmployeeList from './components/Employees/EmployeeList';
 import PayrollDashboard from './components/Payroll/PayrollDashboard';
 import RecruitmentDashboard from './components/Recruitment/RecruitmentDashboard';
+import LeaveManagementSystem from './components/Leave/LeaveManagement';
 import EditEmployeePage from './components/Add Form/EditEmployee';
 import { AIAssistantPage } from './components/AI/AIAssistantPage';
 import toast, { Toaster } from 'react-hot-toast';
@@ -157,16 +159,10 @@ function App() {
         <Route path="/performance" element={<PerformanceDashboard />} />
         <Route path="/add-employee" element={<AddEmployeePage />} />
         <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
+        <Route path="/employee-added" element={<SuccessPage />} />
         <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
         <Route path="/ai-assistant" element={<AIAssistantPage />} />
-        <Route path="/leaves" element={
-          <div className="p-6">
-            <h1 className="text-3xl font-bold text-white mb-4">Leave Management</h1>
-            <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-8 text-center">
-              <p className="text-gray-400">Leave management module coming soon...</p>
-            </div>
-          </div>
-        } />
+        <Route path="/leaves" element={<LeaveManagementSystem/> } />
         <Route path="/training" element={
           <div className="p-6">
             <h1 className="text-3xl font-bold text-white mb-4">Training & Development</h1>
