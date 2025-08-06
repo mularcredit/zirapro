@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { X, Save, PrinterIcon, Download, ArrowLeft, Plus, Upload, AlertCircle, Users, Check } from 'lucide-react';
+import { X, Save, PrinterIcon, Download, ArrowLeft, Plus, Upload, AlertCircle, Users, Check,PencilLine } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
@@ -40,6 +40,14 @@ type StatutoryDeduction = {
   isActive: boolean;
 };
 
+const phoneRegex = /^[+]{0,1}[\s0-9]{8,15}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const idNumberRegex = /^[0-9]{6,12}$/;
+const passportRegex = /^[A-Za-z0-9]{6,12}$/;
+const kraPinRegex = /^[A-Z]{1}[0-9]{9}[A-Z]{1}$/;
+const nhifRegex = /^[0-9]{8,10}$/;
+const nssfRegex = /^[0-9]{9}$/;
+
 const EditEmployeePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -61,9 +69,11 @@ const EditEmployeePage = () => {
     genders: ['Male', 'Female', 'Other']
   });
   const [activeTab, setActiveTab] = useState('personal');
-  const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([]);
+  const [emergencyContact, setEmergencyContact] = useState<EmergencyContact>({ name: '', relationship: '', phone: '', email: '' });
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [statutoryDeductions, setStatutoryDeductions] = useState<StatutoryDeduction[]>([]);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isEditMode, setIsEditMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -121,14 +131,16 @@ const EditEmployeePage = () => {
 
         const { data: supervisors } = await supabase
           .from('employees')
-          .select('"Leave Approver"')
-          .order('"Leave Approver"', { ascending: true });
+          .select('"First Name", "Last Name"')
+          .order('"First Name"', { ascending: true });
 
-        // Fetch emergency contacts
+        // Fetch emergency contact (single contact)
         const { data: contacts } = await supabase
           .from('emergency_contact')
           .select('*')
-          .eq('Employee Number', id);
+          .eq('Employee Number', id)
+          .limit(1)
+          .single();
 
         // Fetch dependents
         const { data: deps } = await supabase
@@ -136,17 +148,11 @@ const EditEmployeePage = () => {
           .select('*')
           .eq('Employee Number', id);
 
-        // Fetch statutory deductions
-        const { data: deductions } = await supabase
-          .from('statutory_deductions')
-          .select('*')
-          .eq('employee_id', id);
-
-        // Set default statutory deductions if none exist
+        // Set default statutory deductions
         const defaultDeductions = [
           { name: 'KRA PIN', number: empData['Tax PIN'] || '', isActive: !!empData['Tax PIN'] },
-          { name: 'NHIF', number: empData['NHIF'] || '', isActive: !!empData['NHIF'] },
-          { name: 'NSSF', number: empData['NSSF'] || '', isActive: !!empData['NSSF'] },
+          { name: 'NHIF Number', number: empData['NHIF Number'] || '', isActive: !!empData['NHIF Number'] },
+          { name: 'NSSF Number', number: empData['NSSF Number'] || '', isActive: !!empData['NSSF Number'] },
           { name: 'HELB', number: '', isActive: false },
           { name: 'NITA', number: '', isActive: false }
         ];
@@ -159,16 +165,20 @@ const EditEmployeePage = () => {
           jobGroup: [...new Set(jobGroup?.map(item => item['Job Group'] as string))],
           office: [...new Set(office?.map(item => item.Town as string))],
           jobTitles: [...new Set(jobTitles?.map(item => item['Job Title'] as string))],
-          supervisors: [...new Set(supervisors?.map(item => item['Leave Approver'] as string))],
+          supervisors: supervisors?.map(item => `${item['First Name']} ${item['Last Name']}`) || [],
         }));
 
         setEmployee(empData);
-        setEmergencyContacts(contacts?.map(c => ({
-          name: c.full_name,
-          relationship: c.relationship,
-          phone: c.phone_number,
-          email: c.email || undefined
-        })) || [{ name: '', relationship: '', phone: '' }]);
+        
+        // Set single emergency contact
+        setEmergencyContact(
+          contacts ? {
+            name: contacts.full_name,
+            relationship: contacts.relationship,
+            phone: contacts.phone_number,
+            email: contacts.email || ''
+          } : { name: '', relationship: '', phone: '', email: '' }
+        );
 
         setDependents(deps?.map(d => ({
           name: d.full_name,
@@ -176,11 +186,7 @@ const EditEmployeePage = () => {
           dateOfBirth: d.date_birth || undefined
         })) || [{ name: '', relationship: '' }]);
 
-        setStatutoryDeductions(deductions?.length ? deductions.map(d => ({
-          name: d.type,
-          number: d.number,
-          isActive: d.is_active
-        })) : defaultDeductions);
+        setStatutoryDeductions(defaultDeductions);
 
         if (empData['Profile Image']) {
           setPreviewImage(empData['Profile Image']);
@@ -195,16 +201,69 @@ const EditEmployeePage = () => {
     fetchData();
   }, [id]);
 
+  const validateField = (name: string, value: string | number | null | undefined) => {
+    let error = '';
+    
+    if (typeof value === 'string' && !value.trim() && ['First Name', 'Last Name'].includes(name)) {
+      error = 'This field is required';
+    } else {
+      switch (name) {
+        case 'Mobile Number':
+        case 'Work Mobile':
+        case 'Personal Mobile':
+        case 'Alternative Mobile Number':
+          if (value && !phoneRegex.test(String(value))) {
+            error = 'Invalid phone number format';
+          }
+          break;
+        case 'Personal Email':
+        case 'Work Email':
+          if (value && !emailRegex.test(String(value))) {
+            error = 'Invalid email format';
+          }
+          break;
+        case 'ID Number':
+          if (value && !idNumberRegex.test(String(value))) {
+            error = 'Invalid ID number format';
+          }
+          break;
+        case 'passport_number':
+          if (value && !passportRegex.test(String(value))) {
+            error = 'Invalid passport number format';
+          }
+          break;
+        case 'KRA PIN':
+          if (value && !kraPinRegex.test(String(value))) {
+            error = 'Invalid KRA PIN format (e.g., A123456789Z)';
+          }
+          break;
+        case 'NHIF':
+          if (value && !nhifRegex.test(String(value))) {
+            error = 'Invalid NHIF number (8-10 digits)';
+          }
+          break;
+        case 'NSSF':
+          if (value && !nssfRegex.test(String(value))) {
+            error = 'Invalid NSSF number (9 digits)';
+          }
+          break;
+      }
+    }
+    
+    setErrors(prev => ({ ...prev, [name]: error }));
+    return !error;
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        setError('File size exceeds 5MB limit');
+        setErrors(prev => ({ ...prev, profileImage: 'File size exceeds 5MB limit' }));
         return;
       }
       setProfileImage(file);
       setPreviewImage(URL.createObjectURL(file));
-      setError(null);
+      setErrors(prev => ({ ...prev, profileImage: '' }));
     }
   };
 
@@ -218,6 +277,9 @@ const EditEmployeePage = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Validate on change
+    if (isEditMode) validateField(name, value);
   };
 
   const handleDateChange = (name: string, value: string) => {
@@ -227,13 +289,20 @@ const EditEmployeePage = () => {
     }));
   };
 
-  const handleEmergencyContactChange = (index: number, field: keyof EmergencyContact, value: string) => {
-    const updatedContacts = [...emergencyContacts];
-    updatedContacts[index] = {
-      ...updatedContacts[index],
+  const handleEmergencyContactChange = (field: keyof EmergencyContact, value: string) => {
+    setEmergencyContact(prev => ({
+      ...prev,
       [field]: value
-    };
-    setEmergencyContacts(updatedContacts);
+    }));
+    
+    // Validate on change
+    if (isEditMode) {
+      if (field === 'phone') {
+        validateField('emergencyContactPhone', value);
+      } else if (field === 'email' && value) {
+        validateField('emergencyContactEmail', value);
+      }
+    }
   };
 
   const handleDependentChange = (index: number, field: keyof Dependent, value: string) => {
@@ -252,17 +321,10 @@ const EditEmployeePage = () => {
       [field]: value
     };
     setStatutoryDeductions(updatedDeductions);
-  };
-
-  const addEmergencyContact = () => {
-    setEmergencyContacts([...emergencyContacts, { name: '', relationship: '', phone: '' }]);
-  };
-
-  const removeEmergencyContact = (index: number) => {
-    if (emergencyContacts.length > 1) {
-      const updatedContacts = [...emergencyContacts];
-      updatedContacts.splice(index, 1);
-      setEmergencyContacts(updatedContacts);
+    
+    // Validate on change if it's the number field
+    if (field === 'number' && updatedDeductions[index].isActive && isEditMode) {
+      validateField(`deduction${updatedDeductions[index].name}`, String(value));
     }
   };
 
@@ -278,15 +340,87 @@ const EditEmployeePage = () => {
     }
   };
 
+  const validateForm = () => {
+    if (!isEditMode) return true;
+
+    let isValid = true;
+    const newErrors: Record<string, string> = {};
+    
+    // Required fields validation
+    if (!employee['First Name']) {
+      newErrors['First Name'] = 'First Name is required';
+      isValid = false;
+    }
+    if (!employee['Last Name']) {
+      newErrors['Last Name'] = 'Last Name is required';
+      isValid = false;
+    }
+    if (!employee['Mobile Number']) {
+      newErrors['Mobile Number'] = 'Mobile Number is required';
+      isValid = false;
+    } else if (!phoneRegex.test(employee['Mobile Number'])) {
+      newErrors['Mobile Number'] = 'Invalid phone number format';
+      isValid = false;
+    }
+    if (!employee['Personal Email']) {
+      newErrors['Personal Email'] = 'Personal Email is required';
+      isValid = false;
+    } else if (!emailRegex.test(employee['Personal Email'])) {
+      newErrors['Personal Email'] = 'Invalid email format';
+      isValid = false;
+    }
+    
+    // Emergency contact validation
+    if (emergencyContact.name && !emergencyContact.phone) {
+      newErrors['emergencyContactPhone'] = 'Emergency contact phone is required';
+      isValid = false;
+    } else if (emergencyContact.phone && !phoneRegex.test(emergencyContact.phone)) {
+      newErrors['emergencyContactPhone'] = 'Invalid emergency contact phone format';
+      isValid = false;
+    }
+    
+    // Statutory deductions validation
+    statutoryDeductions.forEach((deduction) => {
+      if (deduction.isActive && !deduction.number) {
+        newErrors[`deduction${deduction.name}`] = `${deduction.name} number is required`;
+        isValid = false;
+      } else if (deduction.isActive && deduction.number) {
+        switch (deduction.name) {
+          case 'KRA PIN':
+            if (!kraPinRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format';
+              isValid = false;
+            }
+            break;
+          case 'NHIF':
+            if (!nhifRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid NHIF number';
+              isValid = false;
+            }
+            break;
+          case 'NSSF':
+            if (!nssfRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number';
+              isValid = false;
+            }
+            break;
+        }
+      }
+    });
+    
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleSave = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
       
-      if (!employee['First Name'] || !employee['Last Name']) {
-        throw new Error('First Name and Last Name are required');
-      }
-
       let imageUrl = employee['Profile Image'] || null;
       if (profileImage) {
         const fileExt = profileImage.name.split('.').pop();
@@ -325,37 +459,36 @@ const EditEmployeePage = () => {
           ...employee,
           'Profile Image': imageUrl,
           'Tax PIN': statutoryDeductions.find(d => d.name === 'KRA PIN')?.number || null,
-          'NHIF': statutoryDeductions.find(d => d.name === 'NHIF')?.number || null,
-          'NSSF': statutoryDeductions.find(d => d.name === 'NSSF')?.number || null
+          'NHIF Number': statutoryDeductions.find(d => d.name === 'NHIF Number')?.number || null,
+          'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null
         })
         .eq('"Employee Number"', id);
       
       if (employeeError) throw employeeError;
       
-      // Update emergency contacts
-      // First delete all existing contacts
-      const { error: deleteContactsError } = await supabase
-        .from('emergency_contact')
-        .delete()
-        .eq('Employee Number', id);
-
-      if (deleteContactsError) throw deleteContactsError;
-
-      // Then insert updated contacts if they exist
-      if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
-        const contactsToInsert = emergencyContacts.map(contact => ({
-          "Employee Number": id,
-          full_name: contact.name,
-          relationship: contact.relationship,
-          phone_number: contact.phone,
-          email: contact.email || null
-        }));
-
+      // Update emergency contact (single contact using upsert)
+      if (emergencyContact.name.trim()) {
         const { error: contactsError } = await supabase
           .from('emergency_contact')
-          .insert(contactsToInsert);
+          .upsert({
+            "Employee Number": id,
+            full_name: emergencyContact.name,
+            relationship: emergencyContact.relationship,
+            phone_number: emergencyContact.phone,
+            email: emergencyContact.email || null
+          }, {
+            onConflict: 'Employee Number'
+          });
 
         if (contactsError) throw contactsError;
+      } else {
+        // If no emergency contact provided, delete existing one
+        const { error: deleteContactsError } = await supabase
+          .from('emergency_contact')
+          .delete()
+          .eq('Employee Number', id);
+
+        if (deleteContactsError) throw deleteContactsError;
       }
 
       // Update dependents
@@ -368,8 +501,9 @@ const EditEmployeePage = () => {
       if (deleteDependentsError) throw deleteDependentsError;
 
       // Then insert updated dependents if they exist
-      if (dependents.length > 0 && dependents[0].name) {
-        const dependentsToInsert = dependents.map(dependent => ({
+      const validDependents = dependents.filter(dependent => dependent.name.trim());
+      if (validDependents.length > 0) {
+        const dependentsToInsert = validDependents.map(dependent => ({
           "Employee Number": id,
           full_name: dependent.name,
           relationship: dependent.relationship,
@@ -382,39 +516,25 @@ const EditEmployeePage = () => {
 
         if (dependentsError) throw dependentsError;
       }
-
-      // Update statutory deductions
-      // First delete all existing deductions
-      const { error: deleteDeductionsError } = await supabase
-        .from('statutory_deductions')
-        .delete()
-        .eq('employee_id', id);
-
-      if (deleteDeductionsError) throw deleteDeductionsError;
-
-      // Then insert updated deductions if they exist
-      const deductionsToInsert = statutoryDeductions
-        .filter(deduction => deduction.isActive && deduction.number)
-        .map(deduction => ({
-          employee_id: id,
-          type: deduction.name,
-          number: deduction.number,
-          is_active: deduction.isActive
-        }));
-
-      if (deductionsToInsert.length > 0) {
-        const { error: deductionsError } = await supabase
-          .from('statutory_deductions')
-          .insert(deductionsToInsert);
-
-        if (deductionsError) throw deductionsError;
-      }
       
+      setIsEditMode(false);
       navigate(`/employees/view/${id}`, { state: { success: true } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update employee');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleEditToggle = () => {
+    if (isEditMode) {
+      // If canceling edit mode, reset form to original values
+      // This would require storing original data or refetching
+      // For simplicity, we'll just toggle the mode
+      setIsEditMode(false);
+      setErrors({});
+    } else {
+      setIsEditMode(true);
     }
   };
 
@@ -505,37 +625,89 @@ const EditEmployeePage = () => {
         </button>
         
         <div className="flex space-x-2">
-          <GlowButton 
-            onClick={handleSave}
-            icon={Save}
-            loading={saving}
-            className="bg-green-200 hover:green-100  text-black"
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </GlowButton>
+          {isEditMode ? (
+            <>
+              <GlowButton 
+                onClick={handleEditToggle}
+                variant="secondary"
+                className="mr-2"
+                disabled={saving}
+              >
+                Cancel
+              </GlowButton>
+              <GlowButton 
+                onClick={handleSave}
+                icon={Save}
+                loading={saving}
+                className="bg-green-200 hover:green-100 text-black"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </GlowButton>
+            </>
+          ) : (
+            <GlowButton 
+              onClick={handleEditToggle}
+              icon={PencilLine}
+              className="bg-green-600 hover:blue-100 text-white"
+            >
+              Edit Employee
+            </GlowButton>
+          )}
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 md:p-8 border-b border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-start justify-between">
-            <div className="flex items-start space-x-4">
-              <div className="relative">
-                <div className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800">
-                  {employee['First Name']?.[0]}{employee['Last Name']?.[0]}
-                </div>
-                {previewImage && (
-                  <img 
-                    src={previewImage} 
-                    alt="Profile" 
-                    className="absolute inset-0 w-16 h-16 rounded-full object-cover"
-                  />
-                )}
-              </div>
+       <div className="bg-gradient-to-r from-blue-50 to-violet-50 p-6 md:p-8 border-b border-gray-300">
+  <div className="flex flex-col md:flex-row md:items-start justify-between">
+    <div className="flex items-start space-x-4">
+      <div className="relative">
+        {isEditMode ? (
+          <div 
+            className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 cursor-pointer"
+            onClick={triggerFileInput}
+          >
+            {previewImage ? (
+              <img 
+                src={previewImage} 
+                alt="Profile" 
+                className="absolute inset-0 w-16 h-16 rounded-full object-cover"
+              />
+            ) : (
+              <>
+                {employee['First Name']?.[0]}
+                {employee['Last Name']?.[0]}
+                <input 
+                  ref={fileInputRef}
+                  type="file" 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 relative">
+            {previewImage ? (
+              <img 
+                src={previewImage} 
+                alt="Profile" 
+                className="absolute inset-0 w-16 h-16 rounded-full object-cover"
+              />
+            ) : (
+              <>
+                {employee['First Name']?.[0]}
+                {employee['Last Name']?.[0]}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-                  Edit: {employee['First Name']} {employee['Last Name']}
+                  {isEditMode ? 'Edit' : 'View'}: {employee['First Name']} {employee['Last Name']}
                 </h1>
                 <p className="text-gray-600 mt-1">
                   <span className="font-medium">Employee ID:</span> {employee['Employee Number']}
@@ -606,111 +778,82 @@ const EditEmployeePage = () => {
           {activeTab === 'personal' && (
             <div className="space-y-8">
               {/* Profile Image Section */}
-              <div>
-                <SectionHeader 
-                  title="Profile Image" 
-                  icon={User} 
-                />
-                <div className="mt-4 flex flex-col md:flex-row items-start gap-8">
-                  {/* Photo Upload Card */}
-                  <div className="w-full md:w-auto">
-                    <div className="relative group">
-                      <div 
-                        className="relative w-40 h-40 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer transition-all duration-300 hover:border-emerald-300 hover:shadow-md"
-                        onClick={triggerFileInput}
-                      >
-                        {previewImage ? (
-                          <img 
-                            src={previewImage} 
-                            alt="Profile preview" 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">
-                            <div className="relative">
-                              <div className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800">
-                                {employee['First Name']?.[0]}{employee['Last Name']?.[0]}
+              {isEditMode && (
+                <div>
+                  <SectionHeader 
+                    title="Profile Image" 
+                    icon={User} 
+                  />
+                  <div className="mt-4 flex flex-col md:flex-row items-start gap-8">
+                    {/* Photo Upload Card */}
+                    <div className="w-full md:w-auto">
+                      <div className="relative group">
+                        <div 
+                          className="relative w-40 h-40 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer transition-all duration-300 hover:border-emerald-300 hover:shadow-md"
+                          onClick={triggerFileInput}
+                        >
+                          {previewImage ? (
+                            <img 
+                              src={previewImage} 
+                              alt="Profile preview" 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-400">
+                              <div className="relative">
+                                <div className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800">
+                                  {employee['First Name']?.[0]}{employee['Last Name']?.[0]}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                        <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300">
-                          <div className="flex flex-col items-center">
-                            <Upload className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 mb-1" />
-                            <span className="text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center px-2">
-                              {previewImage ? 'Change Photo' : 'Upload Photo'}
-                            </span>
+                          )}
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300">
+                            <div className="flex flex-col items-center">
+                              <Upload className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 mb-1" />
+                              <span className="text-xs text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-center px-2">
+                                {previewImage ? 'Change Photo' : 'Upload Photo'}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <input 
+                          ref={fileInputRef}
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                        />
                       </div>
-                      <input 
-                        ref={fileInputRef}
-                        type="file" 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                      />
-                    </div>
-                    
-                    <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                      <button 
-                        onClick={triggerFileInput}
-                        className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
-                      >
-                        <Upload className="w-4 h-4 mr-2 text-gray-500" />
-                        <span className="text-sm">{previewImage ? 'Change' : 'Upload'}</span>
-                      </button>
-                      {previewImage && (
+                      
+                      <div className="mt-4 flex flex-col sm:flex-row gap-3">
                         <button 
-                          onClick={() => {
-                            setPreviewImage(null);
-                            setProfileImage(null);
-                          }}
-                          className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm text-gray-700"
+                          onClick={triggerFileInput}
+                          className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                         >
-                          <X className="w-4 h-4 mr-2" />
-                          Remove
+                          <Upload className="w-4 h-4 mr-2 text-gray-500" />
+                          <span className="text-sm">{previewImage ? 'Change' : 'Upload'}</span>
                         </button>
+                        {previewImage && (
+                          <button 
+                            onClick={() => {
+                              setPreviewImage(null);
+                              setProfileImage(null);
+                            }}
+                            className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm text-gray-700"
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">JPG, PNG or GIF (Max 5MB)</p>
+                      {errors.profileImage && (
+                        <p className="mt-1 text-xs text-red-500">{errors.profileImage}</p>
                       )}
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">JPG, PNG or GIF (Max 5MB)</p>
-                    {error && error.includes('File size') && (
-                      <p className="mt-1 text-xs text-red-500">{error}</p>
-                    )}
-                  </div>
-
-                  {/* Employee Number and Basic Info */}
-                  <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField
-                      label="Employee Number"
-                      name="Employee Number"
-                      value={employee['Employee Number'] || ''}
-                      onChange={handleInputChange}
-                      disabled
-                    />
-                    <FormField
-                      label="First Name *"
-                      name="First Name"
-                      value={employee['First Name'] || ''}
-                      onChange={handleInputChange}
-                      required
-                    />
-                    <FormField
-                      label="Middle Name"
-                      name="Middle Name"
-                      value={employee['Middle Name'] || ''}
-                      onChange={handleInputChange}
-                    />
-                    <FormField
-                      label="Last Name *"
-                      name="Last Name"
-                      value={employee['Last Name'] || ''}
-                      onChange={handleInputChange}
-                      required
-                    />
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Personal Information Sections */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -721,11 +864,37 @@ const EditEmployeePage = () => {
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
+                      label="First Name"
+                      name="First Name"
+                      value={employee['First Name'] || ''}
+                      onChange={handleInputChange}
+                      error={errors['First Name']}
+                      required={isEditMode}
+                      disabled={!isEditMode}
+                    />
+                    <FormField
+                      label="Middle Name"
+                      name="Middle Name"
+                      value={employee['Middle Name'] || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditMode}
+                    />
+                    <FormField
+                      label="Last Name"
+                      name="Last Name"
+                      value={employee['Last Name'] || ''}
+                      onChange={handleInputChange}
+                      error={errors['Last Name']}
+                      required={isEditMode}
+                      disabled={!isEditMode}
+                    />
+                    <FormField
                       label="Date of Birth"
                       name="Date of Birth"
                       type="date"
                       value={employee['Date of Birth'] || ''}
                       onChange={(e) => handleDateChange('Date of Birth', e.target.value)}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Gender"
@@ -734,6 +903,7 @@ const EditEmployeePage = () => {
                       value={employee.Gender || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.genders}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="National ID"
@@ -747,12 +917,16 @@ const EditEmployeePage = () => {
                           "ID Number": numValue
                         }));
                       }}
+                      error={errors['ID Number']}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Passport Number"
                       name="passport_number"
                       value={employee.passport_number || ''}
                       onChange={handleInputChange}
+                      error={errors['passport_number']}
+                      disabled={!isEditMode}
                     />
                   </div>
                 </div>
@@ -768,7 +942,8 @@ const EditEmployeePage = () => {
                       type="select"
                       value={employee['Marital Status'] || ''}
                       onChange={handleInputChange}
-                      options={['Single', 'Married', 'Divorced', 'Widowed']}
+                                            options={['Single', 'Married', 'Divorced', 'Widowed']}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Blood Group"
@@ -777,6 +952,7 @@ const EditEmployeePage = () => {
                       value={employee.blood_group || ''}
                       onChange={handleInputChange}
                       options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Disability Status"
@@ -785,18 +961,21 @@ const EditEmployeePage = () => {
                       value={employee['Disability Cert No'] || ''}
                       onChange={handleInputChange}
                       options={['None', 'Physical', 'Visual', 'Hearing', 'Other']}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Religion"
                       name="religion"
                       value={employee.religion || ''}
                       onChange={handleInputChange}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Nationality"
                       name="Country"
                       value={employee.Country || ''}
                       onChange={handleInputChange}
+                      disabled={!isEditMode}
                     />
                   </div>
                 </div>
@@ -806,78 +985,116 @@ const EditEmployeePage = () => {
 
           {/* Employment Information Tab */}
           {activeTab === 'employment' && (
-            <div className="grid grid-cols-1 gap-6">
-              <SectionHeader 
-                title="Employment Information" 
-                icon={Briefcase} 
-              />
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <FormField
-                  label="Employee Type"
-                  name="Employee Type"
-                  type="select"
-                  value={employee['Employee Type'] || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.employmentTypes}
+            <div className="space-y-8">
+              <div>
+                <SectionHeader 
+                  title="Employment Information" 
+                  icon={Briefcase} 
                 />
-                <FormField
-                  label="Employment Start Date"
-                  name="Start Date"
-                  type="date"
-                  value={employee['Start Date'] || ''}
-                  onChange={(e) => handleDateChange('Start Date', e.target.value)}
-                />
-                <FormField
-                  label="Department"
-                  name="Job Level"
-                  type="select"
-                  value={employee['Job Level'] || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.jobLevels}
-                />
-                <FormField
-                  label="Job Title"
-                  name="Job Title"
-                  type="select"
-                  value={employee['Job Title'] || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.jobTitles}
-                />
-                <FormField
-                  label="Branch"
-                  name="Branch"
-                  type="select"
-                  value={employee.Branch || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.branches}
-                />
-                <FormField
-                  label="Office"
-                  name="Town"
-                  type="select"
-                  value={employee.Town || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.office}
-                />
-                <FormField
-                  label="Manager"
-                  name="Manager"
-                  type="select"
-                  value={employee['Manager'] || ''}
-                  onChange={handleInputChange}
-                  options={dropdownOptions.supervisors}
-                />
-                <FormField
-                  label="Work Email"
-                  name="Work Email"
-                  type="email"
-                  value={employee['Work Email'] || ''}
-                  onChange={handleInputChange}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <FormField
+                    label="Employee Type"
+                    name="Employee Type"
+                    type="select"
+                    value={employee['Employee Type'] || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.employmentTypes}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Employment Start Date"
+                    name="Start Date"
+                    type="date"
+                    value={employee['Start Date'] || ''}
+                    onChange={(e) => handleDateChange('Start Date', e.target.value)}
+                    disabled={!isEditMode}
+                  />
+                  {employee['Termination Date'] && (
+                    <FormField
+                      label="Termination Date"
+                      name="Termination Date"
+                      type="date"
+                      value={employee['Termination Date'] || ''}
+                      onChange={(e) => handleDateChange('Termination Date', e.target.value)}
+                      disabled={!isEditMode}
+                    />
+                  )}
+                  <FormField
+                    label="Department"
+                    name="Job Level"
+                    type="select"
+                    value={employee['Job Level'] || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.jobLevels}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Job Title"
+                    name="Job Title"
+                    type="select"
+                    value={employee['Job Title'] || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.jobTitles}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Job Group"
+                    name="Job Group"
+                    type="select"
+                    value={employee['Job Group'] || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.jobGroup}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Branch"
+                    name="Branch"
+                    type="select"
+                    value={employee.Branch || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.branches}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Office Location"
+                    name="Town"
+                    type="select"
+                    value={employee.Town || ''}
+                    onChange={handleInputChange}
+                    options={dropdownOptions.office}
+                    disabled={!isEditMode}
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <SectionHeader 
+                    title="Supervisor Information" 
+                    icon={User} 
+                  />
+                  <div className="grid grid-cols-1 gap-6 mt-4">
+                    <FormField
+                      label="Manager"
+                      name="Manager"
+                      type="select"
+                      value={employee['Manager'] || ''}
+                      onChange={handleInputChange}
+                      options={dropdownOptions.supervisors}
+                      disabled={!isEditMode}
+                    />
+                    <FormField
+                      label="Work Email"
+                      name="Work Email"
+                      type="email"
+                      value={employee['Work Email'] || ''}
+                      onChange={handleInputChange}
+                      error={errors['Work Email']}
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <SectionHeader 
                     title="Leave Approvers" 
@@ -891,6 +1108,7 @@ const EditEmployeePage = () => {
                       value={employee['Leave Approver'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
+                      disabled={!isEditMode}
                     />
                     <FormField
                       label="Alternate Leave Approver"
@@ -899,74 +1117,50 @@ const EditEmployeePage = () => {
                       value={employee['Alternate Approver'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
-                    />
-                    <FormField
-                      label="Second Level Leave Approver"
-                      name="second_level_leave_approver"
-                      type="select"
-                      value={employee['second_level_leave_approver'] || ''}
-                      onChange={handleInputChange}
-                      options={dropdownOptions.supervisors}
-                    />
-                    <FormField
-                      label="Alternate Second Level Leave Approver"
-                      name="alternate_second_level_approver"
-                      type="select"
-                      value={employee['alternate_second_level_approver'] || ''}
-                      onChange={handleInputChange}
-                      options={dropdownOptions.supervisors}
-                    />
-                    <FormField
-                      label="Internship Start Date"
-                      name="internship_start_date"
-                      type="date"
-                      value={employee['internship_start_date'] || ''}
-                      onChange={(e) => handleDateChange('internship_start_date', e.target.value)}
+                      disabled={!isEditMode}
                     />
                   </div>
                 </div>
-                <div>
-                  <SectionHeader 
-                    title="Contract Dates" 
-                    icon={Briefcase} 
+              </div>
+
+              <div>
+                <SectionHeader 
+                  title="Contract Dates" 
+                  icon={Briefcase} 
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <FormField
+                    label="Probation Start Date"
+                    name="Probation Start Date"
+                    type="date"
+                    value={employee['Probation Start Date'] || ''}
+                    onChange={(e) => handleDateChange('Probation Start Date', e.target.value)}
+                    disabled={!isEditMode}
                   />
-                  <div className="grid grid-cols-1 gap-6 mt-4">
-                    <FormField
-                      label="Internship End Date"
-                      name="Internship End Date"
-                      type="date"
-                      value={employee['Internship End Date'] || ''}
-                      onChange={(e) => handleDateChange('Internship End Date', e.target.value)}
-                    />
-                    <FormField
-                      label="Probation Start Date"
-                      name="Probation Start Date"
-                      type="date"
-                      value={employee['Probation Start Date'] || ''}
-                      onChange={(e) => handleDateChange('Probation Start Date', e.target.value)}
-                    />
-                    <FormField
-                      label="Probation End Date"
-                      name="Probation End Date"
-                      type="date"
-                      value={employee['Probation End Date'] || ''}
-                      onChange={(e) => handleDateChange('Probation End Date', e.target.value)}
-                    />
-                    <FormField
-                      label="Contract Start Date"
-                      name="Contract Start Date"
-                      type="date"
-                      value={employee['Contract Start Date'] || ''}
-                      onChange={(e) => handleDateChange('Contract Start Date', e.target.value)}
-                    />
-                    <FormField
-                      label="Contract End Date"
-                      name="Contract End Date"
-                      type="date"
-                      value={employee['Contract End Date'] || ''}
-                      onChange={(e) => handleDateChange('Contract End Date', e.target.value)}
-                    />
-                  </div>
+                  <FormField
+                    label="Probation End Date"
+                    name="Probation End Date"
+                    type="date"
+                    value={employee['Probation End Date'] || ''}
+                    onChange={(e) => handleDateChange('Probation End Date', e.target.value)}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Contract Start Date"
+                    name="Contract Start Date"
+                    type="date"
+                    value={employee['Contract Start Date'] || ''}
+                    onChange={(e) => handleDateChange('Contract Start Date', e.target.value)}
+                    disabled={!isEditMode}
+                  />
+                  <FormField
+                    label="Contract End Date"
+                    name="Contract End Date"
+                    type="date"
+                    value={employee['Contract End Date'] || ''}
+                    onChange={(e) => handleDateChange('Contract End Date', e.target.value)}
+                    disabled={!isEditMode}
+                  />
                 </div>
               </div>
             </div>
@@ -987,20 +1181,30 @@ const EditEmployeePage = () => {
                     type="email"
                     value={employee['Personal Email'] || ''}
                     onChange={handleInputChange}
+                    error={errors['Personal Email']}
+                    required={isEditMode}
+                    disabled={!isEditMode}
                   />
                   <FormField
-                    label="Mobile Number"
+                    label="Primary Mobile Number"
                     name="Mobile Number"
                     type="tel"
                     value={employee['Mobile Number'] || ''}
                     onChange={handleInputChange}
+                    error={errors['Mobile Number']}
+                    required={isEditMode}
+                    disabled={!isEditMode}
+                    placeholder="e.g., +254712345678"
                   />
                   <FormField
-                    label="Alternative Mobile"
-                    name="Alternative Mobile Number"
+                    label="Work Mobile Number"
+                    name="Work Mobile"
                     type="tel"
-                    value={employee['Alternative Mobile Number'] || ''}
+                    value={employee['Work Mobile'] || ''}
                     onChange={handleInputChange}
+                    error={errors['Work Mobile']}
+                    disabled={!isEditMode}
+                    placeholder="Optional work mobile"
                   />
                 </div>
               </div>
@@ -1015,24 +1219,28 @@ const EditEmployeePage = () => {
                     name="Area"
                     value={employee.Area || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="City/Town"
                     name="City"
                     value={employee.City || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Postal Code"
                     name="Postal Code"
                     value={employee['Postal Code'] || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Country"
                     name="Country"
                     value={employee.Country || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                 </div>
               </div>
@@ -1047,30 +1255,34 @@ const EditEmployeePage = () => {
                   title="Banking Information" 
                   icon={CreditCard} 
                 />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   <FormField
-                    label="Bank"
+                    label="Bank Name"
                     name="Bank"
                     value={employee['Bank'] || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Account Number"
                     name="Account Number"
                     value={employee['Account Number'] || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Account Name"
                     name="account_number_name"
                     value={employee.account_number_name || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
-                    label="Branch Name"
+                    label="Bank Branch"
                     name="Bank Branch"
                     value={employee['Bank Branch'] || ''}
                     onChange={handleInputChange}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Payment Method"
@@ -1078,7 +1290,8 @@ const EditEmployeePage = () => {
                     type="select"
                     value={employee['payment_method'] || ''}
                     onChange={handleInputChange}
-                    options={['Bank Transfer', 'Cash', 'MPESA']}
+                    options={dropdownOptions.paymentMethods}
+                    disabled={!isEditMode}
                   />
                 </div>
               </div>
@@ -1089,14 +1302,6 @@ const EditEmployeePage = () => {
                   icon={CreditCard} 
                 />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                  <FormField
-                    label="Job Group"
-                    name="Job Group"
-                    type="select"
-                    value={employee['Job Group'] || ''}
-                    onChange={handleInputChange}
-                    options={dropdownOptions.jobGroup}
-                  />
                   <FormField
                     label="Basic Salary"
                     name="Basic Salary"
@@ -1109,6 +1314,7 @@ const EditEmployeePage = () => {
                         "Basic Salary": numValue
                       }));
                     }}
+                    disabled={!isEditMode}
                   />
                   <FormField
                     label="Currency"
@@ -1117,6 +1323,7 @@ const EditEmployeePage = () => {
                     value={employee['Currency'] || 'KES'}
                     onChange={handleInputChange}
                     options={['KES', 'USD', 'EUR', 'GBP']}
+                    disabled={!isEditMode}
                   />
                 </div>
               </div>
@@ -1130,23 +1337,36 @@ const EditEmployeePage = () => {
                   {statutoryDeductions.map((deduction, index) => (
                     <div key={index} className="flex items-center gap-4">
                       <div className="flex items-center">
-                        <button
-                          type="button"
-                          className={`w-6 h-6 rounded flex items-center justify-center border ${deduction.isActive ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}
-                          onClick={() => handleStatutoryDeductionChange(index, 'isActive', !deduction.isActive)}
-                        >
-                          {deduction.isActive && <Check className="w-4 h-4 text-white" />}
-                        </button>
+                        {isEditMode ? (
+                          <button
+                            type="button"
+                            className={`w-6 h-6 rounded flex items-center justify-center border ${deduction.isActive ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}
+                            onClick={() => handleStatutoryDeductionChange(index, 'isActive', !deduction.isActive)}
+                          >
+                            {deduction.isActive && <Check className="w-4 h-4 text-white" />}
+                          </button>
+                        ) : (
+                          <div className={`w-6 h-6 rounded flex items-center justify-center border ${deduction.isActive ? 'bg-emerald-100 border-emerald-300' : 'border-gray-200 bg-gray-50'}`}>
+                            {deduction.isActive && <Check className="w-4 h-4 text-emerald-600" />}
+                          </div>
+                        )}
                         <span className="ml-2 font-medium min-w-[100px]">{deduction.name}</span>
                       </div>
                       {deduction.isActive && (
-                        <input
-                          type="text"
-                          value={deduction.number}
-                          onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
-                          className="flex-1 h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
-                          placeholder={`Enter ${deduction.name}`}
-                        />
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={deduction.number}
+                            onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
+                            className={`w-full h-11 ${isEditMode ? 'bg-gray-50 border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                            placeholder={`Enter ${deduction.name}`}
+                            disabled={!isEditMode}
+                            onBlur={() => validateField(`deduction${deduction.name}`, deduction.number)}
+                          />
+                          {errors[`deduction${deduction.name}`] && (
+                            <p className="mt-1 text-xs text-red-500">{errors[`deduction${deduction.name}`]}</p>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -1155,64 +1375,75 @@ const EditEmployeePage = () => {
             </div>
           )}
 
-          {/* Emergency Contacts Tab */}
+          {/* Emergency Contact Tab */}
           {activeTab === 'emergency' && (
             <div>
               <SectionHeader 
-                title="Emergency Contacts" 
+                title="Emergency Contact" 
                 icon={AlertCircle} 
               />
-              <p className="text-gray-600 mb-6">Add at least one emergency contact for this employee</p>
+              <p className="text-gray-600 mb-6">Primary emergency contact for this employee</p>
               
-              <div className="space-y-6">
-                {emergencyContacts.map((contact, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="font-medium text-gray-700">Contact #{index + 1}</h3>
-                      {emergencyContacts.length > 1 && (
-                        <button
-                          onClick={() => removeEmergencyContact(index)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        label="Full Name"
-                        value={contact.name}
-                        onChange={(e) => handleEmergencyContactChange(index, 'name', e.target.value)}
-                      />
-                      <FormField
-                        label="Relationship"
-                        value={contact.relationship}
-                        onChange={(e) => handleEmergencyContactChange(index, 'relationship', e.target.value)}
-                      />
-                      <FormField
-                        label="Phone Number"
-                        type="tel"
-                        value={contact.phone}
-                        onChange={(e) => handleEmergencyContactChange(index, 'phone', e.target.value)}
-                      />
-                      <FormField
-                        label="Email (Optional)"
-                        type="email"
-                        value={contact.email || ''}
-                        onChange={(e) => handleEmergencyContactChange(index, 'email', e.target.value)}
-                      />
-                    </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Full Name</label>
+                    <input
+                      type="text"
+                      value={emergencyContact.name}
+                      onChange={(e) => handleEmergencyContactChange('name', e.target.value)}
+                      className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                      placeholder="Full Name"
+                      disabled={!isEditMode}
+                    />
                   </div>
-                ))}
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Relationship</label>
+                    <input
+                      type="text"
+                      value={emergencyContact.relationship}
+                      onChange={(e) => handleEmergencyContactChange('relationship', e.target.value)}
+                      className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                      placeholder="Relationship"
+                      disabled={!isEditMode}
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={emergencyContact.phone}
+                      onChange={(e) => handleEmergencyContactChange('phone', e.target.value)}
+                      className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                      placeholder="Phone Number"
+                      disabled={!isEditMode}
+                      onBlur={() => validateField('emergencyContactPhone', emergencyContact.phone)}
+                    />
+                    {errors['emergencyContactPhone'] && (
+                      <p className="mt-1 text-xs text-red-500">{errors['emergencyContactPhone']}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Email (Optional)</label>
+                    <input
+                      type="email"
+                      value={emergencyContact.email || ''}
+                      onChange={(e) => handleEmergencyContactChange('email', e.target.value)}
+                      className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                      placeholder="Email"
+                      disabled={!isEditMode}
+                      onBlur={() => {
+                        if (emergencyContact.email) {
+                          validateField('emergencyContactEmail', emergencyContact.email);
+                        }
+                      }}
+                    />
+                    {errors['emergencyContactEmail'] && (
+                      <p className="mt-1 text-xs text-red-500">{errors['emergencyContactEmail']}</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              
-              <button
-                onClick={addEmergencyContact}
-                className="mt-4 flex items-center text-emerald-600 hover:text-emerald-800 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Another Emergency Contact
-              </button>
             </div>
           )}
 
@@ -1223,14 +1454,14 @@ const EditEmployeePage = () => {
                 title="Dependents" 
                 icon={Users} 
               />
-              <p className="text-gray-600 mb-6">Add dependents for this employee (spouse, children, etc.)</p>
+              <p className="text-gray-600 mb-6">List of dependents for this employee (spouse, children, etc.)</p>
               
               <div className="space-y-6">
                 {dependents.map((dependent, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="flex justify-between items-center mb-4">
                       <h3 className="font-medium text-gray-700">Dependent #{index + 1}</h3>
-                      {dependents.length > 1 && (
+                      {isEditMode && dependents.length > 1 && (
                         <button
                           onClick={() => removeDependent(index)}
                           className="text-red-500 hover:text-red-700 transition-colors"
@@ -1240,65 +1471,93 @@ const EditEmployeePage = () => {
                       )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        label="Full Name"
-                        value={dependent.name}
-                        onChange={(e) => handleDependentChange(index, 'name', e.target.value)}
-                      />
-                      <FormField
-                        label="Relationship"
-                        value={dependent.relationship}
-                        onChange={(e) => handleDependentChange(index, 'relationship', e.target.value)}
-                      />
-                      <FormField
-                        label="Date of Birth (Optional)"
-                        type="date"
-                        value={dependent.dateOfBirth || ''}
-                        onChange={(e) => handleDependentChange(index, 'dateOfBirth', e.target.value)}
-                      />
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">Full Name</label>
+                        <input
+                          type="text"
+                          value={dependent.name}
+                          onChange={(e) => handleDependentChange(index, 'name', e.target.value)}
+                          className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                          placeholder="Full Name"
+                          disabled={!isEditMode}
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">Relationship</label>
+                        <input
+                          type="text"
+                          value={dependent.relationship}
+                          onChange={(e) => handleDependentChange(index, 'relationship', e.target.value)}
+                          className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                          placeholder="Relationship"
+                          disabled={!isEditMode}
+                        />
+                      </div>
+                      <div>
+                        <label className="block font-medium text-gray-700 mb-1">Date of Birth (Optional)</label>
+                        <input
+                          type="date"
+                          value={dependent.dateOfBirth || ''}
+                          onChange={(e) => handleDependentChange(index, 'dateOfBirth', e.target.value)}
+                          className={`w-full h-11 ${isEditMode ? 'bg-white border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                          disabled={!isEditMode}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
               </div>
               
-              <button
-                onClick={addDependent}
-                className="mt-4 flex items-center text-emerald-600 hover:text-emerald-800 transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add Another Dependent
-              </button>
+              {isEditMode && (
+                <button
+                  onClick={addDependent}
+                  className="mt-4 flex items-center text-emerald-600 hover:text-emerald-800 transition-colors"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Another Dependent
+                </button>
+              )}
             </div>
+          )}
+
+          {Object.keys(errors).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600"
+            >
+              <h3 className="font-medium mb-2">Please fix the following errors:</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {Object.entries(errors).map(([field, errorMsg]) => (
+                  <li key={field}>{errorMsg}</li>
+                ))}
+              </ul>
+            </motion.div>
           )}
         </div>
 
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm"
-          >
-            {error}
-          </motion.div>
+        {/* Footer Actions */}
+        {isEditMode && (
+          <div className="p-6 border-t border-gray-300 bg-gray-50">
+            <div className="flex justify-end space-x-3">
+              <GlowButton 
+                onClick={handleEditToggle}
+                variant="secondary"
+                disabled={saving}
+              >
+                Cancel
+              </GlowButton>
+              <GlowButton 
+                onClick={handleSave}
+                icon={Save}
+                loading={saving}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {saving ? 'Saving...' : 'Save Changes'}
+              </GlowButton>
+            </div>
+          </div>
         )}
-
-        <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
-          <GlowButton 
-            variant="secondary" 
-            onClick={() => navigate(`/employees/view/${id}`)}
-            disabled={saving}
-          >
-            Cancel
-          </GlowButton>
-          <GlowButton 
-            onClick={handleSave}
-            icon={Save}
-            loading={saving}
-            className="bg-green-200 hover:green-100  text-black"
-          >
-            {saving ? 'Saving Changes...' : 'Save Changes'}
-          </GlowButton>
-        </div>
       </div>
     </motion.div>
   );
@@ -1327,6 +1586,8 @@ const FormField = ({
   required = false,
   options = [],
   disabled = false,
+  error = '',
+  placeholder = '',
 }: {
   label: string;
   value: string;
@@ -1336,6 +1597,8 @@ const FormField = ({
   required?: boolean;
   options?: string[];
   disabled?: boolean;
+  error?: string;
+  placeholder?: string;
 }) => (
   <div className="space-y-1">
     <label className="block font-medium text-gray-700">
@@ -1349,7 +1612,7 @@ const FormField = ({
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className={`w-full h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+        className={`w-full h-11 ${disabled ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
       >
         <option value="">Select {label}</option>
         {options.map(option => (
@@ -1364,8 +1627,12 @@ const FormField = ({
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className={`w-full h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+        placeholder={placeholder}
+        className={`w-full h-11 ${disabled ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
       />
+    )}
+    {error && (
+      <p className="mt-1 text-xs text-red-500">{error}</p>
     )}
   </div>
 );

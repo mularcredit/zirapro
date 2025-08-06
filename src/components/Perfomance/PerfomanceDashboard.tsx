@@ -549,7 +549,7 @@ const PerformanceDashboard: React.FC = () => {
                     
                     return (
                       <React.Fragment key={employee.id}>
-                        <tr className="border-b border-gray-100 hover:bg-gray-50">
+                        <tr className="border-b border-gray-300 hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="space-y-1">
                               <p className="text-gray-900 font-semibold">{employee.name}</p>
@@ -939,7 +939,7 @@ const PerformanceDashboard: React.FC = () => {
                     const disbursementRate = Math.round(branchData.loansDisbursed / branchData.target * 100);
                     
                     return (
-                      <tr key={branchData.branch} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={branchData.branch} className="border-b border-gray-300 hover:bg-gray-50">
                         <td className="py-4 px-4">
                           <p className="text-gray-900 font-semibold">{branch?.name}</p>
                           <p className="text-gray-600 text-xs">{branch?.location}</p>

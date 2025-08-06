@@ -37,7 +37,7 @@ type StatutoryDeduction = {
   isActive: boolean;
 };
 
-const AddEmployeePage = () => {
+const AddEmployeePage= () => {
   const navigate = useNavigate();
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
   const [error, setError] = useState<string | null>(null);
@@ -219,112 +219,156 @@ const AddEmployeePage = () => {
   };
 
   const handleAddEmployee = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!newEmployee['First Name'] || !newEmployee['Last Name']) {
-        throw new Error('First Name and Last Name are required');
-      }
+  try {
+    setLoading(true);
+    setError(null);
+    
+    // Validate required fields
+    if (!newEmployee['First Name'] || !newEmployee['Last Name']) {
+      throw new Error('First Name and Last Name are required');
+    }
 
-      let imageUrl = null;
-      if (profileImage) {
+    let imageUrl = null;
+    // Handle profile image upload if exists
+    if (profileImage) {
+      try {
+        // Generate unique filename
         const fileExt = profileImage.name.split('.').pop();
         const fileName = `${newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`}.${fileExt}`;
         const filePath = `profile_images/${fileName}`;
 
+        // Upload image to Supabase storage
         const { error: uploadError } = await supabase.storage
           .from('employeeavatar')
-          .upload(filePath, profileImage);
+          .upload(filePath, profileImage, {
+            cacheControl: '3600', // 1 hour cache
+            upsert: false // Don't overwrite existing files
+          });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(`Image upload failed: ${uploadError.message}`);
+        }
 
+        // Get public URL for the uploaded image
         const { data: { publicUrl } } = supabase.storage
           .from('employeeavatar')
           .getPublicUrl(filePath);
 
         imageUrl = publicUrl;
+      } catch (uploadErr) {
+        console.error('Image upload error:', uploadErr);
+        throw new Error('Failed to upload profile image. Please try again.');
       }
-
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .insert([{
-          ...newEmployee,
-          'Employee Number': newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`,
-          'Profile Image': imageUrl
-        }])
-        .select();
-      
-      if (employeeError) throw employeeError;
-      
-      const employeeId = employeeData?.[0]?.["Employee Number"];
-      if (!employeeId) throw new Error('Failed to get employee Number after creation');
-
-      if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
-        const contactsToInsert = emergencyContacts.map(contact => ({
-          "Employee Number": employeeId,
-          full_name: contact.name,
-          relationship: contact.relationship,
-          phone_number: contact.phone,
-          email: contact.email || null
-        }));
-
-        const { error: contactsError } = await supabase
-          .from('emergency_contact')
-          .insert(contactsToInsert);
-
-        if (contactsError) throw contactsError;
-      }
-
-      if (dependents.length > 0 && dependents[0].name) {
-        const dependentsToInsert = dependents.map(dependent => ({
-          "Employee Number": employeeId,
-          full_name: dependent.name,
-          relationship: dependent.relationship,
-          date_birth: dependent.dateOfBirth || null
-        }));
-
-        const { error: dependentsError } = await supabase
-          .from('dependents')
-          .insert(dependentsToInsert);
-
-        if (dependentsError) throw dependentsError;
-      }
-
-      const deductionsToInsert = statutoryDeductions
-        .filter(deduction => deduction.isActive && deduction.number)
-        .map(deduction => ({
-          employee_id: employeeId,
-          type: deduction.name,
-          number: deduction.number,
-          is_active: deduction.isActive
-        }));
-
-      if (deductionsToInsert.length > 0) {
-        const { error: deductionsError } = await supabase
-          .from('statutory_deductions')
-          .insert(deductionsToInsert);
-
-        if (deductionsError) throw deductionsError;
-      }
-      
-      navigate('/employee-added', { 
-        state: { 
-          success: true,
-          employeeNumber: employeeId,
-          employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
-          workEmail: newEmployee['Work Email'],
-          personalEmail: newEmployee['Personal Email']
-        } 
-      });
-
-    } catch (err) {
-      console.error('Error adding employee:', err);
-      setError(err instanceof Error ? err.message : 'Failed to add employee');
-    } finally {
-      setLoading(false);
     }
-  };
+
+    // Generate employee number if not provided
+    const employeeNumber = newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`;
+
+    // Prepare employee data
+    const employeeData = {
+      ...newEmployee,
+      'Employee Number': employeeNumber,
+      'Profile Image': imageUrl,
+      
+      
+    };
+
+    // Insert employee record
+    const { data: employeeDataResponse, error: employeeError } = await supabase
+      .from('employees')
+      .insert([employeeData])
+      .select()
+      .single();
+
+    if (employeeError) throw employeeError;
+    if (!employeeDataResponse) throw new Error('Failed to create employee record');
+
+    // Handle emergency contacts if provided
+    if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
+      const contactsToInsert = emergencyContacts.map(contact => ({
+        "Employee Number": employeeNumber,
+        full_name: contact.name,
+        relationship: contact.relationship,
+        phone_number: contact.phone,
+        email: contact.email || null,
+        created_at: new Date().toISOString()
+      }));
+
+      const { error: contactsError } = await supabase
+        .from('emergency_contact')
+        .insert(contactsToInsert);
+
+      if (contactsError) throw contactsError;
+    }
+
+    // Handle dependents if provided
+    if (dependents.length > 0 && dependents[0].name) {
+      const dependentsToInsert = dependents.map(dependent => ({
+        "Employee Number": employeeNumber,
+        full_name: dependent.name,
+        relationship: dependent.relationship,
+        date_birth: dependent.dateOfBirth || null,
+        created_at: new Date().toISOString()
+      }));
+
+      const { error: dependentsError } = await supabase
+        .from('dependents')
+        .insert(dependentsToInsert);
+
+      if (dependentsError) throw dependentsError;
+    }
+
+    // Handle statutory deductions if provided
+    const activeDeductions = statutoryDeductions
+      .filter(deduction => deduction.isActive && deduction.number)
+      .map(deduction => ({
+        employee_id: employeeNumber,
+        type: deduction.name,
+        number: deduction.number,
+        is_active: true,
+        created_at: new Date().toISOString()
+      }));
+
+    if (activeDeductions.length > 0) {
+      const { error: deductionsError } = await supabase
+        .from('statutory_deductions')
+        .insert(activeDeductions);
+
+      if (deductionsError) throw deductionsError;
+    }
+
+    // Navigate to success page
+    navigate('/employee-added', { 
+      state: { 
+        success: true,
+        employeeNumber: employeeNumber,
+        employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
+        workEmail: newEmployee['Work Email'],
+        personalEmail: newEmployee['Personal Email'],
+        profileImage: imageUrl
+      } 
+    });
+
+  } catch (err) {
+    console.error('Error adding employee:', err);
+    setError(err instanceof Error ? err.message : 'Failed to add employee');
+    
+    // Rollback image upload if employee creation failed
+    if (profileImage && newEmployee['Employee Number']) {
+      try {
+        const fileExt = profileImage.name.split('.').pop();
+        const fileName = `${newEmployee['Employee Number']}.${fileExt}`;
+        await supabase.storage
+          .from('employeeavatar')
+          .remove([`profile_images/${fileName}`]);
+      } catch (cleanupErr) {
+        console.error('Failed to cleanup uploaded image:', cleanupErr);
+      }
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (isPageLoading) {
     return (
@@ -369,7 +413,7 @@ const AddEmployeePage = () => {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
+        className="bg-white rounded-xl shadow-lg border border-gray-300 overflow-hidden"
       >
         {/* Form Header */}
         <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-6 border-b border-gray-200">
@@ -1130,7 +1174,7 @@ const AddEmployeePage = () => {
             </motion.div>
           )}
 
-          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
+          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-300">
             <GlowButton 
               variant="secondary" 
               onClick={() => navigate('/employees')}

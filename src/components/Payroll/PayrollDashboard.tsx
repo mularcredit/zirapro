@@ -1058,7 +1058,7 @@ export default function PayrollDashboard() {
                 return (
                   <React.Fragment key={record.id}>
                     <tr 
-                      className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
+                      className="border-b border-gray-300 hover:bg-gray-50 cursor-pointer"
                       onClick={() => toggleRowExpand(record.id)}
                     >
                       <td className="sticky left-0 z-10 bg-white px-4 py-4 whitespace-nowrap">

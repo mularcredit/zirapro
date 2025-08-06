@@ -58,7 +58,7 @@ const SuccessPage = () => {
         initial={{ scale: 0.8, y: 20 }}
         animate={{ scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 100 }}
-        className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden p-8 md:p-12"
+        className="bg-white rounded-xl shadow-lg border border-gray-300 overflow-hidden p-8 md:p-12"
       >
         {/* Confetti animation container */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

@@ -652,7 +652,7 @@ export default function LeaveManagementSystem() {
                 {leaveApplications.map((application) => {
                   const days = calculateWorkingDays(application.start_date, application.end_date, holidays);
                   return (
-                    <tr key={application.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
                       <td className="py-4 px-4">
                         <div className="space-y-1">
                           <p className="text-gray-900 font-semibold">{application.employee_name}</p>
@@ -753,7 +753,7 @@ export default function LeaveManagementSystem() {
               </thead>
               <tbody>
                 {leaveBalances.map((balance) => (
-                  <tr key={`${balance.employee_id}-${balance.leave_type_id}`} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={`${balance.employee_id}-${balance.leave_type_id}`} className="border-b border-gray-300 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <div className="space-y-1">
                         <p className="text-gray-900 font-semibold">{balance.employee_name}</p>
@@ -886,7 +886,7 @@ export default function LeaveManagementSystem() {
               </thead>
               <tbody>
                 {holidays.map((holiday) => (
-                  <tr key={holiday.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <tr key={holiday.id} className="border-b border-gray-300 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <p className="text-gray-900 font-semibold">{holiday.name}</p>
                     </td>

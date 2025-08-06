@@ -54,7 +54,7 @@ function StatsCard({
       initial="hidden"
       animate={controls}
       variants={variants}
-      className={`bg-white rounded-xl p-6 ${className} h-full flex flex-col shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-100`}
+      className={`bg-white rounded-xl p-6 ${className} h-full flex flex-col shadow-sm hover:shadow-md transition-shadow duration-300 border border-gray-300`}
     >
       <div className="flex items-center justify-between mb-4">
         <div className={iconClassName}>
@@ -121,7 +121,7 @@ function QuickStat({ label, value, icon: Icon, iconClass, delay = 0 }) {
       initial="hidden"
       animate={controls}
       variants={variants}
-      className="text-center p-5 rounded-xl bg-white border border-gray-100 hover:shadow-md transition-all duration-300 h-full flex flex-col items-center justify-center"
+      className="text-center p-5 rounded-xl bg-white border border-gray-300 hover:shadow-md transition-all duration-300 h-full flex flex-col items-center justify-center"
     >
       <div className={`p-2 rounded-full mb-3 ${iconClass} w-9 h-9 flex items-center justify-center`}>
         <Icon className="w-4 h-4" />
@@ -265,7 +265,7 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4 }}
-        className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+        className="bg-white rounded-xl p-6 shadow-sm border border-gray-300"
       >
         <h2 className="text-lg font-semibold text-gray-900 mb-5">Daily Operations</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -285,7 +285,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-300"
         >
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-lg font-semibold text-gray-900">Talent Alerts</h3>
@@ -327,7 +327,7 @@ export default function Dashboard() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
-          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-300"
         >
           <div className="flex items-center justify-between mb-5">
             <h3 className="text-lg font-semibold text-gray-900">Strategic Initiatives</h3>

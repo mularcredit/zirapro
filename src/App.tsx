@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import AddEmployeePage from '../src/components/Add Form/AddEmployeePage';
 import ViewEmployeePage from '../src/components/view_form/EmployeeDetails';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
+import AddEmployeePages from './components/Payroll/fog';
 import SuccessPage from './components/Add Form/SuccessPage';
 import Dashboard from './components/Dashboard/Dashboard';
 import EmployeeList from './components/Employees/EmployeeList';
@@ -24,7 +25,8 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
 
-  const location = useLocation(); // ✅ Always at top level
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -44,9 +46,13 @@ function App() {
       toast.success('Logged out due to inactivity');
       setUser(null);
       setSession(null);
+      // Only navigate if not already on root path
+      if (location.pathname !== '/') {
+        navigate('/');
+      }
     }
     toast.dismiss();
-  }, []);
+  }, [navigate, location.pathname]);
 
   const clearTimers = useCallback(() => {
     if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
@@ -62,32 +68,42 @@ function App() {
     lastActivityRef.current = Date.now();
     clearTimers();
 
+    // Show warning after 29 minutes (1740000ms = 29 minutes)
     warningTimerRef.current = setTimeout(() => {
       if (!warningShownRef.current && session) {
-        toast('You will be logged out due to inactivity in 30 seconds', {
+        toast('You will be logged out due to inactivity in 1 minute', {
           icon: '⚠️',
           id: 'inactivity-warning',
-          duration: 3000000,
+          duration: 60000, // Show warning for 1 minute
         });
         warningShownRef.current = true;
       }
-    }, 150000);
+    }, 1740000); // 29 minutes
 
+    // Log out after 30 minutes (1800000ms = 30 minutes)
     inactivityTimerRef.current = setTimeout(() => {
       if (session) {
         handleLogout();
       }
-    }, 180000);
+    }, 1800000); // 30 minutes
   }, [session, handleLogout, clearTimers]);
 
   const lastResetRef = useRef(0);
+
   const handleActivity = useCallback(() => {
     const now = Date.now();
-    if (now - lastResetRef.current > 1000) {
+    // Throttle activity handling more aggressively to prevent excessive resets
+    if (now - lastResetRef.current > 5000) { // Changed from 1000ms to 5000ms
       lastResetRef.current = now;
       resetInactivityTimer();
     }
   }, [resetInactivityTimer]);
+
+  const handleLoginSuccess = useCallback(() => {
+    // Navigate to home page after successful login
+    navigate('/dashboard');
+    window.location.reload();
+  }, [navigate]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -96,6 +112,10 @@ function App() {
 
       if (session?.user?.email) {
         setUser({ email: session.user.email, role: 'administrator' });
+        // Only navigate to dashboard on initial load if not already on a valid route
+        if (location.pathname === '/' || location.pathname === '/login') {
+          navigate('/dashboard');
+        }
         setTimeout(() => resetInactivityTimer(), 100);
       }
     });
@@ -106,6 +126,10 @@ function App() {
 
       if (session?.user?.email) {
         setUser({ email: session.user.email, role: 'administrator' });
+        // Only navigate to dashboard on sign in, not on token refresh
+        if (event === 'SIGNED_IN' && (location.pathname === '/' || location.pathname === '/login')) {
+          navigate('/dashboard');
+        }
         setTimeout(() => resetInactivityTimer(), 100);
       } else {
         setUser(null);
@@ -117,16 +141,24 @@ function App() {
       subscription.unsubscribe();
       clearTimers();
     };
-  }, []);
+  }, [navigate, location.pathname, clearTimers]);
 
   useEffect(() => {
     if (!session) return;
 
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => document.addEventListener(event, handleActivity, { passive: true }));
+    const events = ['mousedown', 'keypress', 'click']; // Removed mousemove and scroll to reduce frequency
+    const handleActivityThrottled = (e) => {
+      // Avoid handling activity during text selection or input focus
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
+      handleActivity();
+    };
+
+    events.forEach(event => document.addEventListener(event, handleActivityThrottled, { passive: true }));
 
     return () => {
-      events.forEach(event => document.removeEventListener(event, handleActivity));
+      events.forEach(event => document.removeEventListener(event, handleActivityThrottled));
     };
   }, [session, handleActivity]);
 
@@ -146,7 +178,7 @@ function App() {
     }
 
     if (!session) {
-      return <Login onLoginSuccess={() => window.location.reload()} />;
+      return <Login onLoginSuccess={handleLoginSuccess} />;
     }
 
     return (
@@ -157,6 +189,7 @@ function App() {
         <Route path="/payroll" element={<PayrollDashboard />} />
         <Route path="/recruitment" element={<RecruitmentDashboard />} />
         <Route path="/performance" element={<PerformanceDashboard />} />
+        <Route path="/fog" element={<AddEmployeePages />} />
         <Route path="/add-employee" element={<AddEmployeePage />} />
         <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
         <Route path="/employee-added" element={<SuccessPage />} />
@@ -229,7 +262,7 @@ function App() {
         </>
       ) : (
         <Routes>
-          <Route path="*" element={<Login onLoginSuccess={() => window.location.reload()} />} />
+          <Route path="*" element={<Login onLoginSuccess={handleLoginSuccess} />} />
         </Routes>
       )}
 

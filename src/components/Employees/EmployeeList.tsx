@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Eye, Edit, Trash2, MapPin, Mail, Phone, 
-  ChevronLeft, ChevronRight, X, Filter, Download, PrinterIcon, ChevronDown,User, Briefcase, CreditCard, UserRoundX, CircleOff
+  ChevronLeft, ChevronRight, X, Filter,BookUser, Download, PrinterIcon, ChevronDown,User, Briefcase, CreditCard, UserRoundX, CircleOff,
+  Settings
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
@@ -589,30 +590,32 @@ const EmployeeList = () => {
             </div>
             
             <div className="flex space-x-2">
+              
               <GlowButton 
-                variant="secondary" 
+                variant="primary" 
                 size="sm" 
-                icon={Eye}
-                onClick={() => navigate(`/view-employee/${employee['Employee Number']}`)}
-              >
-                View
-              </GlowButton>
-              <GlowButton 
-                variant="secondary" 
-                size="sm" 
-                icon={Edit}
+                icon={Settings}
                 onClick={() => navigate(`/edit-employee/${employee['Employee Number']}`)}
               >
-                Edit
+                View/Edit
               </GlowButton>
+
               <GlowButton 
+                variant="danger" 
+                size="sm" 
+                icon={BookUser}
+                onClick={() => navigate(`/view-employee/${employee['Employee Number']}`)}
+              >
+                Terminate
+              </GlowButton>
+              {/* <GlowButton 
                 variant="danger" 
                 size="sm" 
                 icon={CircleOff}
                 onClick={() => employee['Employee Number'] && handleTerminate(employee['Employee Number'])}
               >
                 Terminate
-              </GlowButton>
+              </GlowButton> */}
             </div>
           </motion.div>
         ))}
@@ -714,10 +717,10 @@ const EmployeeList = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-100"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-300"
           >
             {/* Header */}
-            <div className="p-6 pb-0 flex justify-between items-center sticky top-0 bg-white z-10 border-b border-gray-100">
+            <div className="p-6 pb-0 flex justify-between items-center sticky top-0 bg-white z-10 border-b border-gray-300">
               <div>
                 <h2 className="text-2xl font-bold text-gray-800">
                   {selectedEmployee['First Name']} {selectedEmployee['Last Name']}
@@ -802,7 +805,7 @@ const EmployeeList = () => {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 flex justify-end sticky bottom-0">
+            <div className="px-6 py-3 border-t border-gray-300 bg-gray-50 flex justify-end sticky bottom-0">
               <button
                 onClick={() => setIsViewModalOpen(false)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors"

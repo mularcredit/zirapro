@@ -857,7 +857,7 @@ export default function RecruitmentDashboard() {
                 {filteredPositions.map((position) => {
                   const branch = branches.find(b => b.id === position.branch);
                   return (
-                    <tr key={position.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={position.id} className="border-b border-gray-300 hover:bg-gray-50">
                       <td className="py-4 px-4">
                         <div className="space-y-1">
                           <p className="text-gray-900 font-semibold">{position.title}</p>
@@ -914,7 +914,7 @@ export default function RecruitmentDashboard() {
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Applicant</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Position</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Branch</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Experience</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Department</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Resume</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Date Applied</th>
@@ -935,7 +935,7 @@ export default function RecruitmentDashboard() {
                   };
 
                   return (
-                    <tr key={application.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
                       <td className="py-4 px-4">
                         <div className="space-y-1">
                           <p className="text-gray-900 font-semibold">
@@ -951,7 +951,7 @@ export default function RecruitmentDashboard() {
                         <p className="text-gray-700">{application.preferred_location || 'N/A'}</p>
                       </td>
                       <td className="py-4 px-4">
-                        <p className="text-gray-700">{application.work_experience || 'N/A'}</p>
+                        <p className="text-gray-700">{application.department || 'N/A'}</p>
                       </td>
                       <td className="py-4 px-4">
                         {application.resume_file_url && (
@@ -1076,7 +1076,7 @@ export default function RecruitmentDashboard() {
                     const urgentPositions = branchPositions.filter(p => p.status === 'Urgent').length;
                     
                     return (
-                      <tr key={branch.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <tr key={branch.id} className="border-b border-gray-300 hover:bg-gray-50">
                         <td className="py-4 px-4">
                           <p className="text-gray-900 font-semibold">{branch.name}</p>
                         </td>
