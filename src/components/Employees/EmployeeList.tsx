@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { 
   Search, Plus, Eye, Edit, Trash2, MapPin, Mail, Phone, 
   ChevronLeft, ChevronRight, X, Filter,BookUser, Download, PrinterIcon, ChevronDown,User, Briefcase, CreditCard, UserRoundX, CircleOff,
-  Settings
+  Settings,
+  Edit3Icon
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { TownProps } from '../../types/supabase';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
@@ -13,7 +15,7 @@ import { utils, writeFile } from 'xlsx';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 
-const EmployeeList = () => {
+const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,25 +42,32 @@ const EmployeeList = () => {
 
   // Fetch employees from Supabase
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('employees')
-          .select('*')
-          .order('Employee Number', { ascending: false });
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('employees')
+        .select('*')
+        .order('Employee Number', { ascending: false });
 
-        if (error) throw error;
-        setEmployees(data || []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch employees');
-      } finally {
-        setLoading(false);
+      // Only apply town filter if selectedTown exists and is not 'ADMIN_ALL'
+      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+        query = query.eq('Town', selectedTown);
       }
-    };
 
-    fetchEmployees();
-  }, []);
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch employees');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchEmployees();
+}, [selectedTown]); // Add selectedTown as dependency
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -79,6 +88,9 @@ const EmployeeList = () => {
 
   // Filter employees
   const filteredEmployees = employees.filter(employee => {
+      if (selectedTown && selectedTown !== 'ADMIN_ALL' && employee.Town !== selectedTown) {
+    return false;
+  }
     const fullName = `${employee['First Name']} ${employee['Middle Name']} ${employee['Last Name']}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                          employee['Employee Number']?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -414,14 +426,14 @@ const EmployeeList = () => {
           
           {/* Quick Actions Dropdown */}
           <div className="relative" ref={quickActionsRef}>
-            <GlowButton 
+            {/* <GlowButton 
               icon={ChevronDown} 
               iconPosition="right"
               onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
               className="flex items-center"
             >
               Quick Actions
-            </GlowButton>
+            </GlowButton> */}
             
             {isQuickActionsOpen && (
               <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
@@ -511,13 +523,13 @@ const EmployeeList = () => {
           {/* Buttons - moved to a new row on smaller screens */}
           <div className="flex space-x-2 h-[42px] md:col-span-5 lg:col-span-1">
             <GlowButton 
-              variant="secondary" 
-              icon={Download} 
+              variant="primary" 
+              icon={Edit3Icon} 
               size="sm" 
               className="h-full"
-              onClick={handleExport}
+              onClick={() => navigate(`/fogs`)}
             >
-              Export
+              Bulk Edit
             </GlowButton>
             
             {/* <GlowButton 

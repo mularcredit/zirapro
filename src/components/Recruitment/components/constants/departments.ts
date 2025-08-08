@@ -1,0 +1,1 @@
+export const departments = ['All Departments', 'Finance', 'HR', 'IT', 'Operations', 'Marketing', 'Sales', 'Customer Service', 'Engineering'];

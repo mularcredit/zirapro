@@ -14,7 +14,7 @@ import {
 import { motion } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import logo from '../Dashboard/PUBLIC/logo.png';
-
+import solo from '../../../public/solo.png'
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
    { id: 'ai-assistant', label: 'AI assistant', icon: Bot, path: '/ai-assistant' },
@@ -34,13 +34,13 @@ export default function Sidebar() {
   const currentPath = location.pathname;
 
   return (
-    <div className="w-64 bg-slate-50 border-r border-green-500/30 min-h-screen shadow-xl">
+    <div className="w-64 bg-green-600 border-r border-green-500/30 min-h-screen shadow-xl text-white">
       <div className="p-6">
         <div className="flex items-center mb-2">
-          <img src={logo} alt="Logo" className="w-16 h-16" />
+          <img src={solo} alt="Logo" className="w-16 h-16" />
           <div>
-            <h1 className="text-xl font-bold text-black">ZiraHr</h1>
-            <p className="text-green-700 text-sm">Smiles Start Here</p>
+            <h1 className="text-xl font-bold text-white">Zira<span className='font-normal'>Hr</span></h1>
+            <p className="text-yellow text-sm">Smiles Start Here</p>
           </div>
         </div>
 
@@ -51,10 +51,10 @@ export default function Sidebar() {
               <motion.button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`w-full text-xs flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
+                className={`w-full tracking-normal text-xs flex items-center space-x-3 px-4 py-3 rounded-lg text-left transition-all duration-200 ${
                   isActive
-                    ? 'bg-green-500/20 text-black shadow-base shadow-green-500/40 border border-green-500/50'
-                    : 'text-black text-sm hover:text-green hover:bg-green-500/20 hover:border-green-500/50'
+                    ? 'bg-green-500/30 text-white shadow-base shadow-green-500/40 border border-green-500/50'
+                    : 'text-white text-sm hover:text-white hover:bg-green-500/40 hover:border-green-500/50'
                 }`}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bell, Search, User, LogOut } from 'lucide-react';
 import { motion } from 'framer-motion';
+import GlowButton from '../UI/GlowButton';
 
 interface HeaderProps {
   user?: { email: string; role: string };
@@ -13,6 +14,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="relative">
+          
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
             <input
               type="text"

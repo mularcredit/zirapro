@@ -7,7 +7,13 @@ import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
 import { User, Briefcase, CreditCard, Phone, Mail, MapPin } from 'lucide-react';
 
-type Employee = Database['public']['Tables']['employees']['Row'];
+type Employee = Database['public']['Tables']['employees']['Row'] & {
+  'NHIF Number'?: string | null;
+  'NSSF Number'?: string | null;
+  'Tax PIN'?: string | null;
+  NITA?: string | null;
+  HELB?: string | null;
+};
 
 type DropdownOptions = {
   employmentTypes: string[];
@@ -44,9 +50,11 @@ const phoneRegex = /^[+]{0,1}[\s0-9]{8,15}$/;
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const idNumberRegex = /^[0-9]{6,12}$/;
 const passportRegex = /^[A-Za-z0-9]{6,12}$/;
-const kraPinRegex = /^[A-Z]{1}[0-9]{9}[A-Z]{1}$/;
 const nhifRegex = /^[0-9]{8,10}$/;
 const nssfRegex = /^[0-9]{9}$/;
+const kraPinRegex = /^[A-Z]{1}[0-9]{9}[A-Z]{1}$/;
+const nitaRegex = /^[A-Za-z0-9]{6,12}$/;
+const helbRegex = /^[A-Za-z0-9]{6,12}$/;
 
 const EditEmployeePage = () => {
   const { id } = useParams<{ id: string }>();
@@ -150,12 +158,12 @@ const EditEmployeePage = () => {
 
         // Set default statutory deductions
         const defaultDeductions = [
-          { name: 'KRA PIN', number: empData['Tax PIN'] || '', isActive: !!empData['Tax PIN'] },
-          { name: 'NHIF Number', number: empData['NHIF Number'] || '', isActive: !!empData['NHIF Number'] },
-          { name: 'NSSF Number', number: empData['NSSF Number'] || '', isActive: !!empData['NSSF Number'] },
-          { name: 'HELB', number: '', isActive: false },
-          { name: 'NITA', number: '', isActive: false }
-        ];
+  { name: 'NHIF Number', number: employee['NHIF Number'] || '', isActive: !!employee['NHIF Number'] },
+  { name: 'NSSF Number', number: employee['NSSF Number'] || '', isActive: !!employee['NSSF Number'] },
+  { name: 'Tax PIN', number: employee['Tax PIN'] || '', isActive: !!employee['Tax PIN'] },
+  { name: 'NITA', number: employee.NITA || '', isActive: !!employee.NITA },
+  { name: 'HELB', number: employee.HELB || '', isActive: !!employee.HELB }
+];
 
         setDropdownOptions(prev => ({
           ...prev,
@@ -232,20 +240,30 @@ const EditEmployeePage = () => {
             error = 'Invalid passport number format';
           }
           break;
-        case 'KRA PIN':
-          if (value && !kraPinRegex.test(String(value))) {
-            error = 'Invalid KRA PIN format (e.g., A123456789Z)';
-          }
-          break;
-        case 'NHIF':
-          if (value && !nhifRegex.test(String(value))) {
-            error = 'Invalid NHIF number (8-10 digits)';
-          }
-          break;
-        case 'NSSF':
-          if (value && !nssfRegex.test(String(value))) {
-            error = 'Invalid NSSF number (9 digits)';
-          }
+        case 'NHIF Number':
+    if (value && !nhifRegex.test(String(value))) {
+      error = 'Invalid NHIF number (8-10 digits)';
+    }
+    break;
+  case 'NSSF Number':
+    if (value && !nssfRegex.test(String(value))) {
+      error = 'Invalid NSSF number (9 digits)';
+    }
+    break;
+  case 'Tax PIN':
+    if (value && !kraPinRegex.test(String(value))) {
+      error = 'Invalid KRA PIN format (e.g., A123456789Z)';
+    }
+    break;
+  case 'NITA':
+    if (value && !nitaRegex.test(String(value))) {
+      error = 'Invalid NITA number format';
+    }
+    break;
+  case 'HELB':
+    if (value && !helbRegex.test(String(value))) {
+      error = 'Invalid HELB number format';
+    }
           break;
       }
     }
@@ -381,32 +399,45 @@ const EditEmployeePage = () => {
     
     // Statutory deductions validation
     statutoryDeductions.forEach((deduction) => {
-      if (deduction.isActive && !deduction.number) {
-        newErrors[`deduction${deduction.name}`] = `${deduction.name} number is required`;
-        isValid = false;
-      } else if (deduction.isActive && deduction.number) {
-        switch (deduction.name) {
-          case 'KRA PIN':
-            if (!kraPinRegex.test(deduction.number)) {
-              newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format';
-              isValid = false;
-            }
-            break;
-          case 'NHIF':
-            if (!nhifRegex.test(deduction.number)) {
-              newErrors[`deduction${deduction.name}`] = 'Invalid NHIF number';
-              isValid = false;
-            }
-            break;
-          case 'NSSF':
-            if (!nssfRegex.test(deduction.number)) {
-              newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number';
-              isValid = false;
-            }
-            break;
+  if (deduction.isActive && !deduction.number) {
+    newErrors[`deduction${deduction.name}`] = `${deduction.name} is required`;
+    isValid = false;
+  } else if (deduction.isActive && deduction.number) {
+    switch (deduction.name) {
+      case 'NHIF Number':
+        if (!nhifRegex.test(deduction.number)) {
+          newErrors[`deduction${deduction.name}`] = 'Invalid NHIF number (8-10 digits)';
+          isValid = false;
         }
-      }
-    });
+        break;
+      case 'NSSF Number':
+        if (!nssfRegex.test(deduction.number)) {
+          newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number (9 digits)';
+          isValid = false;
+        }
+        break;
+      case 'Tax PIN':
+        if (!kraPinRegex.test(deduction.number)) {
+          newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format (e.g., A123456789Z)';
+          isValid = false;
+        }
+        break;
+      case 'NITA':
+        if (!nitaRegex.test(deduction.number)) {
+          newErrors[`deduction${deduction.name}`] = 'Invalid NITA number format';
+          isValid = false;
+        }
+        break;
+      case 'HELB':
+        if (!helbRegex.test(deduction.number)) {
+          newErrors[`deduction${deduction.name}`] = 'Invalid HELB number format';
+          isValid = false;
+        }
+        break;
+    }
+  }
+});
+
     
     setErrors(newErrors);
     return isValid;
@@ -454,15 +485,17 @@ const EditEmployeePage = () => {
 
       // Update employee data
       const { error: employeeError } = await supabase
-        .from('employees')
-        .update({
-          ...employee,
-          'Profile Image': imageUrl,
-          'Tax PIN': statutoryDeductions.find(d => d.name === 'KRA PIN')?.number || null,
-          'NHIF Number': statutoryDeductions.find(d => d.name === 'NHIF Number')?.number || null,
-          'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null
-        })
-        .eq('"Employee Number"', id);
+  .from('employees')
+  .update({
+    ...employee,
+    'Profile Image': imageUrl,
+    'NHIF Number': statutoryDeductions.find(d => d.name === 'NHIF Number')?.number || null,
+    'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null,
+    'Tax PIN': statutoryDeductions.find(d => d.name === 'Tax PIN')?.number || null,
+    'NITA': statutoryDeductions.find(d => d.name === 'NITA')?.number || null,
+    'HELB': statutoryDeductions.find(d => d.name === 'HELB')?.number || null
+  })
+  .eq('"Employee Number"', id);
       
       if (employeeError) throw employeeError;
       
@@ -518,7 +551,7 @@ const EditEmployeePage = () => {
       }
       
       setIsEditMode(false);
-      navigate(`/employees/view/${id}`, { state: { success: true } });
+      navigate(`/employees`, { state: { success: true } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update employee');
     } finally {
@@ -658,7 +691,7 @@ const EditEmployeePage = () => {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         {/* Header */}
-       <div className="bg-gradient-to-r from-blue-50 to-violet-50 p-6 md:p-8 border-b border-gray-300">
+       <div className="bg-green-500  p-6 md:p-8 border-b border-gray-300">
   <div className="flex flex-col md:flex-row md:items-start justify-between">
     <div className="flex items-start space-x-4">
       <div className="relative">
@@ -688,7 +721,7 @@ const EditEmployeePage = () => {
             )}
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 relative">
+          <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-black relative">
             {previewImage ? (
               <img 
                 src={previewImage} 
@@ -706,10 +739,10 @@ const EditEmployeePage = () => {
       </div>
 
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+                <h1 className="text-xl md:text-2xl font-bold text-white">
                   {isEditMode ? 'Edit' : 'View'}: {employee['First Name']} {employee['Last Name']}
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-white mt-1">
                   <span className="font-medium">Employee ID:</span> {employee['Employee Number']}
                 </p>
               </div>
@@ -1551,7 +1584,7 @@ const EditEmployeePage = () => {
                 onClick={handleSave}
                 icon={Save}
                 loading={saving}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-400 text-white"
               >
                 {saving ? 'Saving...' : 'Save Changes'}
               </GlowButton>

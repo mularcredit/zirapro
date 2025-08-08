@@ -6,7 +6,16 @@ import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
 
-type Employee = Database['public']['Tables']['employees']['Row'];
+type Employee = Database['public']['Tables']['employees']['Row'] & {
+  'Work Mobile': string | null;
+  'Personal Mobile': string | null;
+  'Alternative Mobile Number': string | null;
+  'NHIF Number': string | null;
+  'NSSF Number': string | null;
+  'Tax PIN': string | null;
+  'NITA': string | null;
+  'HELB': string | null;
+};
 
 type DropdownOptions = {
   employmentTypes: string[];
@@ -35,12 +44,21 @@ type StatutoryDeduction = {
   name: string;
   number: string;
   isActive: boolean;
+  columnName: string;
 };
 
-const AddEmployeePage= () => {
+const phoneRegex = /^[+]{0,1}[\s0-9]{8,15}$/;
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const idNumberRegex = /^[0-9]{6,12}$/;
+const passportRegex = /^[A-Za-z0-9]{6,12}$/;
+const kraPinRegex = /^[A-Z]{1}[0-9]{9}[A-Z]{1}$/;
+const nhifRegex = /^[0-9]{5,10}$/;
+const nssfRegex = /^[0-9]{9}$/;
+
+const AddEmployeePage = () => {
   const navigate = useNavigate();
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [profileImage, setProfileImage] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -58,11 +76,11 @@ const AddEmployeePage= () => {
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([{ name: '', relationship: '', phone: '' }]);
   const [dependents, setDependents] = useState<Dependent[]>([{ name: '', relationship: '' }]);
   const [statutoryDeductions, setStatutoryDeductions] = useState<StatutoryDeduction[]>([
-    { name: 'KRA PIN', number: '', isActive: false },
-    { name: 'NHIF', number: '', isActive: false },
-    { name: 'NSSF', number: '', isActive: false },
-    { name: 'HELB', number: '', isActive: false },
-    { name: 'NITA', number: '', isActive: false }
+    { name: 'KRA PIN', number: '', isActive: false, columnName: 'Tax PIN' },
+    { name: 'NHIF', number: '', isActive: false, columnName: 'NHIF Number' },
+    { name: 'NSSF', number: '', isActive: false, columnName: 'NSSF Number' },
+    { name: 'HELB', number: '', isActive: false, columnName: 'HELB' },
+    { name: 'NITA', number: '', isActive: false, columnName: 'NITA' }
   ]);
   const [isPageLoading, setIsPageLoading] = useState(true);
 
@@ -142,16 +160,167 @@ const AddEmployeePage= () => {
     return () => clearTimeout(timer);
   }, []);
 
+  const validateField = (name: string, value: string | number | null | undefined) => {
+    let error = '';
+    
+    if (typeof value === 'string' && !value.trim() && ['First Name', 'Last Name', 'Employee Type', 'Start Date', 'Job Title', 'Job Level', 'Mobile Number', 'Personal Email', 'Work Email'].includes(name)) {
+      error = 'This field is required';
+    } else if (name === 'profileImage' && !profileImage) {
+      error = 'Profile image is required';
+    } else {
+      switch (name) {
+        case 'Mobile Number':
+        case 'Work Mobile':
+        case 'Personal Mobile':
+        case 'Alternative Mobile Number':
+          if (value && !phoneRegex.test(String(value))) {
+            error = 'Invalid phone number format';
+          }
+          break;
+        case 'Personal Email':
+        case 'Work Email':
+          if (value && !emailRegex.test(String(value))) {
+            error = 'Invalid email format';
+          }
+          break;
+        case 'ID Number':
+          if (value && !idNumberRegex.test(String(value))) {
+            error = 'Invalid ID number format';
+          }
+          break;
+        case 'passport_number':
+          if (value && !passportRegex.test(String(value))) {
+            error = 'Invalid passport number format';
+          }
+          break;
+        case 'Tax PIN':
+          if (value && !kraPinRegex.test(String(value))) {
+            error = 'Invalid KRA PIN format (e.g., A123456789Z)';
+          }
+          break;
+        case 'NHIF Number':
+          if (value && !nhifRegex.test(String(value))) {
+            error = 'Invalid NHIF number (8-10 digits)';
+          }
+          break;
+        case 'NSSF Number':
+          if (value && !nssfRegex.test(String(value))) {
+            error = 'Invalid NSSF number (9 digits)';
+          }
+          break;
+      }
+    }
+    
+    setErrors(prev => ({ ...prev, [name]: error }));
+    return !error;
+  };
+
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors: Record<string, string> = {};
+    
+    // Required fields validation
+    if (!profileImage) {
+      newErrors.profileImage = 'Profile image is required';
+      isValid = false;
+    }
+    if (!newEmployee['First Name']) {
+      newErrors['First Name'] = 'First Name is required';
+      isValid = false;
+    }
+    if (!newEmployee['Last Name']) {
+      newErrors['Last Name'] = 'Last Name is required';
+      isValid = false;
+    }
+    if (!newEmployee['Employee Type']) {
+      newErrors['Employee Type'] = 'Employee Type is required';
+      isValid = false;
+    }
+    if (!newEmployee['Start Date']) {
+      newErrors['Start Date'] = 'Start Date is required';
+      isValid = false;
+    }
+    if (!newEmployee['Mobile Number']) {
+      newErrors['Mobile Number'] = 'Mobile Number is required';
+      isValid = false;
+    } else if (!phoneRegex.test(newEmployee['Mobile Number'])) {
+      newErrors['Mobile Number'] = 'Invalid phone number format';
+      isValid = false;
+    }
+    if (!newEmployee['Personal Email']) {
+      newErrors['Personal Email'] = 'Personal Email is required';
+      isValid = false;
+    } else if (!emailRegex.test(newEmployee['Personal Email'])) {
+      newErrors['Personal Email'] = 'Invalid email format';
+      isValid = false;
+    }
+    
+    // Emergency contacts validation
+    emergencyContacts.forEach((contact, index) => {
+      if (!contact.name) {
+        newErrors[`emergencyContactName${index}`] = 'Name is required';
+        isValid = false;
+      }
+      if (!contact.relationship) {
+        newErrors[`emergencyContactRelationship${index}`] = 'Relationship is required';
+        isValid = false;
+      }
+      if (!contact.phone) {
+        newErrors[`emergencyContactPhone${index}`] = 'Phone is required';
+        isValid = false;
+      } else if (!phoneRegex.test(contact.phone)) {
+        newErrors[`emergencyContactPhone${index}`] = 'Invalid phone format';
+        isValid = false;
+      }
+      if (contact.email && !emailRegex.test(contact.email)) {
+        newErrors[`emergencyContactEmail${index}`] = 'Invalid email format';
+        isValid = false;
+      }
+    });
+    
+    // Statutory deductions validation
+    statutoryDeductions.forEach((deduction) => {
+      if (deduction.isActive && !deduction.number) {
+        newErrors[`deduction${deduction.columnName}`] = `${deduction.name} number is required`;
+        isValid = false;
+      } else if (deduction.isActive && deduction.number) {
+        switch (deduction.name) {
+          case 'KRA PIN':
+            if (!kraPinRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.columnName}`] = 'Invalid KRA PIN format';
+              isValid = false;
+            }
+            break;
+          case 'NHIF':
+            if (!nhifRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.columnName}`] = 'Invalid NHIF number';
+              isValid = false;
+            }
+            break;
+          case 'NSSF':
+            if (!nssfRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.columnName}`] = 'Invalid NSSF number';
+              isValid = false;
+            }
+            break;
+        }
+      }
+    });
+    
+    setErrors(newErrors);
+    return isValid;
+  };
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.size > 5 * 1024 * 1024) {
-        setError('File size exceeds 5MB limit');
+        setErrors(prev => ({ ...prev, profileImage: 'File size exceeds 5MB limit' }));
         return;
       }
       setProfileImage(file);
       setPreviewImage(URL.createObjectURL(file));
-      setError(null);
+      setErrors(prev => ({ ...prev, profileImage: '' }));
     }
   };
 
@@ -165,6 +334,9 @@ const AddEmployeePage= () => {
       ...prev,
       [name]: value
     }));
+    
+    // Validate on change
+    validateField(name, value);
   };
 
   const handleEmergencyContactChange = (index: number, field: keyof EmergencyContact, value: string) => {
@@ -174,6 +346,13 @@ const AddEmployeePage= () => {
       [field]: value
     };
     setEmergencyContacts(updatedContacts);
+    
+    // Validate on change
+    if (field === 'phone') {
+      validateField(`emergencyContactPhone${index}`, value);
+    } else if (field === 'email' && value) {
+      validateField(`emergencyContactEmail${index}`, value);
+    }
   };
 
   const handleDependentChange = (index: number, field: keyof Dependent, value: string) => {
@@ -192,6 +371,19 @@ const AddEmployeePage= () => {
       [field]: value
     };
     setStatutoryDeductions(updatedDeductions);
+    
+    // Update the newEmployee state with the deduction value
+    if (field === 'number' && updatedDeductions[index].isActive) {
+      setNewEmployee(prev => ({
+        ...prev,
+        [updatedDeductions[index].columnName]: value as string
+      }));
+    }
+    
+    // Validate on change if it's the number field
+    if (field === 'number' && updatedDeductions[index].isActive) {
+      validateField(updatedDeductions[index].columnName, String(value));
+    }
   };
 
   const addEmergencyContact = () => {
@@ -203,6 +395,14 @@ const AddEmployeePage= () => {
       const updatedContacts = [...emergencyContacts];
       updatedContacts.splice(index, 1);
       setEmergencyContacts(updatedContacts);
+      
+      // Remove any errors for this contact
+      const newErrors = { ...errors };
+      delete newErrors[`emergencyContactName${index}`];
+      delete newErrors[`emergencyContactRelationship${index}`];
+      delete newErrors[`emergencyContactPhone${index}`];
+      delete newErrors[`emergencyContactEmail${index}`];
+      setErrors(newErrors);
     }
   };
 
@@ -219,156 +419,186 @@ const AddEmployeePage= () => {
   };
 
   const handleAddEmployee = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    // Validate required fields
-    if (!newEmployee['First Name'] || !newEmployee['Last Name']) {
-      throw new Error('First Name and Last Name are required');
+    if (!validateForm()) {
+      // Group errors by tab
+      const errorsByTab: Record<string, string[]> = {};
+      
+      Object.keys(errors).forEach(fieldName => {
+        if (errors[fieldName]) {
+          const tab = getTabForField(fieldName);
+          if (!errorsByTab[tab]) {
+            errorsByTab[tab] = [];
+          }
+          errorsByTab[tab].push(`${getFieldLabel(fieldName)}: ${errors[fieldName]}`);
+        }
+      });
+      
+      // Set the first tab with errors as active
+      const firstErrorTab = Object.keys(errorsByTab)[0];
+      if (firstErrorTab) {
+        setActiveTab(firstErrorTab);
+        
+        // Scroll to the first error field
+        const firstErrorField = Object.keys(errors).find(field => errors[field]);
+        if (firstErrorField) {
+          const firstErrorElement = document.querySelector(`[name="${firstErrorField}"]`);
+          if (firstErrorElement) {
+            setTimeout(() => {
+              firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+          }
+        }
+      }
+      
+      return;
     }
 
-    let imageUrl = null;
-    // Handle profile image upload if exists
-    if (profileImage) {
-      try {
-        // Generate unique filename
+    try {
+      setLoading(true);
+      setErrors({});
+      
+      let imageUrl = null;
+      if (profileImage) {
         const fileExt = profileImage.name.split('.').pop();
         const fileName = `${newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`}.${fileExt}`;
         const filePath = `profile_images/${fileName}`;
 
-        // Upload image to Supabase storage
         const { error: uploadError } = await supabase.storage
           .from('employeeavatar')
-          .upload(filePath, profileImage, {
-            cacheControl: '3600', // 1 hour cache
-            upsert: false // Don't overwrite existing files
-          });
+          .upload(filePath, profileImage);
 
-        if (uploadError) {
-          throw new Error(`Image upload failed: ${uploadError.message}`);
-        }
+        if (uploadError) throw uploadError;
 
-        // Get public URL for the uploaded image
         const { data: { publicUrl } } = supabase.storage
           .from('employeeavatar')
           .getPublicUrl(filePath);
 
         imageUrl = publicUrl;
-      } catch (uploadErr) {
-        console.error('Image upload error:', uploadErr);
-        throw new Error('Failed to upload profile image. Please try again.');
       }
-    }
 
-    // Generate employee number if not provided
-    const employeeNumber = newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`;
+      // Prepare statutory deductions data for employee table
+      const employeeDeductions: Partial<Employee> = {};
+      statutoryDeductions.forEach(deduction => {
+        if (deduction.isActive && deduction.number) {
+          employeeDeductions[deduction.columnName as keyof Employee] = deduction.number;
+        }
+      });
 
-    // Prepare employee data
-    const employeeData = {
-      ...newEmployee,
-      'Employee Number': employeeNumber,
-      'Profile Image': imageUrl,
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .insert([{
+          ...newEmployee,
+          ...employeeDeductions,
+          'Employee Number': newEmployee['Employee Number'] || `MCL-${Date.now().toString().slice(-6)}`,
+          'Profile Image': imageUrl
+        }])
+        .select();
       
+      if (employeeError) throw employeeError;
       
-    };
+      const employeeId = employeeData?.[0]?.["Employee Number"];
+      if (!employeeId) throw new Error('Failed to get employee Number after creation');
 
-    // Insert employee record
-    const { data: employeeDataResponse, error: employeeError } = await supabase
-      .from('employees')
-      .insert([employeeData])
-      .select()
-      .single();
+      if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
+        const contactsToInsert = emergencyContacts.map(contact => ({
+          "Employee Number": employeeId,
+          full_name: contact.name,
+          relationship: contact.relationship,
+          phone_number: contact.phone,
+          email: contact.email || null
+        }));
 
-    if (employeeError) throw employeeError;
-    if (!employeeDataResponse) throw new Error('Failed to create employee record');
+        const { error: contactsError } = await supabase
+          .from('emergency_contact')
+          .insert(contactsToInsert);
 
-    // Handle emergency contacts if provided
-    if (emergencyContacts.length > 0 && emergencyContacts[0].name) {
-      const contactsToInsert = emergencyContacts.map(contact => ({
-        "Employee Number": employeeNumber,
-        full_name: contact.name,
-        relationship: contact.relationship,
-        phone_number: contact.phone,
-        email: contact.email || null,
-        created_at: new Date().toISOString()
-      }));
+        if (contactsError) throw contactsError;
+      }
 
-      const { error: contactsError } = await supabase
-        .from('emergency_contact')
-        .insert(contactsToInsert);
+      if (dependents.length > 0 && dependents[0].name) {
+        const dependentsToInsert = dependents.map(dependent => ({
+          "Employee Number": employeeId,
+          full_name: dependent.name,
+          relationship: dependent.relationship,
+          date_birth: dependent.dateOfBirth || null
+        }));
 
-      if (contactsError) throw contactsError;
+        const { error: dependentsError } = await supabase
+          .from('dependents')
+          .insert(dependentsToInsert);
+
+        if (dependentsError) throw dependentsError;
+      }
+      
+      navigate('/employee-added', { 
+        state: { 
+          success: true,
+          employeeNumber: employeeId,
+          employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
+          workEmail: newEmployee['Work Email'],
+          personalEmail: newEmployee['Personal Email']
+        } 
+      });
+
+    } catch (err) {
+      console.error('Error adding employee:', err);
+      setErrors({ form: err instanceof Error ? err.message : 'Failed to add employee' });
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Handle dependents if provided
-    if (dependents.length > 0 && dependents[0].name) {
-      const dependentsToInsert = dependents.map(dependent => ({
-        "Employee Number": employeeNumber,
-        full_name: dependent.name,
-        relationship: dependent.relationship,
-        date_birth: dependent.dateOfBirth || null,
-        created_at: new Date().toISOString()
-      }));
-
-      const { error: dependentsError } = await supabase
-        .from('dependents')
-        .insert(dependentsToInsert);
-
-      if (dependentsError) throw dependentsError;
-    }
-
-    // Handle statutory deductions if provided
-    const activeDeductions = statutoryDeductions
-      .filter(deduction => deduction.isActive && deduction.number)
-      .map(deduction => ({
-        employee_id: employeeNumber,
-        type: deduction.name,
-        number: deduction.number,
-        is_active: true,
-        created_at: new Date().toISOString()
-      }));
-
-    if (activeDeductions.length > 0) {
-      const { error: deductionsError } = await supabase
-        .from('statutory_deductions')
-        .insert(activeDeductions);
-
-      if (deductionsError) throw deductionsError;
-    }
-
-    // Navigate to success page
-    navigate('/employee-added', { 
-      state: { 
-        success: true,
-        employeeNumber: employeeNumber,
-        employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
-        workEmail: newEmployee['Work Email'],
-        personalEmail: newEmployee['Personal Email'],
-        profileImage: imageUrl
-      } 
-    });
-
-  } catch (err) {
-    console.error('Error adding employee:', err);
-    setError(err instanceof Error ? err.message : 'Failed to add employee');
+  // Helper functions
+  const getTabForField = (fieldName: string): string => {
+    if (fieldName === 'profileImage') return 'personal';
     
-    // Rollback image upload if employee creation failed
-    if (profileImage && newEmployee['Employee Number']) {
-      try {
-        const fileExt = profileImage.name.split('.').pop();
-        const fileName = `${newEmployee['Employee Number']}.${fileExt}`;
-        await supabase.storage
-          .from('employeeavatar')
-          .remove([`profile_images/${fileName}`]);
-      } catch (cleanupErr) {
-        console.error('Failed to cleanup uploaded image:', cleanupErr);
-      }
-    }
-  } finally {
-    setLoading(false);
-  }
-};
+    const personalFields = ['First Name', 'Last Name', 'Middle Name', 'Date of Birth', 'Gender', 
+      'ID Number', 'passport_number', 'Marital Status', 'blood_group', 'Disability Cert No', 
+      'religion', 'Country'];
+    if (personalFields.includes(fieldName)) return 'personal';
+    
+    const employmentFields = ['Employee Type', 'Start Date', 'Job Level', 'Job Title', 'Branch', 
+      'Town', 'Manager', 'Work Email', 'Leave Approver', 'Alternate Approver', 
+      'second_level_leave_approver', 'alternate_second_level_approver', 'internship_start_date',
+      'Internship End Date', 'Probation Start Date', 'Probation End Date', 'Contract Start Date',
+      'Contract End Date', 'Job Group'];
+    if (employmentFields.includes(fieldName)) return 'employment';
+    
+    const contactFields = ['Personal Email', 'Mobile Number', 'Work Mobile', 'Personal Mobile', 
+      'Alternative Mobile Number', 'Area', 'City', 'Postal Code'];
+    if (contactFields.includes(fieldName)) return 'contact';
+    
+    const financialFields = ['Bank', 'Account Number', 'account_number_name', 'Bank Branch', 
+      'payment_method', 'Basic Salary', 'Currency', 'Tax PIN', 'NHIF Number', 'NSSF Number', 'HELB', 'NITA'];
+    if (financialFields.includes(fieldName)) return 'financial';
+    
+    if (fieldName.startsWith('emergencyContact')) return 'emergency';
+    if (fieldName.startsWith('dependent')) return 'dependents';
+    
+    return 'personal';
+  };
+
+  const getFieldLabel = (fieldName: string): string => {
+    if (fieldName === 'profileImage') return 'Profile Image';
+    if (fieldName.startsWith('emergencyContactName')) return 'Emergency Contact Name';
+    if (fieldName.startsWith('emergencyContactRelationship')) return 'Emergency Contact Relationship';
+    if (fieldName.startsWith('emergencyContactPhone')) return 'Emergency Contact Phone';
+    if (fieldName.startsWith('emergencyContactEmail')) return 'Emergency Contact Email';
+    if (fieldName.startsWith('deduction')) return fieldName.replace('deduction', '');
+    return fieldName;
+  };
+
+  const getTabName = (tabKey: string): string => {
+    const tabNames: Record<string, string> = {
+      personal: 'Personal Information',
+      employment: 'Employment Information',
+      contact: 'Contact Information',
+      financial: 'Financial Information',
+      emergency: 'Emergency Contacts',
+      dependents: 'Dependents'
+    };
+    return tabNames[tabKey] || tabKey;
+  };
 
   if (isPageLoading) {
     return (
@@ -413,10 +643,10 @@ const AddEmployeePage= () => {
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.4 }}
-        className="bg-white rounded-xl shadow-lg border border-gray-300 overflow-hidden"
+        className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
       >
         {/* Form Header */}
-        <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-6 border-b border-gray-200">
+        <div className="bg-green-500 p-6 border-b border-gray-200">
           <div className="flex items-center">
             <div className="mr-4">
               <img 
@@ -426,8 +656,8 @@ const AddEmployeePage= () => {
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Add New Employee</h1>
-              <p className="text-gray-600 mt-1">Fill in the details below to add a new employee</p>
+              <h1 className="text-2xl font-bold text-white">Add New Employee</h1>
+              <p className="text-white mt-1">Fill in the details below to add a new employee</p>
             </div>
           </div>
         </div>
@@ -554,8 +784,8 @@ const AddEmployeePage= () => {
                     )}
                   </div>
                   <p className="mt-2 text-xs text-gray-500">JPG, PNG or GIF (Max 5MB)</p>
-                  {error && error.includes('File size') && (
-                    <p className="mt-1 text-xs text-red-500">{error}</p>
+                  {errors.profileImage && (
+                    <p className="mt-1 text-xs text-red-500">{errors.profileImage}</p>
                   )}
                 </div>
 
@@ -573,7 +803,8 @@ const AddEmployeePage= () => {
                     name="First Name"
                     value={newEmployee['First Name'] || ''}
                     onChange={handleInputChange}
-                    
+                    error={errors['First Name']}
+                    required
                   />
                   <FormField
                     label="Middle Name"
@@ -586,7 +817,8 @@ const AddEmployeePage= () => {
                     name="Last Name"
                     value={newEmployee['Last Name'] || ''}
                     onChange={handleInputChange}
-                    
+                    error={errors['Last Name']}
+                    required
                   />
                 </div>
               </div>
@@ -622,7 +854,8 @@ const AddEmployeePage= () => {
                     <FormField
                       label="National ID"
                       name="ID Number"
-                      type="number"
+                      type="text"
+                      required
                       value={newEmployee['ID Number'] ? String(newEmployee['ID Number']) : ''}
                       onChange={(e) => {
                         const numValue = e.target.value ? parseInt(e.target.value) : null;
@@ -630,14 +863,17 @@ const AddEmployeePage= () => {
                           ...prev,
                           "ID Number": numValue
                         }));
+                        
+                        validateField('ID Number', e.target.value);
                       }}
+                      error={errors['ID Number']}
                     />
                     <FormField
                       label="Passport Number"
                       name="passport_number"
-                     
                       value={newEmployee.passport_number || ''}
                       onChange={handleInputChange}
+                      error={errors['passport_number']}
                     />
                   </div>
                 </div>
@@ -680,8 +916,15 @@ const AddEmployeePage= () => {
                     <FormField
                       label="Nationality"
                       name="Country"
-                      value={newEmployee.Country|| ''}
+                      type="select"
+                      value={newEmployee.Country || ''}
                       onChange={handleInputChange}
+                      options={[
+                        'Kenyan Citizen', 
+                        'East African Community', 
+                        'Other African', 
+                        'International'
+                      ]}
                     />
                   </div>
                 </div>
@@ -704,7 +947,8 @@ const AddEmployeePage= () => {
                     value={newEmployee['Employee Type'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.employmentTypes}
-                    
+                    error={errors['Employee Type']}
+                    required
                   />
                   <FormField
                     label="Employment Start Date"
@@ -712,7 +956,8 @@ const AddEmployeePage= () => {
                     type="date"
                     value={newEmployee['Start Date'] || ''}
                     onChange={handleInputChange}
-                    
+                    error={errors['Start Date']}
+                    required
                   />
                   <FormField
                     label="Department"
@@ -721,6 +966,7 @@ const AddEmployeePage= () => {
                     value={newEmployee['Job Level'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobLevels}
+                    error={errors['Job Level']}
                   />
                   <FormField
                     label="Job Title"
@@ -729,6 +975,7 @@ const AddEmployeePage= () => {
                     value={newEmployee['Job Title'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobTitles}
+                    error={errors['Job Title']}
                   />
                   
                   <FormField
@@ -738,7 +985,6 @@ const AddEmployeePage= () => {
                     value={newEmployee.Branch || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.branches}
-                    
                   />
                   <FormField
                     label="Office"
@@ -747,17 +993,15 @@ const AddEmployeePage= () => {
                     value={newEmployee.Town || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.office}
-                    
                   />
 
-                   <FormField
+                  <FormField
                     label="Manager"
                     name="Manager"
                     type="select"
                     value={newEmployee['Manager'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.supervisors}
-                    
                   />
                   <FormField
                     label="Work Email"
@@ -765,7 +1009,7 @@ const AddEmployeePage= () => {
                     type="email"
                     value={newEmployee['Work Email'] || ''}
                     onChange={handleInputChange}
-                    
+                    error={errors['Work Email']}
                   />
                 </div>
 
@@ -879,20 +1123,45 @@ const AddEmployeePage= () => {
                       type="email"
                       value={newEmployee['Personal Email'] || ''}
                       onChange={handleInputChange}
+                      error={errors['Personal Email']}
+                      required
                     />
                     <FormField
-                      label="Mobile Number"
+                      label="Primary Mobile Number"
                       name="Mobile Number"
                       type="tel"
                       value={newEmployee['Mobile Number'] || ''}
                       onChange={handleInputChange}
+                      error={errors['Mobile Number']}
+                      required
+                      placeholder="e.g., +254712345678"
                     />
                     <FormField
-                      label="Alternative Mobile"
+                      label="Work Mobile Number"
+                      name="Work Mobile"
+                      type="tel"
+                      value={newEmployee['Work Mobile'] || ''}
+                      onChange={handleInputChange}
+                      error={errors['Work Mobile']}
+                      placeholder="Optional work mobile"
+                    />
+                    <FormField
+                      label="Personal Mobile Number"
+                      name="Personal Mobile"
+                      type="tel"
+                      value={newEmployee['Personal Mobile'] || ''}
+                      onChange={handleInputChange}
+                      error={errors['Personal Mobile']}
+                      placeholder="Optional personal mobile"
+                    />
+                    <FormField
+                      label="Alternative Mobile Number"
                       name="Alternative Mobile Number"
                       type="tel"
                       value={newEmployee['Alternative Mobile Number'] || ''}
                       onChange={handleInputChange}
+                      error={errors['Alternative Mobile Number']}
+                      placeholder="Optional alternative mobile"
                     />
                   </div>
                 </div>
@@ -981,7 +1250,7 @@ const AddEmployeePage= () => {
                     icon={CreditCard} 
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                     <FormField
+                    <FormField
                       label="Job Group"
                       name="Job Group"
                       type="select"
@@ -989,19 +1258,19 @@ const AddEmployeePage= () => {
                       onChange={handleInputChange}
                       options={dropdownOptions.jobGroup}
                     />
-                        <FormField
-                            label="Basic Salary"
-                            name="Basic Salary"
-                            type="number"
-                            value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
-                            onChange={(e) => {
-                              const numValue = e.target.value ? parseFloat(e.target.value) : null;
-                              setNewEmployee(prev => ({
-                                ...prev,
-                                "Basic Salary": numValue
-                              }));
-                            }}
-                         />
+                    <FormField
+                      label="Basic Salary"
+                      name="Basic Salary"
+                      type="number"
+                      value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
+                      onChange={(e) => {
+                        const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                        setNewEmployee(prev => ({
+                          ...prev,
+                          "Basic Salary": numValue
+                        }));
+                      }}
+                    />
                     <FormField
                       label="Currency"
                       name="Currency"
@@ -1032,13 +1301,19 @@ const AddEmployeePage= () => {
                           <span className="ml-2 font-medium min-w-[100px]">{deduction.name}</span>
                         </div>
                         {deduction.isActive && (
-                          <input
-                            type="text"
-                            value={deduction.number}
-                            onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
-                            className="flex-1 h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
-                            placeholder={`Enter ${deduction.name}`}
-                          />
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={deduction.number}
+                              onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
+                              className="w-full h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                              placeholder={`Enter ${deduction.name}`}
+                              onBlur={() => validateField(deduction.columnName, deduction.number)}
+                            />
+                            {errors[`deduction${deduction.columnName}`] && (
+                              <p className="mt-1 text-xs text-red-500">{errors[`deduction${deduction.columnName}`]}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     ))}
@@ -1071,28 +1346,78 @@ const AddEmployeePage= () => {
                         )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          label="Full Name"
-                          value={contact.name}
-                          onChange={(e) => handleEmergencyContactChange(index, 'name', e.target.value)}
-                        />
-                        <FormField
-                          label="Relationship"
-                          value={contact.relationship}
-                          onChange={(e) => handleEmergencyContactChange(index, 'relationship', e.target.value)}
-                        />
-                        <FormField
-                          label="Phone Number"
-                          type="tel"
-                          value={contact.phone}
-                          onChange={(e) => handleEmergencyContactChange(index, 'phone', e.target.value)}
-                        />
-                        <FormField
-                          label="Email (Optional)"
-                          type="email"
-                          value={contact.email || ''}
-                          onChange={(e) => handleEmergencyContactChange(index, 'email', e.target.value)}
-                        />
+                        <div>
+                          <input
+                            type="text"
+                            value={contact.name}
+                            onChange={(e) => handleEmergencyContactChange(index, 'name', e.target.value)}
+                            className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                            placeholder="Full Name"
+                            onBlur={() => {
+                              if (!contact.name) {
+                                setErrors(prev => ({ ...prev, [`emergencyContactName${index}`]: 'Name is required' }));
+                              } else {
+                                const newErrors = { ...errors };
+                                delete newErrors[`emergencyContactName${index}`];
+                                setErrors(newErrors);
+                              }
+                            }}
+                          />
+                          {errors[`emergencyContactName${index}`] && (
+                            <p className="mt-1 text-xs text-red-500">{errors[`emergencyContactName${index}`]}</p>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={contact.relationship}
+                            onChange={(e) => handleEmergencyContactChange(index, 'relationship', e.target.value)}
+                            className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                            placeholder="Relationship"
+                            onBlur={() => {
+                              if (!contact.relationship) {
+                                setErrors(prev => ({ ...prev, [`emergencyContactRelationship${index}`]: 'Relationship is required' }));
+                              } else {
+                                const newErrors = { ...errors };
+                                delete newErrors[`emergencyContactRelationship${index}`];
+                                setErrors(newErrors);
+                              }
+                            }}
+                          />
+                          {errors[`emergencyContactRelationship${index}`] && (
+                            <p className="mt-1 text-xs text-red-500">{errors[`emergencyContactRelationship${index}`]}</p>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            type="tel"
+                            value={contact.phone}
+                            onChange={(e) => handleEmergencyContactChange(index, 'phone', e.target.value)}
+                            className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                            placeholder="Phone Number"
+                            onBlur={() => validateField(`emergencyContactPhone${index}`, contact.phone)}
+                          />
+                          {errors[`emergencyContactPhone${index}`] && (
+                            <p className="mt-1 text-xs text-red-500">{errors[`emergencyContactPhone${index}`]}</p>
+                          )}
+                        </div>
+                        <div>
+                          <input
+                            type="email"
+                            value={contact.email || ''}
+                            onChange={(e) => handleEmergencyContactChange(index, 'email', e.target.value)}
+                            className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                            placeholder="Email (Optional)"
+                            onBlur={() => {
+                              if (contact.email) {
+                                validateField(`emergencyContactEmail${index}`, contact.email);
+                              }
+                            }}
+                          />
+                          {errors[`emergencyContactEmail${index}`] && (
+                            <p className="mt-1 text-xs text-red-500">{errors[`emergencyContactEmail${index}`]}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1132,21 +1457,26 @@ const AddEmployeePage= () => {
                         )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField
-                          label="Full Name"
+                        <input
+                          type="text"
                           value={dependent.name}
                           onChange={(e) => handleDependentChange(index, 'name', e.target.value)}
+                          className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                          placeholder="Full Name"
                         />
-                        <FormField
-                          label="Relationship"
+                        <input
+                          type="text"
                           value={dependent.relationship}
                           onChange={(e) => handleDependentChange(index, 'relationship', e.target.value)}
+                          className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                          placeholder="Relationship"
                         />
-                        <FormField
-                          label="Date of Birth (Optional)"
+                        <input
                           type="date"
                           value={dependent.dateOfBirth || ''}
                           onChange={(e) => handleDependentChange(index, 'dateOfBirth', e.target.value)}
+                          className="w-full h-11 bg-white border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm"
+                          placeholder="Date of Birth (Optional)"
                         />
                       </div>
                     </div>
@@ -1164,17 +1494,44 @@ const AddEmployeePage= () => {
             )}
           </div>
 
-          {error && (
+          {(errors.form || (Object.keys(errors).length > 0 && Object.values(errors).some(error => error))) && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-600"
             >
-              {error}
+              <h3 className="font-medium mb-2">Please complete the required fields or correct the following errors to proceed</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                {errors.form ? (
+                  <li>{errors.form}</li>
+                ) : (
+                  Object.entries(
+                    Object.keys(errors).reduce<Record<string, string[]>>((acc, fieldName) => {
+                      if (errors[fieldName]) {
+                        const tab = getTabForField(fieldName);
+                        if (!acc[tab]) {
+                          acc[tab] = [];
+                        }
+                        acc[tab].push(`${getFieldLabel(fieldName)}: ${errors[fieldName]}`);
+                      }
+                      return acc;
+                    }, {})
+                  ).map(([tab, tabErrors]) => (
+                    <li key={tab}>
+                      <span className="font-medium">{getTabName(tab)}:</span>
+                      <ul className="list-disc pl-5 mt-1">
+                        {tabErrors.map((error, i) => (
+                          <li key={i}>{error}</li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))
+                )}
+              </ul>
             </motion.div>
           )}
 
-          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-300">
+          <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
             <GlowButton 
               variant="secondary" 
               onClick={() => navigate('/employees')}
@@ -1185,7 +1542,6 @@ const AddEmployeePage= () => {
             <GlowButton 
               onClick={handleAddEmployee}
               icon={Plus}
-              loading={loading}
               className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white"
             >
               {loading ? 'Adding Employee...' : 'Add Employee'}
@@ -1220,6 +1576,8 @@ const FormField = ({
   required = false,
   options = [],
   disabled = false,
+  error = '',
+  placeholder = '',
 }: {
   label: string;
   value: string;
@@ -1229,6 +1587,8 @@ const FormField = ({
   required?: boolean;
   options?: string[];
   disabled?: boolean;
+  error?: string;
+  placeholder?: string;
 }) => (
   <div className="space-y-1">
     <label className="block font-medium text-gray-700">
@@ -1242,7 +1602,7 @@ const FormField = ({
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className={`w-full h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+        className={`w-full h-11 bg-gray-50 border ${error ? 'border-red-300' : 'border-gray-300'} rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
       >
         <option value="">Select {label}</option>
         {options.map(option => (
@@ -1257,8 +1617,12 @@ const FormField = ({
         onChange={onChange}
         required={required}
         disabled={disabled}
-        className={`w-full h-11 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
+        placeholder={placeholder}
+        className={`w-full h-11 bg-gray-50 border ${error ? 'border-red-300' : 'border-gray-300'} rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
       />
+    )}
+    {error && (
+      <p className="mt-1 text-xs text-red-500">{error}</p>
     )}
   </div>
 );
