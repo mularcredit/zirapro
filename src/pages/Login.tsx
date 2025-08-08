@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Select from 'react-select';
 
 interface LoginProps {
@@ -59,6 +59,21 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // Check for email confirmation redirect
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (data.session && searchParams.get('type') === 'signup') {
+        toast.success('Email verified successfully! Welcome to Zira HR.');
+        navigate('/staff');
+      }
+    };
+
+    checkSession();
+  }, [navigate, searchParams]);
 
   useEffect(() => {
     const fetchBranches = async () => {
@@ -153,7 +168,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             role: 'STAFF',
             branch: selectedBranch,
           },
-          emailRedirectTo: `${window.location.origin}/staff`,
+          emailRedirectTo: `${window.location.origin}/staff?type=signup`,
         },
       });
 

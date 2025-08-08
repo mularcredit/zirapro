@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
@@ -22,6 +22,7 @@ import EditEmployeePage from './components/Add Form/EditEmployee';
 import { AIAssistantPage } from './components/AI/AIAssistantPage';
 import UserRolesSettings from './components/Settings/UserRole';
 import AuthRoute from './components/ProtectedRoutes/AuthRoute';
+import NotFound from '../src/components/NOT FOUND/NotFound';
 
 interface User {
   email: string;
@@ -79,6 +80,7 @@ function App() {
   
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // Fetch branches from Supabase
   useEffect(() => {
@@ -128,15 +130,53 @@ function App() {
       setSession(null);
       setSelectedTown('');
       localStorage.removeItem('selectedTown');
-      navigate('/');
+      navigate('/login');
     }
     toast.dismiss();
   }, [navigate]);
 
-  const handleLoginSuccess = useCallback((town: string) => {
+  const handleLoginSuccess = useCallback((town: string, userRole: string) => {
     handleTownChange(town);
-    navigate('/dashboard');
+    if (userRole === 'STAFF') {
+      navigate('/staff');
+    } else {
+      navigate('/dashboard');
+    }
   }, [navigate, handleTownChange]);
+
+  // Handle email confirmation redirect
+  useEffect(() => {
+    const handleEmailConfirmation = async () => {
+      const type = searchParams.get('type');
+      if (type === 'signup' || type === 'recovery') {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) throw error;
+
+          if (session) {
+            const userRole = session.user?.user_metadata?.role || 'STAFF';
+            toast.success('Email verified successfully! Welcome to Zira HR.');
+            
+            setSession(session);
+            setUser({
+              email: session.user.email || '',
+              role: userRole,
+              town: session.user.user_metadata?.town || ''
+            });
+
+            navigate(userRole === 'STAFF' ? '/staff' : '/dashboard');
+          }
+        } catch (error) {
+          console.error('Error handling email confirmation:', error);
+          toast.error('Failed to verify email. Please try logging in.');
+          navigate('/login');
+        }
+      }
+    };
+
+    handleEmailConfirmation();
+  }, [navigate, searchParams]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -146,7 +186,7 @@ function App() {
       if (session?.user?.email) {
         const userData = {
           email: session.user.email,
-          role: session.user.user_metadata?.role || 'staff',
+          role: session.user.user_metadata?.role || 'STAFF',
           town: session.user.user_metadata?.town || ''
         };
         
@@ -157,7 +197,11 @@ function App() {
         setSelectedTown(savedTown);
 
         if (location.pathname === '/' || location.pathname === '/login') {
-          navigate('/dashboard');
+          if (userData.role === 'STAFF') {
+            navigate('/staff');
+          } else {
+            navigate('/dashboard');
+          }
         }
       }
     });
@@ -169,14 +213,18 @@ function App() {
       if (session?.user?.email) {
         const userData = {
           email: session.user.email,
-          role: session.user.user_metadata?.role || 'staff',
+          role: session.user.user_metadata?.role || 'STAFF',
           town: session.user.user_metadata?.town || ''
         };
         
         setUser(userData);
         
         if (event === 'SIGNED_IN' && (location.pathname === '/' || location.pathname === '/login')) {
-          navigate('/dashboard');
+          if (userData.role === 'STAFF') {
+            navigate('/staff');
+          } else {
+            navigate('/dashboard');
+          }
         }
       } else {
         setUser(null);
@@ -215,7 +263,6 @@ function App() {
                   <Routes>
                     <Route path="/dashboard" element={<AuthRoute allowedRoles={['ADMIN','MANAGER']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} />} />
-                    <Route path="/dashboard" element={<AuthRoute allowedRoles={['ADMIN','MANAGER']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/payroll" element={<AuthRoute allowedRoles={['ADMIN']}><PayrollDashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
                     <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
@@ -243,6 +290,7 @@ function App() {
                       </div>
                     } />
                     <Route path="/settings" element={<AuthRoute allowedRoles={['ADMIN']}><UserRolesSettings /></AuthRoute>} />
+                    <Route path="*" element={<NotFound />} />
                   </Routes>
                 </motion.div>
               </AnimatePresence>
@@ -258,15 +306,11 @@ function App() {
       return <Loader />;
     }
 
-    if (!session) {
-      return <Login onLoginSuccess={handleLoginSuccess} towns={branches} />;
-    }
-
     return (
       <Routes>
-        <Route path="/staff/*" element={<StaffPortalLanding />} />
-        <Route path="*" element={renderMainLayout()} />
-        <Route path="*" element={renderMainLayout()} />
+        <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+        <Route path="/staff" element={<StaffPortalLanding />} />
+        <Route path="/*" element={renderMainLayout()} />
       </Routes>
     );
   };
