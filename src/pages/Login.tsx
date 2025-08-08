@@ -68,7 +68,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       
       if (data.session && searchParams.get('type') === 'signup') {
         toast.success('Email verified successfully! Welcome to Zira HR.');
-        navigate('/staff');
+        navigate('/');
       }
     };
 
@@ -168,7 +168,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             role: 'STAFF',
             branch: selectedBranch,
           },
-          emailRedirectTo: `${window.location.origin}/staff?type=signup`,
+          emailRedirectTo: `${window.location.origin}/?type=signup`,
         },
       });
 
@@ -298,7 +298,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   />
                 </div>
 
-                <div>
+                <div className="relative z-20">
                   <label htmlFor="branch" className="block text-sm font-medium text-gray-700">
                     Branch Office
                   </label>
@@ -331,9 +331,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                         }),
                         menu: (base) => ({
                           ...base,
+                          zIndex: 30,
                           maxHeight: '200px',
                           overflow: 'auto'
                         }),
+                        menuPortal: base => ({ ...base, zIndex: 9999 }),
                         option: (base, { isFocused }) => ({
                           ...base,
                           backgroundColor: isFocused ? '#f0fdf4' : 'white',
@@ -343,6 +345,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                           }
                         })
                       }}
+                      menuPortalTarget={document.body}
+                      menuPosition={'fixed'}
                       theme={(theme) => ({
                         ...theme,
                         colors: {
@@ -359,7 +363,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             )}
 
             {!isSignUp && (
-              <div>
+              <div className="relative z-10">
                 <label htmlFor="branch" className="block text-sm font-medium text-gray-700">
                   Branch Office
                 </label>
@@ -392,9 +396,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                       }),
                       menu: (base) => ({
                         ...base,
+                        zIndex: 30,
                         maxHeight: '200px',
                         overflow: 'auto'
                       }),
+                      menuPortal: base => ({ ...base, zIndex: 9999 }),
                       option: (base, { isFocused }) => ({
                         ...base,
                         backgroundColor: isFocused ? '#f0fdf4' : 'white',
@@ -404,6 +410,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                         }
                       })
                     }}
+                    menuPortalTarget={document.body}
+                    menuPosition={'fixed'}
                     theme={(theme) => ({
                       ...theme,
                       colors: {
