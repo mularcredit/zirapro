@@ -10,6 +10,7 @@ import Login from './pages/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import EmployeeList from './components/Employees/EmployeeList';
 import PayrollDashboard from './components/Payroll/PayrollDashboard';
+import StaffSignupRequests from './../src/pages/admin'
 import StaffPortalLanding from './components/staff portal/StaffPortal';
 import RecruitmentDashboard from './components/Recruitment/RecruitmentDashboard';
 import LeaveManagementSystem from './components/Leave/LeaveManagement';
@@ -23,6 +24,9 @@ import { AIAssistantPage } from './components/AI/AIAssistantPage';
 import UserRolesSettings from './components/Settings/UserRole';
 import AuthRoute from './components/ProtectedRoutes/AuthRoute';
 import NotFound from '../src/components/NOT FOUND/NotFound';
+import UpdatePasswordPage from './pages/UpdatePassword';
+import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
+import { ApplicationsTable } from './components/Recruitment/components/ApplicationsTable';
 
 interface User {
   email: string;
@@ -267,9 +271,13 @@ function App() {
                     <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
                     <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
                     <Route path="/add-employee" element={<AddEmployeePage />} />
+                    <Route path="*" element={<NotFound />} />
+                    <Route path="salaryadmin" element={<SalaryAdvanceAdmin />} />
                     <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
+                     <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
                     <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                     <Route path="/employee-added" element={<SuccessPage />} />
+                    <Route path="/employee-added" element={<ApplicationsTable />} />
                     <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                     <Route path="/ai-assistant" element={<AIAssistantPage />} />
                     <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
@@ -309,6 +317,8 @@ function App() {
     return (
       <Routes>
         <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+          
+        <Route path="/update-password" element={<UpdatePasswordPage/>} />
         <Route path="/staff" element={<StaffPortalLanding />} />
         <Route path="/*" element={renderMainLayout()} />
       </Routes>

@@ -8,7 +8,7 @@ import GlowButton from '../UI/GlowButton';
 import { User, Briefcase, CreditCard, Phone, Mail, MapPin } from 'lucide-react';
 
 type Employee = Database['public']['Tables']['employees']['Row'] & {
-  'NHIF Number'?: string | null;
+  'SHIF Number'?: string | null;
   'NSSF Number'?: string | null;
   'Tax PIN'?: string | null;
   NITA?: string | null;
@@ -158,12 +158,12 @@ const EditEmployeePage = () => {
 
         // Set default statutory deductions
         const defaultDeductions = [
-  { name: 'NHIF Number', number: employee['NHIF Number'] || '', isActive: !!employee['NHIF Number'] },
-  { name: 'NSSF Number', number: employee['NSSF Number'] || '', isActive: !!employee['NSSF Number'] },
-  { name: 'Tax PIN', number: employee['Tax PIN'] || '', isActive: !!employee['Tax PIN'] },
-  { name: 'NITA', number: employee.NITA || '', isActive: !!employee.NITA },
-  { name: 'HELB', number: employee.HELB || '', isActive: !!employee.HELB }
-];
+          { name: 'SHIF Number', number: empData['SHIF Number'] || '', isActive: !!empData['SHIF Number'] },
+          { name: 'NSSF Number', number: empData['NSSF Number'] || '', isActive: !!empData['NSSF Number'] },
+          { name: 'Tax PIN', number: empData['Tax PIN'] || '', isActive: !!empData['Tax PIN'] },
+          { name: 'NITA', number: empData.NITA || '', isActive: !!empData.NITA },
+          { name: 'HELB', number: empData.HELB || '', isActive: !!empData.HELB }
+        ];
 
         setDropdownOptions(prev => ({
           ...prev,
@@ -240,30 +240,30 @@ const EditEmployeePage = () => {
             error = 'Invalid passport number format';
           }
           break;
-        case 'NHIF Number':
-    if (value && !nhifRegex.test(String(value))) {
-      error = 'Invalid NHIF number (8-10 digits)';
-    }
-    break;
-  case 'NSSF Number':
-    if (value && !nssfRegex.test(String(value))) {
-      error = 'Invalid NSSF number (9 digits)';
-    }
-    break;
-  case 'Tax PIN':
-    if (value && !kraPinRegex.test(String(value))) {
-      error = 'Invalid KRA PIN format (e.g., A123456789Z)';
-    }
-    break;
-  case 'NITA':
-    if (value && !nitaRegex.test(String(value))) {
-      error = 'Invalid NITA number format';
-    }
-    break;
-  case 'HELB':
-    if (value && !helbRegex.test(String(value))) {
-      error = 'Invalid HELB number format';
-    }
+        case 'SHIF Number':
+          if (value && !nhifRegex.test(String(value))) {
+            error = 'Invalid SHIF Number (8-10 digits)';
+          }
+          break;
+        case 'NSSF Number':
+          if (value && !nssfRegex.test(String(value))) {
+            error = 'Invalid NSSF number (9 digits)';
+          }
+          break;
+        case 'Tax PIN':
+          if (value && !kraPinRegex.test(String(value))) {
+            error = 'Invalid KRA PIN format (e.g., A123456789Z)';
+          }
+          break;
+        case 'NITA':
+          if (value && !nitaRegex.test(String(value))) {
+            error = 'Invalid NITA number format';
+          }
+          break;
+        case 'HELB':
+          if (value && !helbRegex.test(String(value))) {
+            error = 'Invalid HELB number format';
+          }
           break;
       }
     }
@@ -399,45 +399,44 @@ const EditEmployeePage = () => {
     
     // Statutory deductions validation
     statutoryDeductions.forEach((deduction) => {
-  if (deduction.isActive && !deduction.number) {
-    newErrors[`deduction${deduction.name}`] = `${deduction.name} is required`;
-    isValid = false;
-  } else if (deduction.isActive && deduction.number) {
-    switch (deduction.name) {
-      case 'NHIF Number':
-        if (!nhifRegex.test(deduction.number)) {
-          newErrors[`deduction${deduction.name}`] = 'Invalid NHIF number (8-10 digits)';
-          isValid = false;
+      if (deduction.isActive && !deduction.number) {
+        newErrors[`deduction${deduction.name}`] = `${deduction.name} is required`;
+        isValid = false;
+      } else if (deduction.isActive && deduction.number) {
+        switch (deduction.name) {
+          case 'SHIF Number':
+            if (!nhifRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid SHIF Number (8-10 digits)';
+              isValid = false;
+            }
+            break;
+          case 'NSSF Number':
+            if (!nssfRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number (9 digits)';
+              isValid = false;
+            }
+            break;
+          case 'Tax PIN':
+            if (!kraPinRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format (e.g., A123456789Z)';
+              isValid = false;
+            }
+            break;
+          case 'NITA':
+            if (!nitaRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid NITA number format';
+              isValid = false;
+            }
+            break;
+          case 'HELB':
+            if (!helbRegex.test(deduction.number)) {
+              newErrors[`deduction${deduction.name}`] = 'Invalid HELB number format';
+              isValid = false;
+            }
+            break;
         }
-        break;
-      case 'NSSF Number':
-        if (!nssfRegex.test(deduction.number)) {
-          newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number (9 digits)';
-          isValid = false;
-        }
-        break;
-      case 'Tax PIN':
-        if (!kraPinRegex.test(deduction.number)) {
-          newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format (e.g., A123456789Z)';
-          isValid = false;
-        }
-        break;
-      case 'NITA':
-        if (!nitaRegex.test(deduction.number)) {
-          newErrors[`deduction${deduction.name}`] = 'Invalid NITA number format';
-          isValid = false;
-        }
-        break;
-      case 'HELB':
-        if (!helbRegex.test(deduction.number)) {
-          newErrors[`deduction${deduction.name}`] = 'Invalid HELB number format';
-          isValid = false;
-        }
-        break;
-    }
-  }
-});
-
+      }
+    });
     
     setErrors(newErrors);
     return isValid;
@@ -485,17 +484,17 @@ const EditEmployeePage = () => {
 
       // Update employee data
       const { error: employeeError } = await supabase
-  .from('employees')
-  .update({
-    ...employee,
-    'Profile Image': imageUrl,
-    'NHIF Number': statutoryDeductions.find(d => d.name === 'NHIF Number')?.number || null,
-    'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null,
-    'Tax PIN': statutoryDeductions.find(d => d.name === 'Tax PIN')?.number || null,
-    'NITA': statutoryDeductions.find(d => d.name === 'NITA')?.number || null,
-    'HELB': statutoryDeductions.find(d => d.name === 'HELB')?.number || null
-  })
-  .eq('"Employee Number"', id);
+        .from('employees')
+        .update({
+          ...employee,
+          'Profile Image': imageUrl,
+          'SHIF Number': statutoryDeductions.find(d => d.name === 'SHIF Number')?.number || null,
+          'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null,
+          'Tax PIN': statutoryDeductions.find(d => d.name === 'Tax PIN')?.number || null,
+          'NITA': statutoryDeductions.find(d => d.name === 'NITA')?.number || null,
+          'HELB': statutoryDeductions.find(d => d.name === 'HELB')?.number || null
+        })
+        .eq('"Employee Number"', id);
       
       if (employeeError) throw employeeError;
       
@@ -691,52 +690,52 @@ const EditEmployeePage = () => {
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         {/* Header */}
-       <div className="bg-green-500  p-6 md:p-8 border-b border-gray-300">
-  <div className="flex flex-col md:flex-row md:items-start justify-between">
-    <div className="flex items-start space-x-4">
-      <div className="relative">
-        {isEditMode ? (
-          <div 
-            className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 cursor-pointer"
-            onClick={triggerFileInput}
-          >
-            {previewImage ? (
-              <img 
-                src={previewImage} 
-                alt="Profile" 
-                className="absolute inset-0 w-16 h-16 rounded-full object-cover"
-              />
-            ) : (
-              <>
-                {employee['First Name']?.[0]}
-                {employee['Last Name']?.[0]}
-                <input 
-                  ref={fileInputRef}
-                  type="file" 
-                  className="hidden" 
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                />
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-black relative">
-            {previewImage ? (
-              <img 
-                src={previewImage} 
-                alt="Profile" 
-                className="absolute inset-0 w-16 h-16 rounded-full object-cover"
-              />
-            ) : (
-              <>
-                {employee['First Name']?.[0]}
-                {employee['Last Name']?.[0]}
-              </>
-            )}
-          </div>
-        )}
-      </div>
+        <div className="bg-green-500 p-6 md:p-8 border-b border-gray-300">
+          <div className="flex flex-col md:flex-row md:items-start justify-between">
+            <div className="flex items-start space-x-4">
+              <div className="relative">
+                {isEditMode ? (
+                  <div 
+                    className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 cursor-pointer"
+                    onClick={triggerFileInput}
+                  >
+                    {previewImage ? (
+                      <img 
+                        src={previewImage} 
+                        alt="Profile" 
+                        className="absolute inset-0 w-16 h-16 rounded-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        {employee['First Name']?.[0]}
+                        {employee['Last Name']?.[0]}
+                        <input 
+                          ref={fileInputRef}
+                          type="file" 
+                          className="hidden" 
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                        />
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-black relative">
+                    {previewImage ? (
+                      <img 
+                        src={previewImage} 
+                        alt="Profile" 
+                        className="absolute inset-0 w-16 h-16 rounded-full object-cover"
+                      />
+                    ) : (
+                      <>
+                        {employee['First Name']?.[0]}
+                        {employee['Last Name']?.[0]}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <div>
                 <h1 className="text-xl md:text-2xl font-bold text-white">
@@ -925,14 +924,14 @@ const EditEmployeePage = () => {
                       label="Date of Birth"
                       name="Date of Birth"
                       type="date"
-                      value={employee['Date of Birth'] || ''}
+                                            value={employee['Date of Birth'] || ''}
                       onChange={(e) => handleDateChange('Date of Birth', e.target.value)}
                       disabled={!isEditMode}
                     />
                     <FormField
                       label="Gender"
                       name="Gender"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee.Gender || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.genders}
@@ -972,16 +971,16 @@ const EditEmployeePage = () => {
                     <FormField
                       label="Marital Status"
                       name="Marital Status"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee['Marital Status'] || ''}
                       onChange={handleInputChange}
-                                            options={['Single', 'Married', 'Divorced', 'Widowed']}
+                      options={['Single', 'Married', 'Divorced', 'Widowed']}
                       disabled={!isEditMode}
                     />
                     <FormField
                       label="Blood Group"
                       name="blood_group"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee.blood_group || ''}
                       onChange={handleInputChange}
                       options={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']}
@@ -990,7 +989,7 @@ const EditEmployeePage = () => {
                     <FormField
                       label="Disability Status"
                       name="Disability Cert No"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee['Disability Cert No'] || ''}
                       onChange={handleInputChange}
                       options={['None', 'Physical', 'Visual', 'Hearing', 'Other']}
@@ -1028,7 +1027,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Employee Type"
                     name="Employee Type"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['Employee Type'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.employmentTypes}
@@ -1055,7 +1054,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Department"
                     name="Job Level"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['Job Level'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobLevels}
@@ -1064,7 +1063,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Job Title"
                     name="Job Title"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['Job Title'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobTitles}
@@ -1073,7 +1072,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Job Group"
                     name="Job Group"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['Job Group'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobGroup}
@@ -1082,7 +1081,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Branch"
                     name="Branch"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee.Branch || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.branches}
@@ -1091,7 +1090,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Office Location"
                     name="Town"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee.Town || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.office}
@@ -1110,7 +1109,7 @@ const EditEmployeePage = () => {
                     <FormField
                       label="Manager"
                       name="Manager"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee['Manager'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
@@ -1137,8 +1136,8 @@ const EditEmployeePage = () => {
                     <FormField
                       label="Leave Approver"
                       name="Leave Approver"
-                      type="select"
-                      value={employee['Leave Approver'] || ''}
+                      type={isEditMode ? "select" : "text"}
+                      value={employee["Leave Approver"] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
                       disabled={!isEditMode}
@@ -1146,7 +1145,7 @@ const EditEmployeePage = () => {
                     <FormField
                       label="Alternate Leave Approver"
                       name="Alternate Approver"
-                      type="select"
+                      type={isEditMode ? "select" : "text"}
                       value={employee['Alternate Approver'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
@@ -1239,6 +1238,25 @@ const EditEmployeePage = () => {
                     disabled={!isEditMode}
                     placeholder="Optional work mobile"
                   />
+                  <FormField
+                    label="Personal Mobile Number"
+                    name="Personal Mobile"
+                    type="tel"
+                    value={employee['Personal Mobile'] || ''}
+                    onChange={handleInputChange}
+                    error={errors['Personal Mobile']}
+                    disabled={!isEditMode}
+                    placeholder="Optional personal mobile"
+                  />
+                  <FormField
+                    label="Alternative Mobile Number"
+                    name="Alternative Mobile Number"
+                    type="tel"
+                    value={employee['Alternative Mobile Number'] || ''}
+                    onChange={handleInputChange}
+                    error={errors['Alternative Mobile Number']}
+                    placeholder="Optional alternative mobile"
+                  />
                 </div>
               </div>
               <div>
@@ -1320,7 +1338,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Payment Method"
                     name="payment_method"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['payment_method'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.paymentMethods}
@@ -1352,7 +1370,7 @@ const EditEmployeePage = () => {
                   <FormField
                     label="Currency"
                     name="Currency"
-                    type="select"
+                    type={isEditMode ? "select" : "text"}
                     value={employee['Currency'] || 'KES'}
                     onChange={handleInputChange}
                     options={['KES', 'USD', 'EUR', 'GBP']}
@@ -1387,15 +1405,21 @@ const EditEmployeePage = () => {
                       </div>
                       {deduction.isActive && (
                         <div className="flex-1">
-                          <input
-                            type="text"
-                            value={deduction.number}
-                            onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
-                            className={`w-full h-11 ${isEditMode ? 'bg-gray-50 border-gray-300' : 'bg-gray-100 border-gray-200'} border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
-                            placeholder={`Enter ${deduction.name}`}
-                            disabled={!isEditMode}
-                            onBlur={() => validateField(`deduction${deduction.name}`, deduction.number)}
-                          />
+                          {isEditMode ? (
+                            <input
+                              type="text"
+                              value={deduction.number}
+                              onChange={(e) => handleStatutoryDeductionChange(index, 'number', e.target.value)}
+                              className={`w-full h-11 bg-gray-50 border-gray-300 border rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+                              placeholder={`Enter ${deduction.name}`}
+                              disabled={!isEditMode}
+                              onBlur={() => validateField(`deduction${deduction.name}`, deduction.number)}
+                            />
+                          ) : (
+                            <div className="w-full h-11 bg-gray-100 border-gray-200 border rounded-lg px-4 py-2 text-gray-900">
+                              {deduction.number}
+                            </div>
+                          )}
                           {errors[`deduction${deduction.name}`] && (
                             <p className="mt-1 text-xs text-red-500">{errors[`deduction${deduction.name}`]}</p>
                           )}

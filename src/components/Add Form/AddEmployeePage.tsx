@@ -10,7 +10,7 @@ type Employee = Database['public']['Tables']['employees']['Row'] & {
   'Work Mobile': string | null;
   'Personal Mobile': string | null;
   'Alternative Mobile Number': string | null;
-  'NHIF Number': string | null;
+  'SHIF Number': string | null;
   'NSSF Number': string | null;
   'Tax PIN': string | null;
   'NITA': string | null;
@@ -77,7 +77,7 @@ const AddEmployeePage = () => {
   const [dependents, setDependents] = useState<Dependent[]>([{ name: '', relationship: '' }]);
   const [statutoryDeductions, setStatutoryDeductions] = useState<StatutoryDeduction[]>([
     { name: 'KRA PIN', number: '', isActive: false, columnName: 'Tax PIN' },
-    { name: 'NHIF', number: '', isActive: false, columnName: 'NHIF Number' },
+    { name: 'NHIF', number: '', isActive: false, columnName: 'SHIF Number' },
     { name: 'NSSF', number: '', isActive: false, columnName: 'NSSF Number' },
     { name: 'HELB', number: '', isActive: false, columnName: 'HELB' },
     { name: 'NITA', number: '', isActive: false, columnName: 'NITA' }
@@ -198,9 +198,9 @@ const AddEmployeePage = () => {
             error = 'Invalid KRA PIN format (e.g., A123456789Z)';
           }
           break;
-        case 'NHIF Number':
+        case 'SHIF Number':
           if (value && !nhifRegex.test(String(value))) {
-            error = 'Invalid NHIF number (8-10 digits)';
+            error = 'Invalid SHIF Number (8-10 digits)';
           }
           break;
         case 'NSSF Number':
@@ -282,7 +282,7 @@ const AddEmployeePage = () => {
     statutoryDeductions.forEach((deduction) => {
       if (deduction.isActive && !deduction.number) {
         newErrors[`deduction${deduction.columnName}`] = `${deduction.name} number is required`;
-        isValid = false;
+        isValid = true;
       } else if (deduction.isActive && deduction.number) {
         switch (deduction.name) {
           case 'KRA PIN':
@@ -293,7 +293,7 @@ const AddEmployeePage = () => {
             break;
           case 'NHIF':
             if (!nhifRegex.test(deduction.number)) {
-              newErrors[`deduction${deduction.columnName}`] = 'Invalid NHIF number';
+              newErrors[`deduction${deduction.columnName}`] = 'Invalid SHIF Number';
               isValid = false;
             }
             break;
@@ -569,7 +569,7 @@ const AddEmployeePage = () => {
     if (contactFields.includes(fieldName)) return 'contact';
     
     const financialFields = ['Bank', 'Account Number', 'account_number_name', 'Bank Branch', 
-      'payment_method', 'Basic Salary', 'Currency', 'Tax PIN', 'NHIF Number', 'NSSF Number', 'HELB', 'NITA'];
+      'payment_method', 'Basic Salary', 'Currency', 'Tax PIN', 'SHIF Number', 'NSSF Number', 'HELB', 'NITA'];
     if (financialFields.includes(fieldName)) return 'financial';
     
     if (fieldName.startsWith('emergencyContact')) return 'emergency';

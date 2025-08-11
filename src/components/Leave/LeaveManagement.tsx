@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, 
+Calendar, 
   Clock, 
   AlertCircle, 
   Plus, 
@@ -23,7 +23,9 @@ import {
   Baby,
   Activity,
   Zap,
-  Gift
+  Gift,
+  Eye,
+  Save
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -52,38 +54,47 @@ type Holiday = {
 
 type LeaveApplication = {
   id: string;
-  employee_id: string;
-  employee_name: string;
-  leave_type_id: string;
-  leave_type_name: string;
-  start_date: string;
-  end_date: string;
-  is_half_day: boolean;
-  status: 'pending' | 'approved' | 'rejected';
-  reason: string;
-  applied_at: string;
-  approved_by?: string;
-  approved_at?: string;
+  "Employee Number": string;
+  Name: string;
+  "Leave Type": string;
+  "Start Date": string;
+  "End Date": string;
+  Days: number;
+  Type: string;
+  "Application Type": string;
+  "Office Branch": string;
+  Reason: string;
+  Status: 'pending' | 'approved' | 'rejected';
+  time_added: string;
 };
 
 type EmployeeLeaveBalance = {
   employee_id: string;
-  employee_name: string;
+  employee_number: string;
+  first_name: string;
+  last_name: string;
+  office: string;
   leave_type_id: string;
   leave_type_name: string;
   accrued_days: number;
   used_days: number;
   remaining_days: number;
   last_accrual_date: string;
+  monthly_accrual: number;
+  quarterly_accrual: number;
+  annual_accrual: number;
 };
 
 type Employee = {
   id: string;
-  name: string;
+  employee_number: string;
+  first_name: string;
+  last_name: string;
   email: string;
   department: string;
   position: string;
   hire_date: string;
+  office: string;
 };
 
 // Default leave types (Kenyan standard)
@@ -193,6 +204,157 @@ const LeaveTypeIcon = ({ type }: { type: LeaveType }) => {
   );
 };
 
+// Detailed View Component
+const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveApplication, onClose: () => void }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">Leave Application Details</h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Employee Name</p>
+              <p className="font-medium">{application.Name}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Employee Number</p>
+              <p className="font-medium">{application["Employee Number"]}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Office Branch</p>
+              <p className="font-medium">{application["Office Branch"] || 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Leave Type</p>
+              <p className="font-medium">{application["Leave Type"]}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Start Date</p>
+              <p className="font-medium">{formatDate(application["Start Date"])}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">End Date</p>
+              <p className="font-medium">{formatDate(application["End Date"])}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Days</p>
+              <p className="font-medium">{application.Days}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Type</p>
+              <p className="font-medium">{application.Type}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Status</p>
+              <div className="font-medium">
+                <StatusBadge status={application.Status} />
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Applied On</p>
+              <p className="font-medium">{formatDate(application.time_added)}</p>
+            </div>
+          </div>
+          
+          <div>
+            <p className="text-sm text-gray-500">Reason</p>
+            <p className="font-medium whitespace-pre-line">{application.Reason}</p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-2 pt-6">
+          <button 
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Pagination Component
+const Pagination = ({ 
+  currentPage, 
+  totalPages, 
+  onPageChange,
+  itemsPerPage,
+  onItemsPerPageChange
+}: { 
+  currentPage: number, 
+  totalPages: number, 
+  onPageChange: (page: number) => void,
+  itemsPerPage: number,
+  onItemsPerPageChange: (value: number) => void
+}) => {
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200">
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-gray-600">Items per page:</span>
+        <select
+          value={itemsPerPage}
+          onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+          className="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-1"
+        >
+          <option value={5}>5</option>
+          <option value={10}>10</option>
+          <option value={20}>20</option>
+          <option value={50}>50</option>
+        </select>
+      </div>
+      
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        
+        <div className="flex gap-1">
+          {pageNumbers.slice(
+            Math.max(0, currentPage - 3),
+            Math.min(totalPages, currentPage + 2)
+          ).map(number => (
+            <button
+              key={number}
+              onClick={() => onPageChange(number)}
+              className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === number ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
+            >
+              {number}
+            </button>
+          ))}
+        </div>
+        
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
+};
+
 // Leave Management Dashboard
 export default function LeaveManagementSystem() {
   // State
@@ -204,6 +366,22 @@ export default function LeaveManagementSystem() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<LeaveApplication | null>(null);
+  
+  // Pagination states
+  const [applicationsPage, setApplicationsPage] = useState(1);
+  const [applicationsPerPage, setApplicationsPerPage] = useState(10);
+  const [balancesPage, setBalancesPage] = useState(1);
+  const [balancesPerPage, setBalancesPerPage] = useState(10);
+  const [typesPage, setTypesPage] = useState(1);
+  const [typesPerPage, setTypesPerPage] = useState(10);
+  const [holidaysPage, setHolidaysPage] = useState(1);
+  const [holidaysPerPage, setHolidaysPerPage] = useState(10);
+  
+  // Loading states for buttons
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [savingBalances, setSavingBalances] = useState(false);
   
   // Form states
   const [showLeaveTypeForm, setShowLeaveTypeForm] = useState(false);
@@ -224,13 +402,18 @@ export default function LeaveManagementSystem() {
     date: new Date().toISOString().split('T')[0], 
     recurring: true 
   });
-  const [newLeaveApplication, setNewLeaveApplication] = useState<Omit<LeaveApplication, 'id' | 'employee_name' | 'leave_type_name' | 'status' | 'applied_at' | 'approved_by' | 'approved_at'>>({ 
-    employee_id: '',
-    leave_type_id: '',
-    start_date: new Date().toISOString().split('T')[0],
-    end_date: new Date().toISOString().split('T')[0],
-    is_half_day: false,
-    reason: ''
+  const [newLeaveApplication, setNewLeaveApplication] = useState<Omit<LeaveApplication, 'id' | 'time_added'>>({ 
+    "Employee Number": '',
+    "Name": '',
+    "Leave Type": '',
+    "Start Date": new Date().toISOString().split('T')[0],
+    "End Date": new Date().toISOString().split('T')[0],
+    "Days": 0,
+    "Type": 'Full Day',
+    "Application Type": 'Normal',
+    "Office Branch": '',
+    "Reason": '',
+    "Status": 'pending'
   });
   const [accrualSettings, setAccrualSettings] = useState({
     accrualInterval: 'monthly', // 'monthly' or 'quarterly'
@@ -238,117 +421,170 @@ export default function LeaveManagementSystem() {
     nextAccrualDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]
   });
 
+  // Calculate paginated data
+  const paginatedApplications = leaveApplications.slice(
+    (applicationsPage - 1) * applicationsPerPage,
+    applicationsPage * applicationsPerPage
+  );
+  const totalApplicationPages = Math.ceil(leaveApplications.length / applicationsPerPage);
+
+  const paginatedBalances = leaveBalances.slice(
+    (balancesPage - 1) * balancesPerPage,
+    balancesPage * balancesPerPage
+  );
+  const totalBalancePages = Math.ceil(leaveBalances.length / balancesPerPage);
+
+  const paginatedTypes = leaveTypes.slice(
+    (typesPage - 1) * typesPerPage,
+    typesPage * typesPerPage
+  );
+  const totalTypePages = Math.ceil(leaveTypes.length / typesPerPage);
+
+  const paginatedHolidays = holidays.slice(
+    (holidaysPage - 1) * holidaysPerPage,
+    holidaysPage * holidaysPerPage
+  );
+  const totalHolidayPages = Math.ceil(holidays.length / holidaysPerPage);
+
+  // Function to create leave balance records
+  const createLeaveBalances = (employeesData: Employee[], applicationsData: LeaveApplication[]) => {
+    const balances: EmployeeLeaveBalance[] = [];
+    
+    // Only create balances for deductible leave types
+    const deductibleLeaveTypes = DEFAULT_LEAVE_TYPES.filter(type => type.is_deductible);
+    
+    employeesData.forEach(employee => {
+      deductibleLeaveTypes.forEach(leaveType => {
+        // Calculate used days for this employee and leave type
+        const usedDays = applicationsData
+          .filter(app => 
+            app["Employee Number"] === employee.employee_number && 
+            app["Leave Type"] === leaveType.name &&
+            app.Status === 'approved'
+          )
+          .reduce((sum, app) => sum + (app.Days || 0), 0);
+        
+        // Set default accrual values based on leave type
+        let monthlyAccrual = 0;
+        let quarterlyAccrual = 0;
+        let annualAccrual = 0;
+        
+        if (leaveType.name === 'Annual Leave') {
+          monthlyAccrual = 2;
+          quarterlyAccrual = 6;
+          annualAccrual = 24;
+        } else if (leaveType.name === 'Sick Leave') {
+          monthlyAccrual = 1;
+          quarterlyAccrual = 3;
+          annualAccrual = 14;
+        }
+        
+        const accruedDays = leaveType.max_days || annualAccrual;
+        const remainingDays = accruedDays - usedDays;
+        
+        balances.push({
+          employee_id: employee.id,
+          employee_number: employee.employee_number,
+          first_name: employee.first_name,
+          last_name: employee.last_name,
+          office: employee.office,
+          leave_type_id: leaveType.id,
+          leave_type_name: leaveType.name,
+          accrued_days: accruedDays,
+          used_days: usedDays,
+          remaining_days: remainingDays,
+          last_accrual_date: new Date().toISOString().split('T')[0],
+          monthly_accrual: monthlyAccrual,
+          quarterly_accrual: quarterlyAccrual,
+          annual_accrual: annualAccrual
+        });
+      });
+    });
+    
+    return balances;
+  };
+
+  // Function to update balance accruals
+  const updateBalanceAccrual = (balanceIndex: number, field: 'monthly_accrual' | 'quarterly_accrual' | 'annual_accrual', value: number) => {
+    setLeaveBalances(prev => {
+      const updated = [...prev];
+      updated[balanceIndex] = {
+        ...updated[balanceIndex],
+        [field]: value
+      };
+      return updated;
+    });
+  };
+
+  // Function to save balance changes
+  const saveBalanceChanges = async () => {
+    setSavingBalances(true);
+    try {
+      // In a real app, you would save these to your database
+      // For now, we'll just show a success message
+      console.log('Saving balance changes:', leaveBalances);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      alert('Leave balance settings saved successfully!');
+    } catch (err) {
+      setError('Failed to save balance changes. Please try again.');
+      console.error(err);
+    } finally {
+      setSavingBalances(false);
+    }
+  };
+
   // Fetch data from Supabase
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // In a real app, you would fetch these from your Supabase tables
-        // For this example, we're using the default/sample data
+        // Fetch employees from Supabase
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('*');
+        
+        if (employeesError) throw employeesError;
+        
+        const employees = employeesData || [];
+        setEmployees(employees);
+
+        // Fetch leave applications from Supabase
+        const { data: leaveApps, error: leaveError } = await supabase
+          .from('leave_application')
+          .select('*')
+          .order('time_added', { ascending: false });
+        
+        if (leaveError) throw leaveError;
+        
+        // Transform the data to match our frontend type
+        const transformedApplications = leaveApps?.map(app => ({
+          id: app.id,
+          "Employee Number": app["Employee Number"],
+          "Name": app["Name"],
+          "Leave Type": app["Leave Type"],
+          "Start Date": app["Start Date"],
+          "End Date": app["End Date"],
+          "Days": app["Days"],
+          "Type": app["Type"],
+          "Application Type": app["Application Type"],
+          "Office Branch": app["Office Branch"] || 'N/A',
+          "Reason": app["Reason"],
+          "Status": app["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+          "time_added": app.time_added
+        })) || [];
+        
+        setLeaveApplications(transformedApplications);
+        
+        // Set other static data
         setLeaveTypes(DEFAULT_LEAVE_TYPES);
         setHolidays(SAMPLE_HOLIDAYS);
         
-        // Sample employee data
-        const sampleEmployees: Employee[] = [
-          { id: '1', name: 'Peter Owino', email: 'john@mularcredit.com', department: 'Finance', position: 'Accountant', hire_date: '2020-01-15' },
-          { id: '2', name: 'Benard Kiplagat', email: 'jane@mularcredit.com', department: 'HR', position: 'HR Manager', hire_date: '2019-05-10' },
-          { id: '3', name: 'Enock Omweri', email: 'robert@mularcredit.com', department: 'IT', position: 'Developer', hire_date: '2021-03-22' },
-          { id: '4', name: 'Faith Mikaya', email: 'mary@mularcredit.com', department: 'Operations', position: 'Operations Manager', hire_date: '2018-11-05' },
-        ];
-        setEmployees(sampleEmployees);
-        
-        // Sample leave applications
-        const sampleApplications: LeaveApplication[] = [
-          { 
-            id: '1', 
-            employee_id: '1', 
-            employee_name: 'John Doe', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            start_date: '2023-06-01', 
-            end_date: '2023-06-03', 
-            is_half_day: false, 
-            status: 'approved', 
-            reason: 'Family vacation', 
-            applied_at: '2023-05-20T10:00:00', 
-            approved_by: 'Jane Smith', 
-            approved_at: '2023-05-21T14:30:00' 
-          },
-          { 
-            id: '2', 
-            employee_id: '2', 
-            employee_name: 'Jane Smith', 
-            leave_type_id: 'sick', 
-            leave_type_name: 'Sick Leave', 
-            start_date: '2023-06-10', 
-            end_date: '2023-06-10', 
-            is_half_day: true, 
-            status: 'approved', 
-            reason: 'Doctor appointment', 
-            applied_at: '2023-06-09T08:15:00', 
-            approved_by: 'Mary Williams', 
-            approved_at: '2023-06-09T10:45:00' 
-          },
-          { 
-            id: '3', 
-            employee_id: '3', 
-            employee_name: 'Robert Johnson', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            start_date: '2023-07-15', 
-            end_date: '2023-07-20', 
-            is_half_day: false, 
-            status: 'pending', 
-            reason: 'Travel', 
-            applied_at: '2023-06-25T16:20:00' 
-          },
-        ];
-        setLeaveApplications(sampleApplications);
-        
-        // Sample leave balances
-        const sampleBalances: EmployeeLeaveBalance[] = [
-          { 
-            employee_id: '1', 
-            employee_name: 'Samwel Righa', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            accrued_days: 12, 
-            used_days: 3, 
-            remaining_days: 9, 
-            last_accrual_date: '2023-05-31' 
-          },
-          { 
-            employee_id: '2', 
-            employee_name: 'Benard Kipngetich', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            accrued_days: 24, 
-            used_days: 5, 
-            remaining_days: 19, 
-            last_accrual_date: '2023-05-31' 
-          },
-          { 
-            employee_id: '3', 
-            employee_name: 'Marion Jeptoo', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            accrued_days: 8, 
-            used_days: 0, 
-            remaining_days: 8, 
-            last_accrual_date: '2023-05-31' 
-          },
-          { 
-            employee_id: '4', 
-            employee_name: 'Faith Mikaya', 
-            leave_type_id: 'annual', 
-            leave_type_name: 'Annual Leave', 
-            accrued_days: 24, 
-            used_days: 10, 
-            remaining_days: 14, 
-            last_accrual_date: '2023-05-31' 
-          },
-        ];
-        setLeaveBalances(sampleBalances);
+        // Create leave balances
+        const balances = createLeaveBalances(employees, transformedApplications);
+        setLeaveBalances(balances);
         
       } catch (err) {
         setError('Failed to fetch data. Please try again.');
@@ -359,6 +595,58 @@ export default function LeaveManagementSystem() {
     };
     
     fetchData();
+    
+    // Set up real-time subscription for leave applications
+    const subscription = supabase
+      .channel('leave_applications_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leave_application'
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            const newApp = payload.new;
+            setLeaveApplications(prev => [{
+              id: newApp.id,
+              "Employee Number": newApp["Employee Number"],
+              "Name": newApp["Name"],
+              "Leave Type": newApp["Leave Type"],
+              "Start Date": newApp["Start Date"],
+              "End Date": newApp["End Date"],
+              "Days": newApp["Days"],
+              "Type": newApp["Type"],
+              "Application Type": newApp["Application Type"],
+              "Office Branch": newApp["Office Branch"] || 'N/A',
+              "Reason": newApp["Reason"],
+              "Status": newApp["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+              "time_added": newApp.time_added
+            }, ...prev]);
+          }
+          else if (payload.eventType === 'UPDATE') {
+            const updatedApp = payload.new;
+            setLeaveApplications(prev => prev.map(app => 
+              app.id === updatedApp.id ? {
+                ...app,
+                "Status": updatedApp["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+                "Reason": updatedApp["Reason"],
+                "Days": updatedApp["Days"]
+              } : app
+            ));
+          }
+          else if (payload.eventType === 'DELETE') {
+            const deletedId = payload.old.id;
+            setLeaveApplications(prev => prev.filter(app => app.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   // Form handlers
@@ -382,93 +670,98 @@ export default function LeaveManagementSystem() {
     setNewHoliday({ name: '', date: new Date().toISOString().split('T')[0], recurring: true });
   };
 
-  const handleApplyLeave = () => {
-    const leaveType = leaveTypes.find(lt => lt.id === newLeaveApplication.leave_type_id);
-    const employee = employees.find(e => e.id === newLeaveApplication.employee_id);
+  const handleApplyLeave = async () => {
+    const leaveType = leaveTypes.find(lt => lt.name === newLeaveApplication["Leave Type"]);
+    const employee = employees.find(e => e.employee_number === newLeaveApplication["Employee Number"]);
     
     if (!leaveType || !employee) return;
     
-    const newApplication: LeaveApplication = {
-      id: `app-${Date.now()}`,
-      employee_id: newLeaveApplication.employee_id,
-      employee_name: employee.name,
-      leave_type_id: newLeaveApplication.leave_type_id,
-      leave_type_name: leaveType.name,
-      start_date: newLeaveApplication.start_date,
-      end_date: newLeaveApplication.end_date,
-      is_half_day: newLeaveApplication.is_half_day,
-      status: 'pending',
-      reason: newLeaveApplication.reason,
-      applied_at: new Date().toISOString(),
-    };
-    
-    setLeaveApplications([...leaveApplications, newApplication]);
-    setShowLeaveApplicationForm(false);
-    setNewLeaveApplication({ 
-      employee_id: '',
-      leave_type_id: '',
-      start_date: new Date().toISOString().split('T')[0],
-      end_date: new Date().toISOString().split('T')[0],
-      is_half_day: false,
-      reason: '' 
-    });
-    
-    // In a real app, you would send an email notification here
-    console.log(`Leave application submitted. Notification email would be sent to approvers.`);
-  };
-
-  const handleApproveLeave = (applicationId: string) => {
-    setLeaveApplications(leaveApplications.map(app => {
-      if (app.id === applicationId) {
-        return {
-          ...app,
-          status: 'approved',
-          approved_by: 'Admin User', // In real app, this would be the logged in user
-          approved_at: new Date().toISOString()
-        };
-      }
-      return app;
-    }));
-    
-    // Deduct leave days if applicable
-    const application = leaveApplications.find(app => app.id === applicationId);
-    if (application) {
-      const leaveType = leaveTypes.find(lt => lt.id === application.leave_type_id);
-      if (leaveType?.is_deductible) {
-        const daysTaken = calculateWorkingDays(application.start_date, application.end_date, holidays);
-        
-        setLeaveBalances(leaveBalances.map(balance => {
-          if (balance.employee_id === application.employee_id && balance.leave_type_id === application.leave_type_id) {
-            return {
-              ...balance,
-              used_days: balance.used_days + daysTaken,
-              remaining_days: balance.remaining_days - daysTaken
-            };
-          }
-          return balance;
-        }));
-      }
+    try {
+      const days = calculateWorkingDays(
+        newLeaveApplication["Start Date"], 
+        newLeaveApplication["End Date"], 
+        holidays
+      );
+      
+      const { data, error } = await supabase
+        .from('leave_application')
+        .insert([{
+          "Employee Number": newLeaveApplication["Employee Number"],
+          "Name": `${employee.first_name} ${employee.last_name}`,
+          "Leave Type": newLeaveApplication["Leave Type"],
+          "Start Date": newLeaveApplication["Start Date"],
+          "End Date": newLeaveApplication["End Date"],
+          "Days": days,
+          "Type": newLeaveApplication["Type"],
+          "Application Type": newLeaveApplication["Application Type"],
+          "Office Branch": employee.office,
+          "Reason": newLeaveApplication["Reason"],
+          "Status": newLeaveApplication["Status"],
+          "time_added": new Date().toISOString()
+        }])
+        .select();
+      
+      if (error) throw error;
+      
+      setShowLeaveApplicationForm(false);
+      setNewLeaveApplication({ 
+        "Employee Number": '',
+        "Name": '',
+        "Leave Type": '',
+        "Start Date": new Date().toISOString().split('T')[0],
+        "End Date": new Date().toISOString().split('T')[0],
+        "Days": 0,
+        "Type": 'Full Day',
+        "Application Type": 'Normal',
+        "Office Branch": '',
+        "Reason": '',
+        "Status": 'pending'
+      });
+      
+    } catch (err) {
+      setError('Failed to submit leave application. Please try again.');
+      console.error(err);
     }
-    
-    // In a real app, you would send an email notification here
-    console.log(`Leave application approved. Notification email would be sent to employee.`);
   };
 
-  const handleRejectLeave = (applicationId: string) => {
-    setLeaveApplications(leaveApplications.map(app => {
-      if (app.id === applicationId) {
-        return {
-          ...app,
-          status: 'rejected',
-          approved_by: 'Admin User', // In real app, this would be the logged in user
-          approved_at: new Date().toISOString()
-        };
-      }
-      return app;
-    }));
-    
-    // In a real app, you would send an email notification here
-    console.log(`Leave application rejected. Notification email would be sent to employee.`);
+  const handleApproveLeave = async (applicationId: string) => {
+    setApprovingId(applicationId);
+    try {
+      const { error } = await supabase
+        .from('leave_application')
+        .update({ "Status": 'approved' })
+        .eq('id', applicationId);
+      
+      if (error) throw error;
+      
+      // Refresh the page to see updates
+      window.location.reload();
+    } catch (err) {
+      setError('Failed to approve leave. Please try again.');
+      console.error(err);
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const handleRejectLeave = async (applicationId: string) => {
+    setRejectingId(applicationId);
+    try {
+      const { error } = await supabase
+        .from('leave_application')
+        .update({ "Status": 'rejected' })
+        .eq('id', applicationId);
+      
+      if (error) throw error;
+      
+      // Refresh the page to see updates
+      window.location.reload();
+    } catch (err) {
+      setError('Failed to reject leave. Please try again.');
+      console.error(err);
+    } finally {
+      setRejectingId(null);
+    }
   };
 
   const handleRunAccrual = () => {
@@ -497,8 +790,8 @@ export default function LeaveManagementSystem() {
   };
 
   // Calculate leave statistics for dashboard
-  const pendingApplications = leaveApplications.filter(app => app.status === 'pending').length;
-  const approvedApplications = leaveApplications.filter(app => app.status === 'approved').length;
+  const pendingApplications = leaveApplications.filter(app => app.Status === 'pending').length;
+  const approvedApplications = leaveApplications.filter(app => app.Status === 'approved').length;
   const totalLeaveDaysUsed = leaveBalances.reduce((sum, balance) => sum + balance.used_days, 0);
   const totalLeaveDaysRemaining = leaveBalances.reduce((sum, balance) => sum + balance.remaining_days, 0);
 
@@ -512,13 +805,13 @@ export default function LeaveManagementSystem() {
             <p className="text-gray-600 text-sm">Manage employee leave applications, balances, and settings</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <button
+            {/* <button
               onClick={() => setShowLeaveApplicationForm(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
               Apply for Leave
-            </button>
+            </button> */}
           </div>
         </div>
       </div>
@@ -557,7 +850,7 @@ export default function LeaveManagementSystem() {
           </div>
           <div className="space-y-1">
             <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Used</p>
-            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p>
+            {/* <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p> */}
           </div>
         </div>
         
@@ -569,7 +862,7 @@ export default function LeaveManagementSystem() {
           </div>
           <div className="space-y-1">
             <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Remaining</p>
-            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p>
+            {/* <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p> */}
           </div>
         </div>
       </div>
@@ -584,12 +877,12 @@ export default function LeaveManagementSystem() {
             >
               Leave Applications
             </button>
-            <button
+            {/* <button
               onClick={() => setActiveTab('balances')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'balances' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Leave Balances
-            </button>
+            </button> */}
             <button
               onClick={() => setActiveTab('types')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'types' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
@@ -622,14 +915,14 @@ export default function LeaveManagementSystem() {
                 <p className="text-gray-600 text-sm">{leaveApplications.length} applications found</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
+                {/* <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
                   <Filter className="w-3 h-3" />
                   Filter
                 </button>
                 <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
                   <Download className="w-3 h-3" />
                   Export
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
@@ -642,90 +935,119 @@ export default function LeaveManagementSystem() {
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Leave Type</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Dates</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Days</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Reason</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Office Branch</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Applied On</th>
                   <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {leaveApplications.map((application) => {
-                  const days = calculateWorkingDays(application.start_date, application.end_date, holidays);
-                  return (
-                    <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
-                      <td className="py-4 px-4">
-                        <div className="space-y-1">
-                          <p className="text-gray-900 font-semibold">{application.employee_name}</p>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-gray-700">{application.leave_type_name}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-gray-700">
-                          {formatDate(application.start_date)}
-                          {application.end_date !== application.start_date && ` - ${formatDate(application.end_date)}`}
-                          {application.is_half_day && ' (Half day)'}
-                        </p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-gray-700">{days}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-gray-700 line-clamp-1">{application.reason}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <StatusBadge status={application.status} />
-                      </td>
-                      <td className="py-4 px-4">
-                        <p className="text-gray-700">{formatDate(application.applied_at)}</p>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex justify-center gap-1">
-                          {application.status === 'pending' && (
-                            <>
-                              <button 
-                                onClick={() => handleApproveLeave(application.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs"
-                              >
+                {paginatedApplications.map((application) => (
+                  <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
+                    <td className="py-4 px-4">
+                      <div className="space-y-1">
+                        <p className="text-gray-900 font-semibold">{application.Name}</p>
+                        <p className="text-gray-500 text-xs">{application["Employee Number"]}</p>
+                      </div>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{application["Leave Type"]}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">
+                        {formatDate(application["Start Date"])}
+                        {application["End Date"] !== application["Start Date"] && ` - ${formatDate(application["End Date"])}`}
+                        {application["Type"] === 'Half Day' && ' (Half day)'}
+                      </p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{application.Days}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{application["Office Branch"]}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <StatusBadge status={application.Status} />
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{formatDate(application.time_added)}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex justify-center gap-1">
+                        <button 
+                          onClick={() => setSelectedApplication(application)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
+                        >
+                          <Eye className="w-3 h-3" />
+                          View
+                        </button>
+                        {application.Status === 'pending' && (
+                          <>
+                            <button 
+                              onClick={() => handleApproveLeave(application.id)}
+                              disabled={approvingId === application.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs disabled:opacity-50"
+                            >
+                              {approvingId === application.id ? (
+                                <span className="inline-block h-3 w-3 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
                                 <CheckCircle className="w-3 h-3" />
-                                Approve
-                              </button>
-                              <button 
-                                onClick={() => handleRejectLeave(application.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
-                              >
-                                <XCircle className="w-3 h-3" />
-                                Reject
-                              </button>
-                            </>
-                          )}
-                          {application.status !== 'pending' && (
-                            <button className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs">
-                              <Mail className="w-3 h-3" />
-                              Notify
+                              )}
+                              Approve
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                            <button 
+                              onClick={() => handleRejectLeave(application.id)}
+                              disabled={rejectingId === application.id}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs disabled:opacity-50"
+                            >
+                              {rejectingId === application.id ? (
+                                <span className="inline-block h-3 w-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></span>
+                              ) : (
+                                <XCircle className="w-3 h-3" />
+                              )}
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            currentPage={applicationsPage}
+            totalPages={totalApplicationPages}
+            onPageChange={setApplicationsPage}
+            itemsPerPage={applicationsPerPage}
+            onItemsPerPageChange={setApplicationsPerPage}
+          />
         </div>
       )}
 
-      {activeTab === 'balances' && (
+      {/* {activeTab === 'balances' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 md:p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Employee Leave Balances</h2>
-                <p className="text-gray-600 text-sm">{leaveBalances.length} records found</p>
+                <p className="text-gray-600 text-sm">{leaveBalances.length} balance records found</p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button 
+                  onClick={saveBalanceChanges}
+                  disabled={savingBalances}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium disabled:opacity-50"
+                >
+                  {savingBalances ? (
+                    <span className="inline-block h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  ) : (
+                    <Save className="w-3 h-3" />
+                  )}
+                  Save Changes
+                </button>
                 <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
                   <Filter className="w-3 h-3" />
                   Filter
@@ -742,55 +1064,108 @@ export default function LeaveManagementSystem() {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Employee</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Employee Number</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">First Name</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Last Name</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Office</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Leave Type</th>
-                  <th className="text-right py-3 px-4 text-gray-700 font-semibold">Accrued Days</th>
+                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Monthly</th>
+                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Quarterly</th>
+                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Annual</th>
                   <th className="text-right py-3 px-4 text-gray-700 font-semibold">Used Days</th>
                   <th className="text-right py-3 px-4 text-gray-700 font-semibold">Remaining Days</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Last Accrual</th>
-                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {leaveBalances.map((balance) => (
-                  <tr key={`${balance.employee_id}-${balance.leave_type_id}`} className="border-b border-gray-300 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <div className="space-y-1">
-                        <p className="text-gray-900 font-semibold">{balance.employee_name}</p>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{balance.leave_type_name}</p>
-                    </td>
-                    <td className="py-4 px-4 text-right font-semibold text-gray-900">
-                      {balance.accrued_days}
-                    </td>
-                    <td className="py-4 px-4 text-right font-semibold text-gray-900">
-                      {balance.used_days}
-                    </td>
-                    <td className="py-4 px-4 text-right font-semibold text-green-600">
-                      {balance.remaining_days}
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{formatDate(balance.last_accrual_date)}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex justify-center gap-1">
-                        <button className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs">
-                          <Edit className="w-3 h-3" />
-                          Adjust
-                        </button>
-                      </div>
+                {paginatedBalances.length > 0 ? (
+                  paginatedBalances.map((balance, index) => (
+                    <tr key={`${balance.employee_id}-${balance.leave_type_id}`} className="border-b border-gray-300 hover:bg-gray-50">
+                      <td className="py-4 px-4">
+                        <p className="text-gray-900 font-medium">{balance.employee_number}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-900 font-medium">{balance.first_name}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-900 font-medium">{balance.last_name}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">{balance.office}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700 font-medium">{balance.leave_type_name}</p>
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <input
+                          type="number"
+                          value={balance.monthly_accrual}
+                          onChange={(e) => updateBalanceAccrual(
+                            leaveBalances.indexOf(balance),
+                            'monthly_accrual',
+                            Number(e.target.value)
+                          )}
+                          className="w-16 text-center bg-gray-50 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                          min="0"
+                          step="0.5"
+                        />
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <input
+                          type="number"
+                          value={balance.quarterly_accrual}
+                          onChange={(e) => updateBalanceAccrual(
+                            leaveBalances.indexOf(balance),
+                            'quarterly_accrual',
+                            Number(e.target.value)
+                          )}
+                          className="w-16 text-center bg-gray-50 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                          min="0"
+                          step="0.5"
+                        />
+                      </td>
+                      <td className="py-4 px-4 text-center">
+                        <input
+                          type="number"
+                          value={balance.annual_accrual}
+                          onChange={(e) => updateBalanceAccrual(
+                            leaveBalances.indexOf(balance),
+                            'annual_accrual',
+                            Number(e.target.value)
+                          )}
+                          className="w-16 text-center bg-gray-50 border border-gray-300 rounded px-2 py-1 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                          min="0"
+                          step="0.5"
+                        />
+                      </td>
+                      <td className="py-4 px-4 text-right font-semibold text-red-600">
+                        {balance.used_days}
+                      </td>
+                      <td className="py-4 px-4 text-right font-semibold text-green-600">
+                        {balance.annual_accrual - balance.used_days}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={10} className="py-8 text-center text-gray-500">
+                      No leave balance records found
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
 
-      {activeTab === 'types' && (
+          <Pagination
+            currentPage={balancesPage}
+            totalPages={totalBalancePages}
+            onPageChange={setBalancesPage}
+            itemsPerPage={balancesPerPage}
+            onItemsPerPageChange={setBalancesPerPage}
+          />
+        </div>
+      )} */}
+            {activeTab === 'types' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="p-4 md:p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -810,47 +1185,71 @@ export default function LeaveManagementSystem() {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 p-4 md:p-6">
-            {leaveTypes.map((type) => (
-              <div key={type.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start gap-3 mb-3">
-                  <LeaveTypeIcon type={type} />
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{type.name}</h3>
-                    <p className="text-gray-600 text-sm">{type.description}</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Deductible:</span>
-                    <span className="font-medium">{type.is_deductible ? 'Yes' : 'No'}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Continuous:</span>
-                    <span className="font-medium">{type.is_continuous ? 'Yes' : 'No'}</span>
-                  </div>
-                  {type.max_days && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Max Days:</span>
-                      <span className="font-medium">{type.max_days}</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end gap-2">
-                  <button className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs">
-                    <Edit className="w-3 h-3" />
-                    Edit
-                  </button>
-                  <button className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs">
-                    <Trash2 className="w-3 h-3" />
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Icon</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Name</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Description</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Deductible</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Continuous</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Max Days</th>
+                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedTypes.map((type) => (
+                  <tr key={type.id} className="border-b border-gray-300 hover:bg-gray-50">
+                    <td className="py-4 px-4">
+                      <LeaveTypeIcon type={type} />
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-900 font-semibold">{type.name}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{type.description}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${type.is_deductible ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {type.is_deductible ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                        {type.is_deductible ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${type.is_continuous ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {type.is_continuous ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                        {type.is_continuous ? 'Yes' : 'No'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-4">
+                      <p className="text-gray-700">{type.max_days || 'N/A'}</p>
+                    </td>
+                    <td className="py-4 px-4">
+                      <div className="flex justify-center gap-1">
+                        <button className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs">
+                          <Edit className="w-3 h-3" />
+                          Edit
+                        </button>
+                        <button className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs">
+                          <Trash2 className="w-3 h-3" />
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          <Pagination
+            currentPage={typesPage}
+            totalPages={totalTypePages}
+            onPageChange={setTypesPage}
+            itemsPerPage={typesPerPage}
+            onItemsPerPageChange={setTypesPerPage}
+          />
         </div>
       )}
 
@@ -878,14 +1277,14 @@ export default function LeaveManagementSystem() {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Holiday Name</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Name</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Date</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Recurring</th>
                   <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {holidays.map((holiday) => (
+                {paginatedHolidays.map((holiday) => (
                   <tr key={holiday.id} className="border-b border-gray-300 hover:bg-gray-50">
                     <td className="py-4 px-4">
                       <p className="text-gray-900 font-semibold">{holiday.name}</p>
@@ -894,11 +1293,14 @@ export default function LeaveManagementSystem() {
                       <p className="text-gray-700">{formatDate(holiday.date)}</p>
                     </td>
                     <td className="py-4 px-4">
-                      <p className="text-gray-700">{holiday.recurring ? 'Yes' : 'No'}</p>
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${holiday.recurring ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                        {holiday.recurring ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                        {holiday.recurring ? 'Yes' : 'No'}
+                      </span>
                     </td>
                     <td className="py-4 px-4">
-                      <div className="flex justify-center gap-2">
-                        <button className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs">
+                      <div className="flex justify-center gap-1">
+                        <button className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs">
                           <Edit className="w-3 h-3" />
                           Edit
                         </button>
@@ -913,78 +1315,78 @@ export default function LeaveManagementSystem() {
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            currentPage={holidaysPage}
+            totalPages={totalHolidayPages}
+            onPageChange={setHolidaysPage}
+            itemsPerPage={holidaysPerPage}
+            onItemsPerPageChange={setHolidaysPerPage}
+          />
         </div>
       )}
 
       {activeTab === 'settings' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Leave Management Settings</h2>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-4 md:p-6 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Leave Settings</h2>
+            <p className="text-gray-600 text-sm">Configure leave accrual and system settings</p>
+          </div>
           
-          <div className="space-y-6">
+          <div className="p-4 md:p-6 space-y-6">
             <div className="border border-gray-200 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-gray-900">Leave Accrual Settings</h3>
                 <button 
                   onClick={() => setShowAccrualSettings(!showAccrualSettings)}
-                  className="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                  className="text-gray-500 hover:text-gray-700"
                 >
-                  {showAccrualSettings ? (
-                    <>
-                      <span>Hide</span>
-                      <ChevronUp className="w-4 h-4" />
-                    </>
-                  ) : (
-                    <>
-                      <span>Show</span>
-                      <ChevronDown className="w-4 h-4" />
-                    </>
-                  )}
+                  {showAccrualSettings ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </button>
               </div>
               
               {showAccrualSettings && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Interval</label>
                       <select
                         value={accrualSettings.accrualInterval}
                         onChange={(e) => setAccrualSettings({...accrualSettings, accrualInterval: e.target.value})}
-                        className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                       >
                         <option value="monthly">Monthly</option>
                         <option value="quarterly">Quarterly</option>
                       </select>
                     </div>
-                    
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Days per Interval</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Amount (days)</label>
                       <input
                         type="number"
                         value={accrualSettings.accrualAmount}
                         onChange={(e) => setAccrualSettings({...accrualSettings, accrualAmount: Number(e.target.value)})}
-                        className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                         min="0"
                         step="0.5"
                       />
                     </div>
-                    
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Next Accrual Date</label>
                       <input
                         type="date"
                         value={accrualSettings.nextAccrualDate}
                         onChange={(e) => setAccrualSettings({...accrualSettings, nextAccrualDate: e.target.value})}
-                        className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                       />
                     </div>
                   </div>
                   
-                  <div className="flex justify-end">
+                  <div className="flex justify-end gap-2 pt-2">
                     <button
                       onClick={handleRunAccrual}
                       className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium"
                     >
+                      <Calendar className="w-4 h-4" />
                       Run Accrual Now
                     </button>
                   </div>
@@ -993,24 +1395,40 @@ export default function LeaveManagementSystem() {
             </div>
             
             <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="font-medium text-gray-900 mb-4">Leave Reports</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button className="inline-flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
-                  <span>Leave Utilization Report</span>
-                  <Download className="w-4 h-4" />
-                </button>
-                <button className="inline-flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
-                  <span>Leave Balance Report</span>
-                  <Download className="w-4 h-4" />
-                </button>
-                <button className="inline-flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
-                  <span>Leave History Report</span>
-                  <Download className="w-4 h-4" />
-                </button>
-                <button className="inline-flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg border border-gray-200">
-                  <span>Leave Forecast Report</span>
-                  <Download className="w-4 h-4" />
-                </button>
+              <h3 className="font-medium text-gray-900 mb-4">System Settings</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Email Notifications</p>
+                    <p className="text-xs text-gray-500">Send email notifications for leave applications</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" defaultChecked />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Approval Workflow</p>
+                    <p className="text-xs text-gray-500">Enable multi-level approval for leave applications</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Allow Negative Balances</p>
+                    <p className="text-xs text-gray-500">Allow employees to take leave with negative balances</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -1030,26 +1448,27 @@ export default function LeaveManagementSystem() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form className="space-y-4">
+            
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type Name</label>
-                <input 
-                  type="text" 
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
                   value={newLeaveType.name}
                   onChange={(e) => setNewLeaveType({...newLeaveType, name: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                   placeholder="e.g. Annual Leave"
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea 
+                <textarea
                   value={newLeaveType.description}
                   onChange={(e) => setNewLeaveType({...newLeaveType, description: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                   rows={3}
-                  placeholder="Describe this leave type..."
+                  placeholder="Describe this leave type"
                 />
               </div>
               
@@ -1059,25 +1478,25 @@ export default function LeaveManagementSystem() {
                   <select
                     value={newLeaveType.icon}
                     onChange={(e) => setNewLeaveType({...newLeaveType, icon: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                   >
-                    <option value="Sun">Sun (Annual)</option>
-                    <option value="Heart">Heart (Compassionate)</option>
-                    <option value="Baby">Baby (Maternity/Paternity)</option>
-                    <option value="Activity">Activity (Sick)</option>
-                    <option value="Zap">Zap (Overtime)</option>
-                    <option value="Gift">Gift (Other)</option>
+                    <option value="Sun">Sun</option>
+                    <option value="Heart">Heart</option>
+                    <option value="Baby">Baby</option>
+                    <option value="Activity">Activity</option>
+                    <option value="Zap">Zap</option>
+                    <option value="Gift">Gift</option>
                   </select>
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Max Days (optional)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     value={newLeaveType.max_days || ''}
                     onChange={(e) => setNewLeaveType({...newLeaveType, max_days: e.target.value ? Number(e.target.value) : undefined})}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
-                    placeholder="Leave blank for no limit"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    placeholder="Leave blank for unlimited"
                     min="0"
                   />
                 </div>
@@ -1085,21 +1504,21 @@ export default function LeaveManagementSystem() {
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="is_deductible"
                     checked={newLeaveType.is_deductible}
                     onChange={(e) => setNewLeaveType({...newLeaveType, is_deductible: e.target.checked})}
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                   />
                   <label htmlFor="is_deductible" className="ml-2 block text-sm text-gray-700">
-                    Deduct from balance
+                    Deductible from balance
                   </label>
                 </div>
                 
                 <div className="flex items-center">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     id="is_continuous"
                     checked={newLeaveType.is_continuous}
                     onChange={(e) => setNewLeaveType({...newLeaveType, is_continuous: e.target.checked})}
@@ -1110,28 +1529,26 @@ export default function LeaveManagementSystem() {
                   </label>
                 </div>
               </div>
-              
-              <div className="flex justify-end gap-2 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowLeaveTypeForm(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleAddLeaveType}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
-                >
-                  Add Leave Type
-                </button>
-              </div>
-            </form>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-6">
+              <button 
+                onClick={() => setShowLeaveTypeForm(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddLeaveType}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+              >
+                Add Leave Type
+              </button>
+            </div>
           </div>
         </div>
       )}
-      
+
       {showHolidayForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
@@ -1144,69 +1561,64 @@ export default function LeaveManagementSystem() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form className="space-y-4">
+            
+            <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Name</label>
-                <input 
-                  type="text" 
+                <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                <input
+                  type="text"
                   value={newHoliday.name}
                   onChange={(e) => setNewHoliday({...newHoliday, name: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                   placeholder="e.g. New Year"
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input 
-                    type="date" 
-                    value={newHoliday.date}
-                    onChange={(e) => setNewHoliday({...newHoliday, date: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-end">
-                  <div className="flex items-center h-full">
-                    <input 
-                      type="checkbox" 
-                      id="recurring"
-                      checked={newHoliday.recurring}
-                      onChange={(e) => setNewHoliday({...newHoliday, recurring: e.target.checked})}
-                      className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="recurring" className="ml-2 block text-sm text-gray-700">
-                      Recurring annually
-                    </label>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={newHoliday.date}
+                  onChange={(e) => setNewHoliday({...newHoliday, date: e.target.value})}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                />
               </div>
               
-              <div className="flex justify-end gap-2 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowHolidayForm(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleAddHoliday}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
-                >
-                  Add Holiday
-                </button>
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="recurring"
+                  checked={newHoliday.recurring}
+                  onChange={(e) => setNewHoliday({...newHoliday, recurring: e.target.checked})}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="recurring" className="ml-2 block text-sm text-gray-700">
+                  Recurring holiday (every year)
+                </label>
               </div>
-            </form>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-6">
+              <button 
+                onClick={() => setShowHolidayForm(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleAddHoliday}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+              >
+                Add Holiday
+              </button>
+            </div>
           </div>
         </div>
       )}
-      
+
       {showLeaveApplicationForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Apply for Leave</h3>
               <button 
@@ -1216,119 +1628,177 @@ export default function LeaveManagementSystem() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <form className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-                <select
-                  value={newLeaveApplication.employee_id}
-                  onChange={(e) => setNewLeaveApplication({...newLeaveApplication, employee_id: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
-                >
-                  <option value="">Select Employee</option>
-                  {employees.map(employee => (
-                    <option key={employee.id} value={employee.id}>{employee.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-                <select
-                  value={newLeaveApplication.leave_type_id}
-                  onChange={(e) => setNewLeaveApplication({...newLeaveApplication, leave_type_id: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
-                >
-                  <option value="">Select Leave Type</option>
-                  {leaveTypes.map(type => (
-                    <option key={type.id} value={type.id}>{type.name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
+            
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                  <input 
-                    type="date" 
-                    value={newLeaveApplication.start_date}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Number</label>
+                  <select
+                    value={newLeaveApplication["Employee Number"]}
                     onChange={(e) => {
+                      const employee = employees.find(emp => emp.employee_number === e.target.value);
                       setNewLeaveApplication({
-                        ...newLeaveApplication, 
-                        start_date: e.target.value,
-                        end_date: e.target.value < newLeaveApplication.end_date ? newLeaveApplication.end_date : e.target.value
+                        ...newLeaveApplication,
+                        "Employee Number": e.target.value,
+                        "Name": employee ? `${employee.first_name} ${employee.last_name}` : '',
+                        "Office Branch": employee?.office || ''
                       });
                     }}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    required
+                  >
+                    <option value="">Select Employee</option>
+                    {employees.map(employee => (
+                      <option key={employee.id} value={employee.employee_number}>
+                        {employee.employee_number} - {employee.first_name} {employee.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                  <select
+                    value={newLeaveApplication["Leave Type"]}
+                    onChange={(e) => setNewLeaveApplication({...newLeaveApplication, "Leave Type": e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    required
+                  >
+                    <option value="">Select Leave Type</option>
+                    {leaveTypes.map(type => (
+                      <option key={type.id} value={type.name}>{type.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={newLeaveApplication["Start Date"]}
+                    onChange={(e) => {
+                      const newStartDate = e.target.value;
+                      // If end date is before new start date, update end date too
+                      const newEndDate = newLeaveApplication["End Date"] < newStartDate 
+                        ? newStartDate 
+                        : newLeaveApplication["End Date"];
+                      setNewLeaveApplication({
+                        ...newLeaveApplication,
+                        "Start Date": newStartDate,
+                        "End Date": newEndDate
+                      });
+                    }}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    required
                   />
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                  <input 
-                    type="date" 
-                    value={newLeaveApplication.end_date}
-                    min={newLeaveApplication.start_date}
-                    onChange={(e) => setNewLeaveApplication({...newLeaveApplication, end_date: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  <input
+                    type="date"
+                    value={newLeaveApplication["End Date"]}
+                    min={newLeaveApplication["Start Date"]}
+                    onChange={(e) => setNewLeaveApplication({...newLeaveApplication, "End Date": e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                    required
                   />
                 </div>
-              </div>
-              
-              <div className="flex items-center">
-                <input 
-                  type="checkbox" 
-                  id="is_half_day"
-                  checked={newLeaveApplication.is_half_day}
-                  onChange={(e) => setNewLeaveApplication({...newLeaveApplication, is_half_day: e.target.checked})}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-                <label htmlFor="is_half_day" className="ml-2 block text-sm text-gray-700">
-                  Half-day leave
-                </label>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
+                  <select
+                    value={newLeaveApplication.Type}
+                    onChange={(e) => setNewLeaveApplication({...newLeaveApplication, Type: e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  >
+                    <option value="Full Day">Full Day</option>
+                    <option value="Half Day">Half Day</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Application Type</label>
+                  <select
+                    value={newLeaveApplication["Application Type"]}
+                    onChange={(e) => setNewLeaveApplication({...newLeaveApplication, "Application Type": e.target.value})}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                  >
+                    <option value="Normal">Normal</option>
+                    <option value="Emergency">Emergency</option>
+                  </select>
+                </div>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                <textarea 
-                  value={newLeaveApplication.reason}
-                  onChange={(e) => setNewLeaveApplication({...newLeaveApplication, reason: e.target.value})}
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+                <textarea
+                  value={newLeaveApplication.Reason}
+                  onChange={(e) => setNewLeaveApplication({...newLeaveApplication, Reason: e.target.value})}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
                   rows={3}
-                  placeholder="Explain the reason for your leave..."
+                  placeholder="Provide a reason for your leave application"
+                  required
                 />
               </div>
               
-              <div className="pt-2">
-                {newLeaveApplication.employee_id && newLeaveApplication.leave_type_id && (
-                  <div className="p-3 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-700">
-                      {newLeaveApplication.is_half_day ? '0.5' : calculateWorkingDays(newLeaveApplication.start_date, newLeaveApplication.end_date, holidays)} 
-                      {' '}days will be deducted from your leave balance.
-                    </p>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-500" />
+                <p className="text-xs text-gray-500">
+                  Estimated working days: {calculateWorkingDays(
+                    newLeaveApplication["Start Date"], 
+                    newLeaveApplication["End Date"], 
+                    holidays
+                  )} (excluding weekends and holidays)
+                </p>
               </div>
-              
-              <div className="flex justify-end gap-2 pt-4">
-                <button 
-                  type="button"
-                  onClick={() => setShowLeaveApplicationForm(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="button"
-                  onClick={handleApplyLeave}
-                  disabled={!newLeaveApplication.employee_id || !newLeaveApplication.leave_type_id}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Submit Application
-                </button>
-              </div>
-            </form>
+            </div>
+            
+            <div className="flex justify-end gap-2 pt-6">
+              <button 
+                onClick={() => setShowLeaveApplicationForm(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleApplyLeave}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+              >
+                Submit Application
+              </button>
+            </div>
           </div>
         </div>
+      )}
+
+      {/* Error Alert */}
+      {error && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-lg">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              <div>
+                <p className="font-medium">Error</p>
+                <p className="text-sm">{error}</p>
+              </div>
+              <button 
+                onClick={() => setError(null)}
+                className="ml-4 text-red-500 hover:text-red-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Application Details Modal */}
+      {selectedApplication && (
+        <LeaveApplicationDetails 
+          application={selectedApplication} 
+          onClose={() => setSelectedApplication(null)} 
+        />
       )}
     </div>
   );

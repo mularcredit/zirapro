@@ -1,13 +1,9 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import viteSingleFile from 'vite-plugin-single-spa'; // Corrected import
 
 export default defineConfig({
-  plugins: [
-    react(),
-    viteSingleFile(), // Proper SPA routing handling
-  ],
+  plugins: [react()],
   base: '/',
   resolve: {
     alias: {
@@ -24,6 +20,7 @@ export default defineConfig({
     include: ['react-router-dom'],
   },
   build: {
+    outDir: 'dist',
     assetsInlineLimit: 0,
     rollupOptions: {
       input: {

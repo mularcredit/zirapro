@@ -47,6 +47,7 @@ const ROLES = {
     requiresLocation: true
   }
 };
+
 const StatusBadge = ({ active }: { active: boolean }) => {
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -87,12 +88,12 @@ const UserCard = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start">
-        <div className="flex items-center gap-3 min-w-0"> {/* Added min-w-0 to help with truncation */}
+        <div className="flex items-center gap-3 min-w-0">
           <div className="bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center flex-shrink-0">
             <User className="w-5 h-5 text-gray-500" />
           </div>
-          <div className="min-w-0"> {/* Added min-w-0 to help with truncation */}
-            <h3 className="font-medium text-gray-900 text-xs truncate"> {/* Added truncate class */}
+          <div className="min-w-0">
+            <h3 className="font-medium text-gray-900 text-xs truncate">
               {user.email}
             </h3>
             <p className="text-xs text-gray-500 truncate">
@@ -101,7 +102,7 @@ const UserCard = ({
           </div>
         </div>
         
-        <div className="relative flex-shrink-0"> {/* Added flex-shrink-0 */}
+        <div className="relative flex-shrink-0">
           <button 
             onClick={() => setShowDropdown(!showDropdown)}
             className="text-gray-400 hover:text-gray-500 p-1"
@@ -310,12 +311,16 @@ const UserEditModal = ({
   const [editedUser, setEditedUser] = useState<any>(user || {
     email: '',
     role: 'STAFF',
-    active: true
+    active: true,
+    password: '',
+    confirmPassword: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
   
   useEffect(() => {
     if (user) {
-      setEditedUser({ ...user });
+      setEditedUser({ ...user, password: '', confirmPassword: '' });
     }
   }, [user]);
   
@@ -325,6 +330,39 @@ const UserEditModal = ({
   
   const handleStatusChange = (active: boolean) => {
     setEditedUser({ ...editedUser, active });
+  };
+
+  const validatePassword = () => {
+    if (!user && !editedUser.password) {
+      setPasswordError('Password is required');
+      return false;
+    }
+    
+    if (editedUser.password && editedUser.password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      return false;
+    }
+    
+    if (editedUser.password !== editedUser.confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return false;
+    }
+    
+    setPasswordError('');
+    return true;
+  };
+
+  const handleSave = () => {
+    if (!validatePassword()) return;
+    
+    // Don't include password fields if not creating a new user
+    const userToSave = user ? { 
+      ...editedUser,
+      password: undefined,
+      confirmPassword: undefined
+    } : editedUser;
+    
+    onSave(userToSave);
   };
   
   return (
@@ -354,6 +392,49 @@ const UserEditModal = ({
               disabled={!!user}
             />
           </div>
+          
+          {!user && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={editedUser.password}
+                    onChange={(e) => setEditedUser({ ...editedUser, password: e.target.value })}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs pr-10"
+                    placeholder="••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Confirm Password</label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={editedUser.confirmPassword}
+                  onChange={(e) => setEditedUser({ ...editedUser, confirmPassword: e.target.value })}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs"
+                  placeholder="••••••"
+                />
+              </div>
+              
+              {passwordError && (
+                <p className="text-xs text-red-500">{passwordError}</p>
+              )}
+            </>
+          )}
           
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
@@ -404,11 +485,11 @@ const UserEditModal = ({
             Cancel
           </button>
           <button
-            onClick={() => onSave(editedUser)}
+            onClick={handleSave}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs flex items-center gap-2"
           >
             <Check className="w-4 h-4" />
-            Save Changes
+            {user ? 'Save Changes' : 'Create User'}
           </button>
         </div>
       </div>
@@ -495,91 +576,89 @@ export default function UserRolesSettings() {
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
-  
-  // Add this inside the UserRolesSettings component, before the return statement
 
-const handleDeleteUser = async (user: any) => {
-  if (!window.confirm(`Are you sure you want to delete ${user.email}? This action cannot be undone.`)) {
-    return;
-  }
+  const handleDeleteUser = async (user: any) => {
+    if (!window.confirm(`Are you sure you want to delete ${user.email}? This action cannot be undone.`)) {
+      return;
+    }
 
-  try {
-    setLoading(true);
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-    
-    if (error) throw error;
-    
-    setUsers(users.filter(u => u.id !== user.id));
-  } catch (err: any) {
-    console.error('Error deleting user:', err);
-    setError(err.message || 'Failed to delete user');
-  } finally {
-    setLoading(false);
-  }
-};
-
-// Also update the handleSaveUser function to handle location data properly
-const handleSaveUser = async (userData: any) => {
-  try {
-    if (editingUser) {
-      // Update existing user
-      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
-        editingUser.id,
-        {
-          email: userData.email,
-          user_metadata: { 
-            ...editingUser.user_metadata, // preserve existing metadata
-            role: userData.role,
-            ...(ROLES[userData.role as keyof typeof ROLES]?.requiresLocation ? { 
-              location: userData.location || null 
-            } : { location: null }) // clear location if role doesn't require it
-          },
-          ban_duration: userData.active ? 'none' : 'permanent'
-        }
-      );
+    try {
+      setLoading(true);
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
       
       if (error) throw error;
       
-      setUsers(users.map(u => u.id === editingUser.id ? {
-        ...u,
-        email: userData.email,
-        role: userData.role,
-        active: userData.active,
-        location: userData.location || null
-      } : u));
-      setEditingUser(null);
-    } else {
-      // Create new user (invite)
-      const { data, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-        userData.email,
-        {
+      setUsers(users.filter(u => u.id !== user.id));
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      setError(err.message || 'Failed to delete user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveUser = async (userData: any) => {
+    try {
+      if (editingUser) {
+        // Update existing user
+        const { data, error } = await supabaseAdmin.auth.admin.updateUserById(
+          editingUser.id,
+          {
+            email: userData.email,
+            user_metadata: { 
+              ...editingUser.user_metadata,
+              role: userData.role,
+              ...(ROLES[userData.role as keyof typeof ROLES]?.requiresLocation ? { 
+                location: userData.location || null 
+              } : { location: null })
+            },
+            ban_duration: userData.active ? 'none' : 'permanent'
+          }
+        );
+        
+        if (error) throw error;
+        
+        setUsers(users.map(u => u.id === editingUser.id ? {
+          ...u,
+          email: userData.email,
+          role: userData.role,
+          active: userData.active,
+          location: userData.location || null
+        } : u));
+        setEditingUser(null);
+      } else {
+        // Create new user with password
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          email: userData.email,
+          password: userData.password,
+          email_confirm: true, // Mark email as confirmed
           user_metadata: { 
             role: userData.role,
             ...(ROLES[userData.role as keyof typeof ROLES]?.requiresLocation ? { 
               location: userData.location || null 
             } : {})
           }
-        }
-      );
-      
-      if (error) throw error;
-      
-      setUsers([...users, {
-        id: data.user.id,
-        email: userData.email,
-        role: userData.role,
-        active: true,
-        last_sign_in_at: null,
-        created_at: new Date().toISOString(),
-        location: userData.location || null
-      }]);
-      setShowAddUserModal(false);
+        });
+        
+        if (error) throw error;
+        
+        setUsers([...users, {
+          id: data.user.id,
+          email: userData.email,
+          role: userData.role,
+          active: true,
+          last_sign_in_at: null,
+          created_at: new Date().toISOString(),
+          location: userData.location || null
+        }]);
+        setShowAddUserModal(false);
+      }
+    } catch (err: any) {
+      console.error('Error saving user:', err);
+      setError(err.message || `Failed to ${editingUser ? 'update' : 'create'} user`);
     }
-  } catch (err: any) {
-    console.error('Error saving user:', err);
-    setError(err.message || `Failed to ${editingUser ? 'update' : 'create'} user`);
-  }
-};
+  };
+
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
