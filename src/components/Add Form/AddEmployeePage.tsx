@@ -198,16 +198,16 @@ const AddEmployeePage = () => {
             error = 'Invalid KRA PIN format (e.g., A123456789Z)';
           }
           break;
-        case 'SHIF Number':
-          if (value && !nhifRegex.test(String(value))) {
-            error = 'Invalid SHIF Number (8-10 digits)';
-          }
-          break;
-        case 'NSSF Number':
-          if (value && !nssfRegex.test(String(value))) {
-            error = 'Invalid NSSF number (9 digits)';
-          }
-          break;
+        // case 'SHIF Number':
+        //   if (value && !nhifRegex.test(String(value))) {
+        //     error = 'Invalid SHIF Number (8-10 digits)';
+        //   }
+        //   break;
+        // case 'NSSF Number':
+        //   if (value && !nssfRegex.test(String(value))) {
+        //     error = 'Invalid NSSF number (9 digits)';
+        //   }
+        //   break;
       }
     }
     

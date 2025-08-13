@@ -177,10 +177,10 @@ export const ApplicationDetailModal = ({ application, onClose }: ApplicationDeta
             >
               Close
             </button>
-            <button className="px-5 py-2.5 bg-[#38d270] hover:bg-[#19b051] text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
+            {/* <button className="px-5 py-2.5 bg-[#38d270] hover:bg-[#19b051] text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
               <Check className="w-4 h-4" />
               Shortlist Candidate
-            </button>
+            </button> */}
           </div>
         </div>
       </div>

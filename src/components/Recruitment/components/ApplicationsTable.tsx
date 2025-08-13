@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Eye, Download, Edit, Briefcase, X } from 'lucide-react';
+import { Eye, Download, Edit, Briefcase, X, Loader2 } from 'lucide-react';
 import { GlowButton } from './GlowButton';
 import { StatusBadge } from './StatusBadge';
+import { sendScheduleEmail } from '../../../services/email';
+import toast from 'react-hot-toast';
 
 interface ApplicationsTableProps {
   applications: any[];
@@ -11,6 +13,7 @@ interface ApplicationsTableProps {
 export const ApplicationsTable = ({ applications, setSelectedApplication }: ApplicationsTableProps) => {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedApplicationForSchedule, setSelectedApplicationForSchedule] = useState<any>(null);
+  const [isSending, setIsSending] = useState(false);
   const [scheduleData, setScheduleData] = useState({
     date: '',
     time: '',
@@ -46,16 +49,57 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
     setShowScheduleModal(true);
   };
 
-  const handleScheduleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Scheduling interview for:', selectedApplicationForSchedule.id, scheduleData);
+const handleScheduleSubmit = async (e) => {
+  e.preventDefault();
+  setIsSending(true);
+  
+  try {
+    const emailContent = `
+      <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #2563eb;">Interview Scheduled</h2>
+        <p>Hello ${selectedApplicationForSchedule.first_name},</p>
+        <p>Your interview for <strong>${selectedApplicationForSchedule.position}</strong> has been scheduled.</p>
+        
+        <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
+          <p><strong>Date:</strong> ${scheduleData.date}</p>
+          <p><strong>Time:</strong> ${scheduleData.time}</p>
+          ${scheduleData.interviewType === 'virtual' ? 
+            `<p><strong>Meeting Link:</strong> ${scheduleData.meetingLink}</p>` : 
+            `<p><strong>Location:</strong> ${scheduleData.location}</p>`}
+          ${scheduleData.notes ? `<p><strong>Notes:</strong> ${scheduleData.notes}</p>` : ''}
+        </div>
+      </div>
+    `;
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTION_URL}/dynamic-api`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        to_email: selectedApplicationForSchedule.email,
+        subject: `Interview Scheduled for ${selectedApplicationForSchedule.position}`,
+        html_content: emailContent,
+        from_email: 'noreply@zirahrapp.com' // Use your verified domain
+      })
+    });
+
+    if (!response.ok) throw new Error('Failed to send email');
+    
+    toast.success('Interview scheduled and email sent!');
     setShowScheduleModal(false);
-  };
+  } catch (error) {
+    toast.error('Failed to send email: ' + error.message);
+  } finally {
+    setIsSending(false);
+  }
+};
 
   return (
     <>
       {/* Main Table Container - Responsive height based on screen size */}
-      <div className="flex flex-col h-[calc(100vh-6rem)] sm:h-[calc(100vh-8rem)] md:h-[calc(100vh-10rem)] lg:h-[calc(100vh-12rem)] xl:h-fit xl:max-h-[85vh] bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="flex flex-col bg-white rounded-xl shadow-sm border border-gray-200">
         {/* Header - Fixed height */}
         <div className="flex-shrink-0 p-3 sm:p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
@@ -346,12 +390,22 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#47d475] hover:bg-[#58cc8b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#47d475] transition-colors"
-                  >
-                    Schedule Interview
-                  </button>
+                 <button
+                        type="submit"
+                        disabled={isSending}
+                        className={`w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#47d475] hover:bg-[#58cc8b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#47d475] transition-colors ${
+                          isSending ? 'opacity-70 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {isSending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                            Sending...
+                          </>
+                        ) : (
+                          'Schedule Interview'
+                        )}
+                      </button>
                 </div>
               </form>
             </div>

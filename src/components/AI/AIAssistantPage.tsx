@@ -85,7 +85,7 @@ export const AIAssistantPage = () => {
   }, 0) / hrData?.length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-blue-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-500 to-blue-900 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.header 
@@ -98,7 +98,7 @@ export const AIAssistantPage = () => {
               <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl text-white border border-white/20">
                 <Bot className="w-8 h-8" />
               </div>
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-400">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-purple-400">
                 HR AI Assistant
               </span>
             </h1>

@@ -240,31 +240,31 @@ const EditEmployeePage = () => {
             error = 'Invalid passport number format';
           }
           break;
-        case 'SHIF Number':
-          if (value && !nhifRegex.test(String(value))) {
-            error = 'Invalid SHIF Number (8-10 digits)';
-          }
-          break;
-        case 'NSSF Number':
-          if (value && !nssfRegex.test(String(value))) {
-            error = 'Invalid NSSF number (9 digits)';
-          }
-          break;
-        case 'Tax PIN':
-          if (value && !kraPinRegex.test(String(value))) {
-            error = 'Invalid KRA PIN format (e.g., A123456789Z)';
-          }
-          break;
-        case 'NITA':
-          if (value && !nitaRegex.test(String(value))) {
-            error = 'Invalid NITA number format';
-          }
-          break;
-        case 'HELB':
-          if (value && !helbRegex.test(String(value))) {
-            error = 'Invalid HELB number format';
-          }
-          break;
+        // case 'SHIF Number':
+        //   if (value && !nhifRegex.test(String(value))) {
+        //     error = 'Invalid SHIF Number (8-10 digits)';
+        //   }
+        //   break;
+        // case 'NSSF Number':
+        //   if (value && !nssfRegex.test(String(value))) {
+        //     error = 'Invalid NSSF number (9 digits)';
+        //   }
+        //   break;
+        // case 'Tax PIN':
+        //   if (value && !kraPinRegex.test(String(value))) {
+        //     error = 'Invalid KRA PIN format (e.g., A123456789Z)';
+        //   }
+        //   break;
+        // case 'NITA':
+        //   if (value && !nitaRegex.test(String(value))) {
+        //     error = 'Invalid NITA number format';
+        //   }
+        //   break;
+        // case 'HELB':
+        //   if (value && !helbRegex.test(String(value))) {
+        //     error = 'Invalid HELB number format';
+        //   }
+        //   break;
       }
     }
     
@@ -407,7 +407,7 @@ const EditEmployeePage = () => {
           case 'SHIF Number':
             if (!nhifRegex.test(deduction.number)) {
               newErrors[`deduction${deduction.name}`] = 'Invalid SHIF Number (8-10 digits)';
-              isValid = false;
+              isValid = true;
             }
             break;
           case 'NSSF Number':

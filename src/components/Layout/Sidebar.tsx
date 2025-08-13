@@ -39,7 +39,7 @@ export default function Sidebar() {
 
   return (
     <motion.div
-      className={`bg-gradient-to-b from-green-700 to-green-800 min-h-screen shadow-xl text-white flex-shrink-0 relative z-20 ${
+      className={`bg-gradient-to-b from-green-700 to-green-900 min-h-screen shadow-xl text-white flex-shrink-0 relative z-20 ${
         isCollapsed ? 'w-16' : 'w-64'
       }`}
       initial={{ width: 64 }}
@@ -106,7 +106,7 @@ export default function Sidebar() {
               <motion.button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center px-0.5 py-3 rounded-lg transition-all duration-200 relative overflow-hidden group ${
+                className={`w-full flex items-center tracking-wide px-0.5 py-3 rounded-lg transition-all duration-200 relative overflow-hidden group  ${
                   isActive
                     ? 'bg-white/10 text-white shadow-sm'
                     : 'text-white/90 hover:text-white hover:bg-white/5'
@@ -117,13 +117,13 @@ export default function Sidebar() {
                 <div className="flex items-center">
                   <div className={`relative p-1.5 rounded-lg ${isActive ? 'bg-green-500/20 ml-2' : 'group-hover:bg-green-500/10 ml-2'}`}>
                     <item.icon
-                      className={`w-4 h-3.5 flex-shrink-0 ${isActive ? 'text-green-300' : 'text-white/80 group-hover:text-white'}`}
+                      className={`w-4 h-3.5 flex-shrink-0 text-sm  ${isActive ? 'text-green-300' : 'text-white/80 group-hover:text-white'}`}
                     />
                   </div>
                   <AnimatePresence>
                     {(isHovered || !isCollapsed) && (
                       <motion.span
-                        className="ml-3 text-sm font-medium whitespace-nowrap"
+                        className="ml-3 text-xs font-medium whitespace-nowrap"
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, x: -10 }}

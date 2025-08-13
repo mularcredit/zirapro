@@ -6,11 +6,13 @@ import toast, { Toaster } from 'react-hot-toast';
 import { CSSProperties } from 'react';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
+import AdminVideoUpload from './components/training/Training'
+import Footer from './components/Layout/Footer';
 import Login from './pages/Login';
 import Dashboard from './components/Dashboard/Dashboard';
 import EmployeeList from './components/Employees/EmployeeList';
 import PayrollDashboard from './components/Payroll/PayrollDashboard';
-import StaffSignupRequests from './../src/pages/admin'
+import StaffSignupRequests from './../src/pages/admin';
 import StaffPortalLanding from './components/staff portal/StaffPortal';
 import RecruitmentDashboard from './components/Recruitment/RecruitmentDashboard';
 import LeaveManagementSystem from './components/Leave/LeaveManagement';
@@ -243,11 +245,11 @@ function App() {
 
   const renderMainLayout = () => {
     return (
-      <>
+      <div className="flex flex-col min-h-screen bg-gray-50">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-100/30 via-transparent to-transparent"></div>
-        <div className="relative flex">
+        <div className="relative flex flex-1 w-full overflow-x-hidden">
           <Sidebar selectedTown={selectedTown} />
-          <div className="flex-1">
+          <div className="flex-1 min-w-0 flex flex-col">
             <Header 
               user={user} 
               onLogout={handleLogout} 
@@ -255,7 +257,7 @@ function App() {
               onTownChange={handleTownChange}
               towns={branches}
             />
-            <main className="overflow-auto">
+            <main className="flex-1 overflow-x-hidden p-4">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={location.pathname}
@@ -263,6 +265,7 @@ function App() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
+                  className="w-full h-full"
                 >
                   <Routes>
                     <Route path="/dashboard" element={<AuthRoute allowedRoles={['ADMIN','MANAGER']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
@@ -274,25 +277,18 @@ function App() {
                     <Route path="*" element={<NotFound />} />
                     <Route path="salaryadmin" element={<SalaryAdvanceAdmin />} />
                     <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
-                     <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
+                    <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
                     <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                     <Route path="/employee-added" element={<SuccessPage />} />
                     <Route path="/employee-added" element={<ApplicationsTable />} />
                     <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                     <Route path="/ai-assistant" element={<AIAssistantPage />} />
                     <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
-                    <Route path="/training" element={
-                      <div className="p-6">
-                        <h1 className="text-3xl font-bold text-white mb-4">Training & Development</h1>
-                        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-8 text-center">
-                          <p className="text-gray-400">Training management module coming soon...</p>
-                        </div>
-                      </div>
-                    } />
+                    <Route path="/training" element={ <AdminVideoUpload/>} />
                     <Route path="/reports" element={
-                      <div className="p-6">
+                      <div className="p-6 w-full">
                         <h1 className="text-3xl font-bold text-white mb-4">Reports & Analytics</h1>
-                        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-8 text-center">
+                        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-8 text-center w-full">
                           <p className="text-gray-400">Reports module coming soon...</p>
                         </div>
                       </div>
@@ -303,9 +299,10 @@ function App() {
                 </motion.div>
               </AnimatePresence>
             </main>
+            <Footer />
           </div>
         </div>
-      </>
+      </div>
     );
   };
 
@@ -317,7 +314,6 @@ function App() {
     return (
       <Routes>
         <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-          
         <Route path="/update-password" element={<UpdatePasswordPage/>} />
         <Route path="/staff" element={<StaffPortalLanding />} />
         <Route path="/*" element={renderMainLayout()} />
@@ -326,7 +322,7 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-x-hidden">
       {renderContent()}
       <Toaster
         position="top-right"

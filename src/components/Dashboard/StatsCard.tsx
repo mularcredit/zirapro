@@ -34,7 +34,7 @@ export default function StatsCard({
   
   return (
     <motion.div
-      className="bg-white backdrop-blur-sm border border-gray-400 rounded-lg p-6 hover:border-green-500/50 hover:shadow-[0_0_20px_rgba(34,197,94,0.06)] shadow-sm transition-all duration-300"
+      className="bg-white backdrop-blur-sm border rounded-lg p-6 hover:border-green-500/50 hover:shadow-[0_0_20px_rgba(34,197,94,0.06)] shadow-sm transition-all duration-300"
       whileHover={{ 
         scale: 1.02,
         y: -2

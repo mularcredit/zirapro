@@ -439,14 +439,14 @@ export default function Header({ user, onLogout }: HeaderProps) {
           {/* Right side icons */}
           <div className="flex items-center space-x-4">
             {/* Search bar */}
-            <div className="relative hidden md:block">
+            {/* <div className="relative hidden md:block">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search employees, records..."
                 className="bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.3)] transition-all duration-200 w-60"
               />
-            </div>
+            </div> */}
 
             {/* Notification bell */}
             <motion.button

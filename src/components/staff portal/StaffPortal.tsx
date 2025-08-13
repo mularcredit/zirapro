@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import EmployeeDeductionsForm from './Profile'
+import TrainingModule from './Training';
 import { 
   FileText, 
   FileSignature, 
   UserCog, 
+  BookOpen,
   UploadCloud,
   Home,
   PartyPopper,
@@ -22,6 +25,7 @@ import {
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import Profile from './Profile';
 
 // NavButton Component
 const NavButton = ({ icon, label, active, onClick, isDarkHeader = false }: { 
@@ -135,6 +139,7 @@ const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () 
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
               placeholder="your@email.com"
+              readOnly
             />
           </div>
 
@@ -1144,6 +1149,14 @@ const StaffPortal = () => {
                 onClick={() => setActiveTab('home')}
                 isDarkHeader={true}
               />
+              
+                <NavButton 
+                  icon={<BookOpen size={18} />}
+                  label="Training"
+                  active={activeTab === 'training'}
+                  onClick={() => setActiveTab('training')}
+                  isDarkHeader={true}
+                />
               <NavButton 
                 icon={<DollarSign size={18} />}
                 label="Salary Advance"
@@ -1212,10 +1225,11 @@ const StaffPortal = () => {
           {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
           {activeTab === 'salary-advance' && <SalaryAdvanceForm />}
           {activeTab === 'loan' && <ComingSoon title="Loans" />}
+          {activeTab === 'training' && <TrainingModule />}
           {activeTab === 'leave' && <LeaveApplicationForm />}
           {activeTab === 'leave-history' && <LeaveApplicationsList />}
           {activeTab === 'contract' && <ComingSoon title="Contracts" />}
-          {activeTab === 'details' && <ComingSoon title="Profile" />}
+          {activeTab === 'details' && <Profile/>}
           {activeTab === 'documents' && <ComingSoon title="Documents" />}
         </motion.div>
       </main>

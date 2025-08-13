@@ -311,7 +311,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="max-w-md text-white relative z-10">
           <div className="mb-8">
             <h1 className="text-4xl font-semibold mb-2">Zira<span className="font-light">HR</span></h1>
-            <p className="text-lime-300 font-semibold">Smiles Start Here</p>
+            <p className="text-lime-300 font-bold">Smiles Start Here</p>
           </div>
           
           <div className="space-y-4">

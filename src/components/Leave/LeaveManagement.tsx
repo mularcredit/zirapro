@@ -28,6 +28,7 @@ Calendar,
   Save
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import { TownProps } from '../../types/supabase';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -356,7 +357,7 @@ const Pagination = ({
 };
 
 // Leave Management Dashboard
-export default function LeaveManagementSystem() {
+export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   // State
   const [activeTab, setActiveTab] = useState('applications');
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(DEFAULT_LEAVE_TYPES);
@@ -537,30 +538,39 @@ export default function LeaveManagementSystem() {
   };
 
   // Fetch data from Supabase
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Fetch employees from Supabase
-        const { data: employeesData, error: employeesError } = await supabase
-          .from('employees')
-          .select('*');
-        
-        if (employeesError) throw employeesError;
-        
-        const employees = employeesData || [];
-        setEmployees(employees);
+// Fixed useEffect with debugging for 'Office Branch' column
+useEffect(() => {
+  const fetchLeaveApplications = async () => {
+    setLoading(true);
+    try {
+      console.log('[DEBUG] Fetching applications for town:', selectedTown);
+      
+      // Build base query
+      let query = supabase
+        .from('leave_application')
+        .select('*')
+        .order('time_added', { ascending: false });
 
-        // Fetch leave applications from Supabase
-        const { data: leaveApps, error: leaveError } = await supabase
-          .from('leave_application')
-          .select('*')
-          .order('time_added', { ascending: false });
-        
-        if (leaveError) throw leaveError;
-        
-        // Transform the data to match our frontend type
-        const transformedApplications = leaveApps?.map(app => ({
+      // Apply Office Branch filter if selected
+      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+        console.log('[DEBUG] Applying filter for town:', selectedTown);
+        query = query.eq('"Office Branch"', selectedTown.trim()); // Note the quotes
+      }
+
+      // Execute query
+      const { data, error } = await query;
+      
+      console.log('[DEBUG] Query results:', data);
+      
+      if (error) {
+        console.error('[DEBUG] Query error:', error);
+        throw error;
+      }
+
+      // Type cast and transform the data
+      const applications = (data as LeaveApplication[]).map(app => {
+        console.log('[DEBUG] Processing application:', app.id, 'with branch:', app["Office Branch"]);
+        return {
           id: app.id,
           "Employee Number": app["Employee Number"],
           "Name": app["Name"],
@@ -574,80 +584,79 @@ export default function LeaveManagementSystem() {
           "Reason": app["Reason"],
           "Status": app["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
           "time_added": app.time_added
-        })) || [];
-        
-        setLeaveApplications(transformedApplications);
-        
-        // Set other static data
-        setLeaveTypes(DEFAULT_LEAVE_TYPES);
-        setHolidays(SAMPLE_HOLIDAYS);
-        
-        // Create leave balances
-        const balances = createLeaveBalances(employees, transformedApplications);
-        setLeaveBalances(balances);
-        
-      } catch (err) {
-        setError('Failed to fetch data. Please try again.');
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchData();
-    
-    // Set up real-time subscription for leave applications
-    const subscription = supabase
-      .channel('leave_applications_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leave_application'
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newApp = payload.new;
-            setLeaveApplications(prev => [{
-              id: newApp.id,
-              "Employee Number": newApp["Employee Number"],
-              "Name": newApp["Name"],
-              "Leave Type": newApp["Leave Type"],
-              "Start Date": newApp["Start Date"],
-              "End Date": newApp["End Date"],
-              "Days": newApp["Days"],
-              "Type": newApp["Type"],
-              "Application Type": newApp["Application Type"],
-              "Office Branch": newApp["Office Branch"] || 'N/A',
-              "Reason": newApp["Reason"],
-              "Status": newApp["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
-              "time_added": newApp.time_added
-            }, ...prev]);
-          }
-          else if (payload.eventType === 'UPDATE') {
-            const updatedApp = payload.new;
-            setLeaveApplications(prev => prev.map(app => 
-              app.id === updatedApp.id ? {
-                ...app,
-                "Status": updatedApp["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
-                "Reason": updatedApp["Reason"],
-                "Days": updatedApp["Days"]
-              } : app
-            ));
-          }
-          else if (payload.eventType === 'DELETE') {
-            const deletedId = payload.old.id;
-            setLeaveApplications(prev => prev.filter(app => app.id !== deletedId));
-          }
-        }
-      )
-      .subscribe();
+        };
+      });
 
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, []);
+      setLeaveApplications(applications);
+      
+    } catch (err) {
+      console.error('[DEBUG] Fetch error:', err);
+      setError('Failed to fetch leave applications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchLeaveApplications();
+
+  // Realtime subscription for leave applications
+  const subscription = supabase
+    .channel('leave_applications_changes')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'leave_application',
+        filter: selectedTown && selectedTown !== 'ADMIN_ALL' 
+          ? `"Office Branch"=eq.${selectedTown.trim()}` // Quotes here too
+          : undefined
+      },
+      (payload) => {
+        console.log('[DEBUG] Realtime update:', payload);
+        
+        if (!payload.new) return;
+        const application = payload.new as LeaveApplication;
+        
+        if (payload.eventType === 'INSERT') {
+          setLeaveApplications(prev => [{
+            id: application.id,
+            "Employee Number": application["Employee Number"],
+            "Name": application["Name"],
+            "Leave Type": application["Leave Type"],
+            "Start Date": application["Start Date"],
+            "End Date": application["End Date"],
+            "Days": application["Days"],
+            "Type": application["Type"],
+            "Application Type": application["Application Type"],
+            "Office Branch": application["Office Branch"] || 'N/A',
+            "Reason": application["Reason"],
+            "Status": application["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+            "time_added": application.time_added
+          }, ...prev]);
+        }
+        else if (payload.eventType === 'UPDATE') {
+          setLeaveApplications(prev => prev.map(app => 
+            app.id === application.id ? {
+              ...app,
+              "Status": application["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+              "Reason": application["Reason"],
+              "Days": application["Days"]
+            } : app
+          ));
+        }
+        else if (payload.eventType === 'DELETE') {
+          setLeaveApplications(prev => prev.filter(app => app.id !== application.id));
+        }
+      }
+    )
+    .subscribe();
+
+  return () => {
+    console.log('[DEBUG] Cleaning up subscription');
+    supabase.removeChannel(subscription);
+  };
+}, [selectedTown]);// Only depends on selectedTown now// Re-run when selectedTown changes// Added employees to dependencies// Re-run when selectedTown changes
 
   // Form handlers
   const handleAddLeaveType = () => {

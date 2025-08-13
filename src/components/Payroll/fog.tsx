@@ -125,7 +125,7 @@ useEffect(() => {
       // Add unique id to each employee for row selection
       const employeesWithId = data?.map(emp => ({
         ...emp,
-        id: `emp-${emp["Employee Id"] || Math.random().toString(36).substring(2, 9)}`
+        id: `emp-${emp["Employee Number"] || Math.random().toString(36).substring(2, 9)}`
       })) || [];
       
       setEmployees(employeesWithId);
@@ -150,15 +150,14 @@ useEffect(() => {
   }
     // Apply search
     if (searchTerm) {
-      
-      const term = searchTerm.toLowerCase();
-      result = result.filter(emp => 
-         
-        {(emp["First Name"]?.toLowerCase().includes(term) )||
-        (emp["Last Name"]?.toLowerCase().includes(term)) ||
-        (emp["Work Email"]?.toLowerCase().includes(term)) ||
-        (emp["Employee Number"]?.toLowerCase().includes(term))}
-      )}
+  const term = searchTerm.toLowerCase();
+  result = result.filter(emp => 
+    (emp["First Name"]?.toLowerCase().includes(term) ||
+    emp["Last Name"]?.toLowerCase().includes(term) ||
+    emp["Work Email"]?.toLowerCase().includes(term) ||
+    emp["Employee Number"]?.toLowerCase().includes(term) ||
+    emp["ID Number"]?.toString().includes(term)))
+}
     
    
     if (filters.Branch) {
@@ -226,7 +225,7 @@ useEffect(() => {
       const { error } = await supabase
         .from('employees')
         .update(editableData)
-        .eq('Employee Id', originalEmployee["Employee Id"]);
+        .eq('Employee Number', originalEmployee["Employee Number"]);
       
       if (error) throw error;
       
@@ -262,14 +261,14 @@ useEffect(() => {
       // Get the Employee Ids of selected rows
       const employeeIds = employees
         .filter(emp => selectedRows.includes(emp.id))
-        .map(emp => emp["Employee Id"]);
+        .map(emp => emp["Employee Number"]);
       
       if (employeeIds.length === 0) return;
       
       const { error } = await supabase
         .from('employees')
         .update({ [bulkUpdateField]: bulkUpdateValue })
-        .in('Employee Id', employeeIds);
+        .in('Employee Number', employeeIds);
       
       if (error) throw error;
       
@@ -346,7 +345,7 @@ useEffect(() => {
             <input
               type="text"
               placeholder="Search employees..."
-              className="pl-9 pr-4 py-2 w-full text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all bg-gray-50"
+              className="pl-9 pr-4 py-2 w-full text-sm border border-green-200 rounded-lg   focus:border-green-100 focus:outline focus:outline-green-200 focus:outline-2 focus:outline-offset-2 transition-all bg-green-50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -509,7 +508,7 @@ useEffect(() => {
       
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 overflow-scroll">
           <thead className="bg-gray-50">
             <tr>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

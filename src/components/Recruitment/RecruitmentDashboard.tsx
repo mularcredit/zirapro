@@ -79,7 +79,7 @@ export default function RecruitmentDashboard() {
   };
 
   return (
-    <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
+    <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto ">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
