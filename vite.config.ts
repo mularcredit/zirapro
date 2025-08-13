@@ -23,6 +23,7 @@ export default defineConfig({
     outDir: 'dist',
     assetsInlineLimit: 0,
     rollupOptions: {
+      external: ['uuid'],
       input: {
         main: resolve(__dirname, 'index.html'),
       },
