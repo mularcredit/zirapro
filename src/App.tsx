@@ -76,6 +76,48 @@ const Loader = () => {
   );
 };
 
+// Error Boundary Component
+const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const handleError = (error: any) => {
+      console.error('App Error:', error);
+      setHasError(true);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleError);
+    };
+  }, []);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
+          <p className="text-gray-600 mb-4">Please refresh the page to continue</p>
+          <button 
+            onClick={() => {
+              setHasError(false);
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+};
+
 function App() {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<any>(null);
@@ -83,12 +125,13 @@ function App() {
   const [selectedTown, setSelectedTown] = useState<string>('');
   const [branches, setBranches] = useState<string[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Fetch branches from Supabase
+  // Fetch branches from Supabase with better error handling
   useEffect(() => {
     const fetchBranches = async () => {
       setIsFetchingBranches(true);
@@ -102,10 +145,12 @@ function App() {
         
         const branchNames = data?.map(item => item['Branch Office']) || [];
         setBranches(branchNames);
+        console.log('Branches loaded successfully:', branchNames.length);
       } catch (error) {
         console.error('Error fetching branches:', error);
-        toast.error('Failed to load branch offices');
+        // Fallback branches if database fails
         setBranches(['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru']);
+        console.log('Using fallback branches');
       } finally {
         setIsFetchingBranches(false);
       }
@@ -115,45 +160,60 @@ function App() {
   }, []);
 
   const handleTownChange = useCallback((town: string) => {
+    console.log('Town changed to:', town);
     setSelectedTown(town);
     localStorage.setItem('selectedTown', town);
     
-    supabase.auth.updateUser({
-      data: { town }
-    }).then(({ error }) => {
-      if (error) console.error('Error updating user metadata:', error);
-    });
-  }, []);
+    if (session?.user) {
+      supabase.auth.updateUser({
+        data: { town }
+      }).then(({ error }) => {
+        if (error) console.error('Error updating user metadata:', error);
+      });
+    }
+  }, [session]);
 
   const handleLogout = useCallback(async () => {
     console.log('Logging out...');
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Logged out successfully');
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success('Logged out successfully');
+        setUser(null);
+        setSession(null);
+        setSelectedTown('');
+        localStorage.removeItem('selectedTown');
+        navigate('/login', { replace: true });
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force logout even if Supabase fails
       setUser(null);
       setSession(null);
       setSelectedTown('');
       localStorage.removeItem('selectedTown');
-      navigate('/login');
+      navigate('/login', { replace: true });
     }
     toast.dismiss();
   }, [navigate]);
 
   const handleLoginSuccess = useCallback((town: string, userRole: string) => {
+    console.log('Login success:', { town, userRole });
     handleTownChange(town);
-    if (userRole === 'STAFF') {
-      navigate('/staff');
-    } else {
-      navigate('/dashboard');
-    }
+    
+    // Navigate based on role
+    const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
+    navigate(targetPath, { replace: true });
   }, [navigate, handleTownChange]);
 
   // Handle email confirmation redirect
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       const type = searchParams.get('type');
+      console.log('URL params type:', type);
+      
       if (type === 'signup' || type === 'recovery') {
         try {
           const { data: { session }, error } = await supabase.auth.getSession();
@@ -171,12 +231,13 @@ function App() {
               town: session.user.user_metadata?.town || ''
             });
 
-            navigate(userRole === 'STAFF' ? '/staff' : '/dashboard');
+            const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
+            navigate(targetPath, { replace: true });
           }
         } catch (error) {
           console.error('Error handling email confirmation:', error);
           toast.error('Failed to verify email. Please try logging in.');
-          navigate('/login');
+          navigate('/login', { replace: true });
         }
       }
     };
@@ -184,35 +245,74 @@ function App() {
     handleEmailConfirmation();
   }, [navigate, searchParams]);
 
+  // Main auth state management - FIXED VERSION
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthChecked(true);
-
-      if (session?.user?.email) {
-        const userData = {
-          email: session.user.email,
-          role: session.user.user_metadata?.role || 'STAFF',
-          town: session.user.user_metadata?.town || ''
-        };
+    console.log('Setting up auth state listener...');
+    
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        setUser(userData);
-        
-        const savedTown = localStorage.getItem('selectedTown') || 
-                          session.user.user_metadata?.town || '';
-        setSelectedTown(savedTown);
+        if (error) {
+          console.error('Session error:', error);
+          setAuthChecked(true);
+          setIsInitializing(false);
+          return;
+        }
 
-        if (location.pathname === '/' || location.pathname === '/login') {
-          if (userData.role === 'STAFF') {
-            navigate('/staff');
-          } else {
-            navigate('/dashboard');
+        console.log('Initial session:', !!session);
+        setSession(session);
+
+        if (session?.user?.email) {
+          const userData = {
+            email: session.user.email,
+            role: session.user.user_metadata?.role || 'STAFF',
+            town: session.user.user_metadata?.town || ''
+          };
+          
+          setUser(userData);
+          console.log('User data set:', userData);
+          
+          // Set selected town from localStorage or user metadata
+          const savedTown = localStorage.getItem('selectedTown') || 
+                            session.user.user_metadata?.town || '';
+          if (savedTown) {
+            setSelectedTown(savedTown);
+          }
+
+          // Only redirect if we're on login or root path
+          const currentPath = location.pathname;
+          if (currentPath === '/' || currentPath === '/login') {
+            const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
+            console.log('Redirecting to:', targetPath);
+            navigate(targetPath, { replace: true });
+          }
+        } else {
+          // No session - clear user data
+          setUser(null);
+          setSelectedTown('');
+          
+          // Only redirect to login if we're on a protected route
+          const publicPaths = ['/login', '/update-password'];
+          if (!publicPaths.includes(location.pathname)) {
+            console.log('No session, redirecting to login');
+            navigate('/login', { replace: true });
           }
         }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+      } finally {
+        setAuthChecked(true);
+        setIsInitializing(false);
       }
-    });
+    };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    initializeAuth();
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, !!session);
+      
       setSession(session);
       setAuthChecked(true);
 
@@ -225,16 +325,17 @@ function App() {
         
         setUser(userData);
         
-        if (event === 'SIGNED_IN' && (location.pathname === '/' || location.pathname === '/login')) {
-          if (userData.role === 'STAFF') {
-            navigate('/staff');
-          } else {
-            navigate('/dashboard');
-          }
+        if (event === 'SIGNED_IN') {
+          const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
+          navigate(targetPath, { replace: true });
         }
       } else {
         setUser(null);
         setSelectedTown('');
+        
+        if (event === 'SIGNED_OUT') {
+          navigate('/login', { replace: true });
+        }
       }
     });
 
@@ -244,6 +345,11 @@ function App() {
   }, [navigate, location.pathname]);
 
   const renderMainLayout = () => {
+    // Don't render main layout if still initializing
+    if (isInitializing) {
+      return <Loader />;
+    }
+
     return (
       <div className="flex flex-col min-h-screen bg-gray-50">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-100/30 via-transparent to-transparent"></div>
@@ -268,23 +374,65 @@ function App() {
                   className="w-full h-full"
                 >
                   <Routes>
-                    <Route path="/" element={<AuthRoute allowedRoles={['ADMIN','MANAGER','STAFF']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
-                    <Route path="/dashboard" element={<AuthRoute allowedRoles={['ADMIN','MANAGER']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
+                    {/* Root redirect based on role */}
+                    <Route 
+                      path="/" 
+                      element={
+                        user?.role === 'STAFF' ? 
+                          <StaffPortalLanding /> : 
+                          <AuthRoute allowedRoles={['ADMIN','MANAGER']}>
+                            <Dashboard selectedTown={selectedTown} />
+                          </AuthRoute>
+                      } 
+                    />
+                    
+                    {/* Main dashboard routes */}
+                    <Route 
+                      path="/dashboard" 
+                      element={
+                        <AuthRoute allowedRoles={['ADMIN','MANAGER']}>
+                          <Dashboard selectedTown={selectedTown} />
+                        </AuthRoute>
+                      } 
+                    />
+                    
+                    {/* Employee routes */}
                     <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} />} />
-                    <Route path="/payroll" element={<AuthRoute allowedRoles={['ADMIN']}><PayrollDashboard selectedTown={selectedTown} /></AuthRoute>} />
-                    <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
-                    <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
                     <Route path="/add-employee" element={<AddEmployeePage />} />
-                    <Route path="/salaryadmin" element={<SalaryAdvanceAdmin />} />
-                    <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
-                    <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
                     <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
-                    <Route path="/employee-added" element={<SuccessPage />} />
-                    <Route path="/applications" element={<ApplicationsTable />} />
                     <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
-                    <Route path="/ai-assistant" element={<AIAssistantPage />} />
+                    <Route path="/employee-added" element={<SuccessPage />} />
+                    
+                    {/* Admin routes */}
+                    <Route 
+                      path="/payroll" 
+                      element={
+                        <AuthRoute allowedRoles={['ADMIN']}>
+                          <PayrollDashboard selectedTown={selectedTown} />
+                        </AuthRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/settings" 
+                      element={
+                        <AuthRoute allowedRoles={['ADMIN']}>
+                          <UserRolesSettings />
+                        </AuthRoute>
+                      } 
+                    />
+                    <Route path="/salaryadmin" element={<SalaryAdvanceAdmin />} />
+                    <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
+                    
+                    {/* Other routes */}
+                    <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
+                    <Route path="/applications" element={<ApplicationsTable />} />
+                    <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
                     <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
                     <Route path="/training" element={<AdminVideoUpload/>} />
+                    <Route path="/ai-assistant" element={<AIAssistantPage />} />
+                    <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
+                    
+                    {/* Reports route */}
                     <Route path="/reports" element={
                       <div className="p-6 w-full">
                         <h1 className="text-3xl font-bold text-gray-800 mb-4">Reports & Analytics</h1>
@@ -293,8 +441,8 @@ function App() {
                         </div>
                       </div>
                     } />
-                    <Route path="/settings" element={<AuthRoute allowedRoles={['ADMIN']}><UserRolesSettings /></AuthRoute>} />
-                    {/* Catch all unmatched routes within the main layout */}
+                    
+                    {/* Catch all unmatched routes */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </motion.div>
@@ -308,20 +456,29 @@ function App() {
   };
 
   const renderContent = () => {
-    if (!authChecked) {
+    // Show loader during initial auth check
+    if (!authChecked || isInitializing) {
       return <Loader />;
     }
 
     return (
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
         <Route path="/update-password" element={<UpdatePasswordPage/>} />
+        
+        {/* Staff portal - accessible without main layout */}
         <Route path="/staff" element={<StaffPortalLanding />} />
-        {/* Protected routes - require authentication */}
+        
+        {/* Protected main application routes */}
         <Route 
           path="/*" 
           element={
-            session ? renderMainLayout() : <Login onLoginSuccess={handleLoginSuccess} />
+            session ? (
+              renderMainLayout()
+            ) : (
+              <Login onLoginSuccess={handleLoginSuccess} />
+            )
           } 
         />
       </Routes>
@@ -329,31 +486,33 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
-      {renderContent()}
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          style: {
-            background: '#1f2937',
-            color: '#fff',
-            border: '1px solid #374151',
-          },
-          success: {
-            iconTheme: {
-              primary: '#10b981',
-              secondary: '#fff',
+    <ErrorBoundary>
+      <div className="min-h-screen bg-white overflow-x-hidden">
+        {renderContent()}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: '#1f2937',
+              color: '#fff',
+              border: '1px solid #374151',
             },
-          },
-          error: {
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
+            success: {
+              iconTheme: {
+                primary: '#10b981',
+                secondary: '#fff',
+              },
             },
-          },
-        }}
-      />
-    </div>
+            error: {
+              iconTheme: {
+                primary: '#ef4444',
+                secondary: '#fff',
+              },
+            },
+          }}
+        />
+      </div>
+    </ErrorBoundary>
   );
 }
 
