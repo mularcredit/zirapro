@@ -268,32 +268,33 @@ function App() {
                   className="w-full h-full"
                 >
                   <Routes>
+                    <Route path="/" element={<AuthRoute allowedRoles={['ADMIN','MANAGER','STAFF']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/dashboard" element={<AuthRoute allowedRoles={['ADMIN','MANAGER']}><Dashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} />} />
                     <Route path="/payroll" element={<AuthRoute allowedRoles={['ADMIN']}><PayrollDashboard selectedTown={selectedTown} /></AuthRoute>} />
                     <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
                     <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
                     <Route path="/add-employee" element={<AddEmployeePage />} />
-                    <Route path="*" element={<NotFound />} />
-                    <Route path="salaryadmin" element={<SalaryAdvanceAdmin />} />
+                    <Route path="/salaryadmin" element={<SalaryAdvanceAdmin />} />
                     <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
                     <Route path="/adminconfirm" element={<StaffSignupRequests selectedTown={selectedTown}/>} />
                     <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                     <Route path="/employee-added" element={<SuccessPage />} />
-                    <Route path="/employee-added" element={<ApplicationsTable />} />
+                    <Route path="/applications" element={<ApplicationsTable />} />
                     <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                     <Route path="/ai-assistant" element={<AIAssistantPage />} />
                     <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
-                    <Route path="/training" element={ <AdminVideoUpload/>} />
+                    <Route path="/training" element={<AdminVideoUpload/>} />
                     <Route path="/reports" element={
                       <div className="p-6 w-full">
-                        <h1 className="text-3xl font-bold text-white mb-4">Reports & Analytics</h1>
-                        <div className="bg-gray-900/50 backdrop-blur-sm border border-gray-700/50 rounded-lg p-8 text-center w-full">
-                          <p className="text-gray-400">Reports module coming soon...</p>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-4">Reports & Analytics</h1>
+                        <div className="bg-white shadow-lg rounded-lg p-8 text-center w-full">
+                          <p className="text-gray-600">Reports module coming soon...</p>
                         </div>
                       </div>
                     } />
                     <Route path="/settings" element={<AuthRoute allowedRoles={['ADMIN']}><UserRolesSettings /></AuthRoute>} />
+                    {/* Catch all unmatched routes within the main layout */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </motion.div>
@@ -316,7 +317,13 @@ function App() {
         <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
         <Route path="/update-password" element={<UpdatePasswordPage/>} />
         <Route path="/staff" element={<StaffPortalLanding />} />
-        <Route path="/*" element={renderMainLayout()} />
+        {/* Protected routes - require authentication */}
+        <Route 
+          path="/*" 
+          element={
+            session ? renderMainLayout() : <Login onLoginSuccess={handleLoginSuccess} />
+          } 
+        />
       </Routes>
     );
   };
