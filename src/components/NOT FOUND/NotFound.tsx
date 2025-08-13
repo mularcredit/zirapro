@@ -24,7 +24,7 @@ export default function NotFound() {
             <GlowButton
               onClick={() => navigate('/')}
               icon={HomeIcon}
-              className="px-5 py-2.5 bg-gray-500 border-black hover:bg-gray-300 text-white text-sm font-light rounded-md transition-colors duration-300"
+              className="px-5 py-2.5 bg-blue-800 border-black hover:bg-gray-300 text-white text-sm font-light rounded-md transition-colors duration-300"
             >
               Return home
             </GlowButton>
