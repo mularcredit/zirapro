@@ -3,7 +3,8 @@ import {
   Users, Search, Briefcase, Building, Clock, AlertCircle, Plus, 
   Edit, Trash2, Filter, X, Check, BarChart2, Target, Calendar,
   CheckCircle, Clock as ClockIcon, Download, PieChart, UserCheck,
-  UserX, ArrowUpRight, ArrowDownRight, Wallet, CreditCard, Coins
+  UserX, ArrowUpRight, ArrowDownRight, Wallet, CreditCard, Coins,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
@@ -230,6 +231,83 @@ const SummaryCard: React.FC<{
   );
 };
 
+const Pagination: React.FC<{
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  className?: string;
+}> = ({ currentPage, totalPages, onPageChange, className = '' }) => {
+  const maxVisiblePages = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+
+  const pages = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+
+  return (
+    <div className={`flex items-center justify-between ${className}`}>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronsLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          className="p-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        
+        {startPage > 1 && (
+          <span className="px-2 py-1">...</span>
+        )}
+        
+        {pages.map(page => (
+          <button
+            key={page}
+            onClick={() => onPageChange(page)}
+            className={`w-10 h-10 rounded-lg border ${currentPage === page ? 'bg-green-100 border-green-500 text-green-600' : 'border-gray-200'}`}
+          >
+            {page}
+          </button>
+        ))}
+        
+        {endPage < totalPages && (
+          <span className="px-2 py-1">...</span>
+        )}
+        
+        <button
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className="p-2 rounded-lg border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <ChevronsRight className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="text-sm text-gray-600">
+        Page {currentPage} of {totalPages}
+      </div>
+    </div>
+  );
+};
+
 const PerformanceDashboard: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<'individual' | 'branch'>('individual');
   const [selectedBranch, setSelectedBranch] = useState('all');
@@ -238,6 +316,11 @@ const PerformanceDashboard: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
+  
+  // Pagination states
+  const [employeePage, setEmployeePage] = useState(1);
+  const [branchPage, setBranchPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(9);
   
   // Data states
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -452,8 +535,43 @@ const PerformanceDashboard: React.FC = () => {
     return matchesBranch && matchesRole && matchesSearch;
   });
 
+  const filteredBranches = branches.filter(branch => {
+    return branch["Branch Office"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           branch["Area"]?.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // Pagination calculations
+  const totalEmployeePages = Math.ceil(filteredEmployees.length / rowsPerPage);
+  const totalBranchPages = Math.ceil(filteredBranches.length / rowsPerPage);
+  
+  const paginatedEmployees = filteredEmployees.slice(
+    (employeePage - 1) * rowsPerPage,
+    employeePage * rowsPerPage
+  );
+  
+  const paginatedBranches = filteredBranches.slice(
+    (branchPage - 1) * rowsPerPage,
+    branchPage * rowsPerPage
+  );
+
   const toggleEmployeeExpand = (employeeId: string) => {
     setExpandedEmployee(expandedEmployee === employeeId ? null : employeeId);
+  };
+
+  const handleEmployeePageChange = (page: number) => {
+    setEmployeePage(page);
+    setExpandedEmployee(null); // Close any expanded rows when changing page
+  };
+
+  const handleBranchPageChange = (page: number) => {
+    setBranchPage(page);
+  };
+
+  const handleRowsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newRowsPerPage = parseInt(e.target.value);
+    setRowsPerPage(newRowsPerPage);
+    setEmployeePage(1);
+    setBranchPage(1);
   };
 
   if (loading) {
@@ -502,7 +620,10 @@ const PerformanceDashboard: React.FC = () => {
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Branch Location</label>
               <select
                 value={selectedBranch}
-                onChange={(e) => setSelectedBranch(e.target.value)}
+                onChange={(e) => {
+                  setSelectedBranch(e.target.value);
+                  setEmployeePage(1);
+                }}
                 className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               >
                 <option value="all">All Branches</option>
@@ -520,7 +641,10 @@ const PerformanceDashboard: React.FC = () => {
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Employee Role</label>
               <select
                 value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
+                onChange={(e) => {
+                  setSelectedRole(e.target.value);
+                  setEmployeePage(1);
+                }}
                 className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               >
                 {roles.map(role => (
@@ -529,7 +653,20 @@ const PerformanceDashboard: React.FC = () => {
               </select>
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Rows per page</label>
+              <select
+                value={rowsPerPage}
+                onChange={handleRowsPerPageChange}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              >
+                {[5, 10, 20, 50].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -537,9 +674,13 @@ const PerformanceDashboard: React.FC = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search employees..."
+                  placeholder={selectedTab === 'individual' ? "Search employees..." : "Search branches..."}
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setEmployeePage(1);
+                    setBranchPage(1);
+                  }}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-100 focus:border-green-500 text-xs"
                 />
               </div>
@@ -632,7 +773,9 @@ const PerformanceDashboard: React.FC = () => {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Staff Performance Metrics</h2>
-                <p className="text-gray-600 text-sm">{filteredEmployees.length} employees found</p>
+                <p className="text-gray-600 text-sm">
+                  Showing {paginatedEmployees.length} of {filteredEmployees.length} employees
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">View:</span>
@@ -649,336 +792,354 @@ const PerformanceDashboard: React.FC = () => {
           </div>
           
           {viewMode === 'summary' ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Employee</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Role</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Branch</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Disbursement Targets</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Clients</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">Collection Metrics</th>
-                    <th className="text-left py-3 px-4 text-gray-700 font-semibold">PAR</th>
-                    <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredEmployees.map((employee) => {
-                    const branch = branches.find(
-                      b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
-                    );
-                    const activeClients = employee.clients.filter(c => c.status === 'active').length;
-                    const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
-                    
-                    return (
-                      <React.Fragment key={employee.id}>
-                        <tr className="border-b border-gray-300 hover:bg-gray-50">
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <p className="text-gray-900 font-semibold">{employee.name}</p>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <p className="text-gray-700">{employee.role}</p>
-                          </td>
-                          <td className="py-4 px-4">
-                            <p className="text-gray-700">{branch?.["Branch Office"]}</p>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">Today:</span>
-                                <span className={`text-xs ${employee.disbursementTargets.achieved.today >= employee.disbursementTargets.daily ? 'text-green-600' : 'text-red-600'}`}>
-                                  {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
-                                </span>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Employee</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Role</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Branch</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Disbursement Targets</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Clients</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">Collection Metrics</th>
+                      <th className="text-left py-3 px-4 text-gray-700 font-semibold">PAR</th>
+                      <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedEmployees.map((employee) => {
+                      const branch = branches.find(
+                        b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
+                      );
+                      const activeClients = employee.clients.filter(c => c.status === 'active').length;
+                      const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
+                      
+                      return (
+                        <React.Fragment key={employee.id}>
+                          <tr className="border-b border-gray-300 hover:bg-gray-50">
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <p className="text-gray-900 font-semibold">{employee.name}</p>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">Week:</span>
-                                <span className={`text-xs ${employee.disbursementTargets.achieved.thisWeek >= employee.disbursementTargets.weekly ? 'text-green-600' : 'text-red-600'}`}>
-                                  {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <Users className="w-4 h-4 text-gray-500" />
-                                <span>{employee.clients.length} total</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <UserCheck className="w-4 h-4 text-green-500" />
-                                <span>{activeClients} active</span>
-                                <StatusBadge status="Attendance" value={clientRatio} />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span>Rate:</span>
-                                <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span>Overdue:</span>
-                                <span className="text-xs font-medium text-red-600">
-                                  KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <StatusBadge status="PAR" value={employee.par} />
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex justify-center gap-1">
-                              <GlowButton 
-                                variant="secondary" 
-                                size="sm"
-                                onClick={() => toggleEmployeeExpand(employee.id)}
-                              >
-                                {expandedEmployee === employee.id ? 'Hide Details' : 'View Details'}
-                              </GlowButton>
-                            </div>
-                          </td>
-                        </tr>
-                        
-                        {expandedEmployee === employee.id && (
-                          <tr className="bg-gray-50">
-                            <td colSpan={8} className="px-4 py-4">
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Disbursement Targets Card */}
-                                <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                                    <Target className="w-4 h-4 text-blue-500" />
-                                    Disbursement Targets
-                                  </h3>
-                                  <div className="space-y-3">
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Daily Target</span>
-                                        <span className="font-medium">
-                                          {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
-                                        </span>
-                                      </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div 
-                                          className="bg-blue-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.today / (employee.disbursementTargets.daily || 1)) * 100)}%` }}
-                                        ></div>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Weekly Target</span>
-                                        <span className="font-medium">
-                                          {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
-                                        </span>
-                                      </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div 
-                                          className="bg-purple-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.thisWeek / (employee.disbursementTargets.weekly || 1)) * 100)}%` }}
-                                        ></div>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Monthly Target</span>
-                                        <span className="font-medium">
-                                          {employee.loansDisbursed}/{employee.target}
-                                        </span>
-                                      </div>
-                                      <div className="w-full bg-gray-200 rounded-full h-2">
-                                        <div 
-                                          className="bg-green-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.loansDisbursed / (employee.target || 1)) * 100)}%` }}
-                                        ></div>
-                                      </div>
-                                    </div>
-                                  </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className="text-gray-700">{employee.role}</p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <p className="text-gray-700">{branch?.["Branch Office"]}</p>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">Today:</span>
+                                  <span className={`text-xs ${employee.disbursementTargets.achieved.today >= employee.disbursementTargets.daily ? 'text-green-600' : 'text-red-600'}`}>
+                                    {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
+                                  </span>
                                 </div>
-                                
-                                {/* Client Portfolio Card */}
-                                <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                                    <Users className="w-4 h-4 text-green-500" />
-                                    Client Portfolio
-                                  </h3>
-                                  <div className="flex items-center justify-between mb-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs">Active:</span>
-                                      <span className="font-medium text-green-600">{activeClients}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs">Inactive:</span>
-                                      <span className="font-medium text-red-600">{employee.clients.length - activeClients}</span>
-                                    </div>
-                                  </div>
-                                  <div className="h-32 flex items-center justify-center">
-                                    <div className="relative w-24 h-24">
-                                      <PieChart className="w-full h-full text-gray-200" />
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className="text-xs font-semibold">{clientRatio}%</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                {/* Collection Metrics Card */}
-                                <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
-                                    <Coins className="w-4 h-4 text-yellow-500" />
-                                    Collection Metrics
-                                  </h3>
-                                  <div className="space-y-3">
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Total Portfolio</span>
-                                        <span className="font-medium">
-                                          KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Collected This Week</span>
-                                        <span className="font-medium text-green-600">
-                                          KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div>
-                                      <div className="flex justify-between text-xs mb-1">
-                                        <span>Overdue Amount</span>
-                                        <span className="font-medium text-red-600">
-                                          KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="pt-2 border-t border-gray-200">
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-xs">Collection Rate</span>
-                                        <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
-                                      </div>
-                                    </div>
-                                  </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">Week:</span>
+                                  <span className={`text-xs ${employee.disbursementTargets.achieved.thisWeek >= employee.disbursementTargets.weekly ? 'text-green-600' : 'text-red-600'}`}>
+                                    {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
+                                  </span>
                                 </div>
                               </div>
                             </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Users className="w-4 h-4 text-gray-500" />
+                                  <span>{employee.clients.length} total</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <UserCheck className="w-4 h-4 text-green-500" />
+                                  <span>{activeClients} active</span>
+                                  <StatusBadge status="Attendance" value={clientRatio} />
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span>Rate:</span>
+                                  <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span>Overdue:</span>
+                                  <span className="text-xs font-medium text-red-600">
+                                    KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 px-4">
+                              <StatusBadge status="PAR" value={employee.par} />
+                            </td>
+                            <td className="py-4 px-4">
+                              <div className="flex justify-center gap-1">
+                                <GlowButton 
+                                  variant="secondary" 
+                                  size="sm"
+                                  onClick={() => toggleEmployeeExpand(employee.id)}
+                                >
+                                  {expandedEmployee === employee.id ? 'Hide Details' : 'View Details'}
+                                </GlowButton>
+                              </div>
+                            </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          
+                          {expandedEmployee === employee.id && (
+                            <tr className="bg-gray-50">
+                              <td colSpan={8} className="px-4 py-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                  {/* Disbursement Targets Card */}
+                                  <div className="border border-gray-200 rounded-lg p-4">
+                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                      <Target className="w-4 h-4 text-blue-500" />
+                                      Disbursement Targets
+                                    </h3>
+                                    <div className="space-y-3">
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Daily Target</span>
+                                          <span className="font-medium">
+                                            {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
+                                          </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                          <div 
+                                            className="bg-blue-500 h-2 rounded-full" 
+                                            style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.today / (employee.disbursementTargets.daily || 1)) * 100)}%` }}
+                                          ></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Weekly Target</span>
+                                          <span className="font-medium">
+                                            {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
+                                          </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                          <div 
+                                            className="bg-purple-500 h-2 rounded-full" 
+                                            style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.thisWeek / (employee.disbursementTargets.weekly || 1)) * 100)}%` }}
+                                          ></div>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Monthly Target</span>
+                                          <span className="font-medium">
+                                            {employee.loansDisbursed}/{employee.target}
+                                          </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                          <div 
+                                            className="bg-green-500 h-2 rounded-full" 
+                                            style={{ width: `${Math.min(100, (employee.loansDisbursed / (employee.target || 1)) * 100)}%` }}
+                                          ></div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Client Portfolio Card */}
+                                  <div className="border border-gray-200 rounded-lg p-4">
+                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                      <Users className="w-4 h-4 text-green-500" />
+                                      Client Portfolio
+                                    </h3>
+                                    <div className="flex items-center justify-between mb-3">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs">Active:</span>
+                                        <span className="font-medium text-green-600">{activeClients}</span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs">Inactive:</span>
+                                        <span className="font-medium text-red-600">{employee.clients.length - activeClients}</span>
+                                      </div>
+                                    </div>
+                                    <div className="h-32 flex items-center justify-center">
+                                      <div className="relative w-24 h-24">
+                                        <PieChart className="w-full h-full text-gray-200" />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                          <span className="text-xs font-semibold">{clientRatio}%</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Collection Metrics Card */}
+                                  <div className="border border-gray-200 rounded-lg p-4">
+                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                      <Coins className="w-4 h-4 text-yellow-500" />
+                                      Collection Metrics
+                                    </h3>
+                                    <div className="space-y-3">
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Total Portfolio</span>
+                                          <span className="font-medium">
+                                            KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Collected This Week</span>
+                                          <span className="font-medium text-green-600">
+                                            KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <div className="flex justify-between text-xs mb-1">
+                                          <span>Overdue Amount</span>
+                                          <span className="font-medium text-red-600">
+                                            KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="pt-2 border-t border-gray-200">
+                                        <div className="flex justify-between items-center">
+                                          <span className="text-xs">Collection Rate</span>
+                                          <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 border-t border-gray-200">
+                <Pagination
+                  currentPage={employeePage}
+                  totalPages={totalEmployeePages}
+                  onPageChange={handleEmployeePageChange}
+                />
+              </div>
+            </>
           ) : (
-            <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredEmployees.map(employee => {
-                const branch = branches.find(
-                  b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
-                );
-                const activeClients = employee.clients.filter(c => c.status === 'active').length;
-                const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
-                
-                return (
-                  <div key={employee.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="p-5 bg-white">
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{employee.name}</h3>
-                          <p className="text-xs text-gray-500">
-                            {employee.role} • {branch?.["Branch Office"] || ""}
-                          </p>
+            <>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {paginatedEmployees.map(employee => {
+                  const branch = branches.find(
+                    b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
+                  );
+                  const activeClients = employee.clients.filter(c => c.status === 'active').length;
+                  const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
+                  
+                  return (
+                    <div key={employee.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="p-5 bg-white">
+                        <div className="flex justify-between items-start mb-4">
+                          <div>
+                            <h3 className="font-semibold text-gray-900">{employee.name}</h3>
+                            <p className="text-xs text-gray-500">
+                              {employee.role} • {branch?.["Branch Office"] || ""}
+                            </p>
+                          </div>
+                          <StatusBadge status="PAR" value={employee.par} />
                         </div>
-                        <StatusBadge status="PAR" value={employee.par} />
+                        
+                        <div className="space-y-4">
+                          {/* Disbursement Targets */}
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                              <Target className="w-3 h-3" /> Disbursement Targets
+                            </h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between text-xs">
+                                <span>Today</span>
+                                <span className={`font-medium ${employee.disbursementTargets.achieved.today >= employee.disbursementTargets.daily ? 'text-green-600' : 'text-red-600'}`}>
+                                  {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span>This Week</span>
+                                <span className={`font-medium ${employee.disbursementTargets.achieved.thisWeek >= employee.disbursementTargets.weekly ? 'text-green-600' : 'text-red-600'}`}>
+                                  {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs">
+                                <span>This Month</span>
+                                <span className={`font-medium ${employee.loansDisbursed >= employee.target ? 'text-green-600' : 'text-red-600'}`}>
+                                  {employee.loansDisbursed}/{employee.target}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Client Portfolio */}
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                              <Users className="w-3 h-3" /> Client Portfolio
+                            </h4>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span>Total Clients</span>
+                              <span className="font-medium">{employee.clients.length}</span>
+                            </div>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span>Active Clients</span>
+                              <span className="font-medium text-green-600">{activeClients}</span>
+                            </div>
+                            <div className="flex justify-between text-xs">
+                              <span>Inactive Clients</span>
+                              <span className="font-medium text-red-600">{employee.clients.length - activeClients}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Collection Metrics */}
+                          <div>
+                            <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
+                              <Coins className="w-3 h-3" /> Collection Metrics
+                            </h4>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span>Total Portfolio</span>
+                              <span className="font-medium">KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}</span>
+                            </div>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span>Collected This Week</span>
+                              <span className="font-medium text-green-600">KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}</span>
+                            </div>
+                            <div className="flex justify-between text-xs mb-2">
+                              <span>Overdue Amount</span>
+                              <span className="font-medium text-red-600">KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}</span>
+                            </div>
+                            <div className="flex justify-between text-xs items-center">
+                              <span>Collection Rate</span>
+                              <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       
-                      <div className="space-y-4">
-                        {/* Disbursement Targets */}
-                        <div>
-                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                            <Target className="w-3 h-3" /> Disbursement Targets
-                          </h4>
-                          <div className="space-y-2">
-                            <div className="flex justify-between text-xs">
-                              <span>Today</span>
-                              <span className={`font-medium ${employee.disbursementTargets.achieved.today >= employee.disbursementTargets.daily ? 'text-green-600' : 'text-red-600'}`}>
-                                {employee.disbursementTargets.achieved.today}/{employee.disbursementTargets.daily}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span>This Week</span>
-                              <span className={`font-medium ${employee.disbursementTargets.achieved.thisWeek >= employee.disbursementTargets.weekly ? 'text-green-600' : 'text-red-600'}`}>
-                                {employee.disbursementTargets.achieved.thisWeek}/{employee.disbursementTargets.weekly}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs">
-                              <span>This Month</span>
-                              <span className={`font-medium ${employee.loansDisbursed >= employee.target ? 'text-green-600' : 'text-red-600'}`}>
-                                {employee.loansDisbursed}/{employee.target}
-                              </span>
-                            </div>
-                          </div>
+                      <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex justify-between items-center">
+                        <div className="text-xs text-gray-600">
+                          Last updated: Today
                         </div>
-                        
-                        {/* Client Portfolio */}
-                        <div>
-                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                            <Users className="w-3 h-3" /> Client Portfolio
-                          </h4>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span>Total Clients</span>
-                            <span className="font-medium">{employee.clients.length}</span>
-                          </div>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span>Active Clients</span>
-                            <span className="font-medium text-green-600">{activeClients}</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span>Inactive Clients</span>
-                            <span className="font-medium text-red-600">{employee.clients.length - activeClients}</span>
-                          </div>
-                        </div>
-                        
-                        {/* Collection Metrics */}
-                        <div>
-                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
-                            <Coins className="w-3 h-3" /> Collection Metrics
-                          </h4>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span>Total Portfolio</span>
-                            <span className="font-medium">KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}</span>
-                          </div>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span>Collected This Week</span>
-                            <span className="font-medium text-green-600">KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}</span>
-                          </div>
-                          <div className="flex justify-between text-xs mb-2">
-                            <span>Overdue Amount</span>
-                            <span className="font-medium text-red-600">KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}</span>
-                          </div>
-                          <div className="flex justify-between text-xs items-center">
-                            <span>Collection Rate</span>
-                            <StatusBadge status="Collection" value={employee.collectionMetrics.collectionRate} />
-                          </div>
-                        </div>
+                        <GlowButton variant="secondary" size="sm">View Details</GlowButton>
                       </div>
                     </div>
-                    
-                    <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex justify-between items-center">
-                      <div className="text-xs text-gray-600">
-                        Last updated: Today
-                      </div>
-                      <GlowButton variant="secondary" size="sm">View Details</GlowButton>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+              <div className="p-4 border-t border-gray-200">
+                <Pagination
+                  currentPage={employeePage}
+                  totalPages={totalEmployeePages}
+                  onPageChange={handleEmployeePageChange}
+                />
+              </div>
+            </>
           )}
         </div>
       )}
@@ -989,7 +1150,7 @@ const PerformanceDashboard: React.FC = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Branch Performance Comparison</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {branches.map(branch => {
+              {paginatedBranches.map(branch => {
                 const branchData = processedBranchAverages.find(b => b.branch === branch.id) || {
                   loansDisbursed: 0,
                   target: 0,
@@ -1045,6 +1206,13 @@ const PerformanceDashboard: React.FC = () => {
                 );
               })}
             </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <Pagination
+                currentPage={branchPage}
+                totalPages={totalBranchPages}
+                onPageChange={handleBranchPageChange}
+              />
+            </div>
           </div>
 
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -1064,13 +1232,21 @@ const PerformanceDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {processedBranchAverages.map(branchData => {
-                    const branch = branches.find(b => b.id === branchData.branch);
+                  {paginatedBranches.map(branch => {
+                    const branchData = processedBranchAverages.find(b => b.branch === branch.id) || {
+                      loansDisbursed: 0,
+                      target: 0,
+                      attendance: 0,
+                      fieldVisits: 0,
+                      par: 0,
+                      collection: 0,
+                      tat: 0
+                    };
                     const disbursementRate = branchData.target > 0 ? 
                       Math.round(branchData.loansDisbursed / branchData.target * 100) : 0;
                     
                     return (
-                      <tr key={branchData.branch} className="border-b border-gray-300 hover:bg-gray-50">
+                      <tr key={branch.id} className="border-b border-gray-300 hover:bg-gray-50">
                         <td className="py-4 px-4">
                           <p className="text-gray-900 font-semibold">
                             {branch?.["Branch Office"] || ""}
@@ -1112,6 +1288,13 @@ const PerformanceDashboard: React.FC = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <Pagination
+                currentPage={branchPage}
+                totalPages={totalBranchPages}
+                onPageChange={handleBranchPageChange}
+              />
             </div>
           </div>
         </div>
