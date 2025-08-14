@@ -1,205 +1,140 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Briefcase, Building, Clock, AlertCircle, Plus, 
   Edit, Trash2, Filter, X, Check, BarChart2, Target, Calendar,
   CheckCircle, Clock as ClockIcon, Download, PieChart, UserCheck,
   UserX, ArrowUpRight, ArrowDownRight, Wallet, CreditCard, Coins
 } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js';
 
-// Employee Data
-const employees = [
-  { 
-    id: '1', 
-    name: 'John Kariuki', 
-    role: 'Loan Officer', 
-    branch: 'nairobi', 
-    loansDisbursed: 45, 
-    target: 50, 
-    attendance: 95, 
-    fieldVisits: 88, 
-    par: 3.2, 
-    collection: 98, 
-    tat: 36,
-    clients: [
-      { id: 'c1', name: 'Samuel Njenga', status: 'active', loanAmount: 50000, lastPayment: '2023-05-15' },
-      { id: 'c2', name: 'Grace Wambui', status: 'active', loanAmount: 30000, lastPayment: '2023-05-10' },
-      { id: 'c3', name: 'Michael Ochieng', status: 'inactive', loanAmount: 75000, lastPayment: '2023-03-22' }
-    ],
-    disbursementTargets: {
-      daily: 5,
-      weekly: 25,
-      monthly: 50,
-      achieved: {
-        today: 3,
-        thisWeek: 18,
-        thisMonth: 45
-      }
-    },
-    collectionMetrics: {
-      totalPortfolio: 1200000,
-      collectedThisWeek: 285000,
-      overdueAmount: 75000,
-      collectionRate: 98
-    }
-  },
-  { 
-    id: '2', 
-    name: 'Mary Wanjiku', 
-    role: 'Loan Officer', 
-    branch: 'kisumu', 
-    loansDisbursed: 38, 
-    target: 40, 
-    attendance: 100, 
-    fieldVisits: 92, 
-    par: 1.8, 
-    collection: 99, 
-    tat: 28,
-    clients: [
-      { id: 'c4', name: 'James Mwangi', status: 'active', loanAmount: 45000, lastPayment: '2023-05-14' },
-      { id: 'c5', name: 'Esther Auma', status: 'active', loanAmount: 60000, lastPayment: '2023-05-12' },
-      { id: 'c6', name: 'Peter Kamau', status: 'active', loanAmount: 35000, lastPayment: '2023-05-09' }
-    ],
-    disbursementTargets: {
-      daily: 4,
-      weekly: 20,
-      monthly: 40,
-      achieved: {
-        today: 4,
-        thisWeek: 16,
-        thisMonth: 38
-      }
-    },
-    collectionMetrics: {
-      totalPortfolio: 950000,
-      collectedThisWeek: 235000,
-      overdueAmount: 15000,
-      collectionRate: 99
-    }
-  },
-  { 
-    id: '3', 
-    name: 'David Kimani', 
-    role: 'Branch Manager', 
-    branch: 'eldoret', 
-    loansDisbursed: 52, 
-    target: 60, 
-    attendance: 90, 
-    fieldVisits: 85, 
-    par: 4.5, 
-    collection: 95, 
-    tat: 42,
-    clients: [
-      { id: 'c7', name: 'Sarah Wangechi', status: 'active', loanAmount: 80000, lastPayment: '2023-05-13' },
-      { id: 'c8', name: 'Brian Otieno', status: 'inactive', loanAmount: 65000, lastPayment: '2023-02-28' },
-      { id: 'c9', name: 'Lucy Mumbi', status: 'active', loanAmount: 40000, lastPayment: '2023-05-11' }
-    ],
-    disbursementTargets: {
-      daily: 6,
-      weekly: 30,
-      monthly: 60,
-      achieved: {
-        today: 5,
-        thisWeek: 22,
-        thisMonth: 52
-      }
-    },
-    collectionMetrics: {
-      totalPortfolio: 1500000,
-      collectedThisWeek: 320000,
-      overdueAmount: 120000,
-      collectionRate: 95
-    }
-  },
-  { 
-    id: '4', 
-    name: 'Grace Akinyi', 
-    role: 'Loan Officer', 
-    branch: 'mombasa', 
-    loansDisbursed: 60, 
-    target: 55, 
-    attendance: 98, 
-    fieldVisits: 95, 
-    par: 2.1, 
-    collection: 97, 
-    tat: 31,
-    clients: [
-      { id: 'c10', name: 'Daniel Omollo', status: 'active', loanAmount: 55000, lastPayment: '2023-05-14' },
-      { id: 'c11', name: 'Mercy Atieno', status: 'active', loanAmount: 70000, lastPayment: '2023-05-08' },
-      { id: 'c12', name: 'Paul Onyango', status: 'inactive', loanAmount: 90000, lastPayment: '2023-04-05' }
-    ],
-    disbursementTargets: {
-      daily: 5,
-      weekly: 25,
-      monthly: 55,
-      achieved: {
-        today: 6,
-        thisWeek: 24,
-        thisMonth: 60
-      }
-    },
-    collectionMetrics: {
-      totalPortfolio: 1800000,
-      collectedThisWeek: 410000,
-      overdueAmount: 85000,
-      collectionRate: 97
-    }
-  },
-  { 
-    id: '5', 
-    name: 'Samuel Kiptoo', 
-    role: 'Loan Officer', 
-    branch: 'nakuru', 
-    loansDisbursed: 42, 
-    target: 45, 
-    attendance: 92, 
-    fieldVisits: 80, 
-    par: 5.3, 
-    collection: 94, 
-    tat: 48,
-    clients: [
-      { id: 'c13', name: 'Ruth Chebet', status: 'active', loanAmount: 48000, lastPayment: '2023-05-13' },
-      { id: 'c14', name: 'Joseph Kiprop', status: 'inactive', loanAmount: 60000, lastPayment: '2023-03-15' },
-      { id: 'c15', name: 'Agnes Njeri', status: 'active', loanAmount: 52000, lastPayment: '2023-05-10' }
-    ],
-    disbursementTargets: {
-      daily: 4,
-      weekly: 20,
-      monthly: 45,
-      achieved: {
-        today: 3,
-        thisWeek: 15,
-        thisMonth: 42
-      }
-    },
-    collectionMetrics: {
-      totalPortfolio: 1100000,
-      collectedThisWeek: 265000,
-      overdueAmount: 95000,
-      collectionRate: 94
-    }
-  }
-];
+// Initialize Supabase client
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const branches = [
-  { id: 'nairobi', name: 'Nairobi', location: 'Nairobi CBD' },
-  { id: 'kisumu', name: 'Kisumu', location: 'Kisumu Central' },
-  { id: 'eldoret', name: 'Eldoret', location: 'Eldoret Town' },
-  { id: 'mombasa', name: 'Mombasa', location: 'Mombasa Island' },
-  { id: 'nakuru', name: 'Nakuru', location: 'Nakuru CBD' },
-];
+// Types based on your Supabase schema
+interface Client {
+  client_id: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string;
+  status: string;
+  loan_officer: string;
+  branch_id: number;
+  registration_date: string;
+}
 
-const roles = ['All Roles', 'Loan Officer', 'Branch Manager', 'Credit Analyst'];
+interface Loan {
+  loan_id: string;
+  client_id: string;
+  loan_officer: string;
+  branch_id: number;
+  product_type: string;
+  amount_disbursed: number;
+  outstanding_balance: number;
+  interest_rate: number;
+  term_months: number;
+  disbursement_date: string;
+  status: string;
+  par_days: number;
+  last_payment_date: string | null;
+  next_payment_date: string | null;
+}
 
-interface GlowButtonProps {
+interface LoanPayment {
+  payment_id: number;
+  loan_id: string;
+  amount_paid: number;
+  payment_date: string;
+  principal_amount: number;
+  interest_amount: number;
+  fees_amount: number;
+  penalty_amount: number;
+}
+
+interface EmployeePerformance {
+  id: number;
+  employee_id: string;
+  date: string;
+  period: string;
+  loans_disbursed: number;
+  disbursement_target: number;
+  clients_visited: number;
+  field_visits_target: number;
+  collection_amount: number;
+  collection_target: number;
+  par_amount: number;
+  portfolio_size: number;
+  attendance_days: number;
+  working_days: number;
+  tat_average: number;
+}
+
+interface BranchPerformance {
+  id: number;
+  branch_id: number;
+  date: string;
+  period: string;
+  total_loans_disbursed: number;
+  disbursement_target: number;
+  total_collection: number;
+  collection_target: number;
+  total_par: number;
+  portfolio_size: number;
+  average_tat: number;
+  staff_count: number;
+}
+
+interface PerformanceTarget {
+  id: number;
+  target_for: string;
+  target_type: string;
+  employee_id: string | null;
+  branch_id: number | null;
+  product_type: string | null;
+  period: string;
+  target_value: number;
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+}
+
+interface ClientVisit {
+  visit_id: number;
+  employee_id: string;
+  client_id: string;
+  visit_date: string;
+  purpose: string;
+  outcome: string | null;
+  next_action: string | null;
+  next_visit_date: string | null;
+  location: string | null;
+  branch_id: number | null;
+}
+
+interface Employee {
+  "Employee Number": string;
+  "First Name": string;
+  "Last Name": string;
+  "Job Title": string;
+  "Branch": string;
+  "Entity": string;
+}
+
+interface Branch {
+  id: number;
+  "Branch Office": string;
+  "Area": string;
+}
+
+const GlowButton: React.FC<{
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'danger';
   icon?: React.ComponentType<{ className?: string }>;
   size?: 'sm' | 'md' | 'lg';
   onClick?: () => void;
   disabled?: boolean;
-}
-
-const GlowButton: React.FC<GlowButtonProps> = ({ 
+}> = ({ 
   children, 
   variant = 'primary', 
   icon: Icon, 
@@ -231,12 +166,7 @@ const GlowButton: React.FC<GlowButtonProps> = ({
   );
 };
 
-interface StatusBadgeProps {
-  status: string;
-  value?: number;
-}
-
-const StatusBadge: React.FC<StatusBadgeProps> = ({ status, value }) => {
+const StatusBadge: React.FC<{ status: string; value?: number }> = ({ status, value }) => {
   const statusClasses = {
     'Excellent': 'bg-green-100 text-green-800',
     'Good': 'bg-blue-100 text-blue-800',
@@ -260,16 +190,14 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, value }) => {
   );
 };
 
-interface SummaryCardProps {
+const SummaryCard: React.FC<{
   label: string;
   value: number;
   icon: React.ComponentType<{ className?: string }>;
   color: string;
   isPercentage?: boolean;
   unit?: string;
-}
-
-const SummaryCard: React.FC<SummaryCardProps> = ({
+}> = ({
   label,
   value,
   icon: Icon,
@@ -310,17 +238,185 @@ const PerformanceDashboard: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
+  
+  // Data states
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [loanPayments, setLoanPayments] = useState<LoanPayment[]>([]);
+  const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[]>([]);
+  const [branchPerformance, setBranchPerformance] = useState<BranchPerformance[]>([]);
+  const [performanceTargets, setPerformanceTargets] = useState<PerformanceTarget[]>([]);
+  const [clientVisits, setClientVisits] = useState<ClientVisit[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredEmployees = employees.filter(employee => {
-    const matchesBranch = selectedBranch === 'all' || employee.branch === selectedBranch;
-    const matchesRole = selectedRole === 'All Roles' || employee.role === selectedRole;
-    const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase());
+  // Fetch all data from Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch all tables in parallel
+        const [
+          { data: employeesData },
+          { data: branchesData },
+          { data: clientsData },
+          { data: loansData },
+          { data: loanPaymentsData },
+          { data: employeePerformanceData },
+          { data: branchPerformanceData },
+          { data: performanceTargetsData },
+          { data: clientVisitsData }
+        ] = await Promise.all([
+          supabase.from('employees').select('*'),
+          supabase.from('kenya_branches').select('*'),
+          supabase.from('clients').select('*'),
+          supabase.from('loans').select('*'),
+          supabase.from('loan_payments').select('*'),
+          supabase.from('employee_performance').select('*'),
+          supabase.from('branch_performance').select('*'),
+          supabase.from('performance_targets').select('*'),
+          supabase.from('client_visits').select('*')
+        ]);
+
+        if (employeesData) setEmployees(employeesData);
+        if (branchesData) setBranches(branchesData);
+        if (clientsData) setClients(clientsData);
+        if (loansData) setLoans(loansData);
+        if (loanPaymentsData) setLoanPayments(loanPaymentsData);
+        if (employeePerformanceData) setEmployeePerformance(employeePerformanceData);
+        if (branchPerformanceData) setBranchPerformance(branchPerformanceData);
+        if (performanceTargetsData) setPerformanceTargets(performanceTargetsData);
+        if (clientVisitsData) setClientVisits(clientVisitsData);
+
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Process data to create employee performance objects
+  const processedEmployees = employees.map(employee => {
+    // Get employee's clients
+    const employeeClients = clients.filter(client => client.loan_officer === employee["Employee Number"]);
     
-    return matchesBranch && matchesRole && matchesSearch;
+    // Get employee's loans
+    const employeeLoans = loans.filter(loan => loan.loan_officer === employee["Employee Number"]);
+    
+    // Get employee's performance data (latest monthly record)
+    const latestPerformance = employeePerformance
+      .filter(perf => perf.employee_id === employee["Employee Number"] && perf.period === 'monthly')
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    
+    // Get employee's targets
+    const employeeTargets = performanceTargets
+      .filter(target => target.employee_id === employee["Employee Number"] && target.is_active);
+    
+    // Calculate disbursement metrics
+    const disbursementTarget = employeeTargets.find(t => t.target_type === 'disbursement')?.target_value || 0;
+    const loansDisbursed = employeeLoans.filter(loan => 
+      loan.status === 'Disbursed' || loan.status === 'Active' || loan.status === 'Completed'
+    ).length;
+    
+    // Calculate collection metrics
+    const collectionTarget = employeeTargets.find(t => t.target_type === 'collection')?.target_value || 0;
+    const totalPortfolio = employeeLoans.reduce((sum, loan) => sum + (loan.amount_disbursed || 0), 0);
+    const outstandingBalance = employeeLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
+    const collectedAmount = totalPortfolio - outstandingBalance;
+    const collectionRate = totalPortfolio > 0 ? (collectedAmount / totalPortfolio) * 100 : 0;
+    
+    // Calculate PAR
+    const parLoans = employeeLoans.filter(loan => loan.par_days > 0);
+    const parAmount = parLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
+    const parRate = totalPortfolio > 0 ? (parAmount / totalPortfolio) * 100 : 0;
+    
+    // Calculate field visits
+    const fieldVisitsTarget = employeeTargets.find(t => t.target_type === 'field_visits')?.target_value || 0;
+    const fieldVisits = clientVisits
+      .filter(visit => visit.employee_id === employee["Employee Number"])
+      .length;
+    
+    // Calculate attendance
+    const attendanceTarget = employeeTargets.find(t => t.target_type === 'attendance')?.target_value || 0;
+    const attendanceDays = latestPerformance?.attendance_days || 0;
+    const workingDays = latestPerformance?.working_days || 1;
+    const attendanceRate = (attendanceDays / workingDays) * 100;
+    
+    // Calculate TAT
+    const tatAverage = latestPerformance?.tat_average || 0;
+    
+    // Get branch info
+    const branch = branches.find(
+      b => b["Branch Office"] === employee.Branch
+    );
+
+    // Prepare disbursement targets for different periods
+    const dailyDisbursementTarget = employeeTargets
+      .find(t => t.target_type === 'disbursement' && t.period === 'daily')?.target_value || 0;
+    const weeklyDisbursementTarget = employeeTargets
+      .find(t => t.target_type === 'disbursement' && t.period === 'weekly')?.target_value || 0;
+    
+    // Calculate achieved disbursements (simplified - in a real app you'd filter by date ranges)
+    const today = new Date().toISOString().split('T')[0];
+    const todayDisbursements = employeeLoans.filter(loan => 
+      loan.disbursement_date === today
+    ).length;
+    
+    // This week's disbursements (simplified)
+    const thisWeekDisbursements = Math.floor(employeeLoans.length / 4);
+    
+    return {
+      id: employee["Employee Number"],
+      name: `${employee["First Name"]} ${employee["Last Name"]}`,
+      role: employee["Job Title"],
+      branch: branch?.["Branch Office"]?.toLowerCase() || '',
+      loansDisbursed,
+      target: disbursementTarget,
+      attendance: attendanceRate,
+      fieldVisits,
+      par: parRate,
+      collection: collectionRate,
+      tat: tatAverage,
+      clients: employeeClients.map(client => ({
+        id: client.client_id,
+        name: `${client.first_name} ${client.last_name}`,
+        status: client.status || 'active',
+        loanAmount: loans.find(loan => loan.client_id === client.client_id)?.amount_disbursed || 0,
+        lastPayment: loanPayments
+          .filter(payment => loans.some(loan => 
+            loan.loan_id === payment.loan_id && loan.client_id === client.client_id))
+          .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())[0]?.payment_date || ''
+      })),
+      disbursementTargets: {
+        daily: dailyDisbursementTarget,
+        weekly: weeklyDisbursementTarget,
+        monthly: disbursementTarget,
+        achieved: {
+          today: todayDisbursements,
+          thisWeek: thisWeekDisbursements,
+          thisMonth: loansDisbursed
+        }
+      },
+      collectionMetrics: {
+        totalPortfolio,
+        collectedThisWeek: collectedAmount / 4, // Simplified
+        overdueAmount: parAmount,
+        collectionRate
+      }
+    };
   });
 
-  const branchAverages = branches.map(branch => {
-    const branchEmployees = employees.filter(e => e.branch === branch.id);
+  // Process branch performance data
+  const processedBranchAverages = branches.map(branch => {
+    const branchEmployees = processedEmployees.filter(
+      e => e.branch?.toLowerCase() === branch["Branch Office"]?.toLowerCase()
+    );
+
     const count = branchEmployees.length;
     
     if (count === 0) return {
@@ -346,9 +442,27 @@ const PerformanceDashboard: React.FC = () => {
     };
   });
 
+  const roles = ['All Roles', 'Loan Officer', 'Branch Manager', 'Credit Analyst', 'Relationship Officer'];
+
+  const filteredEmployees = processedEmployees.filter(employee => {
+    const matchesBranch = selectedBranch === 'all' || employee.branch === selectedBranch.toLowerCase();
+    const matchesRole = selectedRole === 'All Roles' || employee.role === selectedRole;
+    const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesBranch && matchesRole && matchesSearch;
+  });
+
   const toggleEmployeeExpand = (employeeId: string) => {
     setExpandedEmployee(expandedEmployee === employeeId ? null : employeeId);
   };
+
+  if (loading) {
+    return (
+      <div className="p-4 flex justify-center items-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
@@ -392,9 +506,13 @@ const PerformanceDashboard: React.FC = () => {
                 className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               >
                 <option value="all">All Branches</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
+                  {branches.map(branch => (
+                    <option 
+                      key={branch.id} 
+                      value={branch["Branch Office"]?.toLowerCase() || ''}>
+                      {branch["Branch Office"] || ''}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -472,33 +590,37 @@ const PerformanceDashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard 
           label="Average Loan Disbursement Rate" 
-          value={Math.round(employees.reduce((sum, e) => sum + (e.loansDisbursed / e.target * 100), 0) / employees.length)} 
+          value={processedEmployees.length > 0 ? 
+            processedEmployees.reduce((sum, e) => sum + (e.loansDisbursed / (e.target || 1) * 100), 0) / processedEmployees.length : 0} 
           icon={Target} 
           color="blue"
           isPercentage={true}
         />
         <SummaryCard 
           label="Daily Target Achievement" 
-          value={Math.round(employees.reduce((sum, e) => sum + (e.disbursementTargets.achieved.today / e.disbursementTargets.daily * 100), 0) / employees.length)} 
+          value={processedEmployees.length > 0 ? 
+            processedEmployees.reduce((sum, e) => sum + (e.disbursementTargets.achieved.today / (e.disbursementTargets.daily || 1) * 100), 0) / processedEmployees.length : 0} 
           icon={Calendar} 
           color="purple"
           isPercentage={true}
         />
         <SummaryCard 
           label="Active Client Ratio" 
-          value={Math.round(employees.reduce((sum, e) => {
-            const activeClients = e.clients.filter(c => c.status === 'active').length;
-            return sum + (activeClients / e.clients.length * 100);
-          }, 0) / employees.length)} 
+          value={processedEmployees.length > 0 ? 
+            processedEmployees.reduce((sum, e) => {
+              const activeClients = e.clients.filter(c => c.status === 'active').length;
+              return sum + (activeClients / (e.clients.length || 1) * 100);
+            }, 0) / processedEmployees.length : 0} 
           icon={UserCheck} 
           color="green"
           isPercentage={true}
         />
         <SummaryCard 
           label="Portfolio at Risk (PAR)" 
-          value={employees.reduce((sum, e) => sum + e.par, 0) / employees.length} 
+          value={processedEmployees.length > 0 ? 
+            processedEmployees.reduce((sum, e) => sum + e.par, 0) / processedEmployees.length : 0} 
           icon={AlertCircle} 
-          color={employees.reduce((sum, e) => sum + e.par, 0) / employees.length < 5 ? 'green' : 'red'}
+          color={processedEmployees.length > 0 && processedEmployees.reduce((sum, e) => sum + e.par, 0) / processedEmployees.length < 5 ? 'green' : 'red'}
           isPercentage={true}
         />
       </div>
@@ -543,9 +665,11 @@ const PerformanceDashboard: React.FC = () => {
                 </thead>
                 <tbody>
                   {filteredEmployees.map((employee) => {
-                    const branch = branches.find(b => b.id === employee.branch);
+                    const branch = branches.find(
+                      b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
+                    );
                     const activeClients = employee.clients.filter(c => c.status === 'active').length;
-                    const clientRatio = Math.round((activeClients / employee.clients.length) * 100);
+                    const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
                     
                     return (
                       <React.Fragment key={employee.id}>
@@ -559,7 +683,7 @@ const PerformanceDashboard: React.FC = () => {
                             <p className="text-gray-700">{employee.role}</p>
                           </td>
                           <td className="py-4 px-4">
-                            <p className="text-gray-700">{branch?.name}</p>
+                            <p className="text-gray-700">{branch?.["Branch Office"]}</p>
                           </td>
                           <td className="py-4 px-4">
                             <div className="space-y-1">
@@ -599,7 +723,7 @@ const PerformanceDashboard: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <span>Overdue:</span>
                                 <span className="text-xs font-medium text-red-600">
-                                  KSh {employee.collectionMetrics.overdueAmount.toLocaleString()}
+                                  KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
                                 </span>
                               </div>
                             </div>
@@ -641,7 +765,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
                                           className="bg-blue-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.today / employee.disbursementTargets.daily) * 100)}%` }}
+                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.today / (employee.disbursementTargets.daily || 1)) * 100)}%` }}
                                         ></div>
                                       </div>
                                     </div>
@@ -655,7 +779,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
                                           className="bg-purple-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.thisWeek / employee.disbursementTargets.weekly) * 100)}%` }}
+                                          style={{ width: `${Math.min(100, (employee.disbursementTargets.achieved.thisWeek / (employee.disbursementTargets.weekly || 1)) * 100)}%` }}
                                         ></div>
                                       </div>
                                     </div>
@@ -669,7 +793,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="w-full bg-gray-200 rounded-full h-2">
                                         <div 
                                           className="bg-green-500 h-2 rounded-full" 
-                                          style={{ width: `${Math.min(100, (employee.loansDisbursed / employee.target) * 100)}%` }}
+                                          style={{ width: `${Math.min(100, (employee.loansDisbursed / (employee.target || 1)) * 100)}%` }}
                                         ></div>
                                       </div>
                                     </div>
@@ -713,7 +837,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="flex justify-between text-xs mb-1">
                                         <span>Total Portfolio</span>
                                         <span className="font-medium">
-                                          KSh {employee.collectionMetrics.totalPortfolio.toLocaleString()}
+                                          KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}
                                         </span>
                                       </div>
                                     </div>
@@ -721,7 +845,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="flex justify-between text-xs mb-1">
                                         <span>Collected This Week</span>
                                         <span className="font-medium text-green-600">
-                                          KSh {employee.collectionMetrics.collectedThisWeek.toLocaleString()}
+                                          KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}
                                         </span>
                                       </div>
                                     </div>
@@ -729,7 +853,7 @@ const PerformanceDashboard: React.FC = () => {
                                       <div className="flex justify-between text-xs mb-1">
                                         <span>Overdue Amount</span>
                                         <span className="font-medium text-red-600">
-                                          KSh {employee.collectionMetrics.overdueAmount.toLocaleString()}
+                                          KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}
                                         </span>
                                       </div>
                                     </div>
@@ -754,9 +878,11 @@ const PerformanceDashboard: React.FC = () => {
           ) : (
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredEmployees.map(employee => {
-                const branch = branches.find(b => b.id === employee.branch);
+                const branch = branches.find(
+                  b => b["Branch Office"]?.toLowerCase() === employee.branch?.toLowerCase()
+                );
                 const activeClients = employee.clients.filter(c => c.status === 'active').length;
-                const clientRatio = Math.round((activeClients / employee.clients.length) * 100);
+                const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
                 
                 return (
                   <div key={employee.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
@@ -764,7 +890,9 @@ const PerformanceDashboard: React.FC = () => {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-semibold text-gray-900">{employee.name}</h3>
-                          <p className="text-xs text-gray-500">{employee.role} • {branch?.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {employee.role} • {branch?.["Branch Office"] || ""}
+                          </p>
                         </div>
                         <StatusBadge status="PAR" value={employee.par} />
                       </div>
@@ -823,15 +951,15 @@ const PerformanceDashboard: React.FC = () => {
                           </h4>
                           <div className="flex justify-between text-xs mb-2">
                             <span>Total Portfolio</span>
-                            <span className="font-medium">KSh {employee.collectionMetrics.totalPortfolio.toLocaleString()}</span>
+                            <span className="font-medium">KSh {employee.collectionMetrics.totalPortfolio?.toLocaleString() || '0'}</span>
                           </div>
                           <div className="flex justify-between text-xs mb-2">
                             <span>Collected This Week</span>
-                            <span className="font-medium text-green-600">KSh {employee.collectionMetrics.collectedThisWeek.toLocaleString()}</span>
+                            <span className="font-medium text-green-600">KSh {employee.collectionMetrics.collectedThisWeek?.toLocaleString() || '0'}</span>
                           </div>
                           <div className="flex justify-between text-xs mb-2">
                             <span>Overdue Amount</span>
-                            <span className="font-medium text-red-600">KSh {employee.collectionMetrics.overdueAmount.toLocaleString()}</span>
+                            <span className="font-medium text-red-600">KSh {employee.collectionMetrics.overdueAmount?.toLocaleString() || '0'}</span>
                           </div>
                           <div className="flex justify-between text-xs items-center">
                             <span>Collection Rate</span>
@@ -862,7 +990,7 @@ const PerformanceDashboard: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Branch Performance Comparison</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {branches.map(branch => {
-                const branchData = branchAverages.find(b => b.branch === branch.id) || {
+                const branchData = processedBranchAverages.find(b => b.branch === branch.id) || {
                   loansDisbursed: 0,
                   target: 0,
                   attendance: 0,
@@ -875,8 +1003,10 @@ const PerformanceDashboard: React.FC = () => {
                 return (
                   <div key={branch.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{branch.name}</h3>
-                      <p className="text-gray-600 text-sm">{branch.location}</p>
+                     <h3 className="text-lg font-semibold text-gray-900">
+                        {branch?.["Branch Office"] || ""}
+                      </h3>
+                      <p className="text-gray-600 text-sm">{branch["Area"]}</p>
                     </div>
                     
                     <div className="space-y-3 mt-4">
@@ -885,7 +1015,7 @@ const PerformanceDashboard: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{Math.round(branchData.loansDisbursed)}/{Math.round(branchData.target)}</span>
                           <span className={`text-xs ${branchData.loansDisbursed >= branchData.target ? 'text-green-600' : 'text-red-600'}`}>
-                            ({Math.round(branchData.loansDisbursed / branchData.target * 100)}%)
+                            ({Math.round(branchData.loansDisbursed / (branchData.target || 1) * 100)}%)
                           </span>
                         </div>
                       </div>
@@ -934,15 +1064,18 @@ const PerformanceDashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {branchAverages.map(branchData => {
+                  {processedBranchAverages.map(branchData => {
                     const branch = branches.find(b => b.id === branchData.branch);
-                    const disbursementRate = Math.round(branchData.loansDisbursed / branchData.target * 100);
+                    const disbursementRate = branchData.target > 0 ? 
+                      Math.round(branchData.loansDisbursed / branchData.target * 100) : 0;
                     
                     return (
                       <tr key={branchData.branch} className="border-b border-gray-300 hover:bg-gray-50">
                         <td className="py-4 px-4">
-                          <p className="text-gray-900 font-semibold">{branch?.name}</p>
-                          <p className="text-gray-600 text-xs">{branch?.location}</p>
+                          <p className="text-gray-900 font-semibold">
+                            {branch?.["Branch Office"] || ""}
+                          </p>
+                          <p className="text-gray-600 text-xs">{branch?.["Area"]}</p>
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center gap-2">
