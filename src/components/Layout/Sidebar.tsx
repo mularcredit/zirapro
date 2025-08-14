@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
-import solo from '../../../public/solo.png';
+import solo from '../../assets/solo.png';
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
