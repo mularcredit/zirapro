@@ -7,6 +7,13 @@ import {
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
+import ClientModal from './components/ClientModal';
+import LoanModal from './components/LoanModal';
+import LoanPaymentModal from './components/LoanPaymentModal';
+import EmployeePerformanceModal from './components/EmployeePerformanceModal';
+import PerformanceTargetModal from './components/PerformanceTargetModal';
+import ClientVisitModal from './components/ClientVisitModal';
+import BranchPerformanceModal from './BranchPerformanceModal';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -334,6 +341,103 @@ const PerformanceDashboard: React.FC = () => {
   const [clientVisits, setClientVisits] = useState<ClientVisit[]>([]);
   const [loading, setLoading] = useState(true);
 
+
+
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [showLoanModal, setShowLoanModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showEmployeePerfModal, setShowEmployeePerfModal] = useState(false);
+  const [showBranchPerfModal, setShowBranchPerfModal] = useState(false);
+  const [showTargetModal, setShowTargetModal] = useState(false);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [currentRecord, setCurrentRecord] = useState<any>(null);
+
+
+  const handleOpenModal = (type: string, record: any = null) => {
+    setCurrentRecord(record);
+    switch(type) {
+      case 'client': setShowClientModal(true); break;
+      case 'loan': setShowLoanModal(true); break;
+      case 'payment': setShowPaymentModal(true); break;
+      case 'employeePerf': setShowEmployeePerfModal(true); break;
+      case 'branchPerf': setShowBranchPerfModal(true); break;
+      case 'target': setShowTargetModal(true); break;
+      case 'visit': setShowVisitModal(true); break;
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowClientModal(false);
+    setShowLoanModal(false);
+    setShowPaymentModal(false);
+    setShowEmployeePerfModal(false);
+    setShowBranchPerfModal(false);
+    setShowTargetModal(false);
+    setShowVisitModal(false);
+    setCurrentRecord(null);
+  };
+
+  const handleSaveRecord = async (type: string, record: any) => {
+    try {
+      // In a real app, you might want to update your local state here
+      // or trigger a refresh of the relevant data
+      console.log(`Saved ${type}:`, record);
+    } catch (error) {
+      console.error(`Error saving ${type}:`, error);
+    }
+  };
+
+  const handleDeleteRecord = async (type: string, id: any) => {
+    try {
+      let tableName = '';
+      let idField = '';
+      
+      switch(type) {
+        case 'client': 
+          tableName = 'clients';
+          idField = 'client_id';
+          break;
+        case 'loan': 
+          tableName = 'loans';
+          idField = 'loan_id';
+          break;
+        case 'payment': 
+          tableName = 'loan_payments';
+          idField = 'payment_id';
+          break;
+        case 'employeePerf': 
+          tableName = 'employee_performance';
+          idField = 'id';
+          break;
+        case 'branchPerf': 
+          tableName = 'branch_performance';
+          idField = 'id';
+          break;
+        case 'target': 
+          tableName = 'performance_targets';
+          idField = 'id';
+          break;
+        case 'visit': 
+          tableName = 'client_visits';
+          idField = 'visit_id';
+          break;
+      }
+      
+      const { error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq(idField, id);
+      
+      if (error) throw error;
+      
+      // In a real app, you would update your local state here
+      console.log(`Deleted ${type} with ID:`, id);
+    } catch (error) {
+      console.error(`Error deleting ${type}:`, error);
+    }
+  };
+
+
   // Fetch all data from Supabase
   useEffect(() => {
     const fetchData = async () => {
@@ -592,6 +696,29 @@ const PerformanceDashboard: React.FC = () => {
             <p className="text-gray-600 text-sm">Track loan disbursements, collections, and client relationships</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
+
+            <GlowButton onClick={() => handleOpenModal('client')} icon={Plus} size="sm">
+              Add Client
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('loan')} icon={Plus} size="sm">
+              Add Loan
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('payment')} icon={Plus} size="sm">
+              Add Payment
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('employeePerf')} icon={Plus} size="sm">
+              Add Employee Performance
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('branchPerf')} icon={Plus} size="sm">
+              Add Branch Performance
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('target')} icon={Plus} size="sm">
+              Add Target
+            </GlowButton>
+            <GlowButton onClick={() => handleOpenModal('visit')} icon={Plus} size="sm">
+              Add Client Visit
+            </GlowButton>
+
             <GlowButton 
               variant="secondary"
               icon={Filter}
@@ -610,6 +737,75 @@ const PerformanceDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {showClientModal && (
+        <ClientModal
+          client={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(client) => handleSaveRecord('client', client)}
+          employees={employees}
+          branches={branches}
+        />
+      )}
+
+      {showLoanModal && (
+        <LoanModal
+          loan={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(loan) => handleSaveRecord('loan', loan)}
+          clients={clients}
+          employees={employees}
+          branches={branches}
+        />
+      )}
+
+      {showPaymentModal && (
+        <LoanPaymentModal
+          payment={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(payment) => handleSaveRecord('payment', payment)}
+          loans={loans}
+        />
+      )}
+
+      {showEmployeePerfModal && (
+        <EmployeePerformanceModal
+          performance={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(perf) => handleSaveRecord('employeePerf', perf)}
+          employees={employees}
+        />
+      )}
+
+      {showBranchPerfModal && (
+        <BranchPerformanceModal
+          performance={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(perf) => handleSaveRecord('branchPerf', perf)}
+          branches={branches}
+        />
+      )}
+
+      {showTargetModal && (
+        <PerformanceTargetModal
+          target={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(target) => handleSaveRecord('target', target)}
+          employees={employees}
+          branches={branches}
+        />
+      )}
+
+      {showVisitModal && (
+        <ClientVisitModal
+          visit={currentRecord}
+          onClose={handleCloseModal}
+          onSave={(visit) => handleSaveRecord('visit', visit)}
+          employees={employees}
+          clients={clients}
+          branches={branches}
+        />
+      )}
 
       {/* Filters Section */}
       {showFilters && (
