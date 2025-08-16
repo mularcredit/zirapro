@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart2, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
 
 interface EmployeePerformance {
   id?: number;
@@ -46,14 +47,37 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
     collection_target: performance?.collection_target || 0,
     par_amount: performance?.par_amount || 0,
     portfolio_size: performance?.portfolio_size || 0,
-    attendance_days: performance?.attendance_days || 0,
+    attendance_days: performance?.attendance_days || 1,
     working_days: performance?.working_days || 1,
     tat_average: performance?.tat_average || 0
   });
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
+
+  // Prepare options for react-select components
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]} (${emp["Employee Number"]})`
+  }));
+
+  const periodOptions = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' }
+  ];
+
+  // Get current selected values for react-select components
+  const selectedEmployee = employeeOptions.find(opt => opt.value === formData.employee_id) || null;
+  const selectedPeriod = periodOptions.find(opt => opt.value === formData.period) || periodOptions[0];
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -67,8 +91,18 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
     }));
   };
 
+  const handleSelectChange = (name: string, selectedOption: any) => {
+    if (!isMounted) return;
+    setFormData(prev => ({
+      ...prev,
+      [name]: selectedOption?.value ?? ''
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isMounted) return;
+    
     setIsSubmitting(true);
     setError(null);
 
@@ -82,31 +116,64 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
         
         if (error) throw error;
       } else {
-        // Create new performance record
+        // Create new performance record - exclude id to let database auto-generate it
+        const { id, ...insertData } = formData;
+        
         const { data, error } = await supabase
           .from('employee_performance')
-          .insert([formData])
+          .insert([insertData])
           .select()
           .single();
         
         if (error) throw error;
-        formData.id = data.id;
+        if (isMounted) {
+          setFormData(prev => ({ ...prev, id: data.id }));
+        }
       }
 
       onSave(formData);
       onClose();
     } catch (err) {
-      console.error('Error saving performance:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save performance');
+      if (isMounted) {
+        console.error('Error saving performance:', err);
+        setError(err instanceof Error ? err.message : 'Failed to save performance');
+      }
     } finally {
-      setIsSubmitting(false);
+      if (isMounted) {
+        setIsSubmitting(false);
+      }
     }
+  };
+
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '42px',
+      fontSize: '0.875rem',
+      borderColor: '#d1d5db',
+      '&:hover': {
+        borderColor: '#9ca3af'
+      }
+    }),
+    option: (base: any, { isFocused, isSelected }: any) => ({
+      ...base,
+      fontSize: '0.875rem',
+      backgroundColor: isSelected ? '#059669' : isFocused ? '#f3f4f6' : 'white',
+      color: isSelected ? 'white' : isFocused ? '#1f2937' : '#374151',
+      ':active': {
+        backgroundColor: isSelected ? '#059669' : '#e5e7eb'
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: '#1f2937'
+    })
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-        <div className="border-b border-gray-200 p-4 flex justify-between items-center">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
+        <div className="border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 bg-white">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <BarChart2 className="w-5 h-5" />
             {performance ? 'Edit Performance' : 'Add Performance Record'}
@@ -124,26 +191,22 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-            <select
-              name="employee_id"
-              value={formData.employee_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Employee*</label>
+            <Select
+              options={employeeOptions}
+              value={selectedEmployee}
+              onChange={(option) => handleSelectChange('employee_id', option)}
+              styles={selectStyles}
+              className="text-sm"
+              placeholder="Select Employee"
+              isSearchable
               required
-            >
-              <option value="">Select Employee</option>
-              {employees.map(emp => (
-                <option key={emp["Employee Number"]} value={emp["Employee Number"]}>
-                  {emp["First Name"]} {emp["Last Name"]}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date*</label>
               <div className="relative">
                 <input
                   type="date"
@@ -158,24 +221,21 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
-              <select
-                name="period"
-                value={formData.period}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Period*</label>
+              <Select
+                options={periodOptions}
+                value={selectedPeriod}
+                onChange={(option) => handleSelectChange('period', option)}
+                styles={selectStyles}
+                className="text-sm"
+                isSearchable={false}
+              />
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loans Disbursed</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Loans Disbursed*</label>
               <input
                 type="number"
                 name="loans_disbursed"
@@ -188,7 +248,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Target</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Target*</label>
               <input
                 type="number"
                 name="disbursement_target"
@@ -203,7 +263,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clients Visited</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Clients Visited*</label>
               <input
                 type="number"
                 name="clients_visited"
@@ -216,7 +276,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Field Visits Target</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Field Visits Target*</label>
               <input
                 type="number"
                 name="field_visits_target"
@@ -231,7 +291,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Amount (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Amount (KSh)*</label>
               <input
                 type="number"
                 name="collection_amount"
@@ -245,7 +305,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Target (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Target (KSh)*</label>
               <input
                 type="number"
                 name="collection_target"
@@ -261,7 +321,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">PAR Amount (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">PAR Amount (KSh)*</label>
               <input
                 type="number"
                 name="par_amount"
@@ -275,7 +335,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio Size (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio Size (KSh)*</label>
               <input
                 type="number"
                 name="portfolio_size"
@@ -291,7 +351,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Days*</label>
               <input
                 type="number"
                 name="attendance_days"
@@ -299,13 +359,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
-                min="0"
+                min="1"
                 max={formData.working_days}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Working Days</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Working Days*</label>
               <input
                 type="number"
                 name="working_days"
@@ -320,7 +380,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Average TAT (Hours)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Average TAT (Hours)*</label>
             <input
               type="number"
               name="tat_average"
@@ -333,7 +393,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             />
           </div>
           
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white">
             <button
               type="button"
               onClick={onClose}
