@@ -765,6 +765,8 @@ const PerformanceDashboard: React.FC = () => {
           onClose={handleCloseModal}
           onSave={(payment) => handleSaveRecord('payment', payment)}
           loans={loans}
+          employees={employees}
+          branches={branches}
         />
       )}
 

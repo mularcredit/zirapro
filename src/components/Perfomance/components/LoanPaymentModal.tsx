@@ -1,40 +1,118 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Wallet, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
+import { v4 as uuidv4 } from 'uuid';
 
 interface LoanPayment {
   payment_id?: number;
   loan_id: string;
   amount_paid: number;
   payment_date: string;
+  payment_method: string;
+  received_by: string | null;
+  branch_id: number | null;
+  is_on_time: boolean | null;
   principal_amount: number;
   interest_amount: number;
   fees_amount: number;
   penalty_amount: number;
 }
 
+interface Loan {
+  loan_id: string;
+  client_id: string;
+  amount_disbursed: number;
+}
+
+interface Employee {
+  "Employee Number": string;
+  "First Name": string;
+  "Last Name": string;
+}
+
+interface Branch {
+  id: number;
+  "Branch Office": string;
+}
+
 interface LoanPaymentModalProps {
   payment?: LoanPayment | null;
   onClose: () => void;
   onSave: (payment: LoanPayment) => void;
-  loans: any[];
+  loans?: Loan[];
+  employees?: Employee[];
+  branches?: Branch[];
 }
 
-const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, onSave, loans }) => {
+const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ 
+  payment, 
+  onClose, 
+  onSave, 
+  loans = [], 
+  employees = [], 
+  branches = [] 
+}) => {
   const [formData, setFormData] = useState<LoanPayment>({
     payment_id: payment?.payment_id,
     loan_id: payment?.loan_id || '',
     amount_paid: payment?.amount_paid || 0,
     payment_date: payment?.payment_date || new Date().toISOString().split('T')[0],
+    payment_method: payment?.payment_method || 'cash',
+    received_by: payment?.received_by || null,
+    branch_id: payment?.branch_id || null,
+    is_on_time: payment?.is_on_time || null,
     principal_amount: payment?.principal_amount || 0,
     interest_amount: payment?.interest_amount || 0,
     fees_amount: payment?.fees_amount || 0,
     penalty_amount: payment?.penalty_amount || 0
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    setIsMounted(true);
+    return () => setIsMounted(false);
+  }, []);
+
+  // Prepare options for react-select components
+  const loanOptions = loans.map(loan => ({
+    value: loan.loan_id,
+    label: `${loan.loan_id} - ${loan.client_id} (KSh ${loan.amount_disbursed?.toLocaleString()})`
+  }));
+
+  const paymentMethodOptions = [
+    { value: 'cash', label: 'Cash' },
+    { value: 'mpesa', label: 'M-Pesa' },
+    { value: 'bank_transfer', label: 'Bank Transfer' },
+    { value: 'cheque', label: 'Cheque' }
+  ];
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]}`
+  }));
+
+  const branchOptions = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"]
+  }));
+
+  const booleanOptions = [
+    { value: true, label: 'Yes' },
+    { value: false, label: 'No' }
+  ];
+
+  // Get current selected values for react-select components
+  const selectedLoan = loanOptions.find(opt => opt.value === formData.loan_id) || null;
+  const selectedPaymentMethod = paymentMethodOptions.find(opt => opt.value === formData.payment_method) || paymentMethodOptions[0];
+  const selectedEmployee = employeeOptions.find(opt => opt.value === formData.received_by) || null;
+  const selectedBranch = branchOptions.find(opt => opt.value === formData.branch_id) || null;
+  const selectedIsOnTime = booleanOptions.find(opt => opt.value === formData.is_on_time) || null;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -44,15 +122,25 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
     }));
   };
 
+  const handleSelectChange = (name: string, selectedOption: any) => {
+    if (!isMounted) return;
+    setFormData(prev => ({
+      ...prev,
+      [name]: selectedOption?.value ?? null
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isMounted) return;
+    
     setIsSubmitting(true);
     setError(null);
 
     try {
       // Validate that the sum of components equals the total amount
       const sumComponents = formData.principal_amount + formData.interest_amount + 
-                          formData.fees_amount + formData.penalty_amount;
+                          (formData.fees_amount || 0) + (formData.penalty_amount || 0);
       
       if (Math.abs(sumComponents - formData.amount_paid) > 0.01) {
         throw new Error('Sum of payment components must equal total amount paid');
@@ -67,25 +155,58 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
         
         if (error) throw error;
       } else {
-        // Create new payment
+        // Create new payment - exclude payment_id to let database auto-generate it
+        const { payment_id, ...insertData } = formData;
+        
         const { data, error } = await supabase
           .from('loan_payments')
-          .insert([formData])
+          .insert([insertData])
           .select()
           .single();
         
         if (error) throw error;
-        formData.payment_id = data.payment_id;
+        if (isMounted) {
+          setFormData(prev => ({ ...prev, payment_id: data.payment_id }));
+        }
       }
 
       onSave(formData);
       onClose();
     } catch (err) {
-      console.error('Error saving payment:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save payment');
+      if (isMounted) {
+        console.error('Error saving payment:', err);
+        setError(err instanceof Error ? err.message : 'Failed to save payment');
+      }
     } finally {
-      setIsSubmitting(false);
+      if (isMounted) {
+        setIsSubmitting(false);
+      }
     }
+  };
+
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '42px',
+      fontSize: '0.875rem',
+      borderColor: '#d1d5db',
+      '&:hover': {
+        borderColor: '#9ca3af'
+      }
+    }),
+    option: (base: any, { isFocused, isSelected }: any) => ({
+      ...base,
+      fontSize: '0.875rem',
+      backgroundColor: isSelected ? '#059669' : isFocused ? '#f3f4f6' : 'white',
+      color: isSelected ? 'white' : isFocused ? '#1f2937' : '#374151',
+      ':active': {
+        backgroundColor: isSelected ? '#059669' : '#e5e7eb'
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: '#1f2937'
+    })
   };
 
   return (
@@ -109,31 +230,27 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Loan</label>
-            <select
-              name="loan_id"
-              value={formData.loan_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Loan*</label>
+            <Select
+              options={loanOptions}
+              value={selectedLoan}
+              onChange={(option) => handleSelectChange('loan_id', option)}
+              styles={selectStyles}
+              className="text-sm"
+              placeholder="Select Loan"
+              isSearchable
               required
-            >
-              <option value="">Select Loan</option>
-              {loans.map(loan => (
-                <option key={loan.loan_id} value={loan.loan_id}>
-                  {loan.loan_id} - {loan.client_id} (KSh {loan.amount_disbursed?.toLocaleString()})
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date*</label>
             <div className="relative">
               <input
                 type="date"
                 name="payment_date"
                 value={formData.payment_date}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
               />
@@ -142,12 +259,24 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount Paid (KSh)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method*</label>
+            <Select
+              options={paymentMethodOptions}
+              value={selectedPaymentMethod}
+              onChange={(option) => handleSelectChange('payment_method', option)}
+              styles={selectStyles}
+              className="text-sm"
+              isSearchable={false}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount Paid (KSh)*</label>
             <input
               type="number"
               name="amount_paid"
               value={formData.amount_paid}
-              onChange={handleChange}
+              onChange={handleInputChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               required
               min="0"
@@ -157,12 +286,12 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Principal Amount (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Principal Amount (KSh)*</label>
               <input
                 type="number"
                 name="principal_amount"
                 value={formData.principal_amount}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="0"
@@ -171,12 +300,12 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Interest Amount (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Interest Amount (KSh)*</label>
               <input
                 type="number"
                 name="interest_amount"
                 value={formData.interest_amount}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="0"
@@ -192,7 +321,7 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
                 type="number"
                 name="fees_amount"
                 value={formData.fees_amount}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 min="0"
                 step="0.01"
@@ -205,12 +334,53 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({ payment, onClose, o
                 type="number"
                 name="penalty_amount"
                 value={formData.penalty_amount}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 min="0"
                 step="0.01"
               />
             </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Received By</label>
+              <Select
+                options={employeeOptions}
+                value={selectedEmployee}
+                onChange={(option) => handleSelectChange('received_by', option)}
+                styles={selectStyles}
+                className="text-sm"
+                placeholder="Select Employee"
+                isSearchable
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+              <Select
+                options={branchOptions}
+                value={selectedBranch}
+                onChange={(option) => handleSelectChange('branch_id', option)}
+                styles={selectStyles}
+                className="text-sm"
+                placeholder="Select Branch"
+                isSearchable
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Payment On Time?</label>
+            <Select
+              options={booleanOptions}
+              value={selectedIsOnTime}
+              onChange={(option) => handleSelectChange('is_on_time', option)}
+              styles={selectStyles}
+              className="text-sm"
+              placeholder="Select Option"
+              isClearable
+            />
           </div>
           
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
