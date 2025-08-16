@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Users, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
 
 // Types
 type ClientStatus = 'Active' | 'Inactive' | 'Dormant' | 'Blacklisted';
@@ -69,8 +70,50 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle all input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Prepare options for react-select components
+  const genderOptions = [
+    { value: '', label: 'Select Gender' },
+    { value: 'Male', label: 'Male' },
+    { value: 'Female', label: 'Female' },
+    { value: 'Other', label: 'Other' }
+  ];
+
+  const maritalStatusOptions = [
+    { value: '', label: 'Select Status' },
+    { value: 'Single', label: 'Single' },
+    { value: 'Married', label: 'Married' },
+    { value: 'Divorced', label: 'Divorced' },
+    { value: 'Widowed', label: 'Widowed' }
+  ];
+
+  const statusOptions = [
+    { value: 'Active', label: 'Active' },
+    { value: 'Inactive', label: 'Inactive' },
+    { value: 'Dormant', label: 'Dormant' },
+    { value: 'Blacklisted', label: 'Blacklisted' }
+  ];
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]}`,
+    employee: emp
+  }));
+
+  const branchOptions = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"],
+    branch: branch
+  }));
+
+  // Get current selected values for react-select components
+  const selectedGender = genderOptions.find(opt => opt.value === formData.gender) || genderOptions[0];
+  const selectedMaritalStatus = maritalStatusOptions.find(opt => opt.value === formData.marital_status) || maritalStatusOptions[0];
+  const selectedStatus = statusOptions.find(opt => opt.value === formData.status) || statusOptions[0];
+  const selectedEmployee = employeeOptions.find(opt => opt.value === formData.loan_officer) || null;
+  const selectedBranch = branchOptions.find(opt => opt.value === formData.branch_id) || null;
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
 
     setFormData(prev => {
@@ -78,17 +121,13 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
 
       // Handle empty values for nullable fields
       if (value === '') {
-        if (name === 'branch_id' || name === 'monthly_income' || name === 'date_of_birth') {
+        if (name === 'monthly_income' || name === 'date_of_birth') {
           processedValue = null;
-        } else if (name === 'gender' || name === 'marital_status') {
-          processedValue = '';
         }
       }
 
       // Convert numeric fields
-      if (name === 'branch_id' && value) {
-        processedValue = parseInt(value);
-      } else if (name === 'monthly_income' && value) {
+      if (name === 'monthly_income' && value) {
         processedValue = parseFloat(value);
       }
 
@@ -97,6 +136,14 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
         [name]: processedValue
       };
     });
+  };
+
+  // Handle select changes
+  const handleSelectChange = (name: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   // Handle form submission
@@ -151,6 +198,32 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
     return `CL${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
   };
 
+  // Custom styles for react-select components
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '42px',
+      fontSize: '0.875rem',
+      borderColor: '#d1d5db',
+      '&:hover': {
+        borderColor: '#9ca3af'
+      }
+    }),
+    option: (base: any, { isFocused, isSelected }: any) => ({
+      ...base,
+      fontSize: '0.875rem',
+      backgroundColor: isSelected ? '#059669' : isFocused ? '#f3f4f6' : 'white',
+      color: isSelected ? 'white' : isFocused ? '#1f2937' : '#374151',
+      ':active': {
+        backgroundColor: isSelected ? '#059669' : '#e5e7eb'
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: '#1f2937'
+    })
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -183,7 +256,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="first_name"
                   value={formData.first_name}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
@@ -195,7 +268,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="last_name"
                   value={formData.last_name}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
@@ -209,7 +282,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="id_number"
                   value={formData.id_number || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -221,7 +294,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                     type="date"
                     name="date_of_birth"
                     value={formData.date_of_birth || ''}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   />
                   <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -232,33 +305,24 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select
-                  name="gender"
-                  value={formData.gender || ''}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="">Select Gender</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
+                <Select
+                  options={genderOptions}
+                  value={selectedGender}
+                  onChange={(option) => handleSelectChange('gender', option?.value || '')}
+                  styles={selectStyles}
+                  className="text-sm"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                <select
-                  name="marital_status"
-                  value={formData.marital_status || ''}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="">Select Status</option>
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Divorced">Divorced</option>
-                  <option value="Widowed">Widowed</option>
-                </select>
+                <Select
+                  options={maritalStatusOptions}
+                  value={selectedMaritalStatus}
+                  onChange={(option) => handleSelectChange('marital_status', option?.value || '')}
+                  styles={selectStyles}
+                  className="text-sm"
+                />
               </div>
             </div>
           </div>
@@ -273,7 +337,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="tel"
                   name="phone_number"
                   value={formData.phone_number}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
@@ -285,7 +349,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="email"
                   name="email"
                   value={formData.email || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -297,7 +361,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                 type="text"
                 name="address"
                 value={formData.address || ''}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
               />
             </div>
@@ -309,7 +373,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="town"
                   value={formData.town || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -320,7 +384,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="postal_code"
                   value={formData.postal_code || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -331,7 +395,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="text"
                   name="occupation"
                   value={formData.occupation || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
               </div>
@@ -348,7 +412,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                   type="number"
                   name="monthly_income"
                   value={formData.monthly_income || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   step="0.01"
                   min="0"
@@ -362,7 +426,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
                     type="date"
                     name="registration_date"
                     value={formData.registration_date}
-                    onChange={handleChange}
+                    onChange={handleInputChange}
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                     required
                   />
@@ -378,53 +442,40 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status*</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  required
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Dormant">Dormant</option>
-                  <option value="Blacklisted">Blacklisted</option>
-                </select>
+                <Select
+                  options={statusOptions}
+                  value={selectedStatus}
+                  onChange={(option) => handleSelectChange('status', option?.value || 'Active')}
+                  styles={selectStyles}
+                  className="text-sm"
+                />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Loan Officer</label>
-                <select
-                  name="loan_officer"
-                  value={formData.loan_officer || ''}
-                  onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                >
-                  <option value="">Select Loan Officer</option>
-                  {employees.map(emp => (
-                    <option key={emp["Employee Number"]} value={emp["Employee Number"]}>
-                      {emp["First Name"]} {emp["Last Name"]}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  options={employeeOptions}
+                  value={selectedEmployee}
+                  onChange={(option) => handleSelectChange('loan_officer', option?.value || '')}
+                  styles={selectStyles}
+                  className="text-sm"
+                  isClearable
+                  placeholder="Select Loan Officer"
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-              <select
-                name="branch_id"
-                value={formData.branch_id || ''}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">Select Branch</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch["Branch Office"]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={branchOptions}
+                value={selectedBranch}
+                onChange={(option) => handleSelectChange('branch_id', option?.value || null)}
+                styles={selectStyles}
+                className="text-sm"
+                isClearable
+                placeholder="Select Branch"
+              />
             </div>
           </div>
           
