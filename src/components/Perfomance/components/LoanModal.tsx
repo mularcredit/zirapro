@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
-import { CreditCard, X, Check, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
+import { useState } from 'react';
+import { CreditCard, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Loan {
   loan_id: string;
@@ -13,6 +15,8 @@ interface Loan {
   interest_rate: number;
   term_months: number;
   disbursement_date: string;
+  maturity_date: string;
+  repayment_frequency: string;
   status: string;
   par_days: number;
   last_payment_date: string | null;
@@ -23,12 +27,52 @@ interface LoanModalProps {
   loan?: Loan | null;
   onClose: () => void;
   onSave: (loan: Loan) => void;
-  clients: any[];
-  employees: any[];
-  branches: any[];
+  clients: Array<{
+    client_id: string;
+    first_name: string;
+    last_name: string;
+  }>;
+  employees: Array<{
+    "Employee Number": string;
+    "First Name": string;
+    "Last Name": string;
+  }>;
+  branches: Array<{
+    id: number;
+    "Branch Office": string;
+  }>;
 }
 
 const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, employees, branches }) => {
+  const calculateMaturityDate = (disbursementDate: string, termMonths: number): string => {
+    const date = new Date(disbursementDate);
+    date.setMonth(date.getMonth() + termMonths);
+    return date.toISOString().split('T')[0];
+  };
+
+  const calculateNextPaymentDate = (disbursementDate: string, frequency: string = 'monthly'): string => {
+    const date = new Date(disbursementDate);
+    
+    switch (frequency) {
+      case 'weekly':
+        date.setDate(date.getDate() + 7);
+        break;
+      case 'biweekly':
+        date.setDate(date.getDate() + 14);
+        break;
+      case 'monthly':
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case 'quarterly':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      default:
+        date.setMonth(date.getMonth() + 1);
+    }
+    
+    return date.toISOString().split('T')[0];
+  };
+
   const [formData, setFormData] = useState<Loan>({
     loan_id: loan?.loan_id || '',
     client_id: loan?.client_id || '',
@@ -40,32 +84,109 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
     interest_rate: loan?.interest_rate || 12,
     term_months: loan?.term_months || 12,
     disbursement_date: loan?.disbursement_date || new Date().toISOString().split('T')[0],
-    status: loan?.status || 'pending',
+    maturity_date: loan?.maturity_date || calculateMaturityDate(
+      loan?.disbursement_date || new Date().toISOString().split('T')[0],
+      loan?.term_months || 12
+    ),
+    repayment_frequency: loan?.repayment_frequency || 'monthly',
+    status: loan?.status || 'Pending',
     par_days: loan?.par_days || 0,
     last_payment_date: loan?.last_payment_date || null,
-    next_payment_date: loan?.next_payment_date || null
+    next_payment_date: loan?.next_payment_date || calculateNextPaymentDate(
+      loan?.disbursement_date || new Date().toISOString().split('T')[0],
+      loan?.repayment_frequency || 'monthly'
+    )
   });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const clientOptions = clients.map(client => ({
+    value: client.client_id,
+    label: `${client.first_name} ${client.last_name}`,
+    client: client
+  }));
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]}`,
+    employee: emp
+  }));
+
+  const branchOptions = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"],
+    branch: branch
+  }));
+
+  const productTypeOptions = [
+    { value: 'individual', label: 'Individual' },
+    { value: 'group', label: 'Group' },
+    { value: 'business', label: 'Business' },
+    { value: 'agriculture', label: 'Agriculture' }
+  ];
+
+  const repaymentFrequencyOptions = [
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'biweekly', label: 'Bi-Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'quarterly', label: 'Quarterly' }
+  ];
+
+  const statusOptions = [
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Approved', label: 'Approved' },
+    { value: 'Disbursed', label: 'Disbursed' },
+    { value: 'Active', label: 'Active' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Defaulted', label: 'Defaulted' }
+  ];
+
+  const selectedClient = clientOptions.find(opt => opt.value === formData.client_id) || null;
+  const selectedEmployee = employeeOptions.find(opt => opt.value === formData.loan_officer) || null;
+  const selectedBranch = branchOptions.find(opt => opt.value === formData.branch_id) || null;
+  const selectedProductType = productTypeOptions.find(opt => opt.value === formData.product_type) || productTypeOptions[0];
+  const selectedRepaymentFrequency = repaymentFrequencyOptions.find(opt => opt.value === formData.repayment_frequency) || repaymentFrequencyOptions[2];
+  const selectedStatus = statusOptions.find(opt => opt.value === formData.status) || statusOptions[0];
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: ['branch_id', 'amount_disbursed', 'outstanding_balance', 'interest_rate', 'term_months', 'par_days'].includes(name) 
-        ? parseFloat(value) || 0 
-        : value
-    }));
+    
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: ['amount_disbursed', 'outstanding_balance', 'interest_rate', 'term_months', 'par_days'].includes(name) 
+          ? parseFloat(value) || 0 
+          : value
+      };
+
+      if (name === 'term_months' || name === 'disbursement_date') {
+        newData.maturity_date = calculateMaturityDate(
+          name === 'disbursement_date' ? value : newData.disbursement_date,
+          name === 'term_months' ? parseFloat(value) || 0 : newData.term_months
+        );
+      }
+
+      return newData;
+    });
   };
 
-  const calculateNextPaymentDate = () => {
-    if (!formData.disbursement_date) return null;
-    
-    const disbursementDate = new Date(formData.disbursement_date);
-    const nextPaymentDate = new Date(disbursementDate);
-    nextPaymentDate.setMonth(nextPaymentDate.getMonth() + 1);
-    
-    return nextPaymentDate.toISOString().split('T')[0];
+  const handleSelectChange = (name: string, selectedOption: any) => {
+    setFormData(prev => {
+      const newData = {
+        ...prev,
+        [name]: selectedOption?.value || ''
+      };
+
+      if (name === 'repayment_frequency') {
+        newData.next_payment_date = calculateNextPaymentDate(
+          newData.disbursement_date,
+          selectedOption?.value
+        );
+      }
+
+      return newData;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,10 +197,12 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
     try {
       const loanData = {
         ...formData,
-        next_payment_date: formData.next_payment_date || calculateNextPaymentDate()
+        loan_id: formData.loan_id || uuidv4(), // Generate ID if not exists
+        maturity_date: formData.maturity_date || calculateMaturityDate(formData.disbursement_date, formData.term_months),
+        next_payment_date: formData.next_payment_date || calculateNextPaymentDate(formData.disbursement_date, formData.repayment_frequency)
       };
 
-      if (loanData.loan_id) {
+      if (loan?.loan_id) {
         // Update existing loan
         const { error } = await supabase
           .from('loans')
@@ -89,14 +212,11 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
         if (error) throw error;
       } else {
         // Create new loan
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('loans')
-          .insert([loanData])
-          .select()
-          .single();
+          .insert([loanData]);
         
         if (error) throw error;
-        loanData.loan_id = data.loan_id;
       }
 
       onSave(loanData);
@@ -107,6 +227,31 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const selectStyles = {
+    control: (base: any) => ({
+      ...base,
+      minHeight: '42px',
+      fontSize: '0.875rem',
+      borderColor: '#d1d5db',
+      '&:hover': {
+        borderColor: '#9ca3af'
+      }
+    }),
+    option: (base: any, { isFocused, isSelected }: any) => ({
+      ...base,
+      fontSize: '0.875rem',
+      backgroundColor: isSelected ? '#059669' : isFocused ? '#f3f4f6' : 'white',
+      color: isSelected ? 'white' : isFocused ? '#1f2937' : '#374151',
+      ':active': {
+        backgroundColor: isSelected ? '#059669' : '#e5e7eb'
+      }
+    }),
+    singleValue: (base: any) => ({
+      ...base,
+      color: '#1f2937'
+    })
   };
 
   return (
@@ -130,119 +275,95 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-            <select
-              name="client_id"
-              value={formData.client_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Client*</label>
+            <Select
+              options={clientOptions}
+              value={selectedClient}
+              onChange={(option) => handleSelectChange('client_id', option)}
+              styles={selectStyles}
+              className="text-sm"
+              placeholder="Select Client"
+              isSearchable
               required
-            >
-              <option value="">Select Client</option>
-              {clients.map(client => (
-                <option key={client.client_id} value={client.client_id}>
-                  {client.first_name} {client.last_name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loan Officer</label>
-              <select
-                name="loan_officer"
-                value={formData.loan_officer}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              <label className="block text-sm font-medium text-gray-700 mb-1">Loan Officer*</label>
+              <Select
+                options={employeeOptions}
+                value={selectedEmployee}
+                onChange={(option) => handleSelectChange('loan_officer', option)}
+                styles={selectStyles}
+                className="text-sm"
+                placeholder="Select Loan Officer"
+                isSearchable
                 required
-              >
-                <option value="">Select Loan Officer</option>
-                {employees.map(emp => (
-                  <option key={emp["Employee Number"]} value={emp["Employee Number"]}>
-                    {emp["First Name"]} {emp["Last Name"]}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-              <select
-                name="branch_id"
-                value={formData.branch_id}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              <label className="block text-sm font-medium text-gray-700 mb-1">Branch*</label>
+              <Select
+                options={branchOptions}
+                value={selectedBranch}
+                onChange={(option) => handleSelectChange('branch_id', option)}
+                styles={selectStyles}
+                className="text-sm"
+                placeholder="Select Branch"
+                isSearchable
                 required
-              >
-                <option value="">Select Branch</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch["Branch Office"]}
-                  </option>
-                ))}
-              </select>
+              />
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Type</label>
-              <select
-                name="product_type"
-                value={formData.product_type}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-              >
-                <option value="individual">Individual</option>
-                <option value="group">Group</option>
-                <option value="business">Business</option>
-                <option value="agriculture">Agriculture</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Product Type*</label>
+              <Select
+                options={productTypeOptions}
+                value={selectedProductType}
+                onChange={(option) => handleSelectChange('product_type', option)}
+                styles={selectStyles}
+                className="text-sm"
+                isSearchable={false}
+              />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="disbursed">Disbursed</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="defaulted">Defaulted</option>
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Repayment Frequency*</label>
+              <Select
+                options={repaymentFrequencyOptions}
+                value={selectedRepaymentFrequency}
+                onChange={(option) => handleSelectChange('repayment_frequency', option)}
+                styles={selectStyles}
+                className="text-sm"
+                isSearchable={false}
+              />
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount Disbursed (KSh)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status*</label>
+              <Select
+                options={statusOptions}
+                value={selectedStatus}
+                onChange={(option) => handleSelectChange('status', option)}
+                styles={selectStyles}
+                className="text-sm"
+                isSearchable={false}
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Amount Disbursed (KSh)*</label>
               <input
                 type="number"
                 name="amount_disbursed"
                 value={formData.amount_disbursed}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-                step="0.01"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (KSh)</label>
-              <input
-                type="number"
-                name="outstanding_balance"
-                value={formData.outstanding_balance}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="0"
@@ -253,12 +374,26 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
+              <input
+                type="number"
+                name="outstanding_balance"
+                value={formData.outstanding_balance}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                required
+                min="0"
+                step="0.01"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)*</label>
               <input
                 type="number"
                 name="interest_rate"
                 value={formData.interest_rate}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="0"
@@ -266,48 +401,78 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
                 step="0.01"
               />
             </div>
-            
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Term (Months)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Term (Months)*</label>
               <input
                 type="number"
                 name="term_months"
                 value={formData.term_months}
-                onChange={handleChange}
+                onChange={handleInputChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="1"
               />
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Date</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Date*</label>
               <div className="relative">
                 <input
                   type="date"
                   name="disbursement_date"
                   value={formData.disbursement_date}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
             </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Maturity Date</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  name="maturity_date"
+                  value={formData.maturity_date}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100"
+                />
+                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+              </div>
+            </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">PAR Days</label>
-              <input
-                type="number"
-                name="par_days"
-                value={formData.par_days}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                min="0"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Next Payment Date</label>
+              <div className="relative">
+                <input
+                  type="date"
+                  name="next_payment_date"
+                  value={formData.next_payment_date || ''}
+                  readOnly
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100"
+                />
+                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
+              </div>
             </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">PAR Days</label>
+            <input
+              type="number"
+              name="par_days"
+              value={formData.par_days}
+              onChange={handleInputChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              min="0"
+            />
           </div>
           
           {formData.last_payment_date && (
@@ -318,7 +483,7 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
                   type="date"
                   name="last_payment_date"
                   value={formData.last_payment_date || ''}
-                  onChange={handleChange}
+                  onChange={handleInputChange}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
