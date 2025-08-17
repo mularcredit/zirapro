@@ -1677,57 +1677,57 @@ const PerformanceDashboard: React.FC = () => {
 
       {selectedTab === 'targets' && (
         <PerformanceTargetsTable 
-          targets={performanceTargets}
-          onUpdate={handleUpdatePerformanceTarget}
-          onDelete={handleDeletePerformanceTarget}
+          targets={performanceTargets as any}
+          onUpdate={(target) => (handleUpdatePerformanceTarget as any)(target)}
+          onDelete={(id) => (handleDeletePerformanceTarget as any)(id)}
         />
       )}
 
       {selectedTab === 'clients' && (
         <ClientsTable 
-          clients={clients}
-          onUpdate={handleUpdateClient}
-          onDelete={handleDeleteClient}
+          clients={clients as any}
+          onUpdate={(client) => (handleUpdateClient as any)(client)}
+          onDelete={(id) => (handleDeleteClient as any)(id)}
         />
       )}
 
       {selectedTab === 'loans' && (
         <LoansTable 
-          loans={loans}
-          onUpdate={handleUpdateLoan}
-          onDelete={handleDeleteLoan}
+          loans={loans as any}
+          onUpdate={(loan) => (handleUpdateLoan as any)(loan)}
+          onDelete={(id) => (handleDeleteLoan as any)(id)}
         />
       )}
 
       {selectedTab === 'payments' && (
         <LoanPaymentsTable 
-          payments={loanPayments}
-          onUpdate={handleUpdatePayment}
-          onDelete={handleDeletePayment}
+          payments={loanPayments as any}
+          onUpdate={(payment) => (handleUpdatePayment as any)(payment)}
+          onDelete={(id) => (handleDeletePayment as any)(id)}
         />
       )}
 
       {selectedTab === 'employeePerformance' && (
         <EmployeePerformanceTable 
-          performance={employeePerformance}
-          onUpdate={handleUpdateEmployeePerformance}
-          onDelete={handleDeleteEmployeePerformance}
+          performance={employeePerformance as any}
+          onUpdate={(perf) => (handleUpdateEmployeePerformance as any)(perf)}
+          onDelete={(id) => (handleDeleteEmployeePerformance as any)(id)}
         />
       )}
 
       {selectedTab === 'branchPerformance' && (
         <BranchPerformanceTable 
-          performance={branchPerformance}
-          onUpdate={handleUpdateBranchPerformance}
-          onDelete={handleDeleteBranchPerformance}
+          performance={branchPerformance as any}
+          onUpdate={(perf) => (handleUpdateBranchPerformance as any)(perf)}
+          onDelete={(id) => (handleDeleteBranchPerformance as any)(id)}
         />
       )}
 
       {selectedTab === 'clientVisit' && (
         <ClientVisitsTable 
-          visits={clientVisits}
-          onUpdate={handleUpdateClientVisit}
-          onDelete={handleDeleteClientVisit}
+          visits={clientVisits as any}
+          onUpdate={(visit) => (handleUpdateClientVisit as any)(visit)}
+          onDelete={(id) => (handleDeleteClientVisit as any)(id)}
         />
       )}
 
