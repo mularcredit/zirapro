@@ -15,6 +15,16 @@ import PerformanceTargetModal from './components/PerformanceTargetModal';
 import ClientVisitModal from './components/ClientVisitModal';
 import BranchPerformanceModal from './BranchPerformanceModal';
 
+import { 
+  ClientsTable, 
+  LoansTable, 
+  LoanPaymentsTable, 
+  EmployeePerformanceTable, 
+  BranchPerformanceTable, 
+  PerformanceTargetsTable, 
+  ClientVisitsTable
+} from './components/Table'; 
+
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
@@ -316,7 +326,7 @@ const Pagination: React.FC<{
 };
 
 const PerformanceDashboard: React.FC = () => {
-  const [selectedTab, setSelectedTab] = useState<'individual' | 'branch'>('individual');
+  const [selectedTab, setSelectedTab] = useState<'individual' | 'branch' | 'targets' | 'clients' | 'loans' | 'payments' | 'employeePerformance' | 'branchPerformance' | 'clientVisit'>('individual');
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [selectedRole, setSelectedRole] = useState('All Roles');
   const [searchTerm, setSearchTerm] = useState('');
@@ -686,6 +696,64 @@ const PerformanceDashboard: React.FC = () => {
     );
   }
 
+  // State handlers for all tables
+  const handleUpdateClient = (updatedClient: Client) => {
+    setClients(clients.map(c => c.client_id === updatedClient.client_id ? updatedClient : c));
+  };
+
+  const handleDeleteClient = (id: string) => {
+    setClients(clients.filter(c => c.client_id !== id));
+  };
+
+  const handleUpdateLoan = (updatedLoan: Loan) => {
+    setLoans(loans.map(l => l.loan_id === updatedLoan.loan_id ? updatedLoan : l));
+  };
+
+  const handleDeleteLoan = (id: string) => {
+    setLoans(loans.filter(l => l.loan_id !== id));
+  };
+
+  const handleUpdatePayment = (updatedPayment: LoanPayment) => {
+    setLoanPayments(loanPayments.map(p => p.payment_id === updatedPayment.payment_id ? updatedPayment : p));
+  };
+
+  const handleDeletePayment = (id: number) => {
+    setLoanPayments(loanPayments.filter(p => p.payment_id !== id));
+  };
+
+  const handleUpdateEmployeePerformance = (updatedPerf: EmployeePerformance) => {
+    setEmployeePerformance(employeePerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+  };
+
+  const handleDeleteEmployeePerformance = (id: number) => {
+    setEmployeePerformance(employeePerformance.filter(p => p.id !== id));
+  };
+
+  const handleUpdateBranchPerformance = (updatedPerf: BranchPerformance) => {
+    setBranchPerformance(branchPerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+  };
+
+  const handleDeleteBranchPerformance = (id: number) => {
+    setBranchPerformance(branchPerformance.filter(p => p.id !== id));
+  };
+
+  const handleUpdatePerformanceTarget = (updatedTarget: PerformanceTarget) => {
+    setPerformanceTargets(performanceTargets.map(t => t.id === updatedTarget.id ? updatedTarget : t));
+  };
+
+  const handleDeletePerformanceTarget = (id: number) => {
+    setPerformanceTargets(performanceTargets.filter(t => t.id !== id));
+  };
+
+  const handleUpdateClientVisit = (updatedVisit: ClientVisit) => {
+    setClientVisits(clientVisits.map(v => v.visit_id === updatedVisit.visit_id ? updatedVisit : v));
+  };
+
+  const handleDeleteClientVisit = (id: number | string) => {
+      const numericId = typeof id === 'string' ? Number(id) : id;
+      setClientVisits(clientVisits.filter(v => v.visit_id !== numericId));
+  };
+  
   return (
     <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
       {/* Header Section */}
@@ -902,6 +970,48 @@ const PerformanceDashboard: React.FC = () => {
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'branch' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Branch Performance
+            </button>
+            <button
+              onClick={() => setSelectedTab('targets')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'targets' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Targets
+            </button>
+            <button
+              onClick={() => setSelectedTab('clients')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'clients' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Clients
+            </button>
+            <button
+              onClick={() => setSelectedTab('loans')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'loans' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Loans
+            </button>
+            <button
+              onClick={() => setSelectedTab('payments')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'payments' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Payments
+            </button>
+            <button
+              onClick={() => setSelectedTab('employeePerformance')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'employeePerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Employee Performance
+            </button>
+            <button
+              onClick={() => setSelectedTab('branchPerformance')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'branchPerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Branch Performance
+            </button>
+            <button
+              onClick={() => setSelectedTab('clientVisit')}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'clientVisit' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+            >
+              Client Visit
             </button>
           </nav>
           {selectedTab === 'individual' && (
@@ -1340,6 +1450,62 @@ const PerformanceDashboard: React.FC = () => {
             </>
           )}
         </div>
+      )}
+
+      {selectedTab === 'targets' && (
+        <PerformanceTargetsTable 
+          targets={performanceTargets}
+          onUpdate={handleUpdatePerformanceTarget}
+          onDelete={handleDeletePerformanceTarget}
+        />
+      )}
+
+      {selectedTab === 'clients' && (
+        <ClientsTable 
+          clients={clients}
+          onUpdate={handleUpdateClient}
+          onDelete={handleDeleteClient}
+        />
+      )}
+
+      {selectedTab === 'loans' && (
+        <LoansTable 
+          loans={loans}
+          onUpdate={handleUpdateLoan}
+          onDelete={handleDeleteLoan}
+        />
+      )}
+
+      {selectedTab === 'payments' && (
+        <LoanPaymentsTable 
+          payments={loanPayments}
+          onUpdate={handleUpdatePayment}
+          onDelete={handleDeletePayment}
+        />
+      )}
+
+      {selectedTab === 'employeePerformance' && (
+        <EmployeePerformanceTable 
+          performance={employeePerformance}
+          onUpdate={handleUpdateEmployeePerformance}
+          onDelete={handleDeleteEmployeePerformance}
+        />
+      )}
+
+      {selectedTab === 'branchPerformance' && (
+        <BranchPerformanceTable 
+          performance={branchPerformance}
+          onUpdate={handleUpdateBranchPerformance}
+          onDelete={handleDeleteBranchPerformance}
+        />
+      )}
+
+      {selectedTab === 'clientVisit' && (
+        <ClientVisitsTable 
+          visits={clientVisits}
+          onUpdate={handleUpdateClientVisit}
+          onDelete={handleDeleteClientVisit}
+        />
       )}
 
       {/* Branch Performance View */}
