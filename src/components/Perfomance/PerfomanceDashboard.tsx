@@ -497,6 +497,43 @@ const PerformanceDashboard: React.FC = () => {
     fetchData();
   }, []);
 
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      
+      const [
+        { data: clientsData },
+        { data: loansData },
+        { data: loanPaymentsData },
+        { data: employeePerformanceData },
+        { data: branchPerformanceData },
+        { data: performanceTargetsData },
+        { data: clientVisitsData }
+      ] = await Promise.all([
+        supabase.from('clients').select('*'),
+        supabase.from('loans').select('*'),
+        supabase.from('loan_payments').select('*'),
+        supabase.from('employee_performance').select('*'),
+        supabase.from('branch_performance').select('*'),
+        supabase.from('performance_targets').select('*'),
+        supabase.from('client_visits').select('*')
+      ]);
+
+      if (clientsData) setClients(clientsData);
+      if (loansData) setLoans(loansData);
+      if (loanPaymentsData) setLoanPayments(loanPaymentsData);
+      if (employeePerformanceData) setEmployeePerformance(employeePerformanceData);
+      if (branchPerformanceData) setBranchPerformance(branchPerformanceData);
+      if (performanceTargetsData) setPerformanceTargets(performanceTargetsData);
+      if (clientVisitsData) setClientVisits(clientVisitsData);
+
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Process data to create employee performance objects
   const processedEmployees = employees.map(employee => {
     // Get employee's clients
@@ -697,61 +734,247 @@ const PerformanceDashboard: React.FC = () => {
   }
 
   // State handlers for all tables
-  const handleUpdateClient = (updatedClient: Client) => {
-    setClients(clients.map(c => c.client_id === updatedClient.client_id ? updatedClient : c));
+  const handleUpdateClient = async (updatedClient: Client) => {
+      try {
+        const { error } = await supabase
+          .from('clients')
+          .update(updatedClient)
+          .eq('client_id', updatedClient.client_id);
+        
+        if (error) throw error;
+
+        setClients(prevClients => 
+          prevClients.map(c => 
+            c.client_id === updatedClient.client_id ? updatedClient : c
+          )
+        );
+        
+        await refreshData();
+        handleCloseModal();
+        
+      } catch (error) {
+        console.error('Error saving client:', error);
+        
+        if (updatedClient.client_id) {
+          setClients(prevClients => prevClients);
+        }
+      }
+    };
+
+  // Client operations
+  const handleDeleteClient = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('client_id', id);
+      
+      if (error) throw error;
+
+      setClients(clients.filter(c => c.client_id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting client:', error);
+    }
   };
 
-  const handleDeleteClient = (id: string) => {
-    setClients(clients.filter(c => c.client_id !== id));
+  // Loan operations
+  const handleUpdateLoan = async (updatedLoan: Loan) => {
+    try {
+      const { error } = await supabase
+        .from('loans')
+        .update(updatedLoan)
+        .eq('loan_id', updatedLoan.loan_id);
+      
+      if (error) throw error;
+
+      setLoans(loans.map(l => l.loan_id === updatedLoan.loan_id ? updatedLoan : l));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating loan:', error);
+    }
   };
 
-  const handleUpdateLoan = (updatedLoan: Loan) => {
-    setLoans(loans.map(l => l.loan_id === updatedLoan.loan_id ? updatedLoan : l));
+  const handleDeleteLoan = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('loans')
+        .delete()
+        .eq('loan_id', id);
+      
+      if (error) throw error;
+
+      setLoans(loans.filter(l => l.loan_id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting loan:', error);
+    }
   };
 
-  const handleDeleteLoan = (id: string) => {
-    setLoans(loans.filter(l => l.loan_id !== id));
+  // Payment operations
+  const handleUpdatePayment = async (updatedPayment: LoanPayment) => {
+    try {
+      const { error } = await supabase
+        .from('loan_payments')
+        .update(updatedPayment)
+        .eq('payment_id', updatedPayment.payment_id);
+      
+      if (error) throw error;
+
+      setLoanPayments(loanPayments.map(p => p.payment_id === updatedPayment.payment_id ? updatedPayment : p));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating payment:', error);
+    }
   };
 
-  const handleUpdatePayment = (updatedPayment: LoanPayment) => {
-    setLoanPayments(loanPayments.map(p => p.payment_id === updatedPayment.payment_id ? updatedPayment : p));
+  const handleDeletePayment = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('loan_payments')
+        .delete()
+        .eq('payment_id', id);
+      
+      if (error) throw error;
+
+      setLoanPayments(loanPayments.filter(p => p.payment_id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+    }
   };
 
-  const handleDeletePayment = (id: number) => {
-    setLoanPayments(loanPayments.filter(p => p.payment_id !== id));
+  // Employee Performance operations
+  const handleUpdateEmployeePerformance = async (updatedPerf: EmployeePerformance) => {
+    try {
+      const { error } = await supabase
+        .from('employee_performance')
+        .update(updatedPerf)
+        .eq('id', updatedPerf.id);
+      
+      if (error) throw error;
+
+      setEmployeePerformance(employeePerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating employee performance:', error);
+    }
   };
 
-  const handleUpdateEmployeePerformance = (updatedPerf: EmployeePerformance) => {
-    setEmployeePerformance(employeePerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+  const handleDeleteEmployeePerformance = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('employee_performance')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+
+      setEmployeePerformance(employeePerformance.filter(p => p.id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting employee performance:', error);
+    }
   };
 
-  const handleDeleteEmployeePerformance = (id: number) => {
-    setEmployeePerformance(employeePerformance.filter(p => p.id !== id));
+  // Branch Performance operations
+  const handleUpdateBranchPerformance = async (updatedPerf: BranchPerformance) => {
+    try {
+      const { error } = await supabase
+        .from('branch_performance')
+        .update(updatedPerf)
+        .eq('id', updatedPerf.id);
+      
+      if (error) throw error;
+
+      setBranchPerformance(branchPerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating branch performance:', error);
+    }
   };
 
-  const handleUpdateBranchPerformance = (updatedPerf: BranchPerformance) => {
-    setBranchPerformance(branchPerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
+  const handleDeleteBranchPerformance = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('branch_performance')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+
+      setBranchPerformance(branchPerformance.filter(p => p.id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting branch performance:', error);
+    }
   };
 
-  const handleDeleteBranchPerformance = (id: number) => {
-    setBranchPerformance(branchPerformance.filter(p => p.id !== id));
+  // Performance Target operations
+  const handleUpdatePerformanceTarget = async (updatedTarget: PerformanceTarget) => {
+    try {
+      const { error } = await supabase
+        .from('performance_targets')
+        .update(updatedTarget)
+        .eq('id', updatedTarget.id);
+      
+      if (error) throw error;
+
+      setPerformanceTargets(performanceTargets.map(t => t.id === updatedTarget.id ? updatedTarget : t));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating performance target:', error);
+    }
   };
 
-  const handleUpdatePerformanceTarget = (updatedTarget: PerformanceTarget) => {
-    setPerformanceTargets(performanceTargets.map(t => t.id === updatedTarget.id ? updatedTarget : t));
+  const handleDeletePerformanceTarget = async (id: number) => {
+    try {
+      const { error } = await supabase
+        .from('performance_targets')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+
+      setPerformanceTargets(performanceTargets.filter(t => t.id !== id));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting performance target:', error);
+    }
   };
 
-  const handleDeletePerformanceTarget = (id: number) => {
-    setPerformanceTargets(performanceTargets.filter(t => t.id !== id));
+  // Client Visit operations
+  const handleUpdateClientVisit = async (updatedVisit: ClientVisit) => {
+    try {
+      const { error } = await supabase
+        .from('client_visits')
+        .update(updatedVisit)
+        .eq('visit_id', updatedVisit.visit_id);
+      
+      if (error) throw error;
+
+      setClientVisits(clientVisits.map(v => v.visit_id === updatedVisit.visit_id ? updatedVisit : v));
+      await refreshData();
+    } catch (error) {
+      console.error('Error updating client visit:', error);
+    }
   };
 
-  const handleUpdateClientVisit = (updatedVisit: ClientVisit) => {
-    setClientVisits(clientVisits.map(v => v.visit_id === updatedVisit.visit_id ? updatedVisit : v));
-  };
-
-  const handleDeleteClientVisit = (id: number | string) => {
+  const handleDeleteClientVisit = async (id: number | string) => {
+    try {
       const numericId = typeof id === 'string' ? Number(id) : id;
+      const { error } = await supabase
+        .from('client_visits')
+        .delete()
+        .eq('visit_id', numericId);
+      
+      if (error) throw error;
+
       setClientVisits(clientVisits.filter(v => v.visit_id !== numericId));
+      await refreshData();
+    } catch (error) {
+      console.error('Error deleting client visit:', error);
+    }
   };
   
   return (

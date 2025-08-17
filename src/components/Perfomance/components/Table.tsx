@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2, Search } from 'lucide-react';
 
 // Unified type definitions
 type Client = {
@@ -160,16 +160,15 @@ const Pagination = ({
   );
 };
 
-
 const EditModal = ({
   isOpen,
   onClose,
-  onSave,
+  onUpdate,
   fields,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedData: any) => void;
+  onUpdate: (updatedData: any) => void;
   fields: {
     key: string;
     label: string;
@@ -180,7 +179,6 @@ const EditModal = ({
 }) => {
   const [formData, setFormData] = useState<any>({});
 
-  // Sync formData whenever fields change
   useEffect(() => {
     if (fields && fields.length > 0) {
       const initialData: any = {};
@@ -200,7 +198,7 @@ const EditModal = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    onUpdate(formData);
     onClose();
   };
 
@@ -306,16 +304,50 @@ const DeleteConfirmation = ({
   );
 };
 
-// Clients Table
+// Search Input Component
+const SearchInput = ({
+  value,
+  onChange,
+  placeholder = "Search...",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) => {
+  return (
+    <div className="relative mb-4">
+      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <Search className="h-4 w-4 text-gray-400" />
+      </div>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+      />
+    </div>
+  );
+};
+
+// Clients Table with Search
 export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[]; onUpdate: (client: Client) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(clients.length / rowsPerPage);
-  const paginatedData = clients.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  // Filter clients based on search term
+  const filteredClients = clients.filter(client =>
+    Object.values(client).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  ));
+
+  const totalPages = Math.ceil(filteredClients.length / rowsPerPage);
+  const paginatedData = filteredClients.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (client: Client) => {
     setSelectedClient(client);
@@ -341,6 +373,13 @@ export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search clients by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -405,7 +444,7 @@ export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'client_id', 
@@ -463,16 +502,24 @@ export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[
   );
 };
 
-// Loans Table
+// Loans Table with Search
 export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpdate: (loan: Loan) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(loans.length / rowsPerPage);
-  const paginatedData = loans.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const filteredLoans = loans.filter(loan =>
+    Object.values(loan).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const totalPages = Math.ceil(filteredLoans.length / rowsPerPage);
+  const paginatedData = filteredLoans.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (loan: Loan) => {
     setSelectedLoan(loan);
@@ -498,6 +545,13 @@ export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpd
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search loans by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -563,7 +617,7 @@ export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpd
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'loan_id', 
@@ -618,16 +672,24 @@ export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpd
   );
 };
 
-// Loan Payments Table
+// Loan Payments Table with Search
 export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: LoanPayment[]; onUpdate: (payment: LoanPayment) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<LoanPayment | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(payments.length / rowsPerPage);
-  const paginatedData = payments.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const filteredPayments = payments.filter(payment =>
+    Object.values(payment).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const totalPages = Math.ceil(filteredPayments.length / rowsPerPage);
+  const paginatedData = filteredPayments.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (payment: LoanPayment) => {
     setSelectedPayment(payment);
@@ -653,6 +715,13 @@ export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: 
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search payments by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -711,7 +780,7 @@ export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: 
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'payment_id', 
@@ -772,16 +841,24 @@ export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: 
   );
 };
 
-// Employee Performance Table
+// Employee Performance Table with Search
 export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { performance: EmployeePerformance[]; onUpdate: (perf: EmployeePerformance) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPerf, setSelectedPerf] = useState<EmployeePerformance | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(performance.length / rowsPerPage);
-  const paginatedData = performance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const filteredPerformance = performance.filter(perf =>
+    Object.values(perf).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
+  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (perf: EmployeePerformance) => {
     setSelectedPerf(perf);
@@ -807,6 +884,13 @@ export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { 
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search performance by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -863,7 +947,7 @@ export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { 
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'id', 
@@ -919,16 +1003,23 @@ export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { 
   );
 };
 
-// Branch Performance Table
+// Branch Performance Table with Search
 export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { performance: BranchPerformance[]; onUpdate: (perf: BranchPerformance) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedPerf, setSelectedPerf] = useState<BranchPerformance | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(performance.length / rowsPerPage);
-  const paginatedData = performance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const filteredPerformance = performance.filter(perf =>
+    Object.values(perf).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+  ));
+
+  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
+  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (perf: BranchPerformance) => {
     setSelectedPerf(perf);
@@ -954,6 +1045,13 @@ export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { pe
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search performance by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -1010,7 +1108,7 @@ export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { pe
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'id', 
@@ -1066,16 +1164,24 @@ export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { pe
   );
 };
 
-// Performance Targets Table
+// Performance Targets Table with Search
 export const PerformanceTargetsTable = ({ targets, onUpdate, onDelete }: { targets: PerformanceTarget[]; onUpdate: (target: PerformanceTarget) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedTarget, setSelectedTarget] = useState<PerformanceTarget | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
-  const totalPages = Math.ceil(targets.length / rowsPerPage);
-  const paginatedData = targets.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const filteredTargets = targets.filter(target =>
+    Object.values(target).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  const totalPages = Math.ceil(filteredTargets.length / rowsPerPage);
+  const paginatedData = filteredTargets.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (target: PerformanceTarget) => {
     setSelectedTarget(target);
@@ -1101,6 +1207,13 @@ export const PerformanceTargetsTable = ({ targets, onUpdate, onDelete }: { targe
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search targets by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -1157,7 +1270,7 @@ export const PerformanceTargetsTable = ({ targets, onUpdate, onDelete }: { targe
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'id', 
@@ -1210,18 +1323,24 @@ export const PerformanceTargetsTable = ({ targets, onUpdate, onDelete }: { targe
   );
 };
 
-// Client Visits Table
+// Client Visits Table with Search
 export const ClientVisitsTable = ({ visits, onUpdate, onDelete }: { visits: ClientVisit[]; onUpdate: (visit: ClientVisit) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<ClientVisit | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
+  const filteredVisits = visits.filter(visit =>
+    Object.values(visit).some(
+      value => value && 
+      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
   
-  
-  const totalPages = Math.ceil(visits.length / rowsPerPage);
-  const paginatedData = visits.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalPages = Math.ceil(filteredVisits.length / rowsPerPage);
+  const paginatedData = filteredVisits.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (visit: ClientVisit) => {
     setSelectedVisit(visit);
@@ -1247,6 +1366,13 @@ export const ClientVisitsTable = ({ visits, onUpdate, onDelete }: { visits: Clie
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4">
+        <SearchInput 
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search visits by any field..."
+        />
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -1301,7 +1427,7 @@ export const ClientVisitsTable = ({ visits, onUpdate, onDelete }: { visits: Clie
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        onSave={handleSave}
+        onUpdate={handleSave}
         fields={[
           { 
             key: 'visit_id', 
