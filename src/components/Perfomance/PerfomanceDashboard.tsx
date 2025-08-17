@@ -350,7 +350,7 @@ const PerformanceDashboard: React.FC = () => {
   const [performanceTargets, setPerformanceTargets] = useState<PerformanceTarget[]>([]);
   const [clientVisits, setClientVisits] = useState<ClientVisit[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [expandedBranch, setExpandedBranch] = useState<number | null>(null);
 
 
   const [showClientModal, setShowClientModal] = useState(false);
@@ -1180,59 +1180,59 @@ const PerformanceDashboard: React.FC = () => {
 
       {/* Tabs Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-gray-200">
+        <div className="flex flex-col md:flex-row overflow-x-auto [&::-webkit-scrollbar]:hidden justify-between items-start md:items-center border-b border-gray-200">
           <nav className="flex -mb-px">
             <button
               onClick={() => setSelectedTab('individual')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'individual' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'individual' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Individual Performance
             </button>
             <button
               onClick={() => setSelectedTab('branch')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'branch' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'branch' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Branch Performance
             </button>
             <button
               onClick={() => setSelectedTab('targets')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'targets' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'targets' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Targets
             </button>
             <button
               onClick={() => setSelectedTab('clients')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'clients' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'clients' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Clients
             </button>
             <button
               onClick={() => setSelectedTab('loans')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'loans' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'loans' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Loans
             </button>
             <button
               onClick={() => setSelectedTab('payments')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'payments' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'payments' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Payments
             </button>
             <button
               onClick={() => setSelectedTab('employeePerformance')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'employeePerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'employeePerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Employee Performance
             </button>
             <button
               onClick={() => setSelectedTab('branchPerformance')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'branchPerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'branchPerformance' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Branch Performance
             </button>
             <button
               onClick={() => setSelectedTab('clientVisit')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${selectedTab === 'clientVisit' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 whitespace-nowrap text-center border-b-2 font-medium text-sm ${selectedTab === 'clientVisit' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Client Visit
             </button>
@@ -1242,13 +1242,13 @@ const PerformanceDashboard: React.FC = () => {
               <div className="inline-flex rounded-md shadow-sm" role="group">
                 <button
                   onClick={() => setViewMode('summary')}
-                  className={`px-4 py-2 text-sm font-medium rounded-l-lg ${viewMode === 'summary' ? 'bg-green-100 text-green-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                  className={`px-4 py-2 whitespace-nowrap text-sm font-medium rounded-l-lg ${viewMode === 'summary' ? 'bg-green-100 text-green-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                 >
                   Summary View
                 </button>
                 <button
                   onClick={() => setViewMode('detailed')}
-                  className={`px-4 py-2 text-sm font-medium rounded-r-lg ${viewMode === 'detailed' ? 'bg-green-100 text-green-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                  className={`px-4 py-2 whitespace-nowrap text-sm font-medium rounded-r-lg ${viewMode === 'detailed' ? 'bg-green-100 text-green-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                 >
                   Detailed View
                 </button>
@@ -1833,44 +1833,155 @@ const PerformanceDashboard: React.FC = () => {
                       Math.round(branchData.loansDisbursed / branchData.target * 100) : 0;
                     
                     return (
-                      <tr key={branch.id} className="border-b border-gray-300 hover:bg-gray-50">
-                        <td className="py-4 px-4">
-                          <p className="text-gray-900 font-semibold">
-                            {branch?.["Branch Office"] || ""}
-                          </p>
-                          <p className="text-gray-600 text-xs">{branch?.["Area"]}</p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{Math.round(branchData.loansDisbursed)}/{Math.round(branchData.target)}</span>
-                            <span className={`text-xs ${disbursementRate >= 100 ? 'text-green-600' : 'text-red-600'}`}>
-                              ({disbursementRate}%)
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <StatusBadge status="Attendance" value={Math.round(branchData.attendance)} />
-                        </td>
-                        <td className="py-4 px-4">
-                          <StatusBadge status="Attendance" value={Math.round(branchData.fieldVisits)} />
-                        </td>
-                        <td className="py-4 px-4">
-                          <StatusBadge status="PAR" value={Math.round(branchData.par * 10) / 10} />
-                        </td>
-                        <td className="py-4 px-4">
-                          <StatusBadge status="Collection" value={Math.round(branchData.collection)} />
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className={`text-xs font-medium ${branchData.tat < 36 ? 'text-green-600' : branchData.tat < 48 ? 'text-yellow-600' : 'text-red-600'}`}>
-                            {Math.round(branchData.tat)}h
-                          </div>
-                        </td>
-                        <td className="py-4 px-4">
-                          <div className="flex justify-center gap-1">
-                            <GlowButton variant="secondary" icon={BarChart2} size="sm">Analytics</GlowButton>
-                          </div>
-                        </td>
-                      </tr>
+                      <React.Fragment key={branch.id}>
+                        <tr className="border-b border-gray-300 hover:bg-gray-50">
+                          <td className="py-4 px-4">
+                            <p className="text-gray-900 font-semibold">
+                              {branch?.["Branch Office"] || ""}
+                            </p>
+                            <p className="text-gray-600 text-xs">{branch?.["Area"]}</p>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{Math.round(branchData.loansDisbursed)}/{Math.round(branchData.target)}</span>
+                              <span className={`text-xs ${disbursementRate >= 100 ? 'text-green-600' : 'text-red-600'}`}>
+                                ({disbursementRate}%)
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <StatusBadge status="Attendance" value={Math.round(branchData.attendance)} />
+                          </td>
+                          <td className="py-4 px-4">
+                            <StatusBadge status="Attendance" value={Math.round(branchData.fieldVisits)} />
+                          </td>
+                          <td className="py-4 px-4">
+                            <StatusBadge status="PAR" value={Math.round(branchData.par * 10) / 10} />
+                          </td>
+                          <td className="py-4 px-4">
+                            <StatusBadge status="Collection" value={Math.round(branchData.collection)} />
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className={`text-xs font-medium ${branchData.tat < 36 ? 'text-green-600' : branchData.tat < 48 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {Math.round(branchData.tat)}h
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex justify-center gap-1">
+                              <GlowButton 
+                                variant="secondary" 
+                                icon={BarChart2} 
+                                size="sm"
+                                onClick={() => setExpandedBranch(expandedBranch === branch.id ? null : branch.id)}
+                              >
+                                {expandedBranch === branch.id ? 'Hide Analytics' : 'Analytics'}
+                              </GlowButton>
+                            </div>
+                          </td>
+                        </tr>
+                        
+                        {expandedBranch === branch.id && (
+                          <tr className="bg-gray-50">
+                            <td colSpan={8} className="px-4 py-4">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Disbursement Targets Card */}
+                                <div className="border border-gray-200 rounded-lg p-4">
+                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <Target className="w-4 h-4 text-blue-500" />
+                                    Disbursement Targets
+                                  </h3>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Monthly Target</span>
+                                        <span className="font-medium">
+                                          {Math.round(branchData.loansDisbursed)}/{Math.round(branchData.target)}
+                                        </span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                          className="bg-green-500 h-2 rounded-full" 
+                                          style={{ width: `${Math.min(100, disbursementRate)}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                    <div className="pt-2">
+                                      <div className="flex justify-between text-xs">
+                                        <span>Achievement Rate</span>
+                                        <span className={`font-medium ${disbursementRate >= 100 ? 'text-green-600' : 'text-red-600'}`}>
+                                          {disbursementRate}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Staff Metrics Card */}
+                                <div className="border border-gray-200 rounded-lg p-4">
+                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <Users className="w-4 h-4 text-green-500" />
+                                    Staff Metrics
+                                  </h3>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Average Attendance</span>
+                                        <StatusBadge status="Attendance" value={Math.round(branchData.attendance)} />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Average Field Visits</span>
+                                        <span className="font-medium">
+                                          {Math.round(branchData.fieldVisits)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Average TAT</span>
+                                        <span className={`text-xs font-medium ${branchData.tat < 36 ? 'text-green-600' : branchData.tat < 48 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                          {Math.round(branchData.tat)} hours
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                
+                                {/* Portfolio Metrics Card */}
+                                <div className="border border-gray-200 rounded-lg p-4">
+                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <Coins className="w-4 h-4 text-yellow-500" />
+                                    Portfolio Metrics
+                                  </h3>
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Portfolio at Risk (PAR)</span>
+                                        <StatusBadge status="PAR" value={Math.round(branchData.par * 10) / 10} />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="flex justify-between text-xs mb-1">
+                                        <span>Collection Rate</span>
+                                        <StatusBadge status="Collection" value={Math.round(branchData.collection)} />
+                                      </div>
+                                    </div>
+                                    <div className="pt-2 border-t border-gray-200">
+                                      <div className="flex justify-between text-xs">
+                                        <span>Staff Count</span>
+                                        <span className="font-medium">
+                                          {employees.filter(e => e.Branch === branch["Branch Office"]).length}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
