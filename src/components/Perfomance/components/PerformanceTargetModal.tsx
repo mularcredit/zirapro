@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Target, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
 
 interface PerformanceTarget {
   id?: number;
@@ -47,15 +48,68 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  const targetForOptions = [
+    { value: 'employee', label: 'Employee' },
+    { value: 'branch', label: 'Branch' },
+    { value: 'product', label: 'Product' }
+  ];
+
+  const targetTypeOptions = [
+    { value: 'disbursement', label: 'Disbursement' },
+    { value: 'collection', label: 'Collection' },
+    { value: 'field_visits', label: 'Field Visits' },
+    { value: 'attendance', label: 'Attendance' },
+    { value: 'par', label: 'PAR' }
+  ];
+
+  const periodOptions = [
+    { value: 'daily', label: 'Daily' },
+    { value: 'weekly', label: 'Weekly' },
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'quarterly', label: 'Quarterly' },
+    { value: 'annual', label: 'Annual' }
+  ];
+
+  const productTypeOptions = [
+    { value: 'individual', label: 'Individual' },
+    { value: 'group', label: 'Group' },
+    { value: 'business', label: 'Business' },
+    { value: 'agriculture', label: 'Agriculture' }
+  ];
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]}`
+  }));
+
+  const branchOptions = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"]
+  }));
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: ['branch_id', 'target_value'].includes(name) 
-        ? parseFloat(value) || 0 
-        : ['is_active'].includes(name)
-        ? (e.target as HTMLInputElement).checked
+      [name]: type === 'checkbox' 
+        ? (e.target as HTMLInputElement).checked 
+        : ['target_value'].includes(name)
+        ? parseFloat(value) || 0
         : value
+    }));
+  };
+
+  const handleSelectChange = (name: string, selectedOption: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: selectedOption ? selectedOption.value : null
+    }));
+  };
+
+  const handleDateChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
     }));
   };
 
@@ -65,31 +119,38 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
     setError(null);
 
     try {
-      // Validate that either employee_id or branch_id is set based on target_for
+      // Validate required fields based on target_for
       if (formData.target_for === 'employee' && !formData.employee_id) {
         throw new Error('Employee is required for employee targets');
       }
       if (formData.target_for === 'branch' && !formData.branch_id) {
         throw new Error('Branch is required for branch targets');
       }
+      if (formData.target_for === 'product' && !formData.product_type) {
+        throw new Error('Product type is required for product targets');
+      }
+
+      // Prepare the data to be saved
+      const { id, ...dataWithoutId } = formData;
 
       if (formData.id) {
         // Update existing target
         const { error } = await supabase
           .from('performance_targets')
-          .update(formData)
+          .update(dataWithoutId)
           .eq('id', formData.id);
         
         if (error) throw error;
       } else {
-        // Create new target
+        // Create new target - don't include the id
         const { data, error } = await supabase
           .from('performance_targets')
-          .insert([formData])
+          .insert([dataWithoutId])
           .select()
           .single();
         
         if (error) throw error;
+        // Update the formData with the returned id
         formData.id = data.id;
       }
 
@@ -101,6 +162,11 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getCurrentValue = (name: string, options: any[]) => {
+    const value = formData[name as keyof PerformanceTarget];
+    return options.find(option => option.value === value) || null;
   };
 
   return (
@@ -125,109 +191,86 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Target For</label>
-            <select
-              name="target_for"
-              value={formData.target_for}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={targetForOptions}
+              value={getCurrentValue('target_for', targetForOptions)}
+              onChange={(selected) => handleSelectChange('target_for', selected)}
+              className="basic-single"
+              classNamePrefix="select"
+              isSearchable={false}
               required
-            >
-              <option value="employee">Employee</option>
-              <option value="branch">Branch</option>
-              <option value="product">Product</option>
-            </select>
+            />
           </div>
           
           {formData.target_for === 'employee' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-              <select
-                name="employee_id"
-                value={formData.employee_id || ''}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required={formData.target_for === 'employee'}
-              >
-                <option value="">Select Employee</option>
-                {employees.map(emp => (
-                  <option key={emp["Employee Number"]} value={emp["Employee Number"]}>
-                    {emp["First Name"]} {emp["Last Name"]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={employeeOptions}
+                value={employeeOptions.find(opt => opt.value === formData.employee_id) || null}
+                onChange={(selected) => handleSelectChange('employee_id', selected)}
+                className="basic-single"
+                classNamePrefix="select"
+                placeholder="Select Employee"
+                required
+              />
             </div>
           )}
           
           {formData.target_for === 'branch' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-              <select
-                name="branch_id"
-                value={formData.branch_id || ''}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required={formData.target_for === 'branch'}
-              >
-                <option value="">Select Branch</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch["Branch Office"]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={branchOptions}
+                value={branchOptions.find(opt => opt.value === formData.branch_id) || null}
+                onChange={(selected) => handleSelectChange('branch_id', selected)}
+                className="basic-single"
+                classNamePrefix="select"
+                placeholder="Select Branch"
+                required
+              />
             </div>
           )}
           
           {formData.target_for === 'product' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Product Type</label>
-              <select
-                name="product_type"
-                value={formData.product_type || ''}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required={formData.target_for === 'product'}
-              >
-                <option value="">Select Product</option>
-                <option value="individual">Individual</option>
-                <option value="group">Group</option>
-                <option value="business">Business</option>
-                <option value="agriculture">Agriculture</option>
-              </select>
+              <Select
+                options={productTypeOptions}
+                value={getCurrentValue('product_type', productTypeOptions)}
+                onChange={(selected) => handleSelectChange('product_type', selected)}
+                className="basic-single"
+                classNamePrefix="select"
+                placeholder="Select Product"
+                required
+              />
             </div>
           )}
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Target Type</label>
-            <select
-              name="target_type"
-              value={formData.target_type}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={targetTypeOptions}
+              value={getCurrentValue('target_type', targetTypeOptions)}
+              onChange={(selected) => handleSelectChange('target_type', selected)}
+              className="basic-single"
+              classNamePrefix="select"
+              isSearchable={false}
               required
-            >
-              <option value="disbursement">Disbursement</option>
-              <option value="collection">Collection</option>
-              <option value="field_visits">Field Visits</option>
-              <option value="attendance">Attendance</option>
-            </select>
+            />
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
-            <select
-              name="period"
-              value={formData.period}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={periodOptions}
+              value={getCurrentValue('period', periodOptions)}
+              onChange={(selected) => handleSelectChange('period', selected)}
+              className="basic-single"
+              classNamePrefix="select"
+              isSearchable={false}
               required
-            >
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="annual">Annual</option>
-            </select>
+            />
           </div>
           
           <div>
@@ -252,7 +295,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
                   type="date"
                   name="start_date"
                   value={formData.start_date}
-                  onChange={handleChange}
+                  onChange={(e) => handleDateChange('start_date', e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
@@ -267,8 +310,9 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
                   type="date"
                   name="end_date"
                   value={formData.end_date || ''}
-                  onChange={handleChange}
+                  onChange={(e) => handleDateChange('end_date', e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  min={formData.start_date}
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
