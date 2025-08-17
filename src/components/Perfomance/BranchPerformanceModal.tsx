@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Building, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import Select from 'react-select';
 
 interface BranchPerformance {
   id?: number;
@@ -22,6 +23,11 @@ interface BranchPerformanceModalProps {
   onClose: () => void;
   onSave: (performance: BranchPerformance) => void;
   branches: any[];
+}
+
+interface BranchOption {
+  value: number;
+  label: string;
 }
 
 const BranchPerformanceModal: React.FC<BranchPerformanceModalProps> = ({ 
@@ -47,17 +53,37 @@ const BranchPerformanceModal: React.FC<BranchPerformanceModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Convert branches to options for React Select
+  const branchOptions: BranchOption[] = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"]
+  }));
+
+  // Find the currently selected branch option
+  const selectedBranchOption = branchOptions.find(
+    option => option.value === formData.branch_id
+  );
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: [
-        'branch_id', 'total_loans_disbursed', 'disbursement_target', 'total_collection',
+        'total_loans_disbursed', 'disbursement_target', 'total_collection',
         'collection_target', 'total_par', 'portfolio_size', 'average_tat', 'staff_count'
       ].includes(name) 
         ? parseFloat(value) || 0 
         : value
     }));
+  };
+
+  const handleBranchChange = (selectedOption: BranchOption | null) => {
+    if (selectedOption) {
+      setFormData(prev => ({
+        ...prev,
+        branch_id: selectedOption.value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,10 +101,22 @@ const BranchPerformanceModal: React.FC<BranchPerformanceModalProps> = ({
         
         if (error) throw error;
       } else {
-        // Create new performance record
+        // Create new performance record - explicitly list all fields except id
         const { data, error } = await supabase
           .from('branch_performance')
-          .insert([formData])
+          .insert({
+            branch_id: formData.branch_id,
+            date: formData.date,
+            period: formData.period,
+            total_loans_disbursed: formData.total_loans_disbursed,
+            disbursement_target: formData.disbursement_target,
+            total_collection: formData.total_collection,
+            collection_target: formData.collection_target,
+            total_par: formData.total_par,
+            portfolio_size: formData.portfolio_size,
+            average_tat: formData.average_tat,
+            staff_count: formData.staff_count
+          })
           .select()
           .single();
         
@@ -118,20 +156,17 @@ const BranchPerformanceModal: React.FC<BranchPerformanceModalProps> = ({
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-            <select
-              name="branch_id"
-              value={formData.branch_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={branchOptions}
+              value={selectedBranchOption}
+              onChange={handleBranchChange}
+              className="react-select-container"
+              classNamePrefix="react-select"
+              placeholder="Select Branch"
+              isClearable={false}
+              isSearchable={true}
               required
-            >
-              <option value="">Select Branch</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>
-                  {branch["Branch Office"]}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
