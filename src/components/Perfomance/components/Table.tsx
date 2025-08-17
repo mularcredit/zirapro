@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2 } from 'lucide-react';
 
 // Unified type definitions
@@ -160,22 +160,40 @@ const Pagination = ({
   );
 };
 
+
 const EditModal = ({
   isOpen,
   onClose,
-  data,
   onSave,
   fields,
 }: {
   isOpen: boolean;
   onClose: () => void;
-  data: any;
   onSave: (updatedData: any) => void;
-  fields: { key: string; label: string; type?: string; options?: string[] }[];
+  fields: {
+    key: string;
+    label: string;
+    type?: string;
+    options?: string[];
+    value: any;
+  }[];
 }) => {
-  const [formData, setFormData] = useState(data);
+  const [formData, setFormData] = useState<any>({});
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  // Sync formData whenever fields change
+  useEffect(() => {
+    if (fields && fields.length > 0) {
+      const initialData: any = {};
+      fields.forEach((field) => {
+        initialData[field.key] = field.value;
+      });
+      setFormData(initialData);
+    }
+  }, [fields]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev: any) => ({ ...prev, [name]: value }));
   };
@@ -198,22 +216,32 @@ const EditModal = ({
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 {field.label}
               </label>
-              {field.type === 'select' ? (
+              {field.type === "select" ? (
                 <select
                   name={field.key}
-                  value={formData[field.key] || ''}
+                  value={formData[field.key] ?? ""}
                   onChange={handleChange}
                   className="w-full p-2 border border-gray-300 rounded"
                 >
-                  {field.options?.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                  {field.options?.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
+              ) : field.type === "date" ? (
+                <input
+                  type="date"
+                  name={field.key}
+                  value={formData[field.key] ?? ""}
+                  onChange={handleChange}
+                  className="w-full p-2 border border-gray-300 rounded"
+                />
               ) : (
                 <input
-                  type={field.type || 'text'}
+                  type={field.type || "text"}
                   name={field.key}
-                  value={formData[field.key] || ''}
+                  value={formData[field.key] ?? ""}
                   onChange={handleChange}
                   className="w-full p-2 border border-gray-300 rounded"
                 />
@@ -377,21 +405,51 @@ export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedClient || {}}
         onSave={handleSave}
         fields={[
-          { key: 'client_id', label: 'Client ID' },
-          { key: 'first_name', label: 'First Name' },
-          { key: 'last_name', label: 'Last Name' },
-          { key: 'phone_number', label: 'Phone Number' },
+          { 
+            key: 'client_id', 
+            label: 'Client ID',
+            value: selectedClient?.client_id || ''
+          },
+          { 
+            key: 'first_name', 
+            label: 'First Name',
+            value: selectedClient?.first_name || ''
+          },
+          { 
+            key: 'last_name', 
+            label: 'Last Name',
+            value: selectedClient?.last_name || ''
+          },
+          { 
+            key: 'phone_number', 
+            label: 'Phone Number',
+            value: selectedClient?.phone_number || ''
+          },
           { 
             key: 'status', 
             label: 'Status', 
             type: 'select',
-            options: ['active', 'inactive', 'pending']
+            options: ['active', 'inactive', 'pending'],
+            value: selectedClient?.status || ''
           },
-          { key: 'loan_officer', label: 'Loan Officer' },
-          { key: 'branch_id', label: 'Branch ID' },
+          { 
+            key: 'loan_officer', 
+            label: 'Loan Officer',
+            value: selectedClient?.loan_officer || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID',
+            value: selectedClient?.branch_id || ''
+          },
+          { 
+            key: 'registration_date', 
+            label: 'Registration Date', 
+            type: 'date',
+            value: selectedClient?.registration_date ? new Date(selectedClient.registration_date).toISOString().split('T')[0] : ''
+          },
         ]}
       />
 
@@ -505,19 +563,47 @@ export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpd
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedLoan || {}}
         onSave={handleSave}
         fields={[
-          { key: 'loan_id', label: 'Loan ID' },
-          { key: 'client_id', label: 'Client ID' },
-          { key: 'product_type', label: 'Product Type' },
-          { key: 'amount_disbursed', label: 'Amount Disbursed', type: 'number' },
-          { key: 'outstanding_balance', label: 'Outstanding Balance', type: 'number' },
+          { 
+            key: 'loan_id', 
+            label: 'Loan ID',
+            value: selectedLoan?.loan_id || ''
+          },
+          { 
+            key: 'client_id', 
+            label: 'Client ID',
+            value: selectedLoan?.client_id || ''
+          },
+          { 
+            key: 'product_type', 
+            label: 'Product Type',
+            value: selectedLoan?.product_type || ''
+          },
+          { 
+            key: 'amount_disbursed', 
+            label: 'Amount Disbursed', 
+            type: 'number',
+            value: selectedLoan?.amount_disbursed || 0
+          },
+          { 
+            key: 'outstanding_balance', 
+            label: 'Outstanding Balance', 
+            type: 'number',
+            value: selectedLoan?.outstanding_balance || 0
+          },
           { 
             key: 'status', 
             label: 'Status', 
             type: 'select',
-            options: ['Disbursed', 'Active', 'Completed', 'Defaulted']
+            options: ['Disbursed', 'Active', 'Completed', 'Defaulted'],
+            value: selectedLoan?.status || ''
+          },
+          { 
+            key: 'disbursement_date', 
+            label: 'Disbursement Date', 
+            type: 'date',
+            value: selectedLoan?.disbursement_date ? new Date(selectedLoan.disbursement_date).toISOString().split('T')[0] : ''
           },
         ]}
       />
@@ -625,17 +711,54 @@ export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: 
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedPayment || {}}
         onSave={handleSave}
         fields={[
-          { key: 'payment_id', label: 'Payment ID' },
-          { key: 'loan_id', label: 'Loan ID' },
-          { key: 'amount_paid', label: 'Amount Paid', type: 'number' },
-          { key: 'payment_date', label: 'Payment Date', type: 'date' },
-          { key: 'principal_amount', label: 'Principal Amount', type: 'number' },
-          { key: 'interest_amount', label: 'Interest Amount', type: 'number' },
-          { key: 'fees_amount', label: 'Fees Amount', type: 'number' },
-          { key: 'penalty_amount', label: 'Penalty Amount', type: 'number' },
+          { 
+            key: 'payment_id', 
+            label: 'Payment ID',
+            value: selectedPayment?.payment_id || ''
+          },
+          { 
+            key: 'loan_id', 
+            label: 'Loan ID',
+            value: selectedPayment?.loan_id || ''
+          },
+          { 
+            key: 'amount_paid', 
+            label: 'Amount Paid', 
+            type: 'number',
+            value: selectedPayment?.amount_paid || 0
+          },
+          { 
+            key: 'payment_date', 
+            label: 'Payment Date', 
+            type: 'date',
+            value: selectedPayment?.payment_date ? new Date(selectedPayment.payment_date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'principal_amount', 
+            label: 'Principal Amount', 
+            type: 'number',
+            value: selectedPayment?.principal_amount || 0
+          },
+          { 
+            key: 'interest_amount', 
+            label: 'Interest Amount', 
+            type: 'number',
+            value: selectedPayment?.interest_amount || 0
+          },
+          { 
+            key: 'fees_amount', 
+            label: 'Fees Amount', 
+            type: 'number',
+            value: selectedPayment?.fees_amount || 0
+          },
+          { 
+            key: 'penalty_amount', 
+            label: 'Penalty Amount', 
+            type: 'number',
+            value: selectedPayment?.penalty_amount || 0
+          },
         ]}
       />
 
@@ -740,21 +863,49 @@ export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { 
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedPerf || {}}
         onSave={handleSave}
         fields={[
-          { key: 'id', label: 'ID' },
-          { key: 'employee_id', label: 'Employee ID' },
-          { key: 'date', label: 'Date', type: 'date' },
+          { 
+            key: 'id', 
+            label: 'ID',
+            value: selectedPerf?.id || ''
+          },
+          { 
+            key: 'employee_id', 
+            label: 'Employee ID',
+            value: selectedPerf?.employee_id || ''
+          },
+          { 
+            key: 'date', 
+            label: 'Date', 
+            type: 'date',
+            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
+          },
           { 
             key: 'period', 
             label: 'Period', 
             type: 'select',
-            options: ['daily', 'weekly', 'monthly']
+            options: ['daily', 'weekly', 'monthly'],
+            value: selectedPerf?.period || ''
           },
-          { key: 'loans_disbursed', label: 'Loans Disbursed', type: 'number' },
-          { key: 'disbursement_target', label: 'Disbursement Target', type: 'number' },
-          { key: 'clients_visited', label: 'Clients Visited', type: 'number' },
+          { 
+            key: 'loans_disbursed', 
+            label: 'Loans Disbursed', 
+            type: 'number',
+            value: selectedPerf?.loans_disbursed || 0
+          },
+          { 
+            key: 'disbursement_target', 
+            label: 'Disbursement Target', 
+            type: 'number',
+            value: selectedPerf?.disbursement_target || 0
+          },
+          { 
+            key: 'clients_visited', 
+            label: 'Clients Visited', 
+            type: 'number',
+            value: selectedPerf?.clients_visited || 0
+          },
         ]}
       />
 
@@ -859,21 +1010,49 @@ export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { pe
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedPerf || {}}
         onSave={handleSave}
         fields={[
-          { key: 'id', label: 'ID' },
-          { key: 'branch_id', label: 'Branch ID' },
-          { key: 'date', label: 'Date', type: 'date' },
+          { 
+            key: 'id', 
+            label: 'ID',
+            value: selectedPerf?.id || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID',
+            value: selectedPerf?.branch_id || ''
+          },
+          { 
+            key: 'date', 
+            label: 'Date', 
+            type: 'date',
+            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
+          },
           { 
             key: 'period', 
             label: 'Period', 
             type: 'select',
-            options: ['daily', 'weekly', 'monthly']
+            options: ['daily', 'weekly', 'monthly'],
+            value: selectedPerf?.period || ''
           },
-          { key: 'total_loans_disbursed', label: 'Total Loans Disbursed', type: 'number' },
-          { key: 'disbursement_target', label: 'Disbursement Target', type: 'number' },
-          { key: 'total_collection', label: 'Total Collection', type: 'number' },
+          { 
+            key: 'total_loans_disbursed', 
+            label: 'Total Loans Disbursed', 
+            type: 'number',
+            value: selectedPerf?.total_loans_disbursed || 0
+          },
+          { 
+            key: 'disbursement_target', 
+            label: 'Disbursement Target', 
+            type: 'number',
+            value: selectedPerf?.disbursement_target || 0
+          },
+          { 
+            key: 'total_collection', 
+            label: 'Total Collection', 
+            type: 'number',
+            value: selectedPerf?.total_collection || 0
+          },
         ]}
       />
 
@@ -978,21 +1157,46 @@ export const PerformanceTargetsTable = ({ targets, onUpdate, onDelete }: { targe
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedTarget || {}}
         onSave={handleSave}
         fields={[
-          { key: 'id', label: 'ID' },
-          { key: 'target_for', label: 'Target For' },
-          { key: 'target_type', label: 'Target Type' },
-          { key: 'employee_id', label: 'Employee ID' },
-          { key: 'branch_id', label: 'Branch ID' },
+          { 
+            key: 'id', 
+            label: 'ID',
+            value: selectedTarget?.id || ''
+          },
+          { 
+            key: 'target_for', 
+            label: 'Target For',
+            value: selectedTarget?.target_for || ''
+          },
+          { 
+            key: 'target_type', 
+            label: 'Target Type',
+            value: selectedTarget?.target_type || ''
+          },
+          { 
+            key: 'employee_id', 
+            label: 'Employee ID',
+            value: selectedTarget?.employee_id || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID',
+            value: selectedTarget?.branch_id || ''
+          },
           { 
             key: 'period', 
             label: 'Period', 
             type: 'select',
-            options: ['daily', 'weekly', 'monthly']
+            options: ['daily', 'weekly', 'monthly'],
+            value: selectedTarget?.period || ''
           },
-          { key: 'target_value', label: 'Target Value', type: 'number' },
+          { 
+            key: 'target_value', 
+            label: 'Target Value', 
+            type: 'number',
+            value: selectedTarget?.target_value || 0
+          },
         ]}
       />
 
@@ -1013,13 +1217,14 @@ export const ClientVisitsTable = ({ visits, onUpdate, onDelete }: { visits: Clie
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<ClientVisit | null>(null);
+
+  
   
   const totalPages = Math.ceil(visits.length / rowsPerPage);
   const paginatedData = visits.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handleEdit = (visit: ClientVisit) => {
     setSelectedVisit(visit);
-    console.log(visit);
     setEditModalOpen(true);
   };
 
@@ -1096,15 +1301,61 @@ export const ClientVisitsTable = ({ visits, onUpdate, onDelete }: { visits: Clie
       <EditModal
         isOpen={editModalOpen}
         onClose={() => setEditModalOpen(false)}
-        data={selectedVisit || {}}
         onSave={handleSave}
         fields={[
-          { key: 'visit_id', label: 'Visit ID' },
-          { key: 'employee_id', label: 'Employee ID' },
-          { key: 'client_id', label: 'Client ID' },
-          { key: 'visit_date', label: 'Visit Date', type: 'date' },
-          { key: 'purpose', label: 'Purpose' },
-          { key: 'outcome', label: 'Outcome' },
+          { 
+            key: 'visit_id', 
+            label: 'Visit ID',
+            value: selectedVisit?.visit_id || ''
+          },
+          { 
+            key: 'employee_id', 
+            label: 'Employee ID',
+            value: selectedVisit?.employee_id || ''
+          },
+          { 
+            key: 'client_id', 
+            label: 'Client ID',
+            value: selectedVisit?.client_id || ''
+          },
+          { 
+            key: 'visit_date', 
+            label: 'Visit Date', 
+            type: 'date',
+            value: selectedVisit?.visit_date ? new Date(selectedVisit.visit_date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'purpose', 
+            label: 'Purpose',
+            value: selectedVisit?.purpose || ''
+          },
+          { 
+            key: 'outcome', 
+            label: 'Outcome',
+            value: selectedVisit?.outcome || ''
+          },
+          { 
+            key: 'next_action', 
+            label: 'Next Action',
+            value: selectedVisit?.next_action || ''
+          },
+          { 
+            key: 'next_visit_date', 
+            label: 'Next Visit Date', 
+            type: 'date',
+            value: selectedVisit?.next_visit_date ? new Date(selectedVisit.next_visit_date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'location', 
+            label: 'Location',
+            value: selectedVisit?.location || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID', 
+            type: 'number',
+            value: selectedVisit?.branch_id || ''
+          },
         ]}
       />
 
