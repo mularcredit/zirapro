@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { UserCheck, X, Check, Calendar as CalendarIcon, MapPin } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import Select from 'react-select';
 
 interface ClientVisit {
   visit_id?: number;
@@ -47,11 +48,49 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  // Options for React Select components
+  const purposeOptions = [
+    { value: 'follow_up', label: 'Follow-up' },
+    { value: 'collection', label: 'Collection' },
+    { value: 'loan_appraisal', label: 'Loan Appraisal' },
+    { value: 'training', label: 'Training' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const employeeOptions = employees.map(emp => ({
+    value: emp["Employee Number"],
+    label: `${emp["First Name"]} ${emp["Last Name"]}`
+  }));
+
+  const clientOptions = clients.map(client => ({
+    value: client.client_id,
+    label: `${client.first_name} ${client.last_name}`
+  }));
+
+  const branchOptions = branches.map(branch => ({
+    value: branch.id,
+    label: branch["Branch Office"]
+  }));
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name === 'branch_id' ? (value ? parseInt(value) : null) : value
+      [name]: value
+    }));
+  };
+
+  const handleSelectChange = (name: string, selectedOption: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: selectedOption ? selectedOption.value : null
+    }));
+  };
+
+  const handleDateChange = (name: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
     }));
   };
 
@@ -61,11 +100,20 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
     setError(null);
 
     try {
+      // Validate required fields
+      if (!formData.employee_id) throw new Error('Employee is required');
+      if (!formData.client_id) throw new Error('Client is required');
+      if (!formData.visit_date) throw new Error('Visit date is required');
+      if (!formData.purpose) throw new Error('Purpose is required');
+
+      // Prepare data without visit_id for new records
+      const { visit_id, ...dataWithoutId } = formData;
+
       if (formData.visit_id) {
         // Update existing visit
         const { error } = await supabase
           .from('client_visits')
-          .update(formData)
+          .update(dataWithoutId)
           .eq('visit_id', formData.visit_id);
         
         if (error) throw error;
@@ -73,7 +121,7 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
         // Create new visit
         const { data, error } = await supabase
           .from('client_visits')
-          .insert([formData])
+          .insert([dataWithoutId])
           .select()
           .single();
         
@@ -89,6 +137,11 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const getCurrentValue = (name: string, options: any[]) => {
+    const value = formData[name as keyof ClientVisit];
+    return options.find(option => option.value === value) || null;
   };
 
   return (
@@ -113,38 +166,28 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
-            <select
-              name="employee_id"
-              value={formData.employee_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={employeeOptions}
+              value={employeeOptions.find(opt => opt.value === formData.employee_id) || null}
+              onChange={(selected) => handleSelectChange('employee_id', selected)}
+              className="basic-single"
+              classNamePrefix="select"
+              placeholder="Select Employee"
               required
-            >
-              <option value="">Select Employee</option>
-              {employees.map(emp => (
-                <option key={emp["Employee Number"]} value={emp["Employee Number"]}>
-                  {emp["First Name"]} {emp["Last Name"]}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-            <select
-              name="client_id"
-              value={formData.client_id}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            <Select
+              options={clientOptions}
+              value={clientOptions.find(opt => opt.value === formData.client_id) || null}
+              onChange={(selected) => handleSelectChange('client_id', selected)}
+              className="basic-single"
+              classNamePrefix="select"
+              placeholder="Select Client"
               required
-            >
-              <option value="">Select Client</option>
-              {clients.map(client => (
-                <option key={client.client_id} value={client.client_id}>
-                  {client.first_name} {client.last_name}
-                </option>
-              ))}
-            </select>
+            />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -155,29 +198,24 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
                   type="date"
                   name="visit_date"
                   value={formData.visit_date}
-                  onChange={handleChange}
+                  onChange={(e) => handleDateChange('visit_date', e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
-                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
-              <select
-                name="purpose"
-                value={formData.purpose}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              <Select
+                options={purposeOptions}
+                value={getCurrentValue('purpose', purposeOptions)}
+                onChange={(selected) => handleSelectChange('purpose', selected)}
+                className="basic-single"
+                classNamePrefix="select"
+                isSearchable={false}
                 required
-              >
-                <option value="follow_up">Follow-up</option>
-                <option value="collection">Collection</option>
-                <option value="loan_appraisal">Loan Appraisal</option>
-                <option value="training">Training</option>
-                <option value="other">Other</option>
-              </select>
+              />
             </div>
           </div>
           
@@ -211,28 +249,23 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
                   type="date"
                   name="next_visit_date"
                   value={formData.next_visit_date || ''}
-                  onChange={handleChange}
+                  onChange={(e) => handleDateChange('next_visit_date', e.target.value)}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  min={formData.visit_date}
                 />
-                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
             </div>
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-              <select
-                name="branch_id"
-                value={formData.branch_id || ''}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="">Select Branch</option>
-                {branches.map(branch => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch["Branch Office"]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                options={branchOptions}
+                value={branchOptions.find(opt => opt.value === formData.branch_id) || null}
+                onChange={(selected) => handleSelectChange('branch_id', selected)}
+                className="basic-single"
+                classNamePrefix="select"
+                placeholder="Select Branch"
+              />
             </div>
           </div>
           
