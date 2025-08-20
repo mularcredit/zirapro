@@ -1144,6 +1144,7 @@ const AddEmployeePage = () => {
                       onChange={handleInputChange}
                       error={errors['Work Mobile']}
                       placeholder="Optional work mobile"
+                      required
                     />
                     <FormField
                       label="Personal Mobile Number"

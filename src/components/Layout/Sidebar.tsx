@@ -11,7 +11,8 @@ import {
   Settings,
   Bot,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Video
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -27,7 +28,9 @@ const menuItems = [
   { id: 'performance', label: 'Performance', icon: TrendingUp, path: '/performance' },
   { id: 'training', label: 'Training', icon: GraduationCap, path: '/training' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' },
+  { id: 'conferencing', label: 'conferencing', icon:Video, path: '/videocall' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+  
 ];
 
 export default function Sidebar() {
@@ -106,7 +109,7 @@ export default function Sidebar() {
               <motion.button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center tracking-wide px-0.5 py-3 rounded-lg transition-all duration-200 relative overflow-hidden group  ${
+                className={`w-full flex items-center font-normal px-0.5 py-3 rounded-lg transition-all duration-200 relative overflow-hidden group  ${
                   isActive
                     ? 'bg-white/10 text-white shadow-sm'
                     : 'text-white/90 hover:text-white hover:bg-white/5'

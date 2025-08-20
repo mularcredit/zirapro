@@ -6,7 +6,7 @@ import { SummaryCard } from './components/SummaryCard';
 import { GlowButton } from './components/GlowButton';
 import { FiltersSection } from './components/FiltersSection';
 import { TabsNavigation } from './components/TabsNavigation';
-import { PositionsTable } from './components/PositionsTable';
+import PositionsTable  from './components/PositionsTable';
 import { ApplicationsTable } from './components/ApplicationsTable';
 import { BranchesSection } from './components/BranchesSection';
 import { NewPositionModal } from './components/NewPositionModal';

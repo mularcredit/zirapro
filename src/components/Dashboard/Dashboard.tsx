@@ -1,467 +1,394 @@
-import React, { useEffect } from 'react';
-import { Users, Calendar, DollarSign, TrendingUp, UserCheck, Clock, AlertTriangle, Award, ChevronRight } from 'lucide-react';
-import { motion, useAnimation } from 'framer-motion';
-import { useInView } from 'react-intersection-observer';
+import React, { useState, useEffect } from "react";
+import { Users, DollarSign, CreditCard, UserRound, CalendarDays, NotepadText, BellDot, Blocks, Wallet, Phone, TrendingUp, HelpCircle, Calendar, CheckCircle, Clock, AlertCircle, ChevronRight, Zap, BarChart2, PieChart, Settings, FileText } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase"
 
-// Illustration components (would normally be SVG components or imported images)
-const TeamIllustration = () => (
-  <div className="w-full h-full bg-blue-50 rounded-xl flex items-center justify-center">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="60" cy="60" r="55" fill="#3B82F6" fillOpacity="0.1"/>
-      <circle cx="40" cy="45" r="12" fill="#3B82F6"/>
-      <circle cx="80" cy="45" r="12" fill="#3B82F6"/>
-      <path d="M30 85C30 70 45 70 60 70C75 70 90 70 90 85" stroke="#3B82F6" strokeWidth="4" strokeLinecap="round"/>
-    </svg>
-  </div>
-);
-
-const FinanceIllustration = () => (
-  <div className="w-full h-full bg-emerald-50 rounded-xl flex items-center justify-center">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="60" cy="60" r="55" fill="#10B981" fillOpacity="0.1"/>
-      <rect x="30" y="50" width="60" height="30" rx="4" fill="#10B981"/>
-      <path d="M30 60H90" stroke="white" strokeWidth="2"/>
-      <path d="M30 70H90" stroke="white" strokeWidth="2"/>
-      <circle cx="60" cy="40" r="10" fill="#10B981"/>
-    </svg>
-  </div>
-);
-
-const HiringIllustration = () => (
-  <div className="w-full h-full bg-rose-50 rounded-xl flex items-center justify-center">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="60" cy="60" r="55" fill="#EF4444" fillOpacity="0.1"/>
-      <rect x="40" y="40" width="40" height="50" rx="4" fill="#EF4444"/>
-      <circle cx="60" cy="35" r="10" fill="#EF4444"/>
-      <rect x="45" y="55" width="30" height="4" rx="2" fill="white"/>
-      <rect x="45" y="65" width="30" height="4" rx="2" fill="white"/>
-    </svg>
-  </div>
-);
-
-const PerformanceIllustration = () => (
-  <div className="w-full h-full bg-indigo-50 rounded-xl flex items-center justify-center">
-    <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="60" cy="60" r="55" fill="#6366F1" fillOpacity="0.1"/>
-      <path d="M30 80L45 50L65 70L85 40" stroke="#6366F1" strokeWidth="4" strokeLinecap="round"/>
-      <circle cx="30" cy="80" r="4" fill="#6366F1"/>
-      <circle cx="45" cy="50" r="4" fill="#6366F1"/>
-      <circle cx="65" cy="70" r="4" fill="#6366F1"/>
-      <circle cx="85" cy="40" r="4" fill="#6366F1"/>
-    </svg>
-  </div>
-);
-
-// StatsCard with illustration support
-function StatsCard({ 
-  title, 
-  value, 
-  change, 
-  changeType, 
-  icon: Icon, 
-  iconClassName, 
-  illustration: Illustration,
-  className = '', 
-  description,
-  delay = 0
-}) {
-  const controls = useAnimation();
-  const [ref, inView] = useInView({
-    threshold: 0.1,
-    triggerOnce: true
+export default function DashboardMain() {
+  const [phoneNumber, setPhoneNumber] = useState("+254");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [showSupportPopup, setShowSupportPopup] = useState(false);
+  const [showUnauthorizedPopup, setShowUnauthorizedPopup] = useState(false);
+  const [stats, setStats] = useState({
+    employees: 0,
+    leaveRequests: 0,
+    salaryAdvances: 0,
+    jobApplications: 0
   });
+  
+  const navigate = useNavigate();
 
+  // Animated gradient background
+  const gradientStyle = {
+    background: '',
+    backgroundSize: '400% 400%',
+    animation: 'gradient 15s ease infinite'
+  };
+
+  // Fetch data from Supabase
   useEffect(() => {
-    if (inView) {
-      controls.start('visible');
-    }
-  }, [controls, inView]);
+    fetchDashboardData();
+  }, []);
 
-  const getChangeColor = () => {
-    switch (changeType) {
-      case 'positive': return 'text-emerald-500';
-      case 'negative': return 'text-rose-500';
-      default: return 'text-gray-500';
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch employees count
+      const { count: employeesCount, error: employeesError } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true });
+      
+      // Fetch leave requests count
+      const { count: leaveRequestsCount, error: leaveRequestsError } = await supabase
+        .from('leave_application')
+        .select('*', { count: 'exact', head: true });
+      
+      // Fetch salary advances count
+      const { count: salaryAdvancesCount, error: salaryAdvancesError } = await supabase
+        .from('salary_advance')
+        .select('*', { count: 'exact', head: true });
+      
+      // Fetch job applications count
+      const { count: jobApplicationsCount, error: jobApplicationsError } = await supabase
+        .from('job_applications')
+        .select('*', { count: 'exact', head: true });
+
+      if (employeesError || leaveRequestsError || salaryAdvancesError || jobApplicationsError) {
+        console.error("Error fetching data:", {
+          employeesError,
+          leaveRequestsError,
+          salaryAdvancesError,
+          jobApplicationsError
+        });
+        return;
+      }
+
+      setStats({
+        employees: employeesCount || 0,
+        leaveRequests: leaveRequestsCount || 0,
+        salaryAdvances: salaryAdvancesCount || 0,
+        jobApplications: jobApplicationsCount || 0
+      });
+    } catch (error) {
+      console.error("Error in fetchDashboardData:", error);
     }
   };
 
-  const variants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: delay * 0.1,
-        duration: 0.6,
-        ease: [0.2, 0.65, 0.3, 0.9]
-      }
+  const handleSettingsClick = () => {
+    // Check if user has access (you'll need to implement your own access control logic)
+    const hasAccess = checkUserAccess(); // Implement this function based on your auth system
+    
+    if (hasAccess) {
+      navigate("/settings");
+    } else {
+      setShowUnauthorizedPopup(true);
+      // Auto-hide the popup after 3 seconds
+      setTimeout(() => setShowUnauthorizedPopup(false), 3000);
     }
+  };
+
+  const checkUserAccess = () => {
+    // Implement your access control logic here
+    // This is a placeholder - you'll need to check against your user roles/permissions
+    return false; // For demonstration, always return false to show the popup
+  };
+
+  const handleSupportClick = () => {
+    setShowSupportPopup(true);
+    // Auto-hide the popup after 5 seconds
+    setTimeout(() => setShowSupportPopup(false), 5000);
   };
 
   return (
-    <motion.div
-      ref={ref}
-      initial="hidden"
-      animate={controls}
-      variants={variants}
-      className={`bg-white rounded-2xl p-6 ${className} h-full flex flex-col shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden`}
-    >
-      {Illustration && (
-        <div className="absolute top-0 right-0 w-1/3 h-full opacity-10">
-          <Illustration />
+    <div className="min-h-screen p-6" style={gradientStyle}>
+      <style jsx global>{`
+        @keyframes gradient {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+        @keyframes wave {
+          0% { transform: rotate(0deg); }
+          25% { transform: rotate(5deg); }
+          50% { transform: rotate(0deg); }
+          75% { transform: rotate(-5deg); }
+          100% { transform: rotate(0deg); }
+        }
+        .float-animation { animation: float 4s ease-in-out infinite; }
+        .pulse-animation { animation: pulse 3s ease-in-out infinite; }
+        .wave-animation { animation: wave 8s ease-in-out infinite; }
+        .glow-effect {
+          box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+          transition: box-shadow 0.3s ease;
+        }
+        .glow-effect:hover {
+          box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+        }
+        .card-hover {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card-hover:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .popup {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          padding: 16px;
+          border-radius: 8px;
+          color: white;
+          z-index: 1000;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+          animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+        .unauthorized-popup {
+          background-color: #ef4444;
+        }
+        .support-popup {
+          background-color: #10b981;
+        }
+      `}</style>
+
+      {/* Popup Messages */}
+      {showUnauthorizedPopup && (
+        <div className="popup unauthorized-popup">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2" />
+            <span>Unauthorized access</span>
+          </div>
         </div>
       )}
       
-      <div className="relative z-10">
-        <div className="flex items-center justify-between mb-4">
-          <div className={`p-3 rounded-xl ${iconClassName} w-12 h-12 flex items-center justify-center`}>
-            <Icon className="w-6 h-6" />
+      {showSupportPopup && (
+        <div className="popup support-popup">
+          <div className="flex items-center">
+            <Phone className="w-5 h-5 mr-2" />
+            <span>Support: 0700594586</span>
           </div>
         </div>
-        
-        <div className="flex-grow flex flex-col">
-          <h3 className="text-gray-500 text-xs font-medium uppercase tracking-wider mb-1">{title}</h3>
-          <p className="text-3xl font-bold text-gray-900 mb-2">{value}</p>
-          <p className={`text-sm ${getChangeColor()} mb-3 flex items-center`}>
-            {changeType === 'positive' ? (
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M12 7a1 1 0 01-1 1H9v1h2a1 1 0 110 2H9v1h2a1 1 0 110 2H9v1a1 1 0 11-2 0v-1H5a1 1 0 110-2h2v-1H5a1 1 0 110-2h2V8H5a1 1 0 010-2h2V5a1 1 0 112 0v1h2a1 1 0 011 1z" clipRule="evenodd" />
-              </svg>
-            ) : changeType === 'negative' ? (
-              <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd" />
-              </svg>
-            ) : null}
-            {change}
-          </p>
+      )}
+
+      {/* Welcome Section - Compact Version with Image */}
+      <div className="mb-8 relative">
+        <div className="bg-white rounded-2xl p-6 relative overflow-hidden card-hover glow-effect">
+          {/* Floating gradient circles - smaller */}
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full -mr-12 -mt-12"></div>
+          <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -ml-10 -mb-10"></div>
           
-          {description && (
-            <p className="text-xs text-gray-500 mt-auto">
-              {description}
-            </p>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// QuickStat with modern design
-function QuickStat({ label, value, icon: Icon, iconClass, delay = 0 }) {
-  const controls = useAnimation();
-  const [ref, inView] = useInView({
-    threshold: 0.1,
-    triggerOnce: true
-  });
-
-  useEffect(() => {
-    if (inView) {
-      controls.start('visible');
-    }
-  }, [controls, inView]);
-
-  const variants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        delay: delay * 0.1,
-        duration: 0.5,
-        ease: [0.2, 0.65, 0.3, 0.9]
-      }
-    }
-  };
-
-  return (
-    <motion.div
-      ref={ref}
-      initial="hidden"
-      animate={controls}
-      variants={variants}
-      className="text-center p-5 rounded-xl bg-white border border-gray-100 hover:shadow-lg transition-all duration-300 h-full flex flex-col items-center justify-center relative overflow-hidden"
-    >
-      <div className={`p-3 rounded-xl mb-3 ${iconClass} w-12 h-12 flex items-center justify-center z-10`}>
-        <Icon className="w-5 h-5" />
-      </div>
-      <p className="text-2xl font-bold text-gray-900 z-10">{value}</p>
-      <p className="text-gray-500 text-xs font-medium uppercase tracking-wider mt-1 z-10">{label}</p>
-      <div className={`absolute -right-10 -bottom-10 w-24 h-24 rounded-full ${iconClass.replace('bg-', 'bg-').replace('50', '100')} opacity-20`}></div>
-    </motion.div>
-  );
-}
-
-export default function Dashboard() {
-  // Critical executive metrics - Kenya HR context
-  const stats = [
-    {
-      title: 'Staff Headcount',
-      value: '247',
-      change: '+12 this quarter',
-      changeType: 'positive' as const,
-      icon: Users,
-      iconClass: 'text-blue-500 bg-blue-50',
-      illustration: TeamIllustration,
-      description: 'Total permanent and contract employees'
-    },
-    {
-      title: 'Loan Collection Rate',
-      value: '94.2%',
-      change: '2% below target',
-      changeType: 'negative' as const,
-      icon: UserCheck,
-      iconClass: 'text-amber-500 bg-amber-50',
-      description: 'Daily staff attendance and punctuality'
-    },
-    {
-      title: 'Payroll (KES)',
-      value: '24.8M',
-      change: 'On budget',
-      changeType: 'positive' as const,
-      icon: DollarSign,
-      iconClass: 'text-emerald-500 bg-emerald-50',
-      illustration: FinanceIllustration,
-      description: 'Monthly gross salary and benefits'
-    },
-    {
-      title: 'Open Positions',
-      value: '15',
-      change: '6 critical roles',
-      changeType: 'negative' as const,
-      icon: TrendingUp,
-      iconClass: 'text-rose-500 bg-rose-50',
-      illustration: HiringIllustration,
-      description: 'Vacant positions affecting operations'
-    }
-  ];
-  
-  const quickStats = [
-    { 
-      label: 'Present Today', 
-      value: '1,189', 
-      icon: UserCheck,
-      iconClass: 'text-emerald-500 bg-emerald-50'
-    },
-    { 
-      label: 'Late Arrivals', 
-      value: '12', 
-      icon: Clock,
-      iconClass: 'text-amber-500 bg-amber-50'
-    },
-    { 
-      label: 'Pending Tasks', 
-      value: '47', 
-      icon: AlertTriangle,
-      iconClass: 'text-rose-500 bg-rose-50'
-    },
-    { 
-      label: 'Top Performers', 
-      value: '156', 
-      icon: Award,
-      iconClass: 'text-indigo-500 bg-indigo-50'
-    }
-  ];
-
-  const controls = useAnimation();
-  const [ref, inView] = useInView();
-
-  useEffect(() => {
-    if (inView) {
-      controls.start('visible');
-    }
-  }, [controls, inView]);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2
-      }
-    }
-  };
-
-  return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      {/* Modern Header with gradient */}
-      <motion.div 
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: [0.2, 0.65, 0.3, 0.9] }}
-        className="flex items-center justify-between pb-6"
-      >
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">HR Executive Dashboard</h1>
-          <p className="text-gray-500 mt-1">Key people metrics requiring leadership attention</p>
-        </div>
-        <div className="text-right">
-          <div className="inline-flex items-center px-4 py-2 rounded-lg bg-white border border-gray-200 shadow-sm">
-            <Calendar className="w-5 h-5 text-gray-500 mr-2" />
-            <p className="text-gray-900 font-medium">
-              {new Date().toLocaleDateString('en-KE', { 
-                weekday: 'short', 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
-              })}
-            </p>
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div className="mb-4 md:mb-0 flex items-center">
+                <img
+                  src="/vector.png" 
+                  alt="Decorative illustration"
+                  className="h-20 w-20 object-cover mr-4"
+                />
+                <div>
+                  <h1 className="text-xl font-bold text-gray-800 mb-1">Welcome back<span className="wave-animation">👋</span></h1>
+                  <p className="text-sm text-gray-600 max-w-md">Your dashboard is ready with the latest updates.</p>
+                </div>
+              </div>
+              
+              {/* Compact stats card */}
+              <div className="flex space-x-2">
+                <button 
+                  onClick={handleSupportClick}
+                  className="px-4 py-2 bg-white rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                >
+                  <HelpCircle className="w-4 h-4 inline mr-2" />
+                  Support
+                </button>
+                <button 
+                  onClick={handleSettingsClick}
+                  className="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-medium text-white hover:bg-indigo-700 transition-colors flex items-center"
+                >
+                  <Settings className="w-4 h-4 inline mr-2" />
+                  Settings
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-      </motion.div>
-      
-      {/* Strategic Metrics with illustrations */}
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-      >
-        {stats.map((stat, index) => (
-          <StatsCard 
-            key={stat.title}
-            {...stat}
-            delay={index}
-            iconClassName={stat.iconClass}
-          />
-        ))}
-      </motion.div>
-      
-      {/* Operational Metrics with circular accent */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
-        className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Daily Operations</h2>
-          <button className="text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center transition-colors">
-            View details <ChevronRight className="w-4 h-4 ml-1" />
+      </div>
+
+      {/* Dashboard Tabs */}
+      <div className="mb-6">
+        <div className="flex space-x-4 border-b border-gray-200">
+          <button 
+            onClick={() => setActiveTab('overview')}
+            className={`pb-3 px-1 font-medium text-sm ${activeTab === 'overview' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Overview
+          </button>
+          <button 
+            onClick={() => setActiveTab('payroll')}
+            className={`pb-3 px-1 font-medium text-sm ${activeTab === 'payroll' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Payroll
+          </button>
+          <button 
+            onClick={() => setActiveTab('loans')}
+            className={`pb-3 px-1 font-medium text-sm ${activeTab === 'loans' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Loans
+          </button>
+          <button 
+            onClick={() => setActiveTab('reports')}
+            className={`pb-3 px-1 font-medium text-sm ${activeTab === 'reports' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Reports
           </button>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {quickStats.map((stat, index) => (
-            <QuickStat 
-              key={stat.label}
-              {...stat}
-              delay={index + 4}
-            />
+      </div>
+
+      {/* Stats Grid with Hover Effects */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Employee Card */}
+        <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Total Employees</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.employees}</h3>
+              <div className="flex items-center text-sm text-green-600"></div>
+            </div>
+            <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
+              <Users className="w-6 h-6 text-indigo-600" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Active</span>
+              <span>{Math.floor(stats.employees * 0.96)}</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="bg-indigo-600 h-2 rounded-full" style={{width: '96%'}}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Leave Requests Card */}
+        <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Leave Requests</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.leaveRequests}</h3>
+              <div className="flex items-center text-sm text-blue-600"></div>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+              <CalendarDays className="w-6 h-6 text-purple-600" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Pending</span>
+              <span>{Math.ceil(stats.leaveRequests * 0.11)}</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="bg-purple-600 h-2 rounded-full" style={{width: '89%'}}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Advances Card */}
+        <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Salary Advances</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.salaryAdvances}</h3>
+              <div className="flex items-center text-sm text-orange-600"></div>
+            </div>
+            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+              <Wallet className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Approved</span>
+              <span>{Math.floor(stats.salaryAdvances * 0.88)}</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="bg-blue-600 h-2 rounded-full" style={{width: '88%'}}></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Job Applications Card */}
+        <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm text-gray-500 mb-1">Job Applications</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.jobApplications}</h3>
+              <div className="flex items-center text-sm text-purple-600"></div>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+              <NotepadText className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>This cycle</span>
+              <span>100%</span>
+            </div>
+            <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="bg-green-600 h-2 rounded-full w-full"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      
+
+      {/* Recent Activity */}
+      <div className="bg-white rounded-2xl p-6 card-hover">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-semibold text-gray-800">Recent Activity</h2>
+          <button className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+            View All
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {[
+            { icon: <FileText className="w-5 h-5 text-green-600" />, title: "Payroll processed for August", time: "10 mins ago", status: "completed" },
+            { icon: <Users className="w-5 h-5 text-blue-600" />, title: "New employee onboarded", time: "45 mins ago", status: "completed" },
+            { icon: <CreditCard className="w-5 h-5 text-purple-600" />, title: "Loan application approved", time: "2 hours ago", status: "completed" },
+            { icon: <DollarSign className="w-5 h-5 text-orange-600" />, title: "Salary advance requested", time: "4 hours ago", status: "pending" }
+          ].map((item, index) => (
+            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
+              <div className="flex items-center">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 bg-gray-100">
+                  {item.icon}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">{item.title}</p>
+                  <p className="text-xs text-gray-500">{item.time}</p>
+                </div>
+              </div>
+              <div className={`text-xs px-2 py-1 rounded-full ${
+                item.status === 'completed' ? 'text-green-600 bg-green-100' : 'text-orange-600 bg-orange-100'
+              }`}>
+                {item.status === 'completed' ? 'Completed' : 'Pending'}
+              </div>
+            </div>
           ))}
         </div>
-      </motion.div>
-      
-      {/* Recent Activities with visual indicators */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">Talent Alerts</h3>
-            <button className="text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center transition-colors">
-              View all <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {[
-              { action: 'NHIF remittance due in 3 days', person: 'Payroll Department', time: 'Action required', type: 'warning' },
-              { action: 'Work permit expiring for 2 staff', person: 'Immigration Compliance', time: 'Urgent renewal', type: 'negative' },
-              { action: 'KRA PIN verification pending', person: '5 new employees', time: 'Blocking onboarding', type: 'negative' },
-              { action: 'P9 forms generated successfully', person: 'Annual Tax Returns', time: 'Completed', type: 'success' }
-            ].map((activity, index) => (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + (index * 0.1) }}
-                className="flex items-start space-x-4 p-4 rounded-xl hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-transparent hover:border-gray-100"
-              >
-                <div className={`mt-1 w-3 h-3 rounded-full flex-shrink-0 ${
-                  activity.type === 'success' ? 'bg-emerald-500' : 
-                  activity.type === 'warning' ? 'bg-amber-500' : 'bg-rose-500'
-                }`}></div>
-                <div className="flex-1">
-                  <p className="text-gray-900 font-medium">{activity.action}</p>
-                  <p className="text-gray-500 text-sm mt-1">{activity.person} • <span className={`font-medium ${
-                    activity.type === 'success' ? 'text-emerald-600' : 
-                    activity.type === 'warning' ? 'text-amber-600' : 'text-rose-600'
-                  }`}>{activity.time}</span></p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-        
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-          className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-        >
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">Strategic Initiatives</h3>
-            <button className="text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center transition-colors">
-              View all <ChevronRight className="w-4 h-4 ml-1" />
-            </button>
-          </div>
-          <div className="space-y-3">
-            {[
-              { event: 'Annual performance reviews', date: 'March 2025', time: '247 employees', status: 'planned' },
-              { event: 'NHIF rate adjustment', date: 'Jan 2025', time: 'System update needed', status: 'at-risk' },
-              { event: 'Staff medical checkups', date: 'Q2 2025', time: 'Occupational health', status: 'on-track' },
-              { event: 'Pension scheme enrollment', date: 'Feb 2025', time: '23 new joiners', status: 'on-track' }
-            ].map((event, index) => (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + (index * 0.1) }}
-                className="flex items-center justify-between p-4 rounded-xl hover:bg-gray-50 transition-colors duration-200 cursor-pointer border border-transparent hover:border-gray-100"
-              >
-                <div>
-                  <p className="text-gray-900 font-medium">{event.event}</p>
-                  <p className="text-gray-500 text-sm mt-1">{event.date} • {event.time}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  event.status === 'on-track' ? 'bg-emerald-100 text-emerald-800' :
-                  event.status === 'at-risk' ? 'bg-amber-100 text-amber-800' :
-                  event.status === 'delayed' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {event.status.replace('-', ' ')}
-                </span>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
       </div>
-      
-      {/* Performance Visualization Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-        className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900">Performance Trends</h3>
-          <button className="text-sm font-medium text-blue-500 hover:text-blue-600 flex items-center transition-colors">
-            View analytics <ChevronRight className="w-4 h-4 ml-1" />
-          </button>
-        </div>
-        <div className="h-64 bg-indigo-50 rounded-xl flex items-center justify-center">
-          <PerformanceIllustration />
-          <div className="ml-6">
-            <h4 className="text-lg font-medium text-gray-900">Quarterly Performance Overview</h4>
-            <p className="text-gray-500 mt-2">Visual representation coming soon</p>
-            <button className="mt-4 px-4 py-2 bg-indigo-500 text-white rounded-lg text-sm font-medium hover:bg-indigo-600 transition-colors">
-              Generate Report
-            </button>
-          </div>
-        </div>
-      </motion.div>
     </div>
   );
 }

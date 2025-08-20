@@ -82,14 +82,14 @@ type Employee = {
   id: string // Added for row selection
 };
 
-const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange })=> {
+const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) => {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
-    Branch: '',
+    Town: '',
     "Employee Type": '',
     "Job Group": ''
   });
@@ -103,65 +103,64 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange })=
   const [bulkUpdateValue, setBulkUpdateValue] = useState('');
 
   // Fetch data from Supabase
-  // Fetch data from Supabase
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Start building the query
-      let query = supabase.from('employees').select('*');
-      
-      // Apply town filter if selectedTown exists
-     if (selectedTown && selectedTown !== 'ADMIN_ALL') {
-  query = query.eq('Town', selectedTown);
-}
-      
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      
-      // Add unique id to each employee for row selection
-      const employeesWithId = data?.map(emp => ({
-        ...emp,
-        id: `emp-${emp["Employee Number"] || Math.random().toString(36).substring(2, 9)}`
-      })) || [];
-      
-      setEmployees(employeesWithId);
-      setFilteredEmployees(employeesWithId);
-    } catch (err) {
-      setError('Failed to fetch employee data. Please try again.');
-      console.error('Error fetching employee data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Start building the query
+        let query = supabase.from('employees').select('*');
+        
+        // Apply town filter if selectedTown exists
+        if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+          query = query.eq('Town', selectedTown);
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) throw error;
+        
+        // Add unique id to each employee for row selection
+        const employeesWithId = data?.map(emp => ({
+          ...emp,
+          id: `emp-${emp["Employee Number"] || Math.random().toString(36).substring(2, 9)}`
+        })) || [];
+        
+        setEmployees(employeesWithId);
+        setFilteredEmployees(employeesWithId);
+      } catch (err) {
+        setError('Failed to fetch employee data. Please try again.');
+        console.error('Error fetching employee data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchData();
-}, [selectedTown]);
+    fetchData();
+  }, [selectedTown]);
 
   // Apply search and filters
   useEffect(() => {
     let result = [...employees];
     
     if (selectedTown && selectedTown !== 'ADMIN_ALL') {
-    result = result.filter(emp => emp.Town === selectedTown);
-  }
+      result = result.filter(emp => emp.Town === selectedTown);
+    }
     // Apply search
     if (searchTerm) {
-  const term = searchTerm.toLowerCase();
-  result = result.filter(emp => 
-    (emp["First Name"]?.toLowerCase().includes(term) ||
-    emp["Last Name"]?.toLowerCase().includes(term) ||
-    emp["Work Email"]?.toLowerCase().includes(term) ||
-    emp["Employee Number"]?.toLowerCase().includes(term) ||
-    emp["ID Number"]?.toString().includes(term)))
-}
+      const term = searchTerm.toLowerCase();
+      result = result.filter(emp => 
+        (emp["First Name"]?.toLowerCase().includes(term) ||
+        emp["Last Name"]?.toLowerCase().includes(term) ||
+        emp["Work Email"]?.toLowerCase().includes(term) ||
+        emp["Employee Number"]?.toLowerCase().includes(term) ||
+        emp["ID Number"]?.toString().includes(term))
+      );
+    }
     
-   
-    if (filters.Branch) {
-      result = result.filter(emp => emp.Branch === filters.Branch);
+    if (filters.Town) {
+      result = result.filter(emp => emp.Town === filters.Town);
     }
     if (filters["Employee Type"]) {
       result = result.filter(emp => emp["Employee Type"] === filters["Employee Type"]);
@@ -172,7 +171,7 @@ useEffect(() => {
     
     setFilteredEmployees(result);
     setCurrentPage(1); // Reset to first page when filters change
-  }, [employees, searchTerm, filters,selectedTown]);
+  }, [employees, searchTerm, filters, selectedTown]);
 
   // Handle pagination
   const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
@@ -206,10 +205,11 @@ useEffect(() => {
       "First Name": employee["First Name"],
       "Last Name": employee["Last Name"],
       "Work Email": employee["Work Email"],
-      Branch: employee.Branch,
+      Town: employee.Town,
       "Job Title": employee["Job Title"],
       "Employee Type": employee["Employee Type"],
-      "Job Group": employee["Job Group"]
+      "Job Group": employee["Job Group"],
+      "Basic Salary": employee["Basic Salary"]
     });
   };
 
@@ -265,9 +265,11 @@ useEffect(() => {
       
       if (employeeIds.length === 0) return;
       
+      const updateValue = bulkUpdateField === 'Basic Salary' ? parseFloat(bulkUpdateValue) : bulkUpdateValue;
+      
       const { error } = await supabase
         .from('employees')
-        .update({ [bulkUpdateField]: bulkUpdateValue })
+        .update({ [bulkUpdateField]: updateValue })
         .in('Employee Number', employeeIds);
       
       if (error) throw error;
@@ -276,7 +278,7 @@ useEffect(() => {
       setEmployees(prev => 
         prev.map(emp => 
           selectedRows.includes(emp.id) 
-            ? { ...emp, [bulkUpdateField]: bulkUpdateValue } 
+            ? { ...emp, [bulkUpdateField]: updateValue } 
             : emp
         )
       );
@@ -291,6 +293,17 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number | null) => {
+    if (amount === null || amount === undefined) return '--';
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   // Get unique values for filters
@@ -345,7 +358,7 @@ useEffect(() => {
             <input
               type="text"
               placeholder="Search employees..."
-              className="pl-9 pr-4 py-2 w-full text-sm border border-green-200 rounded-lg   focus:border-green-100 focus:outline focus:outline-green-200 focus:outline-2 focus:outline-offset-2 transition-all bg-green-50"
+              className="pl-9 pr-4 py-2 w-full text-sm border border-green-200 rounded-lg focus:border-green-100 focus:outline focus:outline-green-200 focus:outline-2 focus:outline-offset-2 transition-all bg-green-50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -356,11 +369,11 @@ useEffect(() => {
             <div className="relative">
               <select
                 className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
-                value={filters.Branch}
-                onChange={(e) => setFilters({...filters, Branch: e.target.value})}
+                value={filters.Town}
+                onChange={(e) => setFilters({...filters, Town: e.target.value})}
               >
-                <option value="">All Branches</option>
-                {getUniqueValues('Branch').map(branch => (
+                <option value="">Office Town</option>
+                {getUniqueValues('Town').map(branch => (
                   <option key={branch} value={branch}>{branch}</option>
                 ))}
               </select>
@@ -402,7 +415,7 @@ useEffect(() => {
             </div>
             
             <button 
-              onClick={() => setFilters({ Branch: '', "Employee Type": '', "Job Group": '' })}
+              onClick={() => setFilters({ Town: '', "Employee Type": '', "Job Group": '' })}
               className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 flex items-center transition-colors"
             >
               <X className="w-3 h-3 mr-1" />
@@ -426,22 +439,23 @@ useEffect(() => {
                   onChange={(e) => setBulkUpdateField(e.target.value || null)}
                 >
                   <option value="">Select field to update</option>
-                  <option value="Branch">Branch</option>
+                  <option value="Town">Office</option>
                   <option value="Job Title">Job Title</option>
                   <option value="Employee Type">Employee Type</option>
                   <option value="Job Group">Job Group</option>
+                  <option value="Basic Salary">Basic Salary</option>
                 </select>
                 
                 {bulkUpdateField && (
                   <>
-                    {bulkUpdateField === 'Branch' ? (
+                    {bulkUpdateField === 'Town' ? (
                       <select
                         className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                         value={bulkUpdateValue}
                         onChange={(e) => setBulkUpdateValue(e.target.value)}
                       >
-                        <option value="">Select branch</option>
-                        {getUniqueValues('Branch').map(branch => (
+                        <option value="">Select Town</option>
+                        {getUniqueValues('Town').map(branch => (
                           <option key={branch} value={branch}>{branch}</option>
                         ))}
                       </select>
@@ -467,6 +481,16 @@ useEffect(() => {
                           <option key={group} value={group}>{group}</option>
                         ))}
                       </select>
+                    ) : bulkUpdateField === 'Basic Salary' ? (
+                      <input
+                        type="number"
+                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                        placeholder="Enter salary amount"
+                        value={bulkUpdateValue}
+                        onChange={(e) => setBulkUpdateValue(e.target.value)}
+                        min="0"
+                        step="1000"
+                      />
                     ) : (
                       <input
                         type="text"
@@ -529,7 +553,7 @@ useEffect(() => {
                 Work Email
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Branch
+                Office
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Job Title
@@ -539,6 +563,9 @@ useEffect(() => {
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Job Group
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Basic Salary
               </th>
               <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -603,15 +630,15 @@ useEffect(() => {
                     {editingId === employee.id ? (
                       <select
                         className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
-                        value={editableData.Branch || ''}
-                        onChange={(e) => setEditableData({...editableData, Branch: e.target.value})}
+                        value={editableData.Town || ''}
+                        onChange={(e) => setEditableData({...editableData, Town: e.target.value})}
                       >
-                        {getUniqueValues('Branch').map(branch => (
+                        {getUniqueValues('Town').map(branch => (
                           <option key={branch} value={branch}>{branch}</option>
                         ))}
                       </select>
                     ) : (
-                      <div className="text-xs text-gray-500">{employee.Branch}</div>
+                      <div className="text-xs text-gray-500">{employee.Town}</div>
                     )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
@@ -656,6 +683,23 @@ useEffect(() => {
                       <div className="text-xs text-gray-500">{employee["Job Group"]}</div>
                     )}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="number"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["Basic Salary"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "Basic Salary": parseFloat(e.target.value) || null})}
+                        placeholder="Basic Salary"
+                        min="0"
+                        step="1000"
+                      />
+                    ) : (
+                      <div className="text-xs font-medium text-gray-900">
+                        {formatCurrency(employee["Basic Salary"])}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap text-right text-xs font-medium">
                     {editingId === employee.id ? (
                       <div className="flex justify-end space-x-2">
@@ -688,7 +732,7 @@ useEffect(() => {
               ))
             ) : (
               <tr>
-                <td colSpan={9} className="px-4 py-4 text-center text-xs text-gray-500">
+                <td colSpan={10} className="px-4 py-4 text-center text-xs text-gray-500">
                   No employees found matching your criteria
                 </td>
               </tr>

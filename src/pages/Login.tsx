@@ -305,7 +305,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         </div>
         
         <div className="absolute top-8 left-8 z-10">
-          <img src="/solo.png" alt="Company Logo" className="h-24" />
+          <img src="/solo.png" alt="Company Logo" className="h-16" />
         </div>
         
         <div className="max-w-md text-white relative z-10">

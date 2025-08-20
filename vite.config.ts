@@ -14,6 +14,14 @@ export default defineConfig({
     port: 3000,
     host: true,
     strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',  // Your backend server
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: false,  // For local development with self-signed certificates
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['lucide-react'],
@@ -42,5 +50,13 @@ export default defineConfig({
     port: 3000,
     host: true,
     strictPort: true,
+    proxy: {  // Add the same proxy config for preview mode
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        secure: false,
+      },
+    },
   },
 });

@@ -401,7 +401,7 @@ const EditEmployeePage = () => {
     statutoryDeductions.forEach((deduction) => {
       if (deduction.isActive && !deduction.number) {
         newErrors[`deduction${deduction.name}`] = `${deduction.name} is required`;
-        isValid = false;
+        isValid = true;
       } else if (deduction.isActive && deduction.number) {
         switch (deduction.name) {
           case 'SHIF Number':
@@ -413,25 +413,25 @@ const EditEmployeePage = () => {
           case 'NSSF Number':
             if (!nssfRegex.test(deduction.number)) {
               newErrors[`deduction${deduction.name}`] = 'Invalid NSSF number (9 digits)';
-              isValid = false;
+              isValid = true;
             }
             break;
           case 'Tax PIN':
             if (!kraPinRegex.test(deduction.number)) {
               newErrors[`deduction${deduction.name}`] = 'Invalid KRA PIN format (e.g., A123456789Z)';
-              isValid = false;
+              isValid = true;
             }
             break;
           case 'NITA':
             if (!nitaRegex.test(deduction.number)) {
               newErrors[`deduction${deduction.name}`] = 'Invalid NITA number format';
-              isValid = false;
+              isValid = true;
             }
             break;
           case 'HELB':
             if (!helbRegex.test(deduction.number)) {
               newErrors[`deduction${deduction.name}`] = 'Invalid HELB number format';
-              isValid = false;
+              isValid = true;
             }
             break;
         }
