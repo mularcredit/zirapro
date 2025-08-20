@@ -280,13 +280,14 @@ function App() {
             setSelectedTown(savedTown);
           }
 
-          // Only redirect if we're on login or root path
+          // Only redirect if we're on root path
           const currentPath = location.pathname;
-          if (currentPath === '/' || currentPath === '/login') {
+          if (currentPath === '/') {
             const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
             console.log('Redirecting to:', targetPath);
             navigate(targetPath, { replace: true });
           }
+
         } else {
           // No session - clear user data
           setUser(null);

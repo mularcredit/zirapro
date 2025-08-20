@@ -226,7 +226,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 bg-white z-10">
           <h3 className="text-lg font-semibold flex items-center gap-2">

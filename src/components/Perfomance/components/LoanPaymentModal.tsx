@@ -22,7 +22,18 @@ interface LoanPayment {
 interface Loan {
   loan_id: string;
   client_id: string;
+  loan_officer: string;
+  branch_id: number;
+  product_type: string;
   amount_disbursed: number;
+  outstanding_balance: number;
+  interest_rate: number;
+  term_months: number;
+  disbursement_date: string;
+  status: string;
+  par_days: number;
+  last_payment_date: string | null;
+  next_payment_date: string | null;
 }
 
 interface Employee {
@@ -211,7 +222,7 @@ const LoanPaymentModal: React.FC<LoanPaymentModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-white max-h-[80vh] overflow-y-auto rounded-lg shadow-xl w-full max-w-md">
         <div className="border-b border-gray-200 p-4 flex justify-between items-center">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Wallet className="w-5 h-5" />
