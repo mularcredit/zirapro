@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CreditCard, X, Check, Calendar as CalendarIcon } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import Select from 'react-select';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '@lukeed/uuid';
 
 interface Loan {
   loan_id: string;
