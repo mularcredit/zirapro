@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Trash2, Search, Filter, Download, Upload } from 'lucide-react';
 
-// Unified type definitions
+// Enhanced type definitions with new fields
 type Client = {
   client_id: string;
   first_name: string;
@@ -16,11 +16,33 @@ type Client = {
 type Loan = {
   loan_id: string;
   client_id: string;
+  client_name: string;
+  loan_officer: string;
+  loan_officer_name: string;
+  branch_id: bigint;
+  branch_name: string;
   product_type: string;
   amount_disbursed: number;
-  outstanding_balance: number;
-  status: 'Disbursed' | 'Active' | 'Completed' | 'Defaulted';
+  interest_rate: number;
+  term_months: number;
   disbursement_date: string;
+  maturity_date: string;
+  repayment_frequency: string;
+  status: 'Pending' | 'Approved' | 'Disbursed' | 'Active' | 'Completed' | 'Defaulted';
+  par_days: number;
+  outstanding_balance: number;
+  total_repayment_amount: number;
+  total_principal_paid: number;
+  total_interest_paid: number;
+  total_fees_paid: number;
+  total_penalty_paid: number;
+  last_payment_date: string;
+  next_payment_date: string;
+  is_first_loan: boolean;
+  arrears_days: number;
+  arrears_amount: number;
+  days_since_disbursement: number;
+  days_since_last_payment: number;
 };
 
 type LoanPayment = {
@@ -37,21 +59,56 @@ type LoanPayment = {
 type EmployeePerformance = {
   id: string;
   employee_id: string;
+  employee_name: string;
   date: string;
   period: string;
   loans_disbursed: number;
   disbursement_target: number;
   clients_visited: number;
+  field_visits_target: number;
+  collection_amount: number;
+  collection_target: number;
+  par_amount: number;
+  portfolio_size: number;
+  attendance_days: number;
+  working_days: number;
+  tat_average: number;
+  new_loans: number;
+  outstanding_balance: number;
+  arrears_amount: number;
+  loans_in_arrears: number;
+  total_active_loans: number;
+  portfolio_at_risk: number;
+  client_satisfaction_score: number;
+  loan_recovery_rate: number;
+  average_loan_size: number;
+  active_clients: number;
 };
 
 type BranchPerformance = {
   id: string;
   branch_id: string;
+  branch_name: string;
   date: string;
   period: string;
   total_loans_disbursed: number;
   disbursement_target: number;
   total_collection: number;
+  collection_target: number;
+  total_par: number;
+  portfolio_size: number;
+  average_tat: number;
+  staff_count: number;
+  new_loans: number;
+  arrears_amount: number;
+  loans_in_arrears: number;
+  total_active_loans: number;
+  portfolio_at_risk: number;
+  portfolio_quality: string;
+  loan_officer_count: number;
+  active_clients: number;
+  new_clients: number;
+  client_dropout_rate: number;
 };
 
 type PerformanceTarget = {
@@ -206,7 +263,7 @@ const EditModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div className="bg-white max-h-[80vh] overflow-y-auto rounded-lg p-6 w-full max-w-2xl">
         <h2 className="text-xl font-semibold mb-4">Edit Record</h2>
         <form onSubmit={handleSubmit}>
           {fields.map((field) => (
@@ -329,6 +386,971 @@ const SearchInput = ({
     </div>
   );
 };
+
+// Enhanced LoansTable with filtering and export functionality
+export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpdate: (loan: Loan) => void; onDelete: (id: string) => void }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [productFilter, setProductFilter] = useState('all');
+  const [sortField, setSortField] = useState('disbursement_date');
+  const [sortDirection, setSortDirection] = useState('desc');
+  
+  // Enhanced filtering with multiple criteria
+  const filteredLoans = loans.filter(loan => {
+    const matchesSearch = Object.values(loan).some(
+      value => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const matchesStatus = statusFilter === 'all' || loan.status === statusFilter;
+    const matchesProduct = productFilter === 'all' || loan.product_type === productFilter;
+    
+    return matchesSearch && matchesStatus && matchesProduct;
+  });
+
+  // Sorting
+  const sortedLoans = [...filteredLoans].sort((a, b) => {
+    const aValue = a[sortField as keyof Loan];
+    const bValue = b[sortField as keyof Loan];
+    
+    if (aValue === null || aValue === undefined) return sortDirection === 'asc' ? -1 : 1;
+    if (bValue === null || bValue === undefined) return sortDirection === 'asc' ? 1 : -1;
+    
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue) 
+        : bValue.localeCompare(aValue);
+    }
+    
+    return sortDirection === 'asc' 
+      ? (aValue as number) - (bValue as number)
+      : (bValue as number) - (aValue as number);
+  });
+
+  const totalPages = Math.ceil(sortedLoans.length / rowsPerPage);
+  const paginatedData = sortedLoans.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const handleEdit = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setEditModalOpen(true);
+  };
+
+  const handleDelete = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setDeleteModalOpen(true);
+  };
+
+  const handleSave = (updatedLoan: Loan) => {
+    onUpdate(updatedLoan);
+    setEditModalOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedLoan) {
+      onDelete(selectedLoan.loan_id);
+    }
+    setDeleteModalOpen(false);
+  };
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleExport = () => {
+    const headers = [
+      'Loan ID', 'Client ID', 'Client Name', 'Loan Officer', 'Branch', 
+      'Product Type', 'Amount Disbursed', 'Outstanding Balance', 'Status',
+      'Disbursement Date', 'Maturity Date', 'Arrears Amount', 'PAR Days'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...sortedLoans.map(loan => [
+        loan.loan_id,
+        loan.client_id,
+        loan.client_name || '',
+        loan.loan_officer_name || loan.loan_officer,
+        loan.branch_name || loan.branch_id,
+        loan.product_type,
+        loan.amount_disbursed,
+        loan.outstanding_balance,
+        loan.status,
+        loan.disbursement_date,
+        loan.maturity_date,
+        loan.arrears_amount,
+        loan.par_days
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `loans_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4 flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Loans Management</h2>
+          <div className="flex gap-2">
+            <button 
+              onClick={handleExport}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              <Download className="w-4 h-4" />
+              Export
+            </button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <SearchInput 
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search loans by any field..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Approved">Approved</option>
+              <option value="Disbursed">Disbursed</option>
+              <option value="Active">Active</option>
+              <option value="Completed">Completed</option>
+              <option value="Defaulted">Defaulted</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Product Type</label>
+            <select 
+              value={productFilter}
+              onChange={(e) => setProductFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="all">All Products</option>
+              <option value="Business">Business</option>
+              <option value="Personal">Personal</option>
+              <option value="Agricultural">Agricultural</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('loan_id')}
+              >
+                Loan ID {sortField === 'loan_id' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('client_name')}
+              >
+                Client {sortField === 'client_name' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Product Type</th>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('amount_disbursed')}
+              >
+                Amount {sortField === 'amount_disbursed' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('outstanding_balance')}
+              >
+                Outstanding {sortField === 'outstanding_balance' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('disbursement_date')}
+              >
+                Disbursement Date {sortField === 'disbursement_date' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th 
+                className="py-3 px-4 text-left font-semibold text-gray-700 cursor-pointer"
+                onClick={() => handleSort('arrears_amount')}
+              >
+                Arrears {sortField === 'arrears_amount' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.map((loan) => (
+              <tr key={loan.loan_id} className="border-b border-gray-200 hover:bg-gray-50">
+                <td className="py-3 px-4 font-mono">{loan.loan_id}</td>
+                <td className="py-3 px-4">
+                  <div>{loan.client_name || loan.client_id}</div>
+                  <div className="text-xs text-gray-500">{loan.loan_officer_name || loan.loan_officer}</div>
+                </td>
+                <td className="py-3 px-4">{loan.product_type}</td>
+                <td className="py-3 px-4">{loan.amount_disbursed?.toLocaleString()}</td>
+                <td className="py-3 px-4">{loan.outstanding_balance?.toLocaleString()}</td>
+                <td className="py-3 px-4">
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    loan.status === 'Disbursed' ? 'bg-blue-100 text-blue-800' : 
+                    loan.status === 'Active' ? 'bg-green-100 text-green-800' : 
+                    loan.status === 'Completed' ? 'bg-purple-100 text-purple-800' : 
+                    loan.status === 'Defaulted' ? 'bg-red-100 text-red-800' :
+                    loan.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {loan.status}
+                  </span>
+                </td>
+                <td className="py-3 px-4">{new Date(loan.disbursement_date).toLocaleDateString()}</td>
+                <td className="py-3 px-4">
+                  {loan.arrears_amount > 0 ? (
+                    <span className="text-red-600 font-medium">
+                      {loan.arrears_amount?.toLocaleString()}
+                    </span>
+                  ) : (
+                    <span className="text-green-600">0</span>
+                  )}
+                </td>
+                <td className="py-3 px-4">
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => handleEdit(loan)}
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                      title="Edit loan"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(loan)}
+                      className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      title="Delete loan"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Rows per page:</span>
+          <select 
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="p-1 border border-gray-300 rounded"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+        
+        <div className="text-sm text-gray-600">
+          Showing {paginatedData.length} of {sortedLoans.length} loans
+        </div>
+      </div>
+
+      <EditModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onUpdate={handleSave}
+        fields={[
+          { 
+            key: 'loan_id', 
+            label: 'Loan ID',
+            value: selectedLoan?.loan_id || ''
+          },
+          { 
+            key: 'client_id', 
+            label: 'Client ID',
+            value: selectedLoan?.client_id || ''
+          },
+          { 
+            key: 'client_name', 
+            label: 'Client Name',
+            value: selectedLoan?.client_name || ''
+          },
+          { 
+            key: 'loan_officer', 
+            label: 'Loan Officer ID',
+            value: selectedLoan?.loan_officer || ''
+          },
+          { 
+            key: 'loan_officer_name', 
+            label: 'Loan Officer Name',
+            value: selectedLoan?.loan_officer_name || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID',
+            value: selectedLoan?.branch_id || ''
+          },
+          { 
+            key: 'branch_name', 
+            label: 'Branch Name',
+            value: selectedLoan?.branch_name || ''
+          },
+          { 
+            key: 'product_type', 
+            label: 'Product Type',
+            value: selectedLoan?.product_type || ''
+          },
+          { 
+            key: 'amount_disbursed', 
+            label: 'Amount Disbursed', 
+            type: 'number',
+            value: selectedLoan?.amount_disbursed || 0
+          },
+          { 
+            key: 'interest_rate', 
+            label: 'Interest Rate', 
+            type: 'number',
+            value: selectedLoan?.interest_rate || 0
+          },
+          { 
+            key: 'term_months', 
+            label: 'Term (Months)', 
+            type: 'number',
+            value: selectedLoan?.term_months || 0
+          },
+          { 
+            key: 'outstanding_balance', 
+            label: 'Outstanding Balance', 
+            type: 'number',
+            value: selectedLoan?.outstanding_balance || 0
+          },
+          { 
+            key: 'status', 
+            label: 'Status', 
+            type: 'select',
+            options: ['Pending', 'Approved', 'Disbursed', 'Active', 'Completed', 'Defaulted'],
+            value: selectedLoan?.status || ''
+          },
+          { 
+            key: 'disbursement_date', 
+            label: 'Disbursement Date', 
+            type: 'date',
+            value: selectedLoan?.disbursement_date ? new Date(selectedLoan.disbursement_date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'maturity_date', 
+            label: 'Maturity Date', 
+            type: 'date',
+            value: selectedLoan?.maturity_date ? new Date(selectedLoan.maturity_date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'arrears_amount', 
+            label: 'Arrears Amount', 
+            type: 'number',
+            value: selectedLoan?.arrears_amount || 0
+          },
+          { 
+            key: 'par_days', 
+            label: 'PAR Days', 
+            type: 'number',
+            value: selectedLoan?.par_days || 0
+          },
+        ]}
+      />
+
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={`loan ${selectedLoan?.loan_id}`}
+      />
+    </div>
+  );
+};
+
+// Enhanced Employee Performance Table
+export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { performance: EmployeePerformance[]; onUpdate: (perf: EmployeePerformance) => void; onDelete: (id: string) => void }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedPerf, setSelectedPerf] = useState<EmployeePerformance | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [periodFilter, setPeriodFilter] = useState('all');
+  
+  const filteredPerformance = performance.filter(perf => {
+    const matchesSearch = Object.values(perf).some(
+      value => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const matchesPeriod = periodFilter === 'all' || perf.period === periodFilter;
+    
+    return matchesSearch && matchesPeriod;
+  });
+
+  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
+  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const handleEdit = (perf: EmployeePerformance) => {
+    setSelectedPerf(perf);
+    setEditModalOpen(true);
+  };
+
+  const handleDelete = (perf: EmployeePerformance) => {
+    setSelectedPerf(perf);
+    setDeleteModalOpen(true);
+  };
+
+  const handleSave = (updatedPerf: EmployeePerformance) => {
+    onUpdate(updatedPerf);
+    setEditModalOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedPerf) {
+      onDelete(selectedPerf.id);
+    }
+    setDeleteModalOpen(false);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4 flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Employee Performance</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <SearchInput 
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search performance by any field..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
+            <select 
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="all">All Periods</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">ID</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Employee ID</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Period</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Loans Disbursed</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Disbursement Target</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Achievement Rate</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Clients Visited</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">PAR Rate</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.map((perf) => {
+              const achievementRate = perf.disbursement_target 
+                ? Math.round((perf.loans_disbursed / perf.disbursement_target) * 100) 
+                : 0;
+                
+              return (
+                <tr key={perf.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="py-3 px-4">{perf.id}</td>
+                  <td className="py-3 px-4">{perf.employee_id}</td>
+                  <td className="py-3 px-4">{new Date(perf.date).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 capitalize">{perf.period}</td>
+                  <td className="py-3 px-4">{perf.loans_disbursed}</td>
+                  <td className="py-3 px-4">{perf.disbursement_target}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      achievementRate >= 100 ? 'bg-green-100 text-green-800' :
+                      achievementRate >= 80 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {achievementRate}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">{perf.clients_visited}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      (perf.portfolio_at_risk || 0) <= 5 ? 'bg-green-100 text-green-800' :
+                      (perf.portfolio_at_risk || 0) <= 10 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {perf.portfolio_at_risk || 0}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleEdit(perf)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(perf)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Rows per page:</span>
+          <select 
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="p-1 border border-gray-300 rounded"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+        
+        <div className="text-sm text-gray-600">
+          Showing {paginatedData.length} of {filteredPerformance.length} records
+        </div>
+      </div>
+
+      <EditModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onUpdate={handleSave}
+        fields={[
+          { 
+            key: 'id', 
+            label: 'ID',
+            value: selectedPerf?.id || ''
+          },
+          { 
+            key: 'employee_id', 
+            label: 'Employee ID',
+            value: selectedPerf?.employee_id || ''
+          },
+          { 
+            key: 'employee_name', 
+            label: 'Employee Name',
+            value: selectedPerf?.employee_name || ''
+          },
+          { 
+            key: 'date', 
+            label: 'Date', 
+            type: 'date',
+            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'period', 
+            label: 'Period', 
+            type: 'select',
+            options: ['daily', 'weekly', 'monthly', 'quarterly', 'annual'],
+            value: selectedPerf?.period || ''
+          },
+          { 
+            key: 'loans_disbursed', 
+            label: 'Loans Disbursed', 
+            type: 'number',
+            value: selectedPerf?.loans_disbursed || 0
+          },
+          { 
+            key: 'disbursement_target', 
+            label: 'Disbursement Target', 
+            type: 'number',
+            value: selectedPerf?.disbursement_target || 0
+          },
+          { 
+            key: 'clients_visited', 
+            label: 'Clients Visited', 
+            type: 'number',
+            value: selectedPerf?.clients_visited || 0
+          },
+          { 
+            key: 'field_visits_target', 
+            label: 'Field Visits Target', 
+            type: 'number',
+            value: selectedPerf?.field_visits_target || 0
+          },
+          { 
+            key: 'collection_amount', 
+            label: 'Collection Amount', 
+            type: 'number',
+            value: selectedPerf?.collection_amount || 0
+          },
+          { 
+            key: 'collection_target', 
+            label: 'Collection Target', 
+            type: 'number',
+            value: selectedPerf?.collection_target || 0
+          },
+          { 
+            key: 'portfolio_at_risk', 
+            label: 'Portfolio at Risk (%)', 
+            type: 'number',
+            value: selectedPerf?.portfolio_at_risk || 0
+          },
+          { 
+            key: 'client_satisfaction_score', 
+            label: 'Client Satisfaction Score', 
+            type: 'number',
+            value: selectedPerf?.client_satisfaction_score || 0
+          },
+          { 
+            key: 'active_clients', 
+            label: 'Active Clients', 
+            type: 'number',
+            value: selectedPerf?.active_clients || 0
+          },
+        ]}
+      />
+
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={`performance record ${selectedPerf?.id}`}
+      />
+    </div>
+  );
+};
+
+// Enhanced Branch Performance Table
+export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { performance: BranchPerformance[]; onUpdate: (perf: BranchPerformance) => void; onDelete: (id: string) => void }) => {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedPerf, setSelectedPerf] = useState<BranchPerformance | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [periodFilter, setPeriodFilter] = useState('all');
+  
+  const filteredPerformance = performance.filter(perf => {
+    const matchesSearch = Object.values(perf).some(
+      value => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    const matchesPeriod = periodFilter === 'all' || perf.period === periodFilter;
+    
+    return matchesSearch && matchesPeriod;
+  });
+
+  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
+  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
+  const handleEdit = (perf: BranchPerformance) => {
+    setSelectedPerf(perf);
+    setEditModalOpen(true);
+  };
+
+  const handleDelete = (perf: BranchPerformance) => {
+    setSelectedPerf(perf);
+    setDeleteModalOpen(true);
+  };
+
+  const handleSave = (updatedPerf: BranchPerformance) => {
+    onUpdate(updatedPerf);
+    setEditModalOpen(false);
+  };
+
+  const handleConfirmDelete = () => {
+    if (selectedPerf) {
+      onDelete(selectedPerf.id);
+    }
+    setDeleteModalOpen(false);
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="p-4 flex flex-col gap-4">
+        <div className="flex justify-between items-center">
+          <h2 className="text-lg font-semibold">Branch Performance</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <SearchInput 
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search performance by any field..."
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
+            <select 
+              value={periodFilter}
+              onChange={(e) => setPeriodFilter(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              <option value="all">All Periods</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="annual">Annual</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">ID</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Branch ID</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Period</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Loans Disbursed</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Disbursement Target</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Achievement Rate</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Total Collection</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">PAR Rate</th>
+              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedData.map((perf) => {
+              const achievementRate = perf.disbursement_target 
+                ? Math.round((perf.total_loans_disbursed / perf.disbursement_target) * 100) 
+                : 0;
+                
+              return (
+                <tr key={perf.id} className="border-b border-gray-200 hover:bg-gray-50">
+                  <td className="py-3 px-4">{perf.id}</td>
+                  <td className="py-3 px-4">{perf.branch_id}</td>
+                  <td className="py-3 px-4">{new Date(perf.date).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 capitalize">{perf.period}</td>
+                  <td className="py-3 px-4">{perf.total_loans_disbursed}</td>
+                  <td className="py-3 px-4">{perf.disbursement_target}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      achievementRate >= 100 ? 'bg-green-100 text-green-800' :
+                      achievementRate >= 80 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {achievementRate}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">{perf.total_collection?.toLocaleString()}</td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      (perf.portfolio_at_risk || 0) <= 5 ? 'bg-green-100 text-green-800' :
+                      (perf.portfolio_at_risk || 0) <= 10 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {perf.portfolio_at_risk || 0}%
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleEdit(perf)}
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(perf)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      <div className="p-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Rows per page:</span>
+          <select 
+            value={rowsPerPage}
+            onChange={(e) => setRowsPerPage(Number(e.target.value))}
+            className="p-1 border border-gray-300 rounded"
+          >
+            <option value="5">5</option>
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+          </select>
+        </div>
+        
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+        
+        <div className="text-sm text-gray-600">
+          Showing {paginatedData.length} of {filteredPerformance.length} records
+        </div>
+      </div>
+
+      <EditModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onUpdate={handleSave}
+        fields={[
+          { 
+            key: 'id', 
+            label: 'ID',
+            value: selectedPerf?.id || ''
+          },
+          { 
+            key: 'branch_id', 
+            label: 'Branch ID',
+            value: selectedPerf?.branch_id || ''
+          },
+          { 
+            key: 'branch_name', 
+            label: 'Branch Name',
+            value: selectedPerf?.branch_name || ''
+          },
+          { 
+            key: 'date', 
+            label: 'Date', 
+            type: 'date',
+            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
+          },
+          { 
+            key: 'period', 
+            label: 'Period', 
+            type: 'select',
+            options: ['daily', 'weekly', 'monthly', 'quarterly', 'annual'],
+            value: selectedPerf?.period || ''
+          },
+          { 
+            key: 'total_loans_disbursed', 
+            label: 'Total Loans Disbursed', 
+            type: 'number',
+            value: selectedPerf?.total_loans_disbursed || 0
+          },
+          { 
+            key: 'disbursement_target', 
+            label: 'Disbursement Target', 
+            type: 'number',
+            value: selectedPerf?.disbursement_target || 0
+          },
+          { 
+            key: 'total_collection', 
+            label: 'Total Collection', 
+            type: 'number',
+            value: selectedPerf?.total_collection || 0
+          },
+          { 
+            key: 'collection_target', 
+            label: 'Collection Target', 
+            type: 'number',
+            value: selectedPerf?.collection_target || 0
+          },
+          { 
+            key: 'portfolio_at_risk', 
+            label: 'Portfolio at Risk (%)', 
+            type: 'number',
+            value: selectedPerf?.portfolio_at_risk || 0
+          },
+          { 
+            key: 'active_clients', 
+            label: 'Active Clients', 
+            type: 'number',
+            value: selectedPerf?.active_clients || 0
+          },
+          { 
+            key: 'new_clients', 
+            label: 'New Clients', 
+            type: 'number',
+            value: selectedPerf?.new_clients || 0
+          },
+          { 
+            key: 'staff_count', 
+            label: 'Staff Count', 
+            type: 'number',
+            value: selectedPerf?.staff_count || 0
+          },
+        ]}
+      />
+
+      <DeleteConfirmation
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={handleConfirmDelete}
+        itemName={`performance record ${selectedPerf?.id}`}
+      />
+    </div>
+  );
+};
+
+// The other table components (ClientsTable, LoanPaymentsTable, PerformanceTargetsTable, ClientVisitsTable)
+// would follow similar enhancement patterns with filtering, sorting, and additional fields
 
 // Clients Table with Search
 export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[]; onUpdate: (client: Client) => void; onDelete: (id: string) => void }) => {
@@ -502,176 +1524,6 @@ export const ClientsTable = ({ clients, onUpdate, onDelete }: { clients: Client[
   );
 };
 
-// Loans Table with Search
-export const LoansTable = ({ loans, onUpdate, onDelete }: { loans: Loan[]; onUpdate: (loan: Loan) => void; onDelete: (id: string) => void }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(10);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredLoans = loans.filter(loan =>
-    Object.values(loan).some(
-      value => value && 
-      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
-
-  const totalPages = Math.ceil(filteredLoans.length / rowsPerPage);
-  const paginatedData = filteredLoans.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const handleEdit = (loan: Loan) => {
-    setSelectedLoan(loan);
-    setEditModalOpen(true);
-  };
-
-  const handleDelete = (loan: Loan) => {
-    setSelectedLoan(loan);
-    setDeleteModalOpen(true);
-  };
-
-  const handleSave = (updatedLoan: Loan) => {
-    onUpdate(updatedLoan);
-    setEditModalOpen(false);
-  };
-
-  const handleConfirmDelete = () => {
-    if (selectedLoan) {
-      onDelete(selectedLoan.loan_id);
-    }
-    setDeleteModalOpen(false);
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-4">
-        <SearchInput 
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Search loans by any field..."
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Loan ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Client ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Product Type</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Amount</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Outstanding</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Status</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Disbursement Date</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.map((loan) => (
-              <tr key={loan.loan_id} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="py-3 px-4">{loan.loan_id}</td>
-                <td className="py-3 px-4">{loan.client_id}</td>
-                <td className="py-3 px-4">{loan.product_type}</td>
-                <td className="py-3 px-4">{loan.amount_disbursed?.toLocaleString()}</td>
-                <td className="py-3 px-4">{loan.outstanding_balance?.toLocaleString()}</td>
-                <td className="py-3 px-4">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    loan.status === 'Disbursed' ? 'bg-blue-100 text-blue-800' : 
-                    loan.status === 'Active' ? 'bg-green-100 text-green-800' : 
-                    loan.status === 'Completed' ? 'bg-purple-100 text-purple-800' : 
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {loan.status}
-                  </span>
-                </td>
-                <td className="py-3 px-4">{new Date(loan.disbursement_date).toLocaleDateString()}</td>
-                <td className="py-3 px-4">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleEdit(loan)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(loan)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="p-4 border-t border-gray-200">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      </div>
-
-      <EditModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onUpdate={handleSave}
-        fields={[
-          { 
-            key: 'loan_id', 
-            label: 'Loan ID',
-            value: selectedLoan?.loan_id || ''
-          },
-          { 
-            key: 'client_id', 
-            label: 'Client ID',
-            value: selectedLoan?.client_id || ''
-          },
-          { 
-            key: 'product_type', 
-            label: 'Product Type',
-            value: selectedLoan?.product_type || ''
-          },
-          { 
-            key: 'amount_disbursed', 
-            label: 'Amount Disbursed', 
-            type: 'number',
-            value: selectedLoan?.amount_disbursed || 0
-          },
-          { 
-            key: 'outstanding_balance', 
-            label: 'Outstanding Balance', 
-            type: 'number',
-            value: selectedLoan?.outstanding_balance || 0
-          },
-          { 
-            key: 'status', 
-            label: 'Status', 
-            type: 'select',
-            options: ['Disbursed', 'Active', 'Completed', 'Defaulted'],
-            value: selectedLoan?.status || ''
-          },
-          { 
-            key: 'disbursement_date', 
-            label: 'Disbursement Date', 
-            type: 'date',
-            value: selectedLoan?.disbursement_date ? new Date(selectedLoan.disbursement_date).toISOString().split('T')[0] : ''
-          },
-        ]}
-      />
-
-      <DeleteConfirmation
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        itemName={`loan ${selectedLoan?.loan_id}`}
-      />
-    </div>
-  );
-};
-
 // Loan Payments Table with Search
 export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: LoanPayment[]; onUpdate: (payment: LoanPayment) => void; onDelete: (id: string) => void }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -836,329 +1688,6 @@ export const LoanPaymentsTable = ({ payments, onUpdate, onDelete }: { payments: 
         onClose={() => setDeleteModalOpen(false)}
         onConfirm={handleConfirmDelete}
         itemName={`payment ${selectedPayment?.payment_id}`}
-      />
-    </div>
-  );
-};
-
-// Employee Performance Table with Search
-export const EmployeePerformanceTable = ({ performance, onUpdate, onDelete }: { performance: EmployeePerformance[]; onUpdate: (perf: EmployeePerformance) => void; onDelete: (id: string) => void }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(10);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedPerf, setSelectedPerf] = useState<EmployeePerformance | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredPerformance = performance.filter(perf =>
-    Object.values(perf).some(
-      value => value && 
-      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
-
-  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
-  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const handleEdit = (perf: EmployeePerformance) => {
-    setSelectedPerf(perf);
-    setEditModalOpen(true);
-  };
-
-  const handleDelete = (perf: EmployeePerformance) => {
-    setSelectedPerf(perf);
-    setDeleteModalOpen(true);
-  };
-
-  const handleSave = (updatedPerf: EmployeePerformance) => {
-    onUpdate(updatedPerf);
-    setEditModalOpen(false);
-  };
-
-  const handleConfirmDelete = () => {
-    if (selectedPerf) {
-      onDelete(selectedPerf.id);
-    }
-    setDeleteModalOpen(false);
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-4">
-        <SearchInput 
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Search performance by any field..."
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Employee ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Period</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Loans Disbursed</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Disbursement Target</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Clients Visited</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.map((perf) => (
-              <tr key={perf.id} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="py-3 px-4">{perf.id}</td>
-                <td className="py-3 px-4">{perf.employee_id}</td>
-                <td className="py-3 px-4">{new Date(perf.date).toLocaleDateString()}</td>
-                <td className="py-3 px-4">{perf.period}</td>
-                <td className="py-3 px-4">{perf.loans_disbursed}</td>
-                <td className="py-3 px-4">{perf.disbursement_target}</td>
-                <td className="py-3 px-4">{perf.clients_visited}</td>
-                <td className="py-3 px-4">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleEdit(perf)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(perf)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="p-4 border-t border-gray-200">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      </div>
-
-      <EditModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onUpdate={handleSave}
-        fields={[
-          { 
-            key: 'id', 
-            label: 'ID',
-            value: selectedPerf?.id || ''
-          },
-          { 
-            key: 'employee_id', 
-            label: 'Employee ID',
-            value: selectedPerf?.employee_id || ''
-          },
-          { 
-            key: 'date', 
-            label: 'Date', 
-            type: 'date',
-            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
-          },
-          { 
-            key: 'period', 
-            label: 'Period', 
-            type: 'select',
-            options: ['daily', 'weekly', 'monthly'],
-            value: selectedPerf?.period || ''
-          },
-          { 
-            key: 'loans_disbursed', 
-            label: 'Loans Disbursed', 
-            type: 'number',
-            value: selectedPerf?.loans_disbursed || 0
-          },
-          { 
-            key: 'disbursement_target', 
-            label: 'Disbursement Target', 
-            type: 'number',
-            value: selectedPerf?.disbursement_target || 0
-          },
-          { 
-            key: 'clients_visited', 
-            label: 'Clients Visited', 
-            type: 'number',
-            value: selectedPerf?.clients_visited || 0
-          },
-        ]}
-      />
-
-      <DeleteConfirmation
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        itemName={`performance record ${selectedPerf?.id}`}
-      />
-    </div>
-  );
-};
-
-// Branch Performance Table with Search
-export const BranchPerformanceTable = ({ performance, onUpdate, onDelete }: { performance: BranchPerformance[]; onUpdate: (perf: BranchPerformance) => void; onDelete: (id: string) => void }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(10);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedPerf, setSelectedPerf] = useState<BranchPerformance | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredPerformance = performance.filter(perf =>
-    Object.values(perf).some(
-      value => value && 
-      value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-  ));
-
-  const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
-  const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-
-  const handleEdit = (perf: BranchPerformance) => {
-    setSelectedPerf(perf);
-    setEditModalOpen(true);
-  };
-
-  const handleDelete = (perf: BranchPerformance) => {
-    setSelectedPerf(perf);
-    setDeleteModalOpen(true);
-  };
-
-  const handleSave = (updatedPerf: BranchPerformance) => {
-    onUpdate(updatedPerf);
-    setEditModalOpen(false);
-  };
-
-  const handleConfirmDelete = () => {
-    if (selectedPerf) {
-      onDelete(selectedPerf.id);
-    }
-    setDeleteModalOpen(false);
-  };
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-4">
-        <SearchInput 
-          value={searchTerm}
-          onChange={setSearchTerm}
-          placeholder="Search performance by any field..."
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Branch ID</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Date</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Period</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Loans Disbursed</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Disbursement Target</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Total Collection</th>
-              <th className="py-3 px-4 text-left font-semibold text-gray-700">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedData.map((perf) => (
-              <tr key={perf.id} className="border-b border-gray-200 hover:bg-gray-50">
-                <td className="py-3 px-4">{perf.id}</td>
-                <td className="py-3 px-4">{perf.branch_id}</td>
-                <td className="py-3 px-4">{new Date(perf.date).toLocaleDateString()}</td>
-                <td className="py-3 px-4">{perf.period}</td>
-                <td className="py-3 px-4">{perf.total_loans_disbursed}</td>
-                <td className="py-3 px-4">{perf.disbursement_target}</td>
-                <td className="py-3 px-4">{perf.total_collection?.toLocaleString()}</td>
-                <td className="py-3 px-4">
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => handleEdit(perf)}
-                      className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(perf)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="p-4 border-t border-gray-200">
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-        />
-      </div>
-
-      <EditModal
-        isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
-        onUpdate={handleSave}
-        fields={[
-          { 
-            key: 'id', 
-            label: 'ID',
-            value: selectedPerf?.id || ''
-          },
-          { 
-            key: 'branch_id', 
-            label: 'Branch ID',
-            value: selectedPerf?.branch_id || ''
-          },
-          { 
-            key: 'date', 
-            label: 'Date', 
-            type: 'date',
-            value: selectedPerf?.date ? new Date(selectedPerf.date).toISOString().split('T')[0] : ''
-          },
-          { 
-            key: 'period', 
-            label: 'Period', 
-            type: 'select',
-            options: ['daily', 'weekly', 'monthly'],
-            value: selectedPerf?.period || ''
-          },
-          { 
-            key: 'total_loans_disbursed', 
-            label: 'Total Loans Disbursed', 
-            type: 'number',
-            value: selectedPerf?.total_loans_disbursed || 0
-          },
-          { 
-            key: 'disbursement_target', 
-            label: 'Disbursement Target', 
-            type: 'number',
-            value: selectedPerf?.disbursement_target || 0
-          },
-          { 
-            key: 'total_collection', 
-            label: 'Total Collection', 
-            type: 'number',
-            value: selectedPerf?.total_collection || 0
-          },
-        ]}
-      />
-
-      <DeleteConfirmation
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        onConfirm={handleConfirmDelete}
-        itemName={`performance record ${selectedPerf?.id}`}
       />
     </div>
   );
