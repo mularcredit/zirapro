@@ -1,0 +1,759 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
+import {
+  AlertTriangle,
+  User,
+  Mail,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  X,
+  Loader2,
+  Calendar,
+  Search,
+  Filter,
+  Clock,
+  Building,
+  BadgeAlert,
+  ChevronLeft,
+  ChevronRight
+} from 'lucide-react';
+
+export default function WarningModule() {
+  const [employees, setEmployees] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [warningType, setWarningType] = useState('');
+  const [severity, setSeverity] = useState('medium');
+  const [customMessage, setCustomMessage] = useState('');
+  const [useCustomMessage, setUseCustomMessage] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Predefined warning templates
+  const warningTemplates = [
+    {
+      id: 1,
+      type: 'Tardiness',
+      subject: 'Warning Regarding Frequent Tardiness',
+      message: 'This is a formal warning regarding your frequent tardiness. Continued violations may result in further disciplinary action.'
+    },
+    {
+      id: 2,
+      type: 'Performance',
+      subject: 'Warning Regarding Performance Issues',
+      message: 'This is a formal warning regarding your recent performance which has not met the expected standards. We expect to see immediate improvement.'
+    },
+    {
+      id: 3,
+      type: 'Conduct',
+      subject: 'Warning Regarding Unprofessional Conduct',
+      message: 'This is a formal warning regarding your recent behavior which violates our code of conduct. Further incidents may lead to disciplinary action.'
+    },
+    {
+      id: 4,
+      type: 'Policy Violation',
+      subject: 'Warning Regarding Policy Violation',
+      message: 'This is a formal warning regarding your violation of company policy. Please review the employee handbook and ensure compliance moving forward.'
+    }
+  ];
+
+  useEffect(() => {
+    fetchEmployees();
+    fetchWarnings();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      console.log('Fetching employees...');
+      
+      // First, let's check the actual table structure
+      const { data: tableInfo, error: infoError } = await supabase
+        .from('employees')
+        .select('*')
+        .limit(1);
+      
+      if (infoError) {
+        console.error('Error checking table structure:', infoError);
+      } else if (tableInfo && tableInfo.length > 0) {
+        console.log('Table structure sample:', Object.keys(tableInfo[0]));
+      }
+      
+      // Try a simpler query first to see what columns exist
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('Employee Number', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching employees:', error);
+        toast.error('Failed to load employees');
+        return;
+      }
+      
+      console.log('Raw employee data:', data);
+      
+      // Format employee data with proper fallbacks
+      const formattedEmployees = (data || []).map(emp => {
+        // Handle different possible column name formats
+        const employeeNumber = emp.employee_number || emp['Employee Number'] || emp.employeeNumber || emp.id;
+        const firstName = emp.first_name || emp['First Name'] || emp.firstName || 'Unknown';
+        const lastName = emp.last_name || emp['Last Name'] || emp.lastName || '';
+        const email = emp.email || emp['Work Email'] || emp.work_email || emp.workEmail || '';
+        const department = emp.department || emp.Department || emp.job_title || emp['Job Title'] || 'N/A';
+        const town = emp.town || emp.Town || emp.city || emp.City || '';
+        
+        return {
+          ...emp,
+          employeeNumber,
+          fullName: `${firstName} ${lastName}`.trim(),
+          firstName,
+          lastName,
+          email,
+          department,
+          town
+        };
+      });
+      
+      console.log('Formatted employees:', formattedEmployees);
+      setEmployees(formattedEmployees);
+    } catch (error) {
+      console.error('Error in fetchEmployees:', error);
+      toast.error('Failed to load employees');
+    }
+  };
+
+  const fetchWarnings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from("warnings")
+      .select("*")
+      .order("issued_at", { ascending: false });
+
+    if (error) throw error;
+
+    setWarnings(data || []);
+  } catch (error) {
+    console.error("Error fetching warnings:", error);
+    toast.error("Failed to load warnings");
+  } finally {
+    setLoading(false);
+  }
+};
+
+  const handleTemplateSelect = (template) => {
+    setWarningType(template.type);
+    setCustomMessage(template.message);
+    setShowTemplates(false);
+    setUseCustomMessage(false);
+  };
+
+  const sendWarning = async (e) => {
+    e.preventDefault();
+    if (!selectedEmployee || !warningType) {
+      toast.error('Please select an employee and warning type');
+      return;
+    }
+
+    setSending(true);
+    
+    try {
+      const employee = employees.find(emp => emp.employeeNumber === selectedEmployee);
+      
+      if (!employee) {
+        throw new Error('Selected employee not found');
+      }
+      
+      // 1. Save warning to database
+      const { data: warningData, error: warningError } = await supabase
+        .from('warnings')
+        .insert([
+          {
+            employee_id: selectedEmployee,
+            type: warningType,
+            severity: severity,
+            message: customMessage,
+            issued_at: new Date().toISOString()
+          }
+        ])
+        .select();
+
+      if (warningError) throw warningError;
+
+      // 2. Send email (if email exists)
+      if (employee.email) {
+        const subject = warningTemplates.find(t => t.type === warningType)?.subject || `Warning: ${warningType}`;
+        
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTION_URL}/dynamic-api`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            to_email: employee.email,
+            subject: subject,
+            html_content: `
+              <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #dc2626; text-align: center;">Official Warning Notice</h2>
+                
+                <div style="background-color: #fef2f2; padding: 16px; border-radius: 8px; margin: 16px 0;">
+                  <p style="font-weight: bold; margin-bottom: 8px;">Dear ${employee.fullName},</p>
+                  <p>This is an official warning regarding: <strong>${warningType}</strong></p>
+                  <p>Severity: <span style="color: ${severity === 'high' ? '#dc2626' : severity === 'medium' ? '#ea580c' : '#ca8a04'}">${severity}</span></p>
+                </div>
+                
+                <div style="padding: 16px; border-left: 4px solid #fecaca; background-color: #fafafa; margin: 16px 0;">
+                  <p style="font-style: italic;">${customMessage}</p>
+                </div>
+                
+                <p style="font-size: 14px; color: #64748b;">Please take this warning seriously and address the issues mentioned above. Failure to improve may result in further disciplinary action.</p>
+                
+                <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+                  <p>This is an automated message from Zira HR System. Please do not reply to this email.</p>
+                </div>
+              </div>
+            `,
+            from_email: 'noreply@zirahrapp.com'
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to send email');
+        }
+      }
+
+      toast.success(`Warning sent to ${employee.fullName}`);
+      resetForm();
+      fetchWarnings();
+      setCurrentPage(1); // Reset to first page after adding a new warning
+    } catch (error) {
+      console.error('Error sending warning:', error);
+      toast.error(`Failed to send warning: ${error.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const resetForm = () => {
+    setSelectedEmployee('');
+    setWarningType('');
+    setSeverity('medium');
+    setCustomMessage('');
+    setUseCustomMessage(false);
+    setShowForm(false);
+  };
+
+  const getSeverityColor = (severity) => {
+    switch (severity) {
+      case 'low': return 'bg-yellow-100 text-yellow-800';
+      case 'medium': return 'bg-orange-100 text-orange-800';
+      case 'high': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Filter warnings based on search term
+  const filteredWarnings = warnings.filter(warning => {
+    const searchLower = searchTerm.toLowerCase();
+    const employeeName = warning.employees?.fullName || '';
+    const employeeEmail = warning.employees?.email || '';
+    
+    return (
+      employeeName.toLowerCase().includes(searchLower) ||
+      employeeEmail.toLowerCase().includes(searchLower) ||
+      warning.type?.toLowerCase().includes(searchLower) ||
+      warning.message?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredWarnings.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedWarnings = filteredWarnings.slice(startIndex, startIndex + itemsPerPage);
+  
+  const handlePageChange = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages if total pages is less than max visible
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      // Always include first page
+      pageNumbers.push(1);
+      
+      // Calculate start and end of visible page range
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Adjust if we're near the beginning
+      if (currentPage <= 3) {
+        endPage = 4;
+      }
+      
+      // Adjust if we're near the end
+      if (currentPage >= totalPages - 2) {
+        startPage = totalPages - 3;
+      }
+      
+      // Add ellipsis after first page if needed
+      if (startPage > 2) {
+        pageNumbers.push('...');
+      }
+      
+      // Add middle pages
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+      
+      // Add ellipsis before last page if needed
+      if (endPage < totalPages - 1) {
+        pageNumbers.push('...');
+      }
+      
+      // Always include last page
+      pageNumbers.push(totalPages);
+    }
+    
+    return pageNumbers;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+              <p className="text-gray-600 font-medium">Loading warnings...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center space-x-4 mb-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-red-600 to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Warning Module</h1>
+              <p className="text-gray-600">Issue formal warnings to employees</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 transition-all hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Total Warnings</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">{warnings.length}</p>
+              </div>
+              <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 transition-all hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">High Severity</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {warnings.filter(w => w.severity === 'high').length}
+                </p>
+              </div>
+              <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center">
+                <BadgeAlert className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 transition-all hover:shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">This Month</p>
+                <p className="text-3xl font-bold text-gray-900 mt-1">
+                  {warnings.filter(w => {
+                    const warningDate = new Date(w.issued_at);
+                    const now = new Date();
+                    return warningDate.getMonth() === now.getMonth() && 
+                           warningDate.getFullYear() === now.getFullYear();
+                  }).length}
+                </p>
+              </div>
+              <div className="w-14 h-14 bg-red-50 rounded-xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Bar */}
+        <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-5 mb-8">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex-1 w-full">
+              <div className="relative">
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search warnings..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1); // Reset to first page when searching
+                  }}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center">
+                <label htmlFor="itemsPerPage" className="text-sm text-gray-600 mr-2">Show:</label>
+                <select
+                  id="itemsPerPage"
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1); // Reset to first page when changing items per page
+                  }}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:ring-red-500 focus:border-red-500"
+                >
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
+                  <option value="50">50</option>
+                </select>
+              </div>
+              <button 
+                onClick={() => setShowForm(!showForm)}
+                className="flex items-center px-4 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-700 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 font-medium text-sm shadow-sm"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Issue Warning
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Warning Form */}
+        {showForm && (
+          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Issue New Warning</h2>
+              <button 
+                onClick={() => setShowForm(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={sendWarning} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Employee</label>
+                  
+                  <input
+                    type="text"
+                    placeholder="Search employee by name, department or ID..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                  />
+
+                  {searchTerm && (
+                    <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
+                      {employees
+                        .filter((emp) => {
+                          const search = searchTerm.toLowerCase();
+                          return (
+                            emp.fullName.toLowerCase().includes(search) ||
+                            emp.department.toLowerCase().includes(search) ||
+                            emp.employeeNumber.toString().toLowerCase().includes(search)
+                          );
+                        })
+                        .map((emp) => (
+                          <li
+                            key={emp.employeeNumber}
+                            onClick={() => {
+                              setSelectedEmployee(emp.employeeNumber);
+                              setSearchTerm(emp.fullName);
+                            }}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                          >
+                            {emp.fullName} - {emp.department} (ID: {emp.employeeNumber})
+                          </li>
+                        ))}
+
+                      {employees.filter((emp) => {
+                        const search = searchTerm.toLowerCase();
+                        return (
+                          emp.fullName.toLowerCase().includes(search) ||
+                          emp.department.toLowerCase().includes(search) ||
+                          emp.employeeNumber.toString().toLowerCase().includes(search)
+                        );
+                      }).length === 0 && (
+                        <li className="px-4 py-2 text-gray-500">No results found</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Warning Type</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowTemplates(!showTemplates)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all text-left flex items-center justify-between"
+                    >
+                      {warningType || "Select a warning type"}
+                      {showTemplates ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </button>
+
+                    {showTemplates && (
+                      <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                        {warningTemplates.map(template => (
+                          <div
+                            key={template.id}
+                            onClick={() => handleTemplateSelect(template)}
+                            className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors"
+                          >
+                            <p className="font-medium text-gray-900">{template.type}</p>
+                            <p className="text-sm text-gray-600 truncate">{template.message.substring(0, 60)}...</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Severity Level</label>
+                <div className="flex space-x-4">
+                  {['low', 'medium', 'high'].map(level => (
+                    <label key={level} className="flex items-center">
+                      <input
+                        type="radio"
+                        name="severity"
+                        value={level}
+                        checked={severity === level}
+                        onChange={() => setSeverity(level)}
+                        className="focus:ring-red-500 h-4 w-4 text-red-600"
+                      />
+                      <span className="ml-2 text-gray-700 capitalize">{level}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">Warning Message</label>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={useCustomMessage}
+                      onChange={() => setUseCustomMessage(!useCustomMessage)}
+                      className="focus:ring-red-500 h-4 w-4 text-red-600"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Use custom message</span>
+                  </label>
+                </div>
+
+                {useCustomMessage ? (
+                  <textarea
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
+                    placeholder="Write your custom warning message here..."
+                    required
+                  />
+                ) : (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-4">
+                    <p className="text-gray-700">{customMessage}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowForm(false)}
+                  className="px-4 py-2.5 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-100 transition-all duration-200 font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={sending || employees.length === 0}
+                  className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-lg hover:from-red-700 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 font-medium disabled:opacity-50 flex items-center"
+                >
+                  {sending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4 mr-2" />
+                      Send Warning
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Warnings List */}
+        <div className="bg-white rounded-xl shadow-xs border border-gray-200 overflow-hidden">
+          <div className="border-b border-gray-200 px-6 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold text-gray-900">Warning History</h2>
+              {filteredWarnings.length > 0 && (
+                <p className="text-sm text-gray-600">
+                  Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredWarnings.length)} of {filteredWarnings.length} warnings
+                </p>
+              )}
+            </div>
+          </div>
+
+          {filteredWarnings.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-6 h-6 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                {searchTerm ? 'No matching warnings found' : 'No warnings issued'}
+              </h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                {searchTerm ? 'Try a different search term' : 'Issued warnings will appear here for record keeping.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-200">
+                {paginatedWarnings.map(warning => (
+                  <div key={warning.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            
+                          </h3>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(warning.severity)}`}>
+                            {warning.severity}
+                          </span>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-4 mt-2 text-sm text-gray-600">
+                          <div className="flex items-center">
+                            {/* <Mail className="w-4 h-4 mr-1" />
+                            {employees?.email || 'No email'} */}
+                          </div>
+                          <div className="flex items-center">
+                            {/* <Building className="w-4 h-4 mr-1" />
+                            {warning.employees?.department || 'No department'} */}
+                          </div>
+                          <div className="flex items-center">
+                            <BadgeAlert className="w-4 h-4 mr-1" />
+                            ID: {warning.employee_id}
+                          </div>
+                        </div>
+                        
+                        <p className="text-gray-800 mt-3">{warning.message}</p>
+                        
+                        <div className="flex items-center text-sm text-gray-500 mt-3">
+                          <Calendar className="w-4 h-4 mr-1" />
+                          {new Date(warning.issued_at).toLocaleDateString()}
+                          <span className="mx-2">•</span>
+                          <FileText className="w-4 h-4 mr-1" />
+                          {warning.type}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="border-t border-gray-200 px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      Page {currentPage} of {totalPages}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      
+                      {getPageNumbers().map((page, index) => (
+                        <button
+                          key={index}
+                          onClick={() => typeof page === 'number' ? handlePageChange(page) : null}
+                          disabled={page === '...'}
+                          className={`min-w-[2.5rem] px-2 py-1 rounded-md border transition-colors ${
+                            currentPage === page
+                              ? 'border-red-600 bg-red-600 text-white'
+                              : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
+                          } ${page === '...' ? 'cursor-default' : ''}`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

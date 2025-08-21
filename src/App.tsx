@@ -32,6 +32,7 @@ import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
 import VideoConferenceComponent from '../src/components/staff portal/VideoConf'
 import { ApplicationsTable } from './components/Recruitment/components/ApplicationsTable';
 import {MeetingJoin} from './components/zoom/MeetingJoin';
+import WarningModule from './components/Warning/StaffCheck'
 import {MeetingRoom} from './components/zoom/MeetingRoom';
 import { useZoomSDK } from '../src/hooks/useZoom';
 import { createMeetingConfig } from '../backend/zoomAuth';
@@ -535,6 +536,7 @@ function App() {
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
+                              <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 
                                 element={

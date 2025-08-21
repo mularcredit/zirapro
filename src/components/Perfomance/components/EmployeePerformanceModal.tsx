@@ -10,12 +10,17 @@ interface EmployeePerformance {
   period: string;
   loans_disbursed: number;
   disbursement_target: number;
+  new_loans: number; // Added for KPI tracking
   clients_visited: number;
   field_visits_target: number;
   collection_amount: number;
   collection_target: number;
   par_amount: number;
   portfolio_size: number;
+  outstanding_balance: number; // Added for KPI tracking
+  arrears_amount: number; // Added for KPI tracking
+  loans_in_arrears: number; // Added for KPI tracking
+  total_active_loans: number; // Added for KPI tracking
   attendance_days: number;
   working_days: number;
   tat_average: number;
@@ -41,12 +46,17 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
     period: performance?.period || 'daily',
     loans_disbursed: performance?.loans_disbursed || 0,
     disbursement_target: performance?.disbursement_target || 0,
+    new_loans: performance?.new_loans || 0, // Added
     clients_visited: performance?.clients_visited || 0,
     field_visits_target: performance?.field_visits_target || 0,
     collection_amount: performance?.collection_amount || 0,
     collection_target: performance?.collection_target || 0,
     par_amount: performance?.par_amount || 0,
     portfolio_size: performance?.portfolio_size || 0,
+    outstanding_balance: performance?.outstanding_balance || 0, // Added
+    arrears_amount: performance?.arrears_amount || 0, // Added
+    loans_in_arrears: performance?.loans_in_arrears || 0, // Added
+    total_active_loans: performance?.total_active_loans || 0, // Added
     attendance_days: performance?.attendance_days || 1,
     working_days: performance?.working_days || 1,
     tat_average: performance?.tat_average || 0
@@ -70,7 +80,9 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
   const periodOptions = [
     { value: 'daily', label: 'Daily' },
     { value: 'weekly', label: 'Weekly' },
-    { value: 'monthly', label: 'Monthly' }
+    { value: 'monthly', label: 'Monthly' },
+    { value: 'quarterly', label: 'Quarterly' },
+    { value: 'annual', label: 'Annual' }
   ];
 
   // Get current selected values for react-select components
@@ -82,9 +94,10 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
     setFormData(prev => ({
       ...prev,
       [name]: [
-        'loans_disbursed', 'disbursement_target', 'clients_visited', 'field_visits_target',
-        'collection_amount', 'collection_target', 'par_amount', 'portfolio_size',
-        'attendance_days', 'working_days', 'tat_average'
+        'loans_disbursed', 'disbursement_target', 'new_loans', 'clients_visited', 
+        'field_visits_target', 'collection_amount', 'collection_target', 'par_amount', 
+        'portfolio_size', 'outstanding_balance', 'arrears_amount', 'loans_in_arrears',
+        'total_active_loans', 'attendance_days', 'working_days', 'tat_average'
       ].includes(name) 
         ? parseFloat(value) || 0 
         : value
@@ -172,7 +185,7 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-auto max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto max-h-[80vh] overflow-y-auto">
         <div className="border-b border-gray-200 p-4 flex justify-between items-center sticky top-0 bg-white">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <BarChart2 className="w-5 h-5" />
@@ -216,7 +229,6 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   required
                 />
-                <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
             </div>
             
@@ -232,165 +244,253 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
               />
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loans Disbursed*</label>
-              <input
-                type="number"
-                name="loans_disbursed"
-                value={formData.loans_disbursed}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-              />
-            </div>
+
+          {/* KPI Section - New Fields */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">KPI Metrics</h4>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Target*</label>
-              <input
-                type="number"
-                name="disbursement_target"
-                value={formData.disbursement_target}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">New Loans (First-time)*</label>
+                <input
+                  type="number"
+                  name="new_loans"
+                  value={formData.new_loans}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Loans Disbursed*</label>
+                <input
+                  type="number"
+                  name="loans_disbursed"
+                  value={formData.loans_disbursed}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
+                <input
+                  type="number"
+                  name="outstanding_balance"
+                  value={formData.outstanding_balance}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Arrears Amount (KSh)*</label>
+                <input
+                  type="number"
+                  name="arrears_amount"
+                  value={formData.arrears_amount}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Loans in Arrears*</label>
+                <input
+                  type="number"
+                  name="loans_in_arrears"
+                  value={formData.loans_in_arrears}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Active Loans*</label>
+                <input
+                  type="number"
+                  name="total_active_loans"
+                  value={formData.total_active_loans}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio Size (KSh)*</label>
+                <input
+                  type="number"
+                  name="portfolio_size"
+                  value={formData.portfolio_size}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">PAR Amount (KSh)*</label>
+                <input
+                  type="number"
+                  name="par_amount"
+                  value={formData.par_amount}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Clients Visited*</label>
-              <input
-                type="number"
-                name="clients_visited"
-                value={formData.clients_visited}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-              />
-            </div>
+
+          {/* Targets Section */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">Targets</h4>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Field Visits Target*</label>
-              <input
-                type="number"
-                name="field_visits_target"
-                value={formData.field_visits_target}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Target*</label>
+                <input
+                  type="number"
+                  name="disbursement_target"
+                  value={formData.disbursement_target}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Target (KSh)*</label>
+                <input
+                  type="number"
+                  name="collection_target"
+                  value={formData.collection_target}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Field Visits Target*</label>
+                <input
+                  type="number"
+                  name="field_visits_target"
+                  value={formData.field_visits_target}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Amount (KSh)*</label>
-              <input
-                type="number"
-                name="collection_amount"
-                value={formData.collection_amount}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-                step="0.01"
-              />
-            </div>
+
+          {/* Activity Section */}
+          <div className="border-t border-gray-200 pt-4">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">Activity Metrics</h4>
             
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clients Visited*</label>
+                <input
+                  type="number"
+                  name="clients_visited"
+                  value={formData.clients_visited}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Amount (KSh)*</label>
+                <input
+                  type="number"
+                  name="collection_amount"
+                  value={formData.collection_amount}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Days*</label>
+                <input
+                  type="number"
+                  name="attendance_days"
+                  value={formData.attendance_days}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="1"
+                  max={formData.working_days}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Working Days*</label>
+                <input
+                  type="number"
+                  name="working_days"
+                  value={formData.working_days}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  required
+                  min="1"
+                  max="31"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Collection Target (KSh)*</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Average TAT (Hours)*</label>
               <input
                 type="number"
-                name="collection_target"
-                value={formData.collection_target}
+                name="tat_average"
+                value={formData.tat_average}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                 required
                 min="0"
-                step="0.01"
+                step="0.1"
               />
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">PAR Amount (KSh)*</label>
-              <input
-                type="number"
-                name="par_amount"
-                value={formData.par_amount}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-                step="0.01"
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio Size (KSh)*</label>
-              <input
-                type="number"
-                name="portfolio_size"
-                value={formData.portfolio_size}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="0"
-                step="0.01"
-              />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Days*</label>
-              <input
-                type="number"
-                name="attendance_days"
-                value={formData.attendance_days}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="1"
-                max={formData.working_days}
-              />
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Working Days*</label>
-              <input
-                type="number"
-                name="working_days"
-                value={formData.working_days}
-                onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                required
-                min="1"
-                max="31"
-              />
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Average TAT (Hours)*</label>
-            <input
-              type="number"
-              name="tat_average"
-              value={formData.tat_average}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-              required
-              min="0"
-              step="0.1"
-            />
           </div>
           
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 sticky bottom-0 bg-white">

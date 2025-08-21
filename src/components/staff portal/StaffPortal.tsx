@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import CommunicationDropdown from './Communication';
-import EmployeeDeductionsForm from './Profile';
-import TrainingModule from './Training';
 import { 
   FileText, 
   FileSignature, 
@@ -12,6 +9,7 @@ import {
   UploadCloud,
   Home,
   PartyPopper,
+  Wallet,
   User,
   Calendar,
   ChevronDown,
@@ -31,9 +29,13 @@ import {
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
+import TrainingModule from './Training';
 import Profile from './Profile';
 import ChatComponent from './Chat';
 import VideoConferenceComponent from './VideoConf';
+import UserProfileDropdown from './UserProfile';
+import PasswordResetModal from './test';
+import DocumentsUploadPage from './Documents';
 
 // Geolocation and Time Tracking Types
 interface GeolocationPosition {
@@ -88,126 +90,7 @@ const SidebarNavItem = ({
 );
 
 // PasswordResetModal Component
-const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) => {
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState({ text: '', type: '' });
 
-  useEffect(() => {
-    const fetchUserEmail = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        setEmail(user.email);
-      }
-    };
-    fetchUserEmail();
-  }, []);
-
-  const handleResetPassword = async () => {
-    if (!email) {
-      setMessage({ text: 'Please enter your email', type: 'error' });
-      return;
-    }
-
-    setIsSubmitting(true);
-    setMessage({ text: '', type: '' });
-
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/update-password`,
-      });
-
-      if (error) throw error;
-
-      setMessage({ 
-        text: 'Password reset link sent to your email!', 
-        type: 'success' 
-      });
-      toast.success('Password reset link sent successfully');
-    } catch (error) {
-      console.error('Error sending reset link:', error);
-      setMessage({ 
-        text: 'Failed to send reset link. Please try again.', 
-        type: 'error' 
-      });
-      toast.error('Error sending password reset link');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900 flex items-center">
-            <LockKeyhole className="h-5 w-5 mr-2 text-green-600" />
-            Reset Password
-          </h3>
-          <button 
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Enter your email address and we'll send you a link to reset your password.
-          </p>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email address
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-              placeholder="your@email.com"
-              readOnly
-            />
-          </div>
-
-          {message.text && (
-            <div className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
-              {message.text}
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleResetPassword}
-              disabled={isSubmitting}
-              className={`px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 ${
-                isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
-            >
-              {isSubmitting ? 'Sending...' : 'Send Reset Link'}
-            </button>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-};
 
 // GeolocationWarningModal Component
 const GeolocationWarningModal = ({ 
@@ -253,7 +136,7 @@ const GeolocationWarningModal = ({
           <button
             onClick={onConfirm}
             className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
-          >
+            >
             I Understand, Enable Geolocation
           </button>
         </div>
@@ -263,167 +146,7 @@ const GeolocationWarningModal = ({
 };
 
 // UserProfileDropdown Component
-const UserProfileDropdown = ({ 
-  onPasswordReset, 
-  loginStatus 
-}: { 
-  onPasswordReset: () => void,
-  loginStatus: { isLoggedIn: boolean; lastLogin: string | null }
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
-        buttonRef.current && !buttonRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsOpen(false);
-      }
-    };
-    
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscape);
-    }
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isOpen]);
-  
-  const handleButtonClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsOpen(!isOpen);
-  };
-  
-  const handleSignOut = async () => {
-    try {
-      setIsOpen(false);
-      // Log logout time with geolocation
-      await logLogoutTime();
-      
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      toast.success('Signed out successfully');
-      navigate('/login');
-    } catch (error) {
-      toast.error('Error signing out');
-      console.error('Sign out error:', error);
-    }
-  };
-  
-  const handlePasswordReset = () => {
-    setIsOpen(false);
-    onPasswordReset();
-  };
 
-  const logLogoutTime = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get employee number from user email
-      const { data: employeeData } = await supabase
-        .from('employees')
-        .select('"Employee Number"')
-        .eq('"Work Email"', user.email)
-        .single();
-
-      if (!employeeData) return;
-
-      // Get current login session
-      const { data: activeLog } = await supabase
-        .from('attendance_logs')
-        .select('id')
-        .eq('employee_number', employeeData["Employee Number"])
-        .is('logout_time', null)
-        .order('login_time', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (activeLog) {
-        const position = await getCurrentPosition();
-        
-        await supabase
-          .from('attendance_logs')
-          .update({
-            logout_time: new Date().toISOString(),
-            geolocation: position ? {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              timestamp: position.timestamp
-            } : null,
-            status: 'logged_out'
-          })
-          .eq('id', activeLog.id);
-      }
-    } catch (error) {
-      console.error('Error logging logout time:', error);
-    }
-  };
-  
-  return (
-    <div className="relative">
-      <button 
-        ref={buttonRef}
-        className="flex items-center w-full p-3 text-left rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500"
-        onClick={handleButtonClick}
-        aria-expanded={isOpen}
-        aria-haspopup="true"
-      >
-        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center mr-3">
-          <User className="h-4 w-4 text-green-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">User Profile</p>
-          <p className="text-xs text-gray-500 truncate">
-            {loginStatus.isLoggedIn ? 
-              `Logged in at ${loginStatus.lastLogin ? new Date(loginStatus.lastLogin).toLocaleTimeString() : 'recently'}` : 
-              'Not logged in'}
-          </p>
-        </div>
-        <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      
-      {/* Dropdown positioned above the button since it's at bottom of sidebar */}
-      {isOpen && (
-        <div 
-          ref={dropdownRef}
-          className="absolute left-0 right-0 bottom-full mb-2 bg-white rounded-lg shadow-xl border border-gray-200 py-1 z-[9999] min-w-full"
-        >
-          <button 
-            onClick={handlePasswordReset}
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
-          >
-            <LockKeyhole className="h-4 w-4 mr-3 text-gray-500" />
-            Reset Password
-          </button>
-          <button 
-            onClick={handleSignOut}
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
-          >
-            <LogOut className="h-4 w-4 mr-3 text-gray-500" />
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
-  );
-};
 
 // Geolocation and Time Tracking Functions
 const getCurrentPosition = (): Promise<GeolocationPosition> => {
@@ -506,12 +229,16 @@ const checkExistingLogin = async (employeeNumber: string): Promise<boolean> => {
 const HeaderStatus = ({ 
   isLoggedIn, 
   lastLogin,
-  geolocationStatus 
+  geolocationStatus,
+  userName
 }: { 
   isLoggedIn: boolean; 
   lastLogin: string | null;
   geolocationStatus: 'granted' | 'denied' | 'prompt';
+  userName: string;
 }) => {
+  const navigate = useNavigate();
+
   return (
     <div className="flex items-center space-x-4">
       <div className="flex items-center text-sm">
@@ -534,6 +261,19 @@ const HeaderStatus = ({
         ) : (
           <span className="text-red-600">Not logged in</span>
         )}
+      </div>
+      
+      {/* User Profile in Header */}
+      <div className="flex items-center">
+        {/* <button 
+          onClick={() => navigate('/staff')}
+          className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
+            <User className="h-4 w-4 text-green-600" />
+          </div>
+          <span className="text-sm font-medium text-gray-700">{userName}</span>
+        </button> */}
       </div>
     </div>
   );
@@ -583,13 +323,13 @@ const PortalCard = ({ icon, title, description, onClick }: {
   </motion.div>
 );
 
-// LeaveApplicationForm Component (revamped design)
+// LeaveApplicationForm Component with rules implementation
 const LeaveApplicationForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
     "Name": '',
     "Office Branch": '',
-    "Leave Type": 'annual',
+    "Leave Type": 'month',
     "Start Date": '',
     "End Date": '',
     "Days": 0,
@@ -601,6 +341,10 @@ const LeaveApplicationForm = () => {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingLeave, setExistingLeave] = useState<any>(null);
+  const [userLeavesThisMonth, setUserLeavesThisMonth] = useState(0);
+  const [userLeaveTypesThisMonth, setUserLeaveTypesThisMonth] = useState<string[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchEmployeeData = async () => {
@@ -623,6 +367,9 @@ const LeaveApplicationForm = () => {
               "Name": `${data["First Name"]} ${data["Last Name"]}` || '',
               "Office Branch": data["Office"] || ''
             }));
+
+            // Check leave rules
+            await checkLeaveRules(data["Employee Number"]);
           }
         } catch (error) {
           console.error('Error fetching employee data:', error);
@@ -632,6 +379,41 @@ const LeaveApplicationForm = () => {
 
     fetchEmployeeData();
   }, []);
+
+  const checkLeaveRules = async (employeeNumber: string) => {
+    try {
+      // Check if there's any active leave by another staff member
+      const { data: activeLeaves } = await supabase
+        .from('leave_application')
+        .select('*')
+        .neq('"Employee Number"', employeeNumber)
+        .in('Status', ['Pending', 'Approved']);
+
+      if (activeLeaves && activeLeaves.length > 0) {
+        setExistingLeave(activeLeaves[0]);
+      }
+
+      // Check how many leaves the user has applied for this month
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const { data: userLeaves } = await supabase
+        .from('leave_application')
+        .select('*,"Leave Type"')
+        .eq('"Employee Number"', employeeNumber)
+        .gte('time_added', firstDayOfMonth.toISOString())
+        .lte('time_added', lastDayOfMonth.toISOString());
+
+      setUserLeavesThisMonth(userLeaves?.length || 0);
+      
+      // Track which leave types the user has already applied for this month
+      const types = userLeaves?.map(leave => leave["Leave Type"]) || [];
+      setUserLeaveTypesThisMonth(types);
+    } catch (error) {
+      console.error('Error checking leave rules:', error);
+    }
+  };
 
   const calculateDays = (startDate: string, endDate: string) => {
     if (!startDate || !endDate) return 0;
@@ -662,6 +444,26 @@ const LeaveApplicationForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check leave rules
+    if (existingLeave) {
+      toast.error('Cannot submit leave application. Another staff member already has an active leave.');
+      return;
+    }
+    
+    // Allow multiple leaves per month but only one of each type
+    // Except for monthly leave which can only be applied once per month
+    if (formData["Leave Type"] === "month" && userLeaveTypesThisMonth.includes("month")) {
+      toast.error('You have already applied for monthly leave this month.');
+      return;
+    }
+    
+    // Check if user is trying to apply for the same type of leave again (except monthly which is handled above)
+    if (formData["Leave Type"] !== "month" && userLeaveTypesThisMonth.includes(formData["Leave Type"])) {
+      toast.error(`You have already applied for ${formData["Leave Type"]} leave this month.`);
+      return;
+    }
+
     setIsSubmitting(true);
 
     if (formData["Days"] <= 0) {
@@ -699,9 +501,12 @@ const LeaveApplicationForm = () => {
 
       toast.success('Leave application submitted successfully!');
       
+      // Redirect to leave history
+      navigate('/staff-portal?tab=leave-history');
+      
       setFormData(prev => ({
         ...prev,
-        "Leave Type": 'annual',
+        "Leave Type": 'month',
         "Start Date": '',
         "End Date": '',
         "Days": 0,
@@ -727,6 +532,33 @@ const LeaveApplicationForm = () => {
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
           <p className="text-sm text-green-600">Staff members accrue two leave days each calendar month.</p>
         </div>
+        
+        {/* Show warning messages */}
+        {existingLeave && (
+          <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  Cannot apply for leave. {existingLeave.Name} already has an active leave application.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {userLeaveTypesThisMonth.includes("month") && (
+          <div className="mt-4 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-blue-500" />
+              <div className="ml-3">
+                <p className="text-sm text-blue-700">
+                  You have already applied for monthly leave this month. You can still apply for other leave types.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -773,14 +605,18 @@ const LeaveApplicationForm = () => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
+                disabled={userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] !== "month"}
               >  
                 <option value="month">Monthly Leave</option>
-                <option value="annual">Annual Leave</option>
                 <option value="sick">Sick Leave</option>
                 <option value="maternity">Maternity Leave</option>
                 <option value="paternity">Paternity Leave</option>
                 <option value="compassionate">Compassionate Leave</option>
+                <option value="annual" disabled>Annual Leave (Disabled)</option>
               </select>
+              {userLeaveTypesThisMonth.includes(formData["Leave Type"]) && (
+                <p className="text-xs text-purple-500 mt-1">You've already applied for this leave type this month</p>
+              )}
             </div>
             <div className="space-y-1">
               <label className="block text-sm font-medium text-gray-700">Application Type</label>
@@ -880,9 +716,9 @@ const LeaveApplicationForm = () => {
           <div className="pt-4">
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || existingLeave || (userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] === "month")}
               className={`w-full bg-green-600 text-white py-3 px-4 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center ${
-                isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+                isSubmitting || existingLeave || (userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] === "month") ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {isSubmitting ? (
@@ -901,8 +737,7 @@ const LeaveApplicationForm = () => {
     </div>
   );
 };
-
-// LeaveApplicationsList Component (revamped design)
+// LeaveApplicationsList Component
 const LeaveApplicationsList = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1059,7 +894,7 @@ const LeaveApplicationsList = () => {
   );
 };
 
-// SalaryAdvanceForm Component (revamped design)
+// SalaryAdvanceForm Component
 const SalaryAdvanceForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1080,7 +915,7 @@ const SalaryAdvanceForm = () => {
   const isAdvancePeriod = () => {
     const today = new Date();
     const day = today.getDate();
-    return day >= 15 && day <= 18;
+    return day >= 13 && day <= 18;
   };
 
   // Calculate maximum eligible advance amount (20% of basic salary)
@@ -1216,7 +1051,7 @@ const SalaryAdvanceForm = () => {
 
     // Check if within application period
     if (!isAdvancePeriod()) {
-      toast.error('Salary advance can only be applied between 15th-18th of the month');
+      toast.error('Salary advance can only be applied between 13th-16th processing  latest 18th of the month');
       setIsSubmitting(false);
       return;
     }
@@ -1306,7 +1141,7 @@ const SalaryAdvanceForm = () => {
             onClick={() => setView('form')}
             className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
           >
-            <Banknote className="h-4 w-4 mr-2" />
+            <Wallet className="h-4 w-4 mr-2" />
             New Application
           </button>
         </div>
@@ -1315,7 +1150,7 @@ const SalaryAdvanceForm = () => {
           <div className="text-center py-8">
             <div className="max-w-md mx-auto bg-gray-50 p-6 rounded-lg">
               <div className="h-12 w-12 mx-auto bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                <Banknote className="h-5 w-5 text-gray-500" />
+                <Wallet className="h-5 w-5 text-gray-500" />
               </div>
               <h3 className="text-lg font-medium text-gray-900">No applications yet</h3>
               <p className="mt-1 text-sm text-gray-500">You haven't submitted any salary advance applications.</p>
@@ -1387,14 +1222,14 @@ const SalaryAdvanceForm = () => {
           <p className="text-sm text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
         </div>
         {!isAdvancePeriod() && (
-          <div className="mt-3 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+          <div className="mt-3 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg">
             <div className="flex">
               <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-red-500" />
+                <AlertCircle className="h-5 w-5 text-gray-500" />
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">
-                  Note: Salary advance can only be applied between 15th-18th of the month
+                <p className="text-sm text-gray-700">
+                  Note: Salary advance can only be applied between 13th-16th processing is latest 18th of the month
                 </p>
               </div>
             </div>
@@ -1539,7 +1374,7 @@ const SalaryAdvanceForm = () => {
   );
 };
 
-// LoanRequestForm Component (revamped design)
+// LoanRequestForm Component
 const LoanRequestForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1970,7 +1805,8 @@ const LoanRequestForm = () => {
           </div>
 
           <div className="pt-4 flex justify-between">
-            <button
+            
+             <button
               type="button"
               onClick={() => setView('list')}
               className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center"
@@ -2007,17 +1843,17 @@ const LoanRequestForm = () => {
   );
 };
 
-// DashboardHome Component
+
 const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }) => (
   <div className="p-6">
     <div className="mb-8">
-      <h2 className="text-2xl font-light text-gray-800 mb-1">Welcome back</h2>
+      <h2 className="text-2xl font-light text-gray-800 mb-1"></h2>
       <p className="text-sm text-gray-500"></p>
     </div>
     
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <PortalCard 
-        icon={<Banknote className="w-5 h-5 text-gray-600" />}
+        icon={<Wallet className="w-5 h-5 text-gray-600" />}
         title="Salary Advance"
         description="Request salary advance"
         onClick={() => setActiveTab('salary-advance')}
@@ -2067,6 +1903,32 @@ const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }
     </div>
   </div>
 );
+type UserProfileHeaderProps = {
+  userName: string;
+ setActiveTab: (tab: string) => void; // ✅ Add this
+};
+// UserProfileHeader Component for the header
+const UserProfileHeader = ({ userName, setActiveTab }: UserProfileHeaderProps) => {
+  const navigate = useNavigate();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  return (
+    <div className="flex items-center space-x-4">
+      
+      <UserProfileDropdown
+        onPasswordReset={() => setIsModalOpen(true)}
+        loginStatus={{ isLoggedIn: true, lastLogin: "2025-08-21" }}
+        userName={userName} 
+        setActiveTab={setActiveTab} 
+        />
+ <PasswordResetModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </div>
+    
+  );
+};
 
 // Main StaffPortal Component with Geolocation and Time Tracking
 const StaffPortal = () => {
@@ -2080,12 +1942,33 @@ const StaffPortal = () => {
     lastLogin: null as string | null
   });
   const [geolocationStatus, setGeolocationStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
+  const [userName, setUserName] = useState('Staff Member');
 
   // Check geolocation status on component mount
   useEffect(() => {
     checkGeolocationPermission();
     checkLoginStatus();
+    fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('"First Name", "Last Name"')
+        .eq('"Work Email"', user.email)
+        .single();
+
+      if (employeeData) {
+        setUserName(`${employeeData["First Name"]} ${employeeData["Last Name"]}`);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
 
   const checkGeolocationPermission = async () => {
     if (!navigator.geolocation) {
@@ -2210,10 +2093,10 @@ const StaffPortal = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <PasswordResetModal 
+      {/* <PasswordResetModal 
         isOpen={showResetModal} 
         onClose={() => setShowResetModal(false)} 
-      />
+      /> */}
 
       <GeolocationWarningModal 
         isOpen={showGeolocationWarning} 
@@ -2228,6 +2111,7 @@ const StaffPortal = () => {
       {/* Sidebar */}
       <div className={`fixed scroll-auto inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out`}>
         <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+          
           <h1 className="text-lg font-semibold text-gray-900">Staff Portal</h1>
           <button 
             className="md:hidden text-gray-500 hover:text-gray-600"
@@ -2238,7 +2122,7 @@ const StaffPortal = () => {
         </div>
         
         <div className="h-full overflow-y-auto ">
-          <div className="p-4 space-y-1">
+          <div className="p-4 space-y-3.5 text-sm">
             <SidebarNavItem 
               icon={<Home className="h-4 w-4" />}
               label="Dashboard"
@@ -2357,12 +2241,7 @@ const StaffPortal = () => {
           </div>
         </div>
         
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-          <UserProfileDropdown 
-            onPasswordReset={() => setShowResetModal(true)} 
-            loginStatus={loginStatus}
-          />
-        </div>
+        
       </div>
 
       {/* Main content */}
@@ -2377,21 +2256,25 @@ const StaffPortal = () => {
               <Menu className="h-5 w-5" />
             </button>
             <h1 className="text-lg font-semibold text-gray-900">Staff Portal</h1>
-            <div className="w-5"></div> {/* Spacer for balance */}
+            <UserProfileHeader userName={userName} setActiveTab={setActiveTab} />
           </div>
         </header>
 
         {/* Desktop header with status */}
         <header className="hidden md:flex bg-white border-b border-gray-200 h-16 items-center justify-between px-6">
           <h1 className="text-lg font-semibold text-gray-900">Staff Portal Dashboard</h1>
-          <HeaderStatus 
-            isLoggedIn={loginStatus.isLoggedIn} 
-            lastLogin={loginStatus.lastLogin}
-            geolocationStatus={geolocationStatus}
-          />
+          <div className="flex items-center space-x-4">
+            <HeaderStatus 
+              isLoggedIn={loginStatus.isLoggedIn} 
+              lastLogin={loginStatus.lastLogin}
+              geolocationStatus={geolocationStatus}
+              userName={userName}
+            />
+            <UserProfileHeader userName={userName}  setActiveTab={setActiveTab}/>
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        <main className="flex-1 overflow-y-auto bg-gray-100">
           <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {!loginStatus.isLoggedIn && (
               <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -2422,7 +2305,7 @@ const StaffPortal = () => {
               {activeTab === 'leave-history' && <LeaveApplicationsList />}
               {activeTab === 'contract' && <ComingSoon title="Contracts" />}
               {activeTab === 'details' && <Profile/>}
-              {activeTab === 'documents' && <ComingSoon title="Documents" />}
+              {activeTab === 'documents' && <DocumentsUploadPage />}
               {activeTab === 'chat' && <ChatComponent />}
               {activeTab === 'VideoConf' && <VideoConferenceComponent />}
             </motion.div>

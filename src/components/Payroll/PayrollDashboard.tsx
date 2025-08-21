@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 // Kenyan Tax Calculation Functions
-const calculatePAYE = (taxableIncome: number): number => {
+const calculatePAYE = (taxableIncome) => {
   let tax = 0;
   
   if (taxableIncome <= 24000) {
@@ -23,7 +24,7 @@ const calculatePAYE = (taxableIncome: number): number => {
   return tax;
 };
 
-const calculateNSSF = (grossSalary: number): number => {
+const calculateNSSF = (grossSalary) => {
   const LOWER_LIMIT = 8000;
   const UPPER_LIMIT = 72000;
   const RATE = 0.06;
@@ -32,26 +33,14 @@ const calculateNSSF = (grossSalary: number): number => {
   let tier2 = 0;
 
   if (grossSalary > LOWER_LIMIT) {
-    const tier2Salary = Math.min(grossSalary, UPPER_LIMIT) - LOWER_LIMIT;
+    const tier2Salary = Math.min(grossSalary - LOWER_LIMIT, UPPER_LIMIT - LOWER_LIMIT);
     tier2 = tier2Salary * RATE;
   }
 
-  return tier1 + tier2;
+  return Math.min(tier1 + tier2, 4320); // Cap at 4,320
 };
 
-const calculateSHIF = (grossSalary: number): number => {
-  return grossSalary * 0.0275; // 2.75%
-};
-
-const calculateHousingLevy = (grossSalary: number): number => {
-  return grossSalary * 0.015; // 1.5%
-};
-
-const calculateWIBA = (grossSalary: number): number => {
-  return grossSalary * 0.002; // 0.2% - employer contribution
-};
-
-const calculateNHIF = (grossPay: number): number => {
+const calculateNHIF = (grossPay) => {
   if (grossPay <= 5999) return 150;
   if (grossPay <= 7999) return 300;
   if (grossPay <= 11999) return 400;
@@ -71,38 +60,10 @@ const calculateNHIF = (grossPay: number): number => {
   return 1700;
 };
 
-interface PayrollRecord {
-  id: string;
-  employee_id: string;
-  employee_name: string;
-  department: string;
-  position: string;
-  basic_salary: number;
-  house_allowance: number;
-  transport_allowance: number;
-  medical_allowance: number;
-  other_allowances: number;
-  overtime_hours: number;
-  overtime_rate: number;
-  commission: number;
-  bonus: number;
-  gross_pay: number;
-  paye_tax: number;
-  nhif_deduction: number;
-  nssf_deduction: number;
-  housing_levy: number;
-  wiba_deduction: number;
-  loan_deduction: number;
-  advance_deduction: number;
-  welfare_deduction: number;
-  other_deductions: number;
-  total_deductions: number;
-  net_pay: number;
-  pay_period: string;
-  payment_method: string;
-  bank_name: string;
-  account_number: string;
-}
+const calculateHousingLevy = (grossSalary, hasTaxPIN) => {
+  if (!hasTaxPIN) return 0;
+  return grossSalary * 0.015; // 1.5%
+};
 
 const GlowButton = ({ 
   children, 
@@ -111,13 +72,6 @@ const GlowButton = ({
   size = 'md', 
   onClick, 
   disabled = false 
-}: { 
-  children: React.ReactNode; 
-  variant?: 'primary' | 'secondary' | 'danger'; 
-  icon?: any; 
-  size?: 'sm' | 'md' | 'lg';
-  onClick?: () => void;
-  disabled?: boolean;
 }) => {
   const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
   const sizeClasses = {
@@ -143,18 +97,77 @@ const GlowButton = ({
   );
 };
 
-// Get current month in YYYY-MM format
-const getCurrentPeriod = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+const SummaryCard = ({
+  label,
+  value,
+  icon: Icon,
+  color,
+  isCount = false,
+}) => {
+  const colorClasses = {
+    emerald: 'bg-emerald-100 text-emerald-600',
+    red: 'bg-red-100 text-red-600',
+    blue: 'bg-blue-100 text-blue-600',
+    purple: 'bg-purple-100 text-purple-600',
+    yellow: 'bg-yellow-100 text-yellow-600'
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">{label}</p>
+        <p className="text-gray-900 text-xl font-bold">
+          {isCount ? value : `KSh ${value.toLocaleString()}`}
+        </p>
+      </div>
+    </div>
+  );
 };
 
-const PayslipModal: React.FC<{
-  record: PayrollRecord;
-  onClose: () => void;
-  onPrevious?: () => void;
-  onNext?: () => void;
-}> = ({ record, onClose, onPrevious, onNext }) => {
+const StatutoryCard = ({
+  label,
+  value,
+  icon: Icon,
+  color,
+  rate
+}) => {
+  const colorClasses = {
+    red: 'bg-red-100 text-red-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    yellow: 'bg-yellow-100 text-yellow-600',
+    purple: 'bg-purple-100 text-purple-600'
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-md ${colorClasses[color]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+          {rate}
+        </span>
+      </div>
+      <div className="space-y-1">
+        <p className="text-gray-600 text-xs font-semibold">{label}</p>
+        <p className="text-gray-900 text-lg font-bold">KSh {Math.round(value).toLocaleString()}</p>
+      </div>
+    </div>
+  );
+};
+
+const PayslipModal = ({
+  record,
+  onClose,
+  onPrevious,
+  onNext
+}) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
@@ -317,7 +330,7 @@ const PayslipModal: React.FC<{
         <div className="p-6">
           <div id="payslip-content" className="payslip-container">
             <div className="header">
-              <div className="company-name">Zira</div>
+              <div className="company-name">Company Name</div>
               <div className="payslip-title">PAYSLIP</div>
               <div>Pay Period: {new Date(record.pay_period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
             </div>
@@ -499,16 +512,181 @@ export default function PayrollDashboard() {
   const [selectedBranch, setSelectedBranch] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSendingPayslips, setIsSendingPayslips] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [selectedRecord, setSelectedRecord] = useState<PayrollRecord | null>(null);
-  const [currentRecordIndex, setCurrentRecordIndex] = useState<number | null>(null);
+  const [expandedRows, setExpandedRows] = useState(new Set());
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [currentRecordIndex, setCurrentRecordIndex] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [departments, setDepartments] = useState(['all']);
+  const [branches, setBranches] = useState([{ value: 'all', label: 'All Branches' }]);
+  const [payrollRecords, setPayrollRecords] = useState([]);
 
-  const handleViewPayslip = (record: PayrollRecord, index: number) => {
+  // Get current month in YYYY-MM format
+  const getCurrentPeriod = () => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Get the actual period to use for calculations
+  const actualPeriod = selectedPeriod === 'current' ? getCurrentPeriod() : selectedPeriod;
+
+  // Fetch employees from Supabase
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*');
+        
+        if (error) {
+          console.error('Error fetching employees:', error);
+          return;
+        }
+        
+        if (data) {
+          setEmployees(data);
+          
+          // Extract unique departments and branches
+          const uniqueDepartments = [...new Set(data.map(emp => emp.Department || emp['Job Level']))].filter(Boolean);
+          const uniqueBranches = [...new Set(data.map(emp => emp.Office))].filter(Boolean);
+          
+          setDepartments(['all', ...uniqueDepartments]);
+          setBranches([
+            { value: 'all', label: 'All Branches' },
+            ...uniqueBranches.map(branch => ({ value: branch, label: branch }))
+          ]);
+
+          // Calculate payroll for each employee
+          const payrollData = data.map(employee => {
+            // Map Supabase fields to our expected fields
+            const basicSalary = employee['Basic Salary'] || 0;
+            const employeeId = employee['Employee Number'] || '';
+            const firstName = employee['First Name'] || '';
+            const lastName = employee['Last Name'] || '';
+            const department = employee.Department || employee['Job Level'] || '';
+            const position = employee['Job Title'] || '';
+            
+            // Statutory fields
+            const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
+            const nssfNumber = employee['NSSF Number'] || '';
+            const taxPin = employee['Tax PIN'] || '';
+            
+            // Calculate allowances (you might want to adjust these based on your data)
+            const houseAllowance = basicSalary * 0.15;
+            const transportAllowance = basicSalary * 0.1;
+            const medicalAllowance = basicSalary * 0.05;
+            const otherAllowances = 0;
+            const overtimeHours = 0;
+            const overtimeRate = 0;
+            const commission = 0;
+            const bonus = 0;
+            
+            // Calculate gross pay
+            const overtimePay = overtimeHours * overtimeRate;
+            const grossPay = basicSalary + houseAllowance + transportAllowance + 
+                            medicalAllowance + otherAllowances + overtimePay + 
+                            commission + bonus;
+
+            // Calculate statutory deductions based on rules
+            let nhifDeduction = 0;
+            let nssfDeduction = 0;
+            let housingLevy = 0;
+            
+            // Only apply NHIF if number is available
+            if (nhifNumber) {
+              nhifDeduction = calculateNHIF(grossPay);
+            }
+            
+            // Only apply NSSF if number is available
+            if (nssfNumber) {
+              nssfDeduction = calculateNSSF(grossPay);
+            }
+            
+            // Only apply Housing Levy if Tax PIN is available
+            if (taxPin) {
+              housingLevy = calculateHousingLevy(grossPay, true);
+            }
+            
+            // Calculate taxable income (gross - non-taxable deductions)
+            const taxableIncome = grossPay - nssfDeduction - housingLevy;
+            
+            // Calculate PAYE - only if Tax PIN is available
+            let payeTax = 0;
+            if (taxPin) {
+              payeTax = calculatePAYE(taxableIncome);
+            }
+            
+            // Other deductions (you might want to fetch these from your database)
+            const loanDeduction = 0;
+            const advanceDeduction = 0;
+            const welfareDeduction = 0;
+            const otherDeductions = 0;
+
+            // Calculate total deductions
+            const totalDeductions = payeTax + 
+                                   nhifDeduction + 
+                                   nssfDeduction + 
+                                   housingLevy + 
+                                   loanDeduction + 
+                                   advanceDeduction + 
+                                   welfareDeduction + 
+                                   otherDeductions;
+
+            // Calculate net pay
+            const netPay = grossPay - totalDeductions;
+
+            return {
+              id: employee.id || '',
+              employee_id: employeeId,
+              employee_name: `${firstName} ${lastName}`,
+              department: department,
+              position: position,
+              basic_salary: basicSalary,
+              house_allowance: houseAllowance,
+              transport_allowance: transportAllowance,
+              medical_allowance: medicalAllowance,
+              other_allowances: otherAllowances,
+              overtime_hours: overtimeHours,
+              overtime_rate: overtimeRate,
+              commission: commission,
+              bonus: bonus,
+              gross_pay: grossPay,
+              paye_tax: payeTax,
+              nhif_deduction: nhifDeduction,
+              nssf_deduction: nssfDeduction,
+              housing_levy: housingLevy,
+              loan_deduction: loanDeduction,
+              advance_deduction: advanceDeduction,
+              welfare_deduction: welfareDeduction,
+              other_deductions: otherDeductions,
+              total_deductions: totalDeductions,
+              net_pay: netPay,
+              pay_period: actualPeriod,
+              payment_method: 'Bank Transfer',
+              bank_name: '',
+              account_number: ''
+            };
+          });
+
+          setPayrollRecords(payrollData);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, [actualPeriod]);
+
+  const handleViewPayslip = (record, index) => {
     setSelectedRecord(record);
     setCurrentRecordIndex(index);
   };
 
-  const handleNavigatePayslip = (direction: 'prev' | 'next') => {
+  const handleNavigatePayslip = (direction) => {
     if (currentRecordIndex === null || !selectedRecord) return;
 
     const newIndex = direction === 'prev' ? currentRecordIndex - 1 : currentRecordIndex + 1;
@@ -519,10 +697,7 @@ export default function PayrollDashboard() {
     }
   };
 
-  // Get the actual period to use for calculations
-  const actualPeriod = selectedPeriod === 'current' ? getCurrentPeriod() : selectedPeriod;
-
-  const toggleRowExpand = (id: string) => {
+  const toggleRowExpand = (id) => {
     const newExpandedRows = new Set(expandedRows);
     if (newExpandedRows.has(id)) {
       newExpandedRows.delete(id);
@@ -531,202 +706,6 @@ export default function PayrollDashboard() {
     }
     setExpandedRows(newExpandedRows);
   };
-
-  const payrollRecords: PayrollRecord[] = [
-    {
-      id: '1',
-      employee_id: 'EMP001',
-      employee_name: 'John Kariuki Mwangi',
-      department: 'Finance',
-      position: 'Senior Accountant',
-      basic_salary: 180000,
-      house_allowance: 30000,
-      transport_allowance: 15000,
-      medical_allowance: 5000,
-      other_allowances: 10000,
-      overtime_hours: 10,
-      overtime_rate: 500,
-      commission: 8000,
-      bonus: 12000,
-      gross_pay: 0,
-      paye_tax: 0,
-      nhif_deduction: 0,
-      nssf_deduction: 0,
-      housing_levy: 0,
-      wiba_deduction: 0,
-      loan_deduction: 15000,
-      advance_deduction: 5000,
-      welfare_deduction: 2000,
-      other_deductions: 3000,
-      total_deductions: 0,
-      net_pay: 0,
-      pay_period: actualPeriod,
-      payment_method: 'Bank Transfer',
-      bank_name: 'KCB Bank',
-      account_number: '1234567890'
-    },
-    {
-      id: '2',
-      employee_id: 'EMP002',
-      employee_name: 'Mary Wanjiku Njeru',
-      department: 'HR',
-      position: 'HR Manager',
-      basic_salary: 150000,
-      house_allowance: 25000,
-      transport_allowance: 12000,
-      medical_allowance: 4000,
-      other_allowances: 8000,
-      overtime_hours: 5,
-      overtime_rate: 450,
-      commission: 0,
-      bonus: 10000,
-      gross_pay: 0,
-      paye_tax: 0,
-      nhif_deduction: 0,
-      nssf_deduction: 0,
-      housing_levy: 0,
-      wiba_deduction: 0,
-      loan_deduction: 10000,
-      advance_deduction: 0,
-      welfare_deduction: 2000,
-      other_deductions: 1500,
-      total_deductions: 0,
-      net_pay: 0,
-      pay_period: actualPeriod,
-      payment_method: 'M-Pesa',
-      bank_name: 'Safaricom',
-      account_number: '0722123456'
-    },
-    {
-      id: '3',
-      employee_id: 'EMP003',
-      employee_name: 'David Kimani Otieno',
-      department: 'IT',
-      position: 'Software Developer',
-      basic_salary: 120000,
-      house_allowance: 20000,
-      transport_allowance: 10000,
-      medical_allowance: 3000,
-      other_allowances: 5000,
-      overtime_hours: 15,
-      overtime_rate: 400,
-      commission: 0,
-      bonus: 8000,
-      gross_pay: 0,
-      paye_tax: 0,
-      nhif_deduction: 0,
-      nssf_deduction: 0,
-      housing_levy: 0,
-      wiba_deduction: 0,
-      loan_deduction: 8000,
-      advance_deduction: 3000,
-      welfare_deduction: 1500,
-      other_deductions: 2000,
-      total_deductions: 0,
-      net_pay: 0,
-      pay_period: actualPeriod,
-      payment_method: 'Bank Transfer',
-      bank_name: 'Equity Bank',
-      account_number: '9876543210'
-    },
-    {
-      id: '4',
-      employee_id: 'EMP004',
-      employee_name: 'Grace Akinyi Ochieng',
-      department: 'Marketing',
-      position: 'Marketing Manager',
-      basic_salary: 140000,
-      house_allowance: 22000,
-      transport_allowance: 11000,
-      medical_allowance: 3500,
-      other_allowances: 6000,
-      overtime_hours: 8,
-      overtime_rate: 420,
-      commission: 15000,
-      bonus: 9000,
-      gross_pay: 0,
-      paye_tax: 0,
-      nhif_deduction: 0,
-      nssf_deduction: 0,
-      housing_levy: 0,
-      wiba_deduction: 0,
-      loan_deduction: 12000,
-      advance_deduction: 4000,
-      welfare_deduction: 1800,
-      other_deductions: 2500,
-      total_deductions: 0,
-      net_pay: 0,
-      pay_period: actualPeriod,
-      payment_method: 'Bank Transfer',
-      bank_name: 'Cooperative Bank',
-      account_number: '5678901234'
-    },
-    {
-      id: '5',
-      employee_id: 'EMP005',
-      employee_name: 'Samuel Kiptoo Ruto',
-      department: 'Operations',
-      position: 'Operations Supervisor',
-      basic_salary: 95000,
-      house_allowance: 15000,
-      transport_allowance: 8000,
-      medical_allowance: 2500,
-      other_allowances: 4000,
-      overtime_hours: 20,
-      overtime_rate: 350,
-      commission: 0,
-      bonus: 5000,
-      gross_pay: 0,
-      paye_tax: 0,
-      nhif_deduction: 0,
-      nssf_deduction: 0,
-      housing_levy: 0,
-      wiba_deduction: 0,
-      loan_deduction: 6000,
-      advance_deduction: 2000,
-      welfare_deduction: 1200,
-      other_deductions: 1000,
-      total_deductions: 0,
-      net_pay: 0,
-      pay_period: actualPeriod,
-      payment_method: 'M-Pesa',
-      bank_name: 'Safaricom',
-      account_number: '0733456789'
-    }
-  ];
-
-  // Calculate payroll for each employee
-  payrollRecords.forEach((record) => {
-    // Calculate gross pay
-    const overtimePay = record.overtime_hours * record.overtime_rate;
-    record.gross_pay = record.basic_salary + record.house_allowance + record.transport_allowance + 
-                      record.medical_allowance + record.other_allowances + overtimePay + 
-                      record.commission + record.bonus;
-
-    // Calculate statutory deductions
-    record.nhif_deduction = calculateNHIF(record.gross_pay);
-    record.nssf_deduction = calculateNSSF(record.gross_pay);
-    record.housing_levy = calculateHousingLevy(record.gross_pay);
-    record.wiba_deduction = calculateWIBA(record.gross_pay);
-
-    // Calculate taxable income (gross - non-taxable deductions)
-    const taxableIncome = record.gross_pay - record.nssf_deduction - record.housing_levy;
-    record.paye_tax = calculatePAYE(taxableIncome);
-
-    // Calculate total deductions
-    record.total_deductions = record.paye_tax + 
-                             record.nhif_deduction + 
-                             record.nssf_deduction + 
-                             record.housing_levy + 
-                             record.wiba_deduction + 
-                             record.loan_deduction + 
-                             record.advance_deduction + 
-                             record.welfare_deduction + 
-                             record.other_deductions;
-
-    // Calculate net pay
-    record.net_pay = record.gross_pay - record.total_deductions;
-  });
 
   // Filter records based on search and filters
   const filteredRecords = payrollRecords.filter(record => {
@@ -747,7 +726,6 @@ export default function PayrollDashboard() {
   const totalNSSF = filteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
   const totalHousingLevy = filteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
 
-  const departments = ['all', 'Finance', 'HR', 'IT', 'Operations', 'Marketing', 'Sales'];
   const paymentMethods = ['all', 'Bank Transfer', 'M-Pesa', 'Airtel Money', 'Cash'];
   const payPeriods = [
     { value: 'current', label: 'Current Month' },
@@ -756,14 +734,8 @@ export default function PayrollDashboard() {
     { value: '2024-10', label: 'October 2024' },
     { value: '2024-09', label: 'September 2024' }
   ];
-  const branches = [
-    { value: 'all', label: 'All Branches' },
-    { value: 'nyc', label: 'kisumu' },
-    { value: 'la', label: 'Nairobi' },
-    { value: 'chi', label: 'Eldoret' },
-  ];
 
-  const formatPeriodDisplay = (period: string) => {
+  const formatPeriodDisplay = (period) => {
     if (period === 'current') {
       const currentDate = new Date();
       return `${currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
@@ -771,7 +743,7 @@ export default function PayrollDashboard() {
     return new Date(period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
-  const handleSendPayslips = async (method: 'whatsapp' | 'email') => {
+  const handleSendPayslips = async (method) => {
     setIsSendingPayslips(true);
     try {
       // Simulate API call
@@ -785,6 +757,17 @@ export default function PayrollDashboard() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-4 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading employee data...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
       {/* Header Section */}
@@ -792,10 +775,10 @@ export default function PayrollDashboard() {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Kenyan Payroll Management</h1>
-            <p className="text-gray-600 text-sm">Complete payroll processing with PAYE, SHIF, NSSF, Housing Levy calculations</p>
+            <p className="text-gray-600 text-sm">Complete payroll processing with PAYE, NHIF, NSSF, Housing Levy calculations</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-             <div className="relative group">
+            <div className="relative group">
               <GlowButton 
                 icon={FileText} 
                 size="sm" 
@@ -837,6 +820,7 @@ export default function PayrollDashboard() {
               icon={Plus} 
               size="sm" 
               onClick={() => setShowQuickActions(true)}
+              
             >
               Quick Actions
             </GlowButton>
@@ -966,13 +950,16 @@ export default function PayrollDashboard() {
 
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search Employee</label>
-            <input
-              type="text"
-              placeholder="name or employee ID"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs placeholder-gray-500 focus:ring-2 focus:ring-green-100 focus:border-green-500"
-            />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="name or employee ID"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-xs placeholder-gray-500 focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              />
+            </div>
           </div>
 
           <div className="flex gap-2">
@@ -1196,83 +1183,6 @@ export default function PayrollDashboard() {
             () => handleNavigatePayslip('next') : undefined}
         />
       )}
-    </div>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-  isCount = false,
-}: {
-  label: string;
-  value: number;
-  icon: any;
-  color: string;
-  isCount?: boolean;
-}) {
-  const colorClasses = {
-    emerald: 'bg-emerald-100 text-emerald-600',
-    red: 'bg-red-100 text-red-600',
-    blue: 'bg-blue-100 text-blue-600',
-    purple: 'bg-purple-100 text-purple-600',
-    yellow: 'bg-yellow-100 text-yellow-600'
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">{label}</p>
-        <p className="text-gray-900 text-xl font-bold">
-          {isCount ? value : `KSh ${value.toLocaleString()}`}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function StatutoryCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-  rate
-}: {
-  label: string;
-  value: number;
-  icon: any;
-  color: string;
-  rate: string;
-}) {
-  const colorClasses = {
-    red: 'bg-red-100 text-red-600',
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    yellow: 'bg-yellow-100 text-yellow-600',
-    purple: 'bg-purple-100 text-purple-600'
-  };
-
-  return (
-    <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2 rounded-md ${colorClasses[color as keyof typeof colorClasses]}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-        <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
-          {rate}
-        </span>
-      </div>
-      <div className="space-y-1">
-        <p className="text-gray-600 text-xs font-semibold">{label}</p>
-        <p className="text-gray-900 text-lg font-bold">KSh {Math.round(value).toLocaleString()}</p>
-      </div>
     </div>
   );
 }

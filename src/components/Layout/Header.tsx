@@ -404,7 +404,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
   return (
     <>
-      <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4 shadow-sm relative z-40">
+      <header className="bg-white/95 z-10 backdrop-blur-sm border-b border-gray-200 px-6 py-4 shadow-sm relative z-40">
         <div className="flex items-center justify-between">
           {/* Company Logo and Name - Clickable to edit */}
           <motion.div 
