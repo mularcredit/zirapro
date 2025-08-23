@@ -267,7 +267,7 @@ const SalaryAdvanceAdmin = () => {
       const formattedPhone = formatPhoneNumber(mobileNumber);
       
       // Call backend API to initiate M-Pesa B2C payment
-      const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
+      const response = await fetch('https://mpesa-22p0.onrender.com', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
