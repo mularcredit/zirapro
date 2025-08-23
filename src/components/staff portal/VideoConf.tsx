@@ -102,9 +102,7 @@ const VideoConferenceComponent= () => {
             <div className="bg-gray-50 p-5 border-t border-gray-200">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Don't have a code?</h3>
               <p className="text-xs text-gray-600">
-                You need a meeting code from the organizer to join a meeting. 
-                If you want to start a new meeting, please use Google Calendar 
-                or meet.google.com to create one.
+                
               </p>
             </div>
           </div>
@@ -142,7 +140,7 @@ const VideoConferenceComponent= () => {
         )}
         
         <footer className="text-center mt-10 text-gray-600 text-sm">
-          <p>This is a demonstration of Google Meet integration. Actual functionality may vary.</p>
+          <p></p>
         </footer>
       </div>
     </div>
