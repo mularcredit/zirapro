@@ -543,68 +543,67 @@ const ExpenseModule: React.FC = () => {
 
       <div className="px-8 py-8 space-y-8">
         {/* Enhanced Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.total)}</p>
-              </div>
-              <div className="w-2 h-2 bg-gray-900 rounded-full"></div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">Total</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.total)}</p>
+      </div>
+      <div className="w-2 h-2 bg-gray-900 rounded-full"></div>
+    </div>
+  </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Rent & Utilities</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.rent)}</p>
-              </div>
-              <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
-            </div>
-          </div>
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">Rent & Utilities</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.rent)}</p>
+      </div>
+      <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
+    </div>
+  </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Petty Cash</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pettyCash)}</p>
-              </div>
-              <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
-            </div>
-          </div>
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">Petty Cash</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pettyCash)}</p>
+      </div>
+      <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+    </div>
+  </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Travel</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.employee)}</p>
-              </div>
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            </div>
-          </div>
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">Travel</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.employee)}</p>
+      </div>
+      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+    </div>
+  </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pending)}</p>
-              </div>
-              <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-            </div>
-          </div>
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">Pending</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pending)}</p>
+      </div>
+      <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
+    </div>
+  </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">This Month</p>
-                <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.thisMonth)}</p>
-              </div>
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-            </div>
-          </div>
-        </div>
-
+  <div className="bg-white rounded-lg border border-gray-200 p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">This Month</p>
+        <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.thisMonth)}</p>
+      </div>
+      <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+    </div>
+  </div>
+</div>
         {/* Enhanced Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex flex-col space-y-4">
