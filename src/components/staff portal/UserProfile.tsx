@@ -4,16 +4,15 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import toast from "react-hot-toast";
 
+
 const UserProfileDropdown = ({ 
   onPasswordReset, 
   loginStatus,
-  userName,
-  setActiveTab
+  userName
 }: { 
   onPasswordReset: () => void,
   loginStatus: { isLoggedIn: boolean; lastLogin: string | null },
   userName: string
-  setActiveTab: (tab: string) => void
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
@@ -180,10 +179,7 @@ const UserProfileDropdown = ({
           className=" bg-white rounded-lg shadow-xl border border-gray-200  min-w-full"
         >
           <button 
-                      onClick={() => {
-              setActiveTab("details");
-              setIsOpen(false); // 👈 close dropdown after click
-            }}
+            onClick={() => navigate('/staff')}
             className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
           >
             <User className="h-4 w-4 mr-3 text-gray-500" />

@@ -1,6 +1,778 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import html2pdf from 'html2pdf.js';
+import GlowButton from '../UI/GlowButton';
+
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  
+  // Remove any non-digit characters
+  let cleaned = phone.replace(/\D/g, '');
+  
+  // Convert to 254 format if it starts with 0 or 7
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7')) {
+    cleaned = '254' + cleaned;
+  }
+  
+  return cleaned;
+};
+
+// P9 Form Generator Component
+const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+  const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString());
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const generateP9Form = async (employeeData) => {
+    setIsGenerating(true);
+    try {
+      // Calculate annual totals for selected employee
+      const employeeRecords = records.filter(r => r.employee_id === employeeData.employee_id);
+      
+      const annualTotals = {
+        basicSalary: employeeRecords.reduce((sum, r) => sum + r.basic_salary, 0) * 12,
+        benefits: employeeRecords.reduce((sum, r) => sum + r.house_allowance + r.transport_allowance + r.medical_allowance + r.other_allowances, 0) * 12,
+        grossPay: employeeRecords.reduce((sum, r) => sum + r.gross_pay, 0) * 12,
+        paye: employeeRecords.reduce((sum, r) => sum + r.paye_tax, 0) * 12,
+        nhif: employeeRecords.reduce((sum, r) => sum + r.nhif_deduction, 0) * 12,
+        nssf: employeeRecords.reduce((sum, r) => sum + r.nssf_deduction, 0) * 12,
+        housingLevy: employeeRecords.reduce((sum, r) => sum + r.housing_levy, 0) * 12,
+        netPay: employeeRecords.reduce((sum, r) => sum + r.net_pay, 0) * 12
+      };
+
+      // Create P9 form HTML
+      const p9Content = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>P9 Form - ${employeeData.employee_name} - ${taxYear}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; font-size: 12px; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+            .company-logo { max-height: 60px; margin-bottom: 10px; }
+            .form-title { font-size: 18px; font-weight: bold; margin: 20px 0; }
+            .section { margin-bottom: 25px; }
+            .section-title { background-color: #f0f0f0; padding: 8px; font-weight: bold; border: 1px solid #000; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; font-weight: bold; }
+            .number { text-align: right; }
+            .total-row { background-color: #e8f4f8; font-weight: bold; }
+            .signature-section { margin-top: 50px; display: flex; justify-content: space-between; }
+            .signature-box { width: 200px; text-align: center; }
+            .signature-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; }
+            .form-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+            .info-box { padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            ${companyInfo?.image_url ? `<img src="${companyInfo.image_url}" alt="Company Logo" class="company-logo">` : ''}
+            <h1>${companyInfo?.company_name || 'Company Name'}</h1>
+            <p>${companyInfo?.company_tagline || ''}</p>
+            <div class="form-title">INCOME TAX DEDUCTION CARD - P9A</div>
+            <div>Year: ${taxYear}</div>
+          </div>
+
+          <div class="form-info">
+            <div class="info-box">
+              <strong>Employer Details:</strong><br>
+              Name: ${companyInfo?.company_name || 'Company Name'}<br>
+              PIN: _________________<br>
+              Employer Code: _________
+            </div>
+            <div class="info-box">
+              <strong>Employee Details:</strong><br>
+              Name: ${employeeData.employee_name}<br>
+              PIN: _________________<br>
+              Employee No: ${employeeData.employee_id}<br>
+              Department: ${employeeData.department}
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">MONTHLY BREAKDOWN</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Basic Salary</th>
+                  <th>Benefits</th>
+                  <th>Gross Pay</th>
+                  <th>PAYE</th>
+                  <th>NHIF</th>
+                  <th>NSSF</th>
+                  <th>Housing Levy</th>
+                  <th>Net Pay</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${Array.from({length: 12}, (_, i) => {
+                  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                   'July', 'August', 'September', 'October', 'November', 'December'];
+                  const monthData = employeeRecords[0] || employeeData;
+                  return `
+                    <tr>
+                      <td>${monthNames[i]}</td>
+                      <td class="number">${monthData.basic_salary.toLocaleString()}</td>
+                      <td class="number">${(monthData.house_allowance + monthData.transport_allowance + monthData.medical_allowance).toLocaleString()}</td>
+                      <td class="number">${monthData.gross_pay.toLocaleString()}</td>
+                      <td class="number">${Math.round(monthData.paye_tax).toLocaleString()}</td>
+                      <td class="number">${monthData.nhif_deduction.toLocaleString()}</td>
+                      <td class="number">${monthData.nssf_deduction.toLocaleString()}</td>
+                      <td class="number">${monthData.housing_levy.toLocaleString()}</td>
+                      <td class="number">${Math.round(monthData.net_pay).toLocaleString()}</td>
+                    </tr>
+                  `;
+                }).join('')}
+                <tr class="total-row">
+                  <td><strong>TOTAL</strong></td>
+                  <td class="number"><strong>${annualTotals.basicSalary.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${annualTotals.benefits.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${annualTotals.grossPay.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${Math.round(annualTotals.paye).toLocaleString()}</strong></td>
+                  <td class="number"><strong>${annualTotals.nhif.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${annualTotals.nssf.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${annualTotals.housingLevy.toLocaleString()}</strong></td>
+                  <td class="number"><strong>${Math.round(annualTotals.netPay).toLocaleString()}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="section-title">ANNUAL SUMMARY</div>
+            <table style="width: 60%;">
+              <tr>
+                <td><strong>Total Gross Pay</strong></td>
+                <td class="number"><strong>KSh ${annualTotals.grossPay.toLocaleString()}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total PAYE Tax</strong></td>
+                <td class="number"><strong>KSh ${Math.round(annualTotals.paye).toLocaleString()}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total NHIF</strong></td>
+                <td class="number"><strong>KSh ${annualTotals.nhif.toLocaleString()}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total NSSF</strong></td>
+                <td class="number"><strong>KSh ${annualTotals.nssf.toLocaleString()}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Total Housing Levy</strong></td>
+                <td class="number"><strong>KSh ${annualTotals.housingLevy.toLocaleString()}</strong></td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="signature-section">
+            <div class="signature-box">
+              <div class="signature-line">Employee Signature</div>
+              <div>Date: _______________</div>
+            </div>
+            <div class="signature-box">
+              <div class="signature-line">Employer Signature</div>
+              <div>Date: _______________</div>
+            </div>
+          </div>
+
+          <div style="text-align: center; margin-top: 30px; font-size: 10px; color: #666;">
+            Generated on ${new Date().toLocaleDateString()} by ${companyInfo?.company_name || 'Payroll System'}
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Generate PDF
+      const opt = {
+        margin: 0.5,
+        filename: `P9_${employeeData.employee_id}_${taxYear}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().from(p9Content).set(opt).save();
+      toast.success('P9 Form generated successfully!');
+    } catch (error) {
+      console.error('Error generating P9 form:', error);
+      toast.error('Failed to generate P9 form');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          Generate P9 Forms
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tax Year</label>
+            <select
+              value={taxYear}
+              onChange={(e) => setTaxYear(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="2024">2024</option>
+              <option value="2023">2023</option>
+              <option value="2022">2022</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Select Employee</label>
+            <select
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="">Select Employee</option>
+              {records.map(record => (
+                <option key={record.employee_id} value={record.employee_id}>
+                  {record.employee_name} ({record.employee_id})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isGenerating}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              const employee = records.find(r => r.employee_id === selectedEmployee);
+              if (employee) generateP9Form(employee);
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+            disabled={!selectedEmployee || isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <FileText size={16} />
+                Generate P9
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Export Modal Component
+const ExportModal = ({ isOpen, onClose, records }) => {
+  const [exportFormat, setExportFormat] = useState('excel');
+  const [isExporting, setIsExporting] = useState(false);
+
+  const exportToExcel = () => {
+    setIsExporting(true);
+    try {
+      const ws = XLSX.utils.json_to_sheet(records.map(record => ({
+        'Employee ID': record.employee_id,
+        'Employee Name': record.employee_name,
+        'Department': record.department,
+        'Position': record.position,
+        'Basic Salary': record.basic_salary,
+        'House Allowance': record.house_allowance,
+        'Transport Allowance': record.transport_allowance,
+        'Medical Allowance': record.medical_allowance,
+        'Overtime Hours': record.overtime_hours,
+        'Overtime Pay': record.overtime_hours * record.overtime_rate,
+        'Gross Pay': record.gross_pay,
+        'PAYE Tax': Math.round(record.paye_tax),
+        'NHIF': record.nhif_deduction,
+        'NSSF': record.nssf_deduction,
+        'Housing Levy': record.housing_levy,
+        'Total Deductions': record.total_deductions,
+        'Net Pay': Math.round(record.net_pay),
+        'Pay Period': record.pay_period
+      })));
+      
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
+      
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(data, `payroll_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      
+      toast.success('Excel file exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export Excel file');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToCSV = () => {
+    setIsExporting(true);
+    try {
+      const ws = XLSX.utils.json_to_sheet(records.map(record => ({
+        'Employee ID': record.employee_id,
+        'Employee Name': record.employee_name,
+        'Department': record.department,
+        'Position': record.position,
+        'Basic Salary': record.basic_salary,
+        'House Allowance': record.house_allowance,
+        'Transport Allowance': record.transport_allowance,
+        'Medical Allowance': record.medical_allowance,
+        'Overtime Hours': record.overtime_hours,
+        'Overtime Pay': record.overtime_hours * record.overtime_rate,
+        'Gross Pay': record.gross_pay,
+        'PAYE Tax': Math.round(record.paye_tax),
+        'NHIF': record.nhif_deduction,
+        'NSSF': record.nssf_deduction,
+        'Housing Levy': record.housing_levy,
+        'Total Deductions': record.total_deductions,
+        'Net Pay': Math.round(record.net_pay),
+        'Pay Period': record.pay_period
+      })));
+      
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      const data = new Blob([csv], { type: 'text/csv' });
+      saveAs(data, `payroll_${new Date().toISOString().slice(0, 10)}.csv`);
+      
+      toast.success('CSV file exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export CSV file');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportToPDF = () => {
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF();
+      
+      // Add header
+      doc.setFontSize(16);
+      doc.text('Payroll Report', 14, 22);
+      doc.setFontSize(12);
+      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 32);
+      
+      // Prepare data
+      const tableData = records.map(record => [
+        record.employee_id,
+        record.employee_name,
+        record.department,
+        `KSh ${record.gross_pay.toLocaleString()}`,
+        `KSh ${Math.round(record.paye_tax).toLocaleString()}`,
+        `KSh ${record.total_deductions.toLocaleString()}`,
+        `KSh ${Math.round(record.net_pay).toLocaleString()}`
+      ]);
+
+      doc.autoTable({
+        head: [['ID', 'Name', 'Department', 'Gross Pay', 'PAYE', 'Total Deductions', 'Net Pay']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [34, 197, 94] }
+      });
+      
+      doc.save(`payroll_${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('PDF file exported successfully!');
+    } catch (error) {
+      toast.error('Failed to export PDF file');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = () => {
+    switch (exportFormat) {
+      case 'excel':
+        exportToExcel();
+        break;
+      case 'csv':
+        exportToCSV();
+        break;
+      case 'pdf':
+        exportToPDF();
+        break;
+      default:
+        break;
+    }
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Download className="h-5 w-5 text-green-600" />
+          Export Payroll Data
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Export Format</label>
+            <div className="grid grid-cols-3 gap-3">
+              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  value="excel"
+                  checked={exportFormat === 'excel'}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  className="mr-2"
+                />
+                <FileSpreadsheet className="w-5 h-5 mr-2 text-green-600" />
+                Excel
+              </label>
+              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  value="csv"
+                  checked={exportFormat === 'csv'}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  className="mr-2"
+                />
+                <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                CSV
+              </label>
+              <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  value="pdf"
+                  checked={exportFormat === 'pdf'}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                  className="mr-2"
+                />
+                <FileText className="w-5 h-5 mr-2 text-red-600" />
+                PDF
+              </label>
+            </div>
+          </div>
+          
+          <div className="text-sm text-gray-600">
+            <p>Exporting {records.length} payroll records</p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isExporting}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Export {exportFormat.toUpperCase()}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// M-PESA Single Payment Modal
+const MpesaSinglePaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  employee, 
+  onConfirm 
+}) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handlePayment = async () => {
+    setIsProcessing(true);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (error) {
+      console.error('Payment error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Smartphone className="h-5 w-5 text-green-600" />
+          Confirm M-PESA Payment
+        </h3>
+        
+        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+          <p className="text-sm text-gray-600 mb-2">
+            You are about to send an M-PESA payment to:
+          </p>
+          <div className="space-y-1">
+            <p className="font-medium">{employee.employee_name}</p>
+            <p className="text-sm text-gray-600">ID: {employee.employee_id}</p>
+            <p className="text-sm text-gray-600">
+              Phone: {employee.employeeNu || 'No phone number available'}
+            </p>
+            <p className="text-sm text-gray-600">
+              Amount: KSh {employee.net_pay?.toLocaleString()}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handlePayment}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                Confirm Payment
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// M-PESA Bulk Payment Modal
+const MpesaBulkPaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  employees, 
+  onConfirm 
+}) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    // Initialize all employees as selected
+    const initialSelected = {};
+    employees.forEach(emp => {
+      initialSelected[emp.employee_id] = true;
+    });
+    setSelectedStaff(initialSelected);
+  }, [employees]);
+
+  // Filter employees based on search
+  const filteredEmployees = employees.filter(emp => 
+    emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calculate total amount for selected employees
+  const calculateTotalAmount = () => {
+    return employees.reduce((total, emp) => {
+      if (selectedStaff[emp.employee_id]) {
+        return total + (emp.net_pay || 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Get count of selected staff
+  const getSelectedStaffCount = () => {
+    return Object.values(selectedStaff).filter(selected => selected).length;
+  };
+
+  // Toggle selection for a staff member
+  const toggleStaffSelection = (id) => {
+    setSelectedStaff(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  // Select all staff
+  const selectAllStaff = () => {
+    const newSelection = {};
+    employees.forEach(emp => {
+      newSelection[emp.employee_id] = true;
+    });
+    setSelectedStaff(newSelection);
+  };
+
+  // Deselect all staff
+  const deselectAllStaff = () => {
+    setSelectedStaff({});
+  };
+
+  const handleBulkPayment = async () => {
+    setIsProcessing(true);
+    try {
+      const selectedEmployees = employees.filter(emp => selectedStaff[emp.employee_id]);
+      await onConfirm(selectedEmployees);
+      onClose();
+    } catch (error) {
+      console.error('Bulk payment error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-green-600" />
+          Confirm M-PESA Bulk Payment
+        </h3>
+        
+        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+          <p className="text-sm text-gray-600">
+            You are about to process M-PESA B2C payments for {getSelectedStaffCount()} selected staff members.
+          </p>
+          
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={selectAllStaff}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Select All
+            </button>
+            <button
+              onClick={deselectAllStaff}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Deselect All
+            </button>
+          </div>
+          
+          <div className="mt-3 border-t pt-3">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Total Amount:</span>
+              <span className="font-bold text-green-700">
+                KSh {calculateTotalAmount().toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Search input */}
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search employees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+          />
+        </div>
+        
+        <div className="mb-4 max-h-60 overflow-y-auto">
+          <p className="text-sm font-medium mb-2">Staff to be paid:</p>
+          <ul className="text-sm divide-y divide-gray-200">
+            {filteredEmployees.map(emp => (
+              <li key={emp.employee_id} className="py-2 flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedStaff[emp.employee_id] || false}
+                    onChange={() => toggleStaffSelection(emp.employee_id)}
+                    className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <div>
+                    <div className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
+                      {emp.employee_name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {emp.employeeNu || 'No phone number'} • {emp.employee_id}
+                    </div>
+                  </div>
+                </div>
+                <span className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
+                  KSh {emp.net_pay?.toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleBulkPayment}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isProcessing || getSelectedStaffCount() === 0}
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing M-Pesa...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                Confirm M-Pesa Payment ({getSelectedStaffCount()})
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Kenyan Tax Calculation Functions
 const calculatePAYE = (taxableIncome) => {
@@ -65,7 +837,39 @@ const calculateHousingLevy = (grossSalary, hasTaxPIN) => {
   return grossSalary * 0.015; // 1.5%
 };
 
-const GlowButton = ({ 
+const GlowButtonss = ({ 
+  children, 
+  variant = 'primary', 
+  icon: Icon, 
+  size = 'md', 
+  onClick, 
+  disabled = false 
+}) => {
+  const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base"
+  };
+  const variantClasses = {
+    primary: "bg-green-50 border-green-500 text-green-600 hover:bg-green-100 hover:border-green-600 hover:text-green-700 hover:shadow-[0_0_20px_rgba(34,197,94,0.5)] focus:shadow-[0_0_25px_rgba(34,197,94,0.6)]",
+    secondary: "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300 hover:border-gray-400",
+    danger: "bg-red-50 border-red-500 text-red-600 hover:bg-red-100 hover:border-red-600 hover:text-red-700 hover:shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+  };
+
+  return (
+    <button 
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {Icon && <Icon className="w-4 h-4" />}
+      {children}
+    </button>
+  );
+};
+
+const GlowButtons = ({ 
   children, 
   variant = 'primary', 
   icon: Icon, 
@@ -166,7 +970,8 @@ const PayslipModal = ({
   record,
   onClose,
   onPrevious,
-  onNext
+  onNext,
+  companyInfo
 }) => {
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -176,25 +981,269 @@ const PayslipModal = ({
           <head>
             <title>Payslip - ${record.employee_name}</title>
             <style>
-              body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
-              .payslip-container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; }
-              .header { text-align: center; margin-bottom: 30px; }
-              .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-              .payslip-title { font-size: 18px; margin-bottom: 20px; }
-              .employee-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
-              .section { margin-bottom: 20px; }
-              .section-title { font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
-              table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-              th { background-color: #f5f5f5; }
-              .total-row { font-weight: bold; }
-              .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #777; }
-              .signature { margin-top: 50px; display: flex; justify-content: space-between; }
-              .signature-line { width: 200px; border-top: 1px solid #333; margin-top: 40px; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+                line-height: 1.6; 
+                color: #1f2937; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                padding: 20px;
+              }
+              .payslip-container { 
+                max-width: 900px; 
+                margin: 0 auto; 
+                background: white;
+                border-radius: 20px;
+                box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+                overflow: hidden;
+                position: relative;
+              }
+              .header-bg {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                height: 120px;
+                position: relative;
+              }
+              .header-overlay {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(255, 255, 255, 0.1);
+              }
+              .header-content {
+                position: relative;
+                z-index: 2;
+                padding: 30px 40px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                color: white;
+              }
+              .company-info {
+                display: flex;
+                align-items: center;
+                gap: 20px;
+              }
+              .company-logo { 
+                width: 60px; 
+                height: 60px; 
+                border-radius: 12px; 
+                background: rgba(255, 255, 255, 0.2);
+                padding: 8px;
+                backdrop-filter: blur(10px);
+              }
+              .company-details h1 { 
+                font-size: 28px; 
+                font-weight: 800; 
+                margin-bottom: 4px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              }
+              .company-tagline { 
+                font-size: 14px; 
+                opacity: 0.9;
+                font-weight: 500;
+              }
+              .payslip-title {
+                text-align: right;
+              }
+              .payslip-title h2 { 
+                font-size: 24px; 
+                font-weight: 700; 
+                margin-bottom: 8px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              }
+              .pay-period { 
+                font-size: 14px; 
+                opacity: 0.9;
+                background: rgba(255, 255, 255, 0.2);
+                padding: 8px 16px;
+                border-radius: 20px;
+                backdrop-filter: blur(10px);
+              }
+              .content {
+                padding: 40px;
+              }
+              .employee-section {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 30px;
+                margin-bottom: 40px;
+                padding-bottom: 30px;
+                border-bottom: 2px solid #f3f4f6;
+              }
+              .info-card {
+                background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+                padding: 25px;
+                border-radius: 16px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+                border: 1px solid #e2e8f0;
+              }
+              .info-card h3 {
+                font-size: 14px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                color: #6366f1;
+                margin-bottom: 15px;
+              }
+              .info-item {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 8px;
+                font-size: 14px;
+              }
+              .info-label {
+                color: #6b7280;
+                font-weight: 500;
+              }
+              .info-value {
+                font-weight: 600;
+                color: #1f2937;
+              }
+              .section {
+                margin-bottom: 35px;
+              }
+              .section-header {
+                background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                font-weight: 700;
+                font-size: 16px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              }
+              .earnings-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+                margin-bottom: 25px;
+              }
+              .earning-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+                background: #f8fafc;
+                border-radius: 10px;
+                border-left: 4px solid #10b981;
+                transition: all 0.3s ease;
+              }
+              .earning-item:hover {
+                background: #ecfdf5;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+              }
+              .earning-label {
+                font-weight: 500;
+                color: #374151;
+              }
+              .earning-amount {
+                font-weight: 700;
+                color: #059669;
+                font-size: 16px;
+              }
+              .deduction-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 20px;
+                background: #fef2f2;
+                border-radius: 10px;
+                border-left: 4px solid #ef4444;
+                margin-bottom: 12px;
+                transition: all 0.3s ease;
+              }
+              .deduction-item:hover {
+                background: #fee2e2;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+              }
+              .deduction-label {
+                font-weight: 500;
+                color: #374151;
+              }
+              .deduction-amount {
+                font-weight: 700;
+                color: #dc2626;
+                font-size: 16px;
+              }
+              .summary-section {
+                background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+                color: white;
+                padding: 30px;
+                border-radius: 16px;
+                margin-bottom: 30px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+              }
+              .summary-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 15px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+              }
+              .summary-row:last-child {
+                border-bottom: none;
+                border-top: 2px solid rgba(255, 255, 255, 0.2);
+                margin-top: 15px;
+                font-size: 20px;
+                font-weight: 800;
+              }
+              .net-pay {
+                background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                font-size: 24px;
+              }
+              .signature-section {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 40px;
+                margin-top: 50px;
+                padding-top: 30px;
+                border-top: 2px solid #f3f4f6;
+              }
+              .signature-box {
+                text-align: center;
+              }
+              .signature-line {
+                border-top: 2px solid #374151;
+                margin-bottom: 10px;
+                width: 200px;
+                margin: 40px auto 10px;
+              }
+              .signature-label {
+                font-weight: 600;
+                color: #6b7280;
+                margin-bottom: 5px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 40px;
+                padding: 25px;
+                background: #f8fafc;
+                border-radius: 12px;
+                color: #6b7280;
+                font-size: 12px;
+                border: 1px solid #e5e7eb;
+              }
+              .footer-line {
+                margin-bottom: 5px;
+              }
               @media print {
-                body { padding: 0; }
+                body { 
+                  background: white;
+                  padding: 0;
+                }
                 .no-print { display: none !important; }
-                .payslip-container { border: none; padding: 0; }
+                .payslip-container { 
+                  box-shadow: none;
+                  border-radius: 0;
+                }
               }
             </style>
           </head>
@@ -212,44 +1261,17 @@ const PayslipModal = ({
     }
   };
 
-  const handleDownload = () => {
-    const htmlContent = document.getElementById('payslip-content')?.innerHTML;
-    const blob = new Blob([`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Payslip - ${record.employee_name}</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; color: #333; }
-            .payslip-container { max-width: 800px; margin: 0 auto; border: 1px solid #ddd; padding: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .company-name { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-            .payslip-title { font-size: 18px; margin-bottom: 20px; }
-            .employee-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
-            .section { margin-bottom: 20px; }
-            .section-title { font-weight: bold; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 10px; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f5f5f5; }
-            .total-row { font-weight: bold; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #777; }
-            .signature { margin-top: 50px; display: flex; justify-content: space-between; }
-            .signature-line { width: 200px; border-top: 1px solid #333; margin-top: 40px; }
-          </style>
-        </head>
-        <body>
-          ${htmlContent}
-        </body>
-      </html>
-    `], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `payslip_${record.employee_id}_${record.pay_period}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownloadPDF = () => {
+    const element = document.getElementById('payslip-content');
+    const opt = {
+      margin: 0.5,
+      filename: `payslip_${record.employee_id}_${record.pay_period}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().from(element).set(opt).save();
   };
 
   const handleShare = async () => {
@@ -265,7 +1287,6 @@ const PayslipModal = ({
           files: [file]
         });
       } else {
-        // Fallback for browsers that don't support file sharing
         const text = `Payslip for ${record.employee_name}\n\n` +
           `Employee ID: ${record.employee_id}\n` +
           `Period: ${record.pay_period}\n` +
@@ -275,230 +1296,255 @@ const PayslipModal = ({
         
         if (navigator.clipboard) {
           await navigator.clipboard.writeText(text);
-          alert('Payslip information copied to clipboard');
+          toast.success('Payslip information copied to clipboard');
         } else {
           alert('Sharing not supported in this browser');
         }
       }
     } catch (err) {
       console.error('Error sharing:', err);
-      alert('Failed to share payslip');
+      toast.error('Failed to share payslip');
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
-        <div className="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-gray-900">Payslip</h2>
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[90vh] overflow-auto">
+        <div className="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10">
+          <h2 className="text-xl font-semibold text-gray-900">Modern Payslip</h2>
           <div className="flex gap-2">
-            <GlowButton 
+            <GlowButtonss 
               variant="secondary" 
               icon={Download} 
               size="sm" 
-              onClick={handleDownload}
+              onClick={handleDownloadPDF}
             >
-              Download
-            </GlowButton>
-            <GlowButton 
-              variant="secondary" 
-              icon={Printer} 
-              size="sm" 
-              onClick={handlePrint}
-            >
-              Print
-            </GlowButton>
-            <GlowButton 
-              variant="secondary" 
-              icon={Share2} 
-              size="sm" 
-              onClick={handleShare}
-            >
-              Share
-            </GlowButton>
-            <GlowButton 
+              Download PDF
+            </GlowButtonss>
+           
+           
+            <GlowButtonss 
               variant="danger" 
               icon={X} 
               size="sm" 
               onClick={onClose}
             >
               Close
-            </GlowButton>
+            </GlowButtonss>
           </div>
         </div>
 
-        <div className="p-6">
-          <div id="payslip-content" className="payslip-container">
-            <div className="header">
-              <div className="company-name">Company Name</div>
-              <div className="payslip-title">PAYSLIP</div>
-              <div>Pay Period: {new Date(record.pay_period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</div>
-            </div>
+      <div className="p-2 bg-gray-50 payslip-container print:p-0 print:w-[210mm] print:h-[297mm]">
+  <div id="payslip-content" className="bg-white rounded-lg shadow-lg overflow-hidden text-xs leading-tight">
+    
+    {/* Header */}
+    <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
+      <div className="flex items-center">
+        {companyInfo?.image_url && (
+          <img src={companyInfo.image_url} alt="Company Logo" className="h-12 w-12 mr-3 bg-white p-1 rounded" />
+        )}
+        <div>
+          <h1 className="text-lg font-bold">{companyInfo?.company_name || 'Your Company Name'}</h1>
+          <div className="text-gray-300 text-xs">{companyInfo?.company_tagline || 'Excellence in Service'}</div>
+        </div>
+      </div>
+      <div className="text-right">
+        <h2 className="text-xl font-bold">PAYSLIP</h2>
+        <div className="text-gray-300 text-sm">
+          {new Date(record.pay_period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+        </div>
+      </div>
+    </div>
 
-            <div className="employee-info">
-              <div>
-                <div><strong>Employee Name:</strong> {record.employee_name}</div>
-                <div><strong>Employee ID:</strong> {record.employee_id}</div>
-                <div><strong>Department:</strong> {record.department}</div>
-                <div><strong>Position:</strong> {record.position}</div>
-              </div>
-              <div>
-                <div><strong>Payment Method:</strong> {record.payment_method}</div>
-                {record.payment_method === 'Bank Transfer' && (
-                  <>
-                    <div><strong>Bank:</strong> {record.bank_name}</div>
-                    <div><strong>Account No:</strong> {record.account_number}</div>
-                  </>
-                )}
-                {record.payment_method === 'M-Pesa' && (
-                  <div><strong>Phone:</strong> {record.account_number}</div>
-                )}
-              </div>
-            </div>
-
-            <div className="section">
-              <div className="section-title">Earnings</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>Amount (KSh)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>Basic Salary</td>
-                    <td>{record.basic_salary.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>House Allowance</td>
-                    <td>{record.house_allowance.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Transport Allowance</td>
-                    <td>{record.transport_allowance.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Medical Allowance</td>
-                    <td>{record.medical_allowance.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Other Allowances</td>
-                    <td>{record.other_allowances.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Overtime ({record.overtime_hours} hrs @ {record.overtime_rate}/hr)</td>
-                    <td>{(record.overtime_hours * record.overtime_rate).toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Commission</td>
-                    <td>{record.commission.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Bonus</td>
-                    <td>{record.bonus.toLocaleString()}</td>
-                  </tr>
-                  <tr className="total-row">
-                    <td><strong>Total Earnings</strong></td>
-                    <td><strong>{record.gross_pay.toLocaleString()}</strong></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="section">
-              <div className="section-title">Deductions</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Description</th>
-                    <th>Amount (KSh)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>PAYE Tax</td>
-                    <td>{Math.round(record.paye_tax).toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>NHIF</td>
-                    <td>{record.nhif_deduction.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>NSSF</td>
-                    <td>{record.nssf_deduction.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Housing Levy</td>
-                    <td>{record.housing_levy.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Loan Deduction</td>
-                    <td>{record.loan_deduction.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Advance Deduction</td>
-                    <td>{record.advance_deduction.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Welfare Deduction</td>
-                    <td>{record.welfare_deduction.toLocaleString()}</td>
-                  </tr>
-                  <tr>
-                    <td>Other Deductions</td>
-                    <td>{record.other_deductions.toLocaleString()}</td>
-                  </tr>
-                  <tr className="total-row">
-                    <td><strong>Total Deductions</strong></td>
-                    <td><strong>{record.total_deductions.toLocaleString()}</strong></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="section">
-              <table>
-                <tbody>
-                  <tr className="total-row">
-                    <td><strong>Net Pay</strong></td>
-                    <td><strong>KSh {Math.round(record.net_pay).toLocaleString()}</strong></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            <div className="signature">
-              <div>
-                <div className="signature-line"></div>
-                <div>Employee Signature</div>
-              </div>
-              <div>
-                <div className="signature-line"></div>
-                <div>Authorized Signatory</div>
-              </div>
-            </div>
-
-            <div className="footer">
-              <div>This is a computer generated payslip and does not require a signature</div>
-              <div>Generated on {new Date().toLocaleDateString()}</div>
-            </div>
+    {/* Body */}
+    <div className="p-4">
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Employee Info */}
+        <div className="border p-3 rounded">
+          <h3 className="font-semibold border-b mb-2">EMPLOYEE INFORMATION</h3>
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>Full Name:</span><span>{record.employee_name}</span></div>
+            <div className="flex justify-between"><span>Employee No:</span><span>{record.employee_id}</span></div>
+            <div className="flex justify-between"><span>Position:</span><span>{record.department}</span></div>
+            <div className="flex justify-between"><span>Dept:</span><span>{record.position}</span></div>
+            <div className="flex justify-between"><span>Branch:</span><span>{record.branch}</span></div>
           </div>
         </div>
+
+        {/* Payment Info */}
+        <div className="border p-3 rounded">
+          <h3 className="font-semibold border-b mb-2">PAYMENT DETAILS</h3>
+          <div className="space-y-1">
+            <div className="flex justify-between"><span>Method:</span><span>{record.payment_method}</span></div>
+            {record.payment_method === 'Bank Transfer' && (
+              <>
+                <div className="flex justify-between"><span>Bank:</span><span>{record.bank_name}</span></div>
+                <div className="flex justify-between"><span>Account:</span><span>{record.account_number}</span></div>
+              </>
+            )}
+            {record.payment_method === 'M-Pesa' && (
+              <div className="flex justify-between"><span>M-Pesa No:</span><span>{record.employeeNu}</span></div>
+            )}
+            <div className="flex justify-between"><span>M-Pesa No:</span><span>{record.employeeNu}</span></div>
+            <div className="flex justify-between"><span>Job Group:</span><span>{record.jobGroup}</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Earnings + Deductions */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        {/* Earnings */}
+        <div className="border rounded">
+          <div className="bg-gray-200 font-semibold p-2">EARNINGS</div>
+          <div className="p-2 space-y-1">
+            <div className="flex justify-between"><span>Basic</span><span>KSh {record.basic_salary.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>House</span><span>KSh {record.house_allowance.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Transport</span><span>KSh {record.transport_allowance.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Medical</span><span>KSh {record.medical_allowance.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Other</span><span>KSh {record.other_allowances.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Overtime</span><span>KSh {(record.overtime_hours * record.overtime_rate).toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Commission</span><span>KSh {record.commission.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Bonus</span><span>KSh {record.bonus.toLocaleString()}</span></div>
+          </div>
+        </div>
+
+        {/* Deductions */}
+        <div className="border rounded">
+          <div className="bg-gray-200 font-semibold p-2">DEDUCTIONS</div>
+          <div className="p-2 space-y-1">
+            <div className="flex justify-between"><span>PAYE</span><span>KSh {Math.round(record.paye_tax).toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>NHIF</span><span>KSh {record.nhif_deduction.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>NSSF</span><span>KSh {record.nssf_deduction.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>AHL</span><span>KSh {record.housing_levy.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Loan</span><span>KSh {record.loan_deduction.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Advance</span><span>KSh {record.advance_deduction.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Welfare</span><span>KSh {record.welfare_deduction.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span>Other</span><span>KSh {record.other_deductions.toLocaleString()}</span></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="border p-3 rounded mb-4">
+        <div className="flex justify-between border-b pb-1"><span>Gross Pay</span><span>KSh {record.gross_pay.toLocaleString()}</span></div>
+        <div className="flex justify-between border-b pb-1"><span>Total Deductions</span><span className="text-red-600">KSh {record.total_deductions.toLocaleString()}</span></div>
+        <div className="flex justify-between font-bold text-green-700"><span>NET PAY</span><span>KSh {Math.round(record.net_pay).toLocaleString()}</span></div>
+      </div>
+
+      {/* Signatures */}
+      <div className="grid grid-cols-2 gap-4 mb-4 text-center text-xs">
+        <div className="border border-dashed p-2">Employee Signature<br/>Date: __________</div>
+        <div className="border border-dashed p-2">Authorized Signatory<br/>Date: __________</div>
+      </div>
+
+      {/* Footer */}
+      <div className="text-center text-gray-500 text-xs">
+        Generated on {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()} • {companyInfo?.company_name || 'Company'} • Confidential
+      </div>
+    </div>
+  </div>
+</div>
+
 
         {(onPrevious || onNext) && (
           <div className="sticky bottom-0 bg-white p-4 border-t border-gray-200 flex justify-between">
             {onPrevious && (
-              <GlowButton icon={ArrowLeft} onClick={onPrevious}>
+              <GlowButtonss icon={ArrowLeft} onClick={onPrevious}>
                 Previous
-              </GlowButton>
+              </GlowButtonss>
             )}
             {onNext && (
-              <GlowButton icon={ArrowRight} onClick={onNext} className="ml-auto">
+              <GlowButtonss icon={ArrowRight} onClick={onNext} className="ml-auto">
                 Next
-              </GlowButton>
+              </GlowButtonss>
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Pagination Component
+const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPerPage, currentItemsCount }) => {
+  const pages = [];
+  const maxVisiblePages = 5;
+  
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+  
+  if (endPage - startPage + 1 < maxVisiblePages) {
+    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+  }
+  
+  for (let i = startPage; i <= endPage; i++) {
+    pages.push(i);
+  }
+  
+  const startItem = (currentPage - 1) * itemsPerPage + 1;
+  const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+  
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-white sm:px-6">
+      <div className="flex justify-between sm:hidden">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+      <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm text-gray-700">
+            Showing <span className="font-medium">{startItem}</span> to{' '}
+            <span className="font-medium">{endItem}</span> of{' '}
+            <span className="font-medium">{totalItems}</span> results
+          </p>
+        </div>
+        <div>
+          <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+            <button
+              onClick={() => onPageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-2 py-2 text-gray-400 rounded-l-md ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Previous</span>
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
+            </button>
+            
+            {pages.map((page) => (
+              <button
+                key={page}
+                onClick={() => onPageChange(page)}
+                className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                  currentPage === page
+                    ? 'z-10 bg-green-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-600'
+                    : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:outline-offset-0'
+                }`}
+              >
+                {page}
+              </button>
+            ))}
+            
+            <button
+              onClick={() => onPageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="relative inline-flex items-center px-2 py-2 text-gray-400 rounded-r-md ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="sr-only">Next</span>
+              <ArrowRight className="w-5 h-5" aria-hidden="true" />
+            </button>
+          </nav>
+        </div>
       </div>
     </div>
   );
@@ -520,6 +1566,20 @@ export default function PayrollDashboard() {
   const [departments, setDepartments] = useState(['all']);
   const [branches, setBranches] = useState([{ value: 'all', label: 'All Branches' }]);
   const [payrollRecords, setPayrollRecords] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showSummary, setShowSummary] = useState(false);
+  const [companyInfo, setCompanyInfo] = useState(null);
+  
+  // M-PESA Modal States
+  const [showSingleMpesaModal, setShowSingleMpesaModal] = useState(false);
+  const [showBulkMpesaModal, setShowBulkMpesaModal] = useState(false);
+  const [selectedEmployeeForMpesa, setSelectedEmployeeForMpesa] = useState(null);
+  
+  // New Modal States
+  const [showP9Modal, setShowP9Modal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  
+  const itemsPerPage = 5;
 
   // Get current month in YYYY-MM format
   const getCurrentPeriod = () => {
@@ -529,6 +1589,111 @@ export default function PayrollDashboard() {
 
   // Get the actual period to use for calculations
   const actualPeriod = selectedPeriod === 'current' ? getCurrentPeriod() : selectedPeriod;
+
+  // Fetch company information from Supabase
+  useEffect(() => {
+    const fetchCompanyInfo = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('company_logo')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error('Error fetching company info:', error);
+          return;
+        }
+        
+        if (data) {
+          setCompanyInfo(data);
+        }
+      } catch (err) {
+        console.error('Error:', err);
+      }
+    };
+
+    fetchCompanyInfo();
+  }, []);
+
+  // M-PESA Payment Functions
+  const processSingleMpesaPayment = async (employee) => {
+    try {
+      const phoneNumber = employee.employeeNu;
+      if (!phoneNumber) {
+        throw new Error(`Phone number not found for employee ${employee.employee_id}`);
+      }
+
+      const formattedPhone = formatPhoneNumber(phoneNumber);
+      
+      // Call backend API to initiate M-Pesa B2C payment
+      const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          amount: employee.net_pay,
+          employeeNumber: employee.employee_id,
+          fullName: employee.employee_name
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to process payment');
+      }
+
+      const result = await response.json();
+      toast.success(`Payment sent to ${employee.employee_name}`);
+      return result;
+    } catch (error) {
+      console.error('M-Pesa payment error:', error);
+      toast.error(`Failed to pay ${employee.employee_name}: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const processBulkMpesaPayment = async (selectedEmployees) => {
+    const results = [];
+    
+    for (const employee of selectedEmployees) {
+      try {
+        const result = await processSingleMpesaPayment(employee);
+        results.push({ success: true, employee, result });
+        
+        // Add a small delay between payments to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (error) {
+        results.push({ success: false, employee, error });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = selectedEmployees.length;
+    
+    if (successCount === totalCount) {
+      toast.success(`All ${totalCount} payments processed successfully!`);
+    } else if (successCount > 0) {
+      toast.success(`${successCount} of ${totalCount} payments processed successfully`);
+    } else {
+      toast.error('All payments failed. Please check your settings.');
+    }
+    
+    return results;
+  };
+
+  // Add this function to the main component, right after the processBulkMpesaPayment function
+const handleSingleMpesaPayment = (employee) => {
+  setSelectedEmployeeForMpesa(employee);
+  setShowSingleMpesaModal(true);
+};
+
+ const handleBulkMpesaPayment = () => {
+    setShowBulkMpesaModal(true);
+  };
 
   // Fetch employees from Supabase
   useEffect(() => {
@@ -549,7 +1714,7 @@ export default function PayrollDashboard() {
           
           // Extract unique departments and branches
           const uniqueDepartments = [...new Set(data.map(emp => emp.Department || emp['Job Level']))].filter(Boolean);
-          const uniqueBranches = [...new Set(data.map(emp => emp.Office))].filter(Boolean);
+          const uniqueBranches = [...new Set(data.map(emp => emp.branch  || emp.Office))].filter(Boolean);
           
           setDepartments(['all', ...uniqueDepartments]);
           setBranches([
@@ -562,27 +1727,35 @@ export default function PayrollDashboard() {
             // Map Supabase fields to our expected fields
             const basicSalary = employee['Basic Salary'] || 0;
             const employeeId = employee['Employee Number'] || '';
+            const jobGroup = employee['Job Group'] || '';
+             const employeeNat = employee['ID Number'] || '';
+            const employeeNu = employee['Mobile Number'] || '';
             const firstName = employee['First Name'] || '';
+            const middleName = employee['Middle Name'] || '';
+            const branch = employee.Office || '';
             const lastName = employee['Last Name'] || '';
             const department = employee.Department || employee['Job Level'] || '';
             const position = employee['Job Title'] || '';
+            
+            // Get house allowance, travel allowance, and overtime from employees table
+            // Use the actual values from the database, not calculated ones
+            const houseAllowance = employee.house_allowance || 0;
+            const transportAllowance = employee.travel_allowance || 0;
+            const overtimeHours = employee.overtime || 0;
+            const overtimeRate = employee['Overtime Rate'] || 0;  // Assuming 160 working hours per month
             
             // Statutory fields
             const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
             const nssfNumber = employee['NSSF Number'] || '';
             const taxPin = employee['Tax PIN'] || '';
             
-            // Calculate allowances (you might want to adjust these based on your data)
-            const houseAllowance = basicSalary * 0.15;
-            const transportAllowance = basicSalary * 0.1;
-            const medicalAllowance = basicSalary * 0.05;
+            // Calculate other allowances
+            const medicalAllowance = employee.medical_allowance || 0; // Uses database value
             const otherAllowances = 0;
-            const overtimeHours = 0;
-            const overtimeRate = 0;
             const commission = 0;
             const bonus = 0;
             
-            // Calculate gross pay
+            // Calculate gross pay - fix the math calculation
             const overtimePay = overtimeHours * overtimeRate;
             const grossPay = basicSalary + houseAllowance + transportAllowance + 
                             medicalAllowance + otherAllowances + overtimePay + 
@@ -639,7 +1812,11 @@ export default function PayrollDashboard() {
             return {
               id: employee.id || '',
               employee_id: employeeId,
-              employee_name: `${firstName} ${lastName}`,
+              employeeNat:employeeNat,
+              employeeNu: employeeNu,
+              jobGroup:jobGroup,
+              employee_name: `${firstName} ${middleName} ${lastName}`,
+              branch:branch,
               department: department,
               position: position,
               basic_salary: basicSalary,
@@ -663,7 +1840,7 @@ export default function PayrollDashboard() {
               total_deductions: totalDeductions,
               net_pay: netPay,
               pay_period: actualPeriod,
-              payment_method: 'Bank Transfer',
+              payment_method: 'MPESA',
               bank_name: '',
               account_number: ''
             };
@@ -681,9 +1858,42 @@ export default function PayrollDashboard() {
     fetchEmployees();
   }, [actualPeriod]);
 
+  // Filter records based on search and filters - IMPROVED SEARCH
+  const filteredRecords = payrollRecords.filter(record => {
+    // Improved search logic
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    // If no search term, don't filter by search
+    const matchesSearch = !searchTerm.trim() || 
+      // Search in employee name (handle potential null/undefined)
+      (record.employee_name || '').toLowerCase().includes(searchLower) ||
+      // Search in employee ID (handle potential null/undefined) 
+      (record.employee_id || '').toLowerCase().includes(searchLower) ||
+      // Search in department
+      (record.department || '').toLowerCase().includes(searchLower) ||
+      // Search in position
+      (record.position || '').toLowerCase().includes(searchLower) ||
+      // Search in first name and last name separately (in case they're stored separately)
+      searchLower.split(' ').every(term => 
+        (record.employee_name || '').toLowerCase().includes(term)
+      );
+    
+    const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
+    const matchesPaymentMethod = selectedPaymentMethod === 'all' || record.payment_method === selectedPaymentMethod;
+    const matchesBranch = selectedBranch === 'all' || record.branch === selectedBranch;
+    
+    return matchesSearch && matchesDepartment && matchesPaymentMethod && matchesBranch;
+  });
+
+  // Get current page data
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+
   const handleViewPayslip = (record, index) => {
     setSelectedRecord(record);
-    setCurrentRecordIndex(index);
+    setCurrentRecordIndex(indexOfFirstItem + index);
   };
 
   const handleNavigatePayslip = (direction) => {
@@ -694,28 +1904,28 @@ export default function PayrollDashboard() {
     if (newIndex >= 0 && newIndex < filteredRecords.length) {
       setSelectedRecord(filteredRecords[newIndex]);
       setCurrentRecordIndex(newIndex);
+      
+      // Update page if needed
+      const newPage = Math.floor(newIndex / itemsPerPage) + 1;
+      if (newPage !== currentPage) {
+        setCurrentPage(newPage);
+      }
     }
   };
 
-  const toggleRowExpand = (id) => {
-    const newExpandedRows = new Set(expandedRows);
-    if (newExpandedRows.has(id)) {
-      newExpandedRows.delete(id);
-    } else {
-      newExpandedRows.add(id);
-    }
-    setExpandedRows(newExpandedRows);
+  // Fix for dropdown expansion - only expand the clicked row
+  const toggleRowExpand = (id, e) => {
+    e.stopPropagation();
+    setExpandedRows(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(id)) {
+        newExpanded.delete(id);
+      } else {
+        newExpanded.add(id);
+      }
+      return newExpanded;
+    });
   };
-
-  // Filter records based on search and filters
-  const filteredRecords = payrollRecords.filter(record => {
-    const matchesSearch = record.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         record.employee_id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
-    const matchesPaymentMethod = selectedPaymentMethod === 'all' || record.payment_method === selectedPaymentMethod;
-    
-    return matchesSearch && matchesDepartment && matchesPaymentMethod;
-  });
 
   // Calculate totals
   const totalGrossPay = filteredRecords.reduce((sum, record) => sum + record.gross_pay, 0);
@@ -757,6 +1967,12 @@ export default function PayrollDashboard() {
     }
   };
 
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    // Scroll to top when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (isLoading) {
     return (
       <div className="p-4 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto flex items-center justify-center">
@@ -774,23 +1990,11 @@ export default function PayrollDashboard() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">Kenyan Payroll Management</h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">Payroll Management</h1>
             <p className="text-gray-600 text-sm">Complete payroll processing with PAYE, NHIF, NSSF, Housing Levy calculations</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <div className="relative group">
-              <GlowButton 
-                icon={FileText} 
-                size="sm" 
-                disabled={isSendingPayslips}
-              >
-                {isSendingPayslips ? 'Sending...' : 'Send Payslips'}
-                {!isSendingPayslips && (
-                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                )}
-              </GlowButton>
               {!isSendingPayslips && (
                 <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10 hidden group-hover:block">
                   <div className="py-1">
@@ -799,7 +2003,7 @@ export default function PayrollDashboard() {
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
                       <svg className="w-5 h-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.150-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.040 1.016-1.040 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                       </svg>
                       WhatsApp
                     </button>
@@ -816,14 +2020,13 @@ export default function PayrollDashboard() {
                 </div>
               )}
             </div>
-            <GlowButton 
+            <GlowButtonss 
               icon={Plus} 
               size="sm" 
               onClick={() => setShowQuickActions(true)}
-              
             >
               Quick Actions
-            </GlowButton>
+            </GlowButtonss>
           </div>
         </div>
       </div>
@@ -842,43 +2045,42 @@ export default function PayrollDashboard() {
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <GlowButton icon={Calculator} size="sm" onClick={() => {
+              <GlowButtonss icon={Calculator} size="sm" onClick={() => {
                 alert("Bulk Calculate initiated");
                 setShowQuickActions(false);
               }}>
                 Bulk Calculate
-              </GlowButton>
-              <GlowButton variant="secondary" icon={FileText} size="sm" onClick={() => {
-                alert("P9A Forms generation started");
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={FileText} size="sm" onClick={() => {
+                setShowP9Modal(true);
                 setShowQuickActions(false);
               }}>
                 Generate P9A Forms
-              </GlowButton>
-              <GlowButton variant="secondary" icon={Download} size="sm" onClick={() => {
-                alert("Preparing KRA Returns");
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={Download} size="sm" onClick={() => {
+                setShowExportModal(true);
                 setShowQuickActions(false);
               }}>
-                KRA Returns
-              </GlowButton>
-            
-              <GlowButton variant="secondary" icon={FileText} size="sm" onClick={() => {
+                Export Data
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={FileText} size="sm" onClick={() => {
                 alert("Batch payslip generation started");
                 setShowQuickActions(false);
               }}>
                 Payslip Batch
-              </GlowButton>
-              <GlowButton variant="secondary" icon={TrendingUp} size="sm" onClick={() => {
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={TrendingUp} size="sm" onClick={() => {
                 alert("Tax certificates being prepared");
                 setShowQuickActions(false);
               }}>
                 Tax Certificates
-              </GlowButton>
-              <GlowButton variant="secondary" icon={Calendar} size="sm" onClick={() => {
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={Calendar} size="sm" onClick={() => {
                 alert("Payment scheduling opened");
                 setShowQuickActions(false);
               }}>
                 Schedule Payments
-              </GlowButton>
+              </GlowButtonss>
             </div>
           </div>
         </div>
@@ -948,65 +2150,85 @@ export default function PayrollDashboard() {
             </select>
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search Employee</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="name or employee ID"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-xs placeholder-gray-500 focus:ring-2 focus:ring-green-100 focus:border-green-500"
-              />
+          <div className="flex gap-2">
+            <GlowButton
+              icon={TabletSmartphone} 
+              size="md"
+              onClick={handleBulkMpesaPayment}
+              disabled={filteredRecords.length === 0}
+            >
+              M-PESA Bulk Pay
+            </GlowButton>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Toggle Button */}
+      <div className="flex justify-center space-x-4">
+        <GlowButtonss 
+          icon={showSummary ? ChevronUp : ChevronDown} 
+          size="sm" 
+          onClick={() => setShowSummary(!showSummary)}
+        >
+          {showSummary ? 'Hide Summary' : 'Show Summary'}
+        </GlowButtonss>
+        <div className="space-y-1">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="name or employee ID"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg pl-9 pr-3 py-2 text-xs placeholder-gray-500 focus:ring-2 focus:ring-green-100 focus:border-green-500"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards Section - Hidden by default */}
+      {showSummary && (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <SummaryCard 
+              label="Total Gross Pay" 
+              value={totalGrossPay} 
+              icon={DollarSign} 
+              color="emerald"
+            />
+            <SummaryCard 
+              label="Total Deductions" 
+              value={totalDeductions} 
+              icon={TrendingUp} 
+              color="red"
+            />
+            <SummaryCard 
+              label="Total Net Pay" 
+              value={totalNetPay} 
+              icon={Calculator} 
+              color="blue"
+            />
+            <SummaryCard 
+              label="Employee Count" 
+              value={filteredRecords.length} 
+              icon={Users} 
+              color="purple" 
+              isCount={true}
+            />
+          </div>
+
+          {/* Statutory Deductions Summary Section */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Statutory Deductions</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatutoryCard label="Total PAYE Tax" value={totalPAYE} icon={FileText} color="red" rate="Progressive rates" />
+              <StatutoryCard label="Total NSSF" value={totalNSSF} icon={Calculator} color="blue" rate="6% (Tiered)" />
+              <StatutoryCard label="Total NHIF" value={totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
+              <StatutoryCard label="Housing Levy" value={totalHousingLevy} icon={DollarSign} color="yellow" rate="1.5%" />
             </div>
           </div>
-
-          <div className="flex gap-2">
-            <GlowButton icon={Calculator} size="sm">Process Pay</GlowButton>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary Cards Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <SummaryCard 
-          label="Total Gross Pay" 
-          value={totalGrossPay} 
-          icon={DollarSign} 
-          color="emerald"
-        />
-        <SummaryCard 
-          label="Total Deductions" 
-          value={totalDeductions} 
-          icon={TrendingUp} 
-          color="red"
-        />
-        <SummaryCard 
-          label="Total Net Pay" 
-          value={totalNetPay} 
-          icon={Calculator} 
-          color="blue"
-        />
-        <SummaryCard 
-          label="Employee Count" 
-          value={filteredRecords.length} 
-          icon={Users} 
-          color="purple" 
-          isCount={true}
-        />
-      </div>
-
-      {/* Statutory Deductions Summary Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Statutory Deductions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatutoryCard label="Total PAYE Tax" value={totalPAYE} icon={FileText} color="red" rate="Progressive rates" />
-          <StatutoryCard label="Total NSSF" value={totalNSSF} icon={Calculator} color="blue" rate="6% (Tiered)" />
-          <StatutoryCard label="Total NHIF" value={totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
-          <StatutoryCard label="Housing Levy" value={totalHousingLevy} icon={DollarSign} color="yellow" rate="1.5%" />
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Detailed Payroll Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1017,8 +2239,12 @@ export default function PayrollDashboard() {
               <p className="text-gray-600 text-sm">{filteredRecords.length} records found</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <GlowButton variant="secondary" icon={FileText} size="sm">Payslips</GlowButton>
-              <GlowButton variant="secondary" icon={Download} size="sm">Export</GlowButton>
+              <GlowButtonss variant="secondary" icon={FileText} size="sm" onClick={() => setShowP9Modal(true)}>
+                P9 Forms
+              </GlowButtonss>
+              <GlowButtonss variant="secondary" icon={Download} size="sm" onClick={() => setShowExportModal(true)}>
+                Export
+              </GlowButtonss>
             </div>
           </div>
         </div>
@@ -1038,25 +2264,30 @@ export default function PayrollDashboard() {
               </tr>
             </thead>
             <tbody>
-              {filteredRecords.map((record, index) => {
+              {currentItems.map((record, index) => {
                 const isExpanded = expandedRows.has(record.id);
                 const voluntaryDeductions = record.loan_deduction + record.advance_deduction + record.welfare_deduction;
                 
                 return (
                   <React.Fragment key={record.id}>
-                    <tr 
-                      className="border-b border-gray-300 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => toggleRowExpand(record.id)}
-                    >
+                    <tr className="border-b border-gray-300 hover:bg-gray-50">
                       <td className="sticky left-0 z-10 bg-white px-4 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          {isExpanded ? (
-                            <ChevronUp className="w-4 h-4 mr-2 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="w-4 h-4 mr-2 text-gray-500" />
-                          )}
+                          <button 
+                            onClick={(e) => toggleRowExpand(record.id, e)}
+                            className="mr-2 text-gray-500 hover:text-gray-700"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </button>
                           <div>
                             <p className="font-semibold text-gray-900">{record.employee_name}</p>
+                            <p className="text-gray-500 text-xs">{record.employee_id}</p>
+                            <p className="text-gray-500 text-xs">{record.branch}</p>
+                            <p className="text-gray-500 text-xs">{record.employeeNu}</p>
                             <p className="text-gray-500 text-xs">{record.department} • {record.position}</p>
                           </div>
                         </div>
@@ -1081,8 +2312,15 @@ export default function PayrollDashboard() {
                       </td>
                       <td className="sticky right-0 z-10 bg-white px-4 py-4">
                         <div className="flex justify-center gap-1">
-                          <GlowButton variant="secondary" icon={Edit} size="sm">Edit</GlowButton>
                           <GlowButton 
+                            variant="primary" 
+                            icon={Smartphone} 
+                            size="sm" 
+                             onClick={() => handleSingleMpesaPayment(record)}
+                          >
+                            mpesa
+                          </GlowButton>
+                          <GlowButtonss 
                             variant="secondary" 
                             icon={FileText} 
                             size="sm" 
@@ -1092,7 +2330,7 @@ export default function PayrollDashboard() {
                             }}
                           >
                             Payslip
-                          </GlowButton>
+                          </GlowButtonss>
                         </div>
                       </td>
                     </tr>
@@ -1170,6 +2408,16 @@ export default function PayrollDashboard() {
             </tbody>
           </table>
         </div>
+        
+        {/* Pagination */}
+        <Pagination 
+          currentPage={currentPage} 
+          totalPages={totalPages} 
+          onPageChange={handlePageChange}
+          totalItems={filteredRecords.length}
+          itemsPerPage={itemsPerPage}
+          currentItemsCount={currentItems.length}
+        />
       </div>
 
       {/* Payslip Modal */}
@@ -1181,8 +2429,42 @@ export default function PayrollDashboard() {
             () => handleNavigatePayslip('prev') : undefined}
           onNext={currentRecordIndex !== null && currentRecordIndex < filteredRecords.length - 1 ? 
             () => handleNavigatePayslip('next') : undefined}
+          companyInfo={companyInfo}
         />
       )}
+
+      {/* M-PESA Single Payment Modal */}
+      {selectedEmployeeForMpesa && (
+        <MpesaSinglePaymentModal
+          isOpen={showSingleMpesaModal}
+          onClose={() => setShowSingleMpesaModal(false)}
+          employee={selectedEmployeeForMpesa}
+          onConfirm={() => processSingleMpesaPayment(selectedEmployeeForMpesa)}
+        />
+      )}
+
+      {/* M-PESA Bulk Payment Modal */}
+      <MpesaBulkPaymentModal
+        isOpen={showBulkMpesaModal}
+        onClose={() => setShowBulkMpesaModal(false)}
+        employees={filteredRecords}
+        onConfirm={processBulkMpesaPayment}
+      />
+
+      {/* P9 Form Modal */}
+      <P9FormGenerator
+        isOpen={showP9Modal}
+        onClose={() => setShowP9Modal(false)}
+                records={payrollRecords}
+        companyInfo={companyInfo}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        records={filteredRecords}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { IoMailOutline } from 'react-icons/io5';
 import { 
   FileText, 
   FileSignature, 
@@ -24,7 +25,10 @@ import {
   Menu,
   ChevronRight,
   MapPin,
-  MapPinOff
+  MapPinOff,
+  Trash2,
+  Bell,
+  Mail
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -36,6 +40,31 @@ import VideoConferenceComponent from './VideoConf';
 import UserProfileDropdown from './UserProfile';
 import PasswordResetModal from './test';
 import DocumentsUploadPage from './Documents';
+import PayslipViewer from './PayslipViewer';
+import EmployeeBioPage from './Bio';
+import solo from '../../../public/solo.png';
+
+
+interface CompanyProfile {
+  id: number;
+  image_url: string | null;
+  company_name: string | null;
+  company_tagline: string | null;
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  timestamp: Date;
+  isRead: boolean;
+}
+
+interface NotificationState {
+  items: NotificationItem[];
+  lastUpdated: Date | null;
+}
 
 // Geolocation and Time Tracking Types
 interface GeolocationPosition {
@@ -75,7 +104,7 @@ const SidebarNavItem = ({
     onClick={onClick}
     className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
       active 
-        ? 'bg-green-50 text-green-700'
+        ? 'bg-[#42fcff]/60 text-green-700'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
     }`}
   >
@@ -88,6 +117,9 @@ const SidebarNavItem = ({
     )}
   </button>
 );
+
+
+
 
 // PasswordResetModal Component
 
@@ -1943,12 +1975,117 @@ const StaffPortal = () => {
   });
   const [geolocationStatus, setGeolocationStatus] = useState<'granted' | 'denied' | 'prompt'>('prompt');
   const [userName, setUserName] = useState('Staff Member');
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null);
+  const [notifications, setNotifications] = useState<NotificationState>({
+    items: [],
+    lastUpdated: null
+  });
+  const [showNotificationDot, setShowNotificationDot] = useState(false);
+  const [notificationSidebarOpen, setNotificationSidebarOpen] = useState(false);
+  const [employeeNumber, setEmployeeNumber] = useState<string>('');
+
+
+ const fetchCompanyProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_logo')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setCompanyProfile(data);
+      }
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+    }
+  };
+
+  // Create notification item from warning data
+  const createNotificationItem = (warning: any): NotificationItem => {
+    return {
+      id: `warning-${warning.id}`,
+      type: 'warning',
+      title: `Warning: ${warning.type}`,
+      message: warning.message,
+      timestamp: new Date(warning.created_at || new Date()),
+      isRead: false
+    };
+  };
+
+  // Fetch notifications from warnings table
+  const fetchNotifications = async () => {
+    if (!employeeNumber) return;
+
+    try {
+      const { data: warnings, error } = await supabase
+        .from('warnings')
+        .select('*')
+        .eq('employee_id', employeeNumber)
+        .order('issued_at', { ascending: false });
+
+      if (error) throw error;
+
+      const notificationItems = (warnings || []).map(warning => 
+        createNotificationItem(warning)
+      );
+
+      setNotifications(prev => ({
+        items: notificationItems,
+        lastUpdated: new Date()
+      }));
+
+      // Show notification dot if there are unread items
+      const hasUnread = notificationItems.some(item => !item.isRead);
+      setShowNotificationDot(hasUnread);
+
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // Setup real-time subscription for warnings
+  useEffect(() => {
+    if (!employeeNumber) return;
+
+    const warningChannel = supabase
+      .channel('warnings_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'warnings',
+          filter: `employee_id=eq.${employeeNumber}`
+        },
+        (payload) => {
+          const newNotification = createNotificationItem(payload.new);
+          setNotifications(prev => ({
+            items: [newNotification, ...prev.items],
+            lastUpdated: new Date()
+          }));
+          setShowNotificationDot(true);
+          toast.success('New warning notification received');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(warningChannel);
+    };
+  }, [employeeNumber]);
+
 
   // Check geolocation status on component mount
-  useEffect(() => {
+ useEffect(() => {
     checkGeolocationPermission();
     checkLoginStatus();
     fetchUserData();
+    fetchCompanyProfile();
   }, []);
 
   const fetchUserData = async () => {
@@ -1958,17 +2095,56 @@ const StaffPortal = () => {
 
       const { data: employeeData } = await supabase
         .from('employees')
-        .select('"First Name", "Last Name"')
+        .select('"Employee Number", "First Name", "Last Name"')
         .eq('"Work Email"', user.email)
         .single();
 
       if (employeeData) {
         setUserName(`${employeeData["First Name"]} ${employeeData["Last Name"]}`);
+        setEmployeeNumber(employeeData["Employee Number"]);
+        
+        // Fetch notifications after we have the employee number
+        fetchNotifications();
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
     }
   };
+
+  // Handle notification click
+  const handleNotificationClick = (notification: NotificationItem) => {
+    // Mark as read
+    setNotifications(prev => ({
+      ...prev,
+      items: prev.items.map(item =>
+        item.id === notification.id ? { ...item, isRead: true } : item
+      )
+    }));
+
+    setShowNotificationDot(false);
+  };
+
+  // Handle clear all notifications
+  const handleClearAll = () => {
+    setNotifications(prev => ({
+      ...prev,
+      items: []
+    }));
+    setShowNotificationDot(false);
+    toast.success('All notifications cleared');
+  };
+
+  // Handle remove single notification
+  const handleRemoveNotification = (notificationId: string) => {
+    setNotifications(prev => ({
+      ...prev,
+      items: prev.items.filter(item => item.id !== notificationId)
+    }));
+  };
+
+  const unreadNotifications = notifications.items.filter(item => !item.isRead);
+
+  
 
   const checkGeolocationPermission = async () => {
     if (!navigator.geolocation) {
@@ -2109,9 +2285,15 @@ const StaffPortal = () => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed scroll-auto inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-200 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out`}>
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-          
+      <div className={`fixed sidebar-scroll inset-y-0 left-0 z-30 w-64 bg-gray-200 border-r border-gray-200 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out`}>
+        <div className="flex items-center space-x-3 h-16 px-6 px-y-3 border-b border-gray-300">
+          <motion.div 
+            className="w-10 h-10 flex-shrink-0 rounded-xl bg-gray-600 flex items-center justify-center shadow-inner"
+            whileHover={{ rotate: 5, scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          >
+            <img src={solo} alt="Logo" className="w-8 h-8 filter brightness-110" />
+          </motion.div>
           <h1 className="text-lg font-semibold text-gray-900">Staff Portal</h1>
           <button 
             className="md:hidden text-gray-500 hover:text-gray-600"
@@ -2121,7 +2303,7 @@ const StaffPortal = () => {
           </button>
         </div>
         
-        <div className="h-full overflow-y-auto ">
+        <div className="h-full  ">
           <div className="p-4 space-y-3.5 text-sm">
             <SidebarNavItem 
               icon={<Home className="h-4 w-4" />}
@@ -2135,6 +2317,18 @@ const StaffPortal = () => {
               label="Training"
               active={activeTab === 'training'}
               onClick={() => setActiveTab('training')}
+            />
+             <SidebarNavItem 
+              icon={<User className="h-4 w-4" />}
+              label="Bio Data"
+              active={activeTab === 'biodata'}
+              onClick={() => setActiveTab('biodata')}
+            />
+            <SidebarNavItem 
+              icon={<FileText className="h-4 w-4" />}
+              label="Payslips"
+              active={activeTab === 'payslips'}
+              onClick={() => setActiveTab('payslips')}
             />
             
             <div>
@@ -2261,23 +2455,185 @@ const StaffPortal = () => {
         </header>
 
         {/* Desktop header with status */}
-        <header className="hidden md:flex bg-white border-b border-gray-200 h-16 items-center justify-between px-6">
-          <h1 className="text-lg font-semibold text-gray-900">Staff Portal Dashboard</h1>
-          <div className="flex items-center space-x-4">
-            <HeaderStatus 
-              isLoggedIn={loginStatus.isLoggedIn} 
-              lastLogin={loginStatus.lastLogin}
-              geolocationStatus={geolocationStatus}
-              userName={userName}
+         <header className="hidden md:flex bg-white border-b border-gray-200 h-16 items-center justify-between px-6">
+        {/* Company Logo and Name */}
+        <div className="flex items-center space-x-3">
+          {companyProfile?.image_url ? (
+            <img 
+              src={companyProfile.image_url} 
+              alt="Company Logo" 
+              className="w-10 h-10 rounded-lg object-cover shadow-md"
             />
-            <UserProfileHeader userName={userName}  setActiveTab={setActiveTab}/>
+          ) : (
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-700 rounded-lg flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-xl">
+                {companyProfile?.company_name?.[0] || 'C'}
+              </span>
+            </div>
+          )}
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900 line-clamp-1">
+              {companyProfile?.company_name || 'Company Name'}
+            </h1>
+            <p className="text-xs text-gray-500 line-clamp-1">
+              {companyProfile?.company_tagline || 'Staff Portal'}
+            </p>
           </div>
-        </header>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          {/* Notification Bell */}
+          <motion.button
+            className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors duration-200"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setNotificationSidebarOpen(true)}
+            aria-label="Notifications"
+          >
+            <Mail className="w-5 h-5" />
+            {showNotificationDot && unreadNotifications.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-3 h-3  rounded-full animate-pulse"></span>
+            )}
+            {notifications.items.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center">
+                {notifications.items.length}
+              </span>
+            )}
+          </motion.button>
+
+          <HeaderStatus 
+            isLoggedIn={loginStatus.isLoggedIn} 
+            lastLogin={loginStatus.lastLogin}
+            geolocationStatus={geolocationStatus}
+            userName={userName}
+          />
+          <UserProfileHeader userName={userName} setActiveTab={setActiveTab}/>
+        </div>
+      </header>
+
+      {/* Notification Sidebar */}
+      {notificationSidebarOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setNotificationSidebarOpen(false)}
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          />
+          
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.3 }}
+            className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Bell className="w-5 h-5 text-gray-700" />
+                  <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+                  {notifications.items.length > 0 && (
+                    <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                      {notifications.items.length}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  {notifications.items.length > 0 && (
+                    <button
+                      onClick={handleClearAll}
+                      className="text-gray-500 hover:text-red-500 transition-colors"
+                      title="Clear all notifications"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setNotificationSidebarOpen(false)}
+                    className="text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Notifications List */}
+            <div className="flex-1 overflow-y-auto">
+              {notifications.items.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                  <Bell className="w-12 h-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No notifications</p>
+                  <p className="text-sm">You're all caught up!</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {notifications.items.map((notification) => (
+                    <motion.div
+                      key={notification.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors relative ${
+                        !notification.isRead ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                      }`}
+                      onClick={() => handleNotificationClick(notification)}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveNotification(notification.id);
+                        }}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                      
+                      <div className="flex items-start space-x-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-yellow-100 text-yellow-600">
+                          <AlertCircle className="w-4 h-4" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                            {notification.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            {notification.message}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            {notification.timestamp.toLocaleDateString()} {notification.timestamp.toLocaleTimeString()}
+                          </p>
+                        </div>
+                        
+                        {!notification.isRead && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            {notifications.items.length > 0 && (
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <p className="text-xs text-gray-500 text-center">
+                  {unreadNotifications.length} unread of {notifications.items.length} total
+                </p>
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
 
         <main className="flex-1 overflow-y-auto bg-gray-100">
           <div className="max-w-6xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             {!loginStatus.isLoggedIn && (
-              <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+              <div className="mb-6 bg-[#42fcff]/20 border-l-4 border-[#42fcff]/90 p-4 rounded-r-lg">
                 <div className="flex">
                   <div className="flex-shrink-0">
                     <AlertCircle className="h-5 w-5 text-red-500" />
@@ -2299,6 +2655,8 @@ const StaffPortal = () => {
             >
               {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
               {activeTab === 'salary-advance' && <SalaryAdvanceForm />}
+              {activeTab === 'biodata' && <EmployeeBioPage/>}
+              {activeTab === 'payslips' && <PayslipViewer />}
               {activeTab === 'loan' && <LoanRequestForm />}
               {activeTab === 'training' && <TrainingModule />}
               {activeTab === 'leave' && <LeaveApplicationForm />}

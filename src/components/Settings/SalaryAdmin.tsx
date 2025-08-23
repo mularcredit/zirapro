@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, CheckSquare, Square } from 'lucide-react';
 
 const SalaryAdvanceAdmin = () => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -14,6 +14,7 @@ const SalaryAdvanceAdmin = () => {
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
   const [isProcessingBulkPayment, setIsProcessingBulkPayment] = useState(false);
   const [employeeMobileNumbers, setEmployeeMobileNumbers] = useState<Record<string, string>>({});
+  const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({}); // Track selected staff for payment
 
   useEffect(() => {
     fetchApplications();
@@ -36,6 +37,15 @@ const SalaryAdvanceAdmin = () => {
         initialNotes[app.id] = app.admin_notes || '';
       });
       setNotes(initialNotes);
+
+      // Initialize selected staff - all approved applications are selected by default
+      const initialSelected: Record<string, boolean> = {};
+      data?.forEach(app => {
+        if (app.status?.toLowerCase() === 'approved') {
+          initialSelected[app.id] = true;
+        }
+      });
+      setSelectedStaff(initialSelected);
 
       // Fetch mobile numbers for all employees
       await fetchMobileNumbers(data || []);
@@ -103,10 +113,42 @@ const SalaryAdvanceAdmin = () => {
     return cleaned;
   };
 
-  // Calculate total amount for approved applications
+  // Calculate total amount for selected applications
   const calculateTotalAmount = () => {
     const approvedApps = getApprovedApplications();
-    return approvedApps.reduce((total, app) => total + Number(app["Amount Requested"] || 0), 0);
+    return approvedApps.reduce((total, app) => {
+      if (selectedStaff[app.id]) {
+        return total + Number(app["Amount Requested"] || 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Get count of selected staff
+  const getSelectedStaffCount = () => {
+    return Object.values(selectedStaff).filter(selected => selected).length;
+  };
+
+  // Toggle selection for a staff member
+  const toggleStaffSelection = (id: string) => {
+    setSelectedStaff(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  // Select all staff
+  const selectAllStaff = () => {
+    const newSelection: Record<string, boolean> = {};
+    getApprovedApplications().forEach(app => {
+      newSelection[app.id] = true;
+    });
+    setSelectedStaff(newSelection);
+  };
+
+  // Deselect all staff
+  const deselectAllStaff = () => {
+    setSelectedStaff({});
   };
 
   const handleAmountEdit = (id: string, currentAmount: string) => {
@@ -150,6 +192,13 @@ const SalaryAdvanceAdmin = () => {
         .eq('id', id);
 
       if (error) throw error;
+      
+      // Add to selected staff when approved
+      setSelectedStaff(prev => ({
+        ...prev,
+        [id]: true
+      }));
+      
       toast.success('Application approved!');
       fetchApplications();
     } catch (error) {
@@ -169,6 +218,14 @@ const SalaryAdvanceAdmin = () => {
         .eq('id', id);
 
       if (error) throw error;
+      
+      // Remove from selected staff when rejected
+      setSelectedStaff(prev => {
+        const newSelection = {...prev};
+        delete newSelection[id];
+        return newSelection;
+      });
+      
       toast.success('Application rejected!');
       fetchApplications();
     } catch (error) {
@@ -240,9 +297,10 @@ const SalaryAdvanceAdmin = () => {
     setIsProcessingBulkPayment(true);
     try {
       const approvedApps = getApprovedApplications();
+      const selectedApps = approvedApps.filter(app => selectedStaff[app.id]);
       const results = [];
       
-      for (const app of approvedApps) {
+      for (const app of selectedApps) {
         try {
           // Process M-Pesa payment
           const result = await processMpesaPayment(
@@ -273,7 +331,7 @@ const SalaryAdvanceAdmin = () => {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      toast.success(`Payments processed for ${results.filter(r => r.success).length} of ${approvedApps.length} staff members!`);
+      toast.success(`Payments processed for ${results.filter(r => r.success).length} of ${selectedApps.length} staff members!`);
       setShowBulkPaymentModal(false);
       fetchApplications();
     } catch (error) {
@@ -321,7 +379,7 @@ const SalaryAdvanceAdmin = () => {
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
               <Send size={16} />
-              Pay Approved Staff ({approvedApplications.length})
+              Pay Approved Staff ({getSelectedStaffCount()})
             </button>
           )}
           
@@ -501,7 +559,7 @@ const SalaryAdvanceAdmin = () => {
       {/* Bulk Payment Confirmation Modal */}
       {showBulkPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-green-600" />
               Confirm M-Pesa Bulk Payment
@@ -509,8 +567,23 @@ const SalaryAdvanceAdmin = () => {
             
             <div className="mb-4 p-3 bg-gray-50 rounded-md">
               <p className="text-sm text-gray-600">
-                You are about to process M-Pesa B2C payments for {approvedApplications.length} approved staff members.
+                You are about to process M-Pesa B2C payments for {getSelectedStaffCount()} selected staff members.
               </p>
+              
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={selectAllStaff}
+                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={deselectAllStaff}
+                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                >
+                  Deselect All
+                </button>
+              </div>
               
               <div className="mt-3 border-t pt-3">
                 <div className="flex justify-between text-sm">
@@ -524,14 +597,30 @@ const SalaryAdvanceAdmin = () => {
               <p className="text-sm font-medium mb-2">Staff to be paid:</p>
               <ul className="text-sm divide-y divide-gray-200">
                 {approvedApplications.map(app => (
-                  <li key={app.id} className="py-2 flex justify-between">
-                    <div>
-                      <div>{app["Full Name"]}</div>
-                      <div className="text-xs text-gray-500">
-                        {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
+                  <li key={app.id} className="py-2 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => toggleStaffSelection(app.id)}
+                        className="mr-2 text-green-600 hover:text-green-800"
+                      >
+                        {selectedStaff[app.id] ? (
+                          <CheckSquare className="h-5 w-5" />
+                        ) : (
+                          <Square className="h-5 w-5" />
+                        )}
+                      </button>
+                      <div>
+                        <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                          {app["Full Name"]}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
+                        </div>
                       </div>
                     </div>
-                    <span className="font-medium">{formatKES(Number(app["Amount Requested"]))}</span>
+                    <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                      {formatKES(Number(app["Amount Requested"]))}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -548,7 +637,7 @@ const SalaryAdvanceAdmin = () => {
               <button
                 onClick={handleBulkPayment}
                 className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-                disabled={isProcessingBulkPayment}
+                disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0}
               >
                 {isProcessingBulkPayment ? (
                   <>
@@ -558,7 +647,7 @@ const SalaryAdvanceAdmin = () => {
                 ) : (
                   <>
                     <Send size={16} />
-                    Confirm M-Pesa Payment
+                    Confirm M-Pesa Payment ({getSelectedStaffCount()})
                   </>
                 )}
               </button>

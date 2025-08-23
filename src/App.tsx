@@ -10,6 +10,7 @@ import AdminVideoUpload from './components/training/Training';
 import Footer from './components/Layout/Footer';
 import Login from './pages/Login';
 import Dashboard from './components/Dashboard/Dashboard';
+import ExpenseModule from './components/Epense/Expense';
 import EmployeeList from './components/Employees/EmployeeList';
 import LoanRequestsAdmin from './components/Settings/StaffLoan';
 import PayrollDashboard from './components/Payroll/PayrollDashboard';
@@ -536,6 +537,7 @@ function App() {
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
+                               <Route path="/expenses" element={<ExpenseModule/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 
@@ -569,7 +571,11 @@ function App() {
                                   </AuthRoute>
                                 } 
                               />
-                              <Route path="/recruitment" element={<RecruitmentDashboard selectedTown={selectedTown} />} />
+                              <Route path="/recruitment" 
+                              element={
+                              <AuthRoute allowedRoles={['ADMIN']}>
+                                <RecruitmentDashboard selectedTown={selectedTown} /> 
+                                   </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
                               <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
                               <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />

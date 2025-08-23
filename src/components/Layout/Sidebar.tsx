@@ -17,7 +17,8 @@ import {
   Siren,
   LogOut,
   Sun,
-  Moon
+  Moon,
+  HandCoins
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -33,6 +34,7 @@ const menuItems = [
   { id: 'performance', label: 'Performance', icon: TrendingUp, path: '/performance' },
   { id: 'training', label: 'Training', icon: GraduationCap, path: '/training' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' },
+  { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses' },
   { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck' },
   { id: 'conferencing', label: 'Conferencing', icon: Video, path: '/videocall' },
   { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
@@ -48,13 +50,13 @@ export default function Sidebar() {
 
   return (
     <motion.div
-      className={`min-h-screen shadow-2xl text-white flex-shrink-0 relative z-20 ${
+      className={`min-h-screen shadow-2xl text-gray-900 flex-shrink-0 relative z-20 ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
       style={{
         background: darkMode 
-          ? 'linear-gradient(135deg, #003e0bff 0%, #016717ff 50%, #03750bff 100%)'
-          : 'linear-gradient(135deg, #0d962fff 0%, #14b327ff 50%, #0d9634ff 100%)',
+          ? 'linear-gradient(135deg, #d1fcd9ff 20%, #c0c0ffff 80%, #95c698ff 100%)'
+          : 'linear-gradient(135deg, #d2f9dcff 20%, #b6a6ffff 50%, #85ffa7ff 100%)',
         boxShadow: '0 0 30px rgba(0, 200, 83, 0.15)'
       }}
       initial={{ width: 80 }}
@@ -89,7 +91,7 @@ export default function Sidebar() {
           }}
         >
           <motion.div 
-            className="w-10 h-10 flex-shrink-0 rounded-xl bg-white/10 flex items-center justify-center shadow-inner"
+            className="w-10 h-10 flex-shrink-0 rounded-xl bg-green-600 flex items-center justify-center shadow-inner"
             whileHover={{ rotate: 5, scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
           >
@@ -104,27 +106,27 @@ export default function Sidebar() {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <h1 className="text-xl font-bold text-white tracking-tight">
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">
                   Zira<span className="font-light">Hr</span>
                 </h1>
-                <p className="text-green-200 text-xs font-medium">Smiles Start Here</p>
+                <p className="text-gray-900 text-xs font-medium">Smiles Start Here</p>
               </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
 
         {/* Navigation */}
-        <nav className="space-y-2 flex-1">
+        <nav className="space-y-2  flex-1">
           {menuItems.map((item) => {
             const isActive = currentPath === item.path;
             return (
               <motion.button
                 key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center  font-medium px-0.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden group ${
+                className={`w-full flex items-center   px-0.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden group ${
                   isActive
-                    ? 'bg-white/15 text-white shadow-lg'
-                    : 'text-white/90 hover:text-white hover:bg-white/10'
+                    ? 'bg-white/15 text-gray-900 shadow-lg'
+                    : 'text-gray-900  hover:text-gray-900 hover:bg-white/10'
                 }`}
                 whileHover={{ 
                   scale: 1.02,
@@ -138,7 +140,7 @@ export default function Sidebar() {
                     whileHover={{ rotate: 5 }}
                   >
                     <item.icon
-                      className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-white/80 group-hover:text-white'}`}
+                      className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-gray-900' : 'text-gray-900 group-hover:text-gray-900'}`}
                     />
                   </motion.div>
                   <AnimatePresence>
@@ -188,7 +190,7 @@ export default function Sidebar() {
           <AnimatePresence>
             {(isHovered || !isCollapsed) && (
               <motion.span
-                className="text-sm text-white/80"
+                className="text-sm text-gray-900"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
@@ -222,7 +224,7 @@ export default function Sidebar() {
               className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center ml-1 shadow-inner"
               whileHover={{ rotate: 5 }}
             >
-              <Settings className="w-5 h-5 text-white/80" />
+              <Settings className="w-5 h-5 text-gray-900/80" />
             </motion.div>
             <AnimatePresence>
               {(isHovered || !isCollapsed) && (
@@ -233,7 +235,7 @@ export default function Sidebar() {
                   exit={{ opacity: 0, x: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <p className="text-sm font-medium text-white">Settings</p>
+                  <p className="text-sm font-medium text-gray-900">Settings</p>
                   <p className="text-xs text-green-200">Account & Preferences</p>
                 </motion.div>
               )}
@@ -243,7 +245,7 @@ export default function Sidebar() {
           <AnimatePresence>
             {(isHovered || !isCollapsed) && (
               <motion.button
-                className="w-full mt-4 flex items-center text-white/80 hover:text-white py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"
+                className="w-full mt-4 flex items-center text-gray-900/80 hover:text-gray-900 py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
