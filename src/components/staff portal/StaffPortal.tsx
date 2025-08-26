@@ -947,7 +947,7 @@ const SalaryAdvanceForm = () => {
   const isAdvancePeriod = () => {
     const today = new Date();
     const day = today.getDate();
-    return day >= 13 && day <= 18;
+    return day >= 1 && day <= 31;
   };
 
   // Calculate maximum eligible advance amount (20% of basic salary)
@@ -1406,7 +1406,7 @@ const SalaryAdvanceForm = () => {
   );
 };
 
-// LoanRequestForm Component
+// Enhanced LoanRequestForm Component
 const LoanRequestForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1414,9 +1414,11 @@ const LoanRequestForm = () => {
     "Office Branch": '',
     "Basic Salary": '',
     "Loan Amount": '',
-    "Repayment Installment": '',
-    "First Payment Date": '',
-    "Second Payment Date": '',
+    "Number of Months": 2,
+    "Monthly Deduction": '',
+    "Custom Monthly Deduction": '',
+    "Use Custom Deduction": false,
+    "Repayment Schedule": [] as string[],
     "Reason for Loan": '',
     time_added: new Date().toISOString()
   });
@@ -1425,19 +1427,25 @@ const LoanRequestForm = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [view, setView] = useState<'form' | 'list'>('form');
 
-  // Calculate repayment dates (next two months)
-  const calculateRepaymentDates = () => {
+  // Calculate monthly deduction based on loan amount and number of months
+  const calculateMonthlyDeduction = () => {
+    const loanAmount = parseFloat(formData["Loan Amount"]) || 0;
+    const months = formData["Number of Months"] || 1;
+    return (loanAmount / months).toFixed(2);
+  };
+
+  // Generate repayment schedule dates
+  const generateRepaymentSchedule = (months: number) => {
+    const schedule = [];
     const today = new Date();
-    const firstPayment = new Date(today);
-    firstPayment.setMonth(today.getMonth() + 1);
     
-    const secondPayment = new Date(today);
-    secondPayment.setMonth(today.getMonth() + 2);
+    for (let i = 1; i <= months; i++) {
+      const paymentDate = new Date(today);
+      paymentDate.setMonth(today.getMonth() + i);
+      schedule.push(paymentDate.toISOString().split('T')[0]);
+    }
     
-    return {
-      firstPayment: firstPayment.toISOString().split('T')[0],
-      secondPayment: secondPayment.toISOString().split('T')[0]
-    };
+    return schedule;
   };
 
   useEffect(() => {
@@ -1458,7 +1466,6 @@ const LoanRequestForm = () => {
           
           if (data) {
             const basicSalary = data["Basic Salary"] || '0';
-            const repaymentDates = calculateRepaymentDates();
             
             setFormData(prev => ({
               ...prev,
@@ -1466,8 +1473,7 @@ const LoanRequestForm = () => {
               "Full Name": `${data["First Name"]} ${data["Last Name"]}` || '',
               "Office Branch": data["Office"] || '',
               "Basic Salary": basicSalary,
-              "First Payment Date": repaymentDates.firstPayment,
-              "Second Payment Date": repaymentDates.secondPayment
+              "Repayment Schedule": generateRepaymentSchedule(2)
             }));
 
             await fetchApplications(data["Employee Number"]);
@@ -1505,21 +1511,25 @@ const LoanRequestForm = () => {
     };
   }, []);
 
+  // Update monthly deduction and repayment schedule when loan amount or number of months changes
   useEffect(() => {
     if (formData["Loan Amount"]) {
-      const loanAmount = parseFloat(formData["Loan Amount"]) || 0;
-      const installment = (loanAmount / 2).toFixed(2);
+      const calculatedDeduction = calculateMonthlyDeduction();
+      const newSchedule = generateRepaymentSchedule(formData["Number of Months"]);
+      
       setFormData(prev => ({
         ...prev,
-        "Repayment Installment": installment
+        "Monthly Deduction": calculatedDeduction,
+        "Repayment Schedule": newSchedule
       }));
     } else {
       setFormData(prev => ({
         ...prev,
-        "Repayment Installment": ''
+        "Monthly Deduction": '',
+        "Repayment Schedule": []
       }));
     }
-  }, [formData["Loan Amount"]]);
+  }, [formData["Loan Amount"], formData["Number of Months"]]);
 
   const fetchApplications = async (employeeNumber: string) => {
     try {
@@ -1537,12 +1547,21 @@ const LoanRequestForm = () => {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: name === 'Number of Months' ? parseInt(value) || 2 : value
+      }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1561,6 +1580,29 @@ const LoanRequestForm = () => {
       return;
     }
 
+    // Validate custom deduction if enabled
+    const finalMonthlyDeduction = formData["Use Custom Deduction"] 
+      ? formData["Custom Monthly Deduction"]
+      : formData["Monthly Deduction"];
+
+    if (formData["Use Custom Deduction"]) {
+      const customAmount = parseFloat(formData["Custom Monthly Deduction"]);
+      const loanAmount = parseFloat(formData["Loan Amount"]);
+      const totalCustomPayment = customAmount * formData["Number of Months"];
+      
+      if (customAmount <= 0) {
+        toast.error('Custom monthly deduction must be greater than 0');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      if (totalCustomPayment < loanAmount) {
+        toast.error('Total custom payments must cover the full loan amount');
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from('loan_requests')
@@ -1570,9 +1612,9 @@ const LoanRequestForm = () => {
           "Office Branch": formData["Office Branch"],
           "Basic Salary": formData["Basic Salary"],
           "Loan Amount": formData["Loan Amount"],
-          "Repayment Installment": formData["Repayment Installment"],
-          "First Payment Date": formData["First Payment Date"],
-          "Second Payment Date": formData["Second Payment Date"],
+          "Number of Months": formData["Number of Months"],
+          "Monthly Deduction": finalMonthlyDeduction,
+          "Repayment Schedule": JSON.stringify(formData["Repayment Schedule"]),
           "Reason for Loan": formData["Reason for Loan"],
           status: 'Pending',
           time_added: new Date().toISOString()
@@ -1588,7 +1630,9 @@ const LoanRequestForm = () => {
       setFormData(prev => ({
         ...prev,
         "Loan Amount": '',
-        "Repayment Installment": '',
+        "Monthly Deduction": '',
+        "Custom Monthly Deduction": '',
+        "Use Custom Deduction": false,
         "Reason for Loan": '',
         time_added: new Date().toISOString()
       }));
@@ -1626,7 +1670,6 @@ const LoanRequestForm = () => {
           <button
             onClick={() => setView('form')}
             className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
-            disabled={!navigator.geolocation || !('geolocation' in navigator)}
           >
             <Banknote className="h-4 w-4 mr-2" />
             New Application
@@ -1644,7 +1687,6 @@ const LoanRequestForm = () => {
               <button
                 onClick={() => setView('form')}
                 className="mt-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
-                disabled={!navigator.geolocation || !('geolocation' in navigator)}
               >
                 Apply for Loan
               </button>
@@ -1657,13 +1699,13 @@ const LoanRequestForm = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Loan Amount
+                      Loan Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Installment
+                      Monthly Deduction
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Repayment Dates
+                      Duration
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -1685,15 +1727,10 @@ const LoanRequestForm = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        Ksh{app["Repayment Installment"]}
+                        Ksh{app["Monthly Deduction"]}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {new Date(app["First Payment Date"]).toLocaleDateString()}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(app["Second Payment Date"]).toLocaleDateString()}
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {app["Number of Months"] || 2} month{(app["Number of Months"] || 2) !== 1 ? 's' : ''}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
@@ -1712,13 +1749,17 @@ const LoanRequestForm = () => {
     );
   }
 
+  const finalMonthlyDeduction = formData["Use Custom Deduction"] 
+    ? formData["Custom Monthly Deduction"]
+    : formData["Monthly Deduction"];
+
   return (
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold text-gray-800">Loan Request</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">Submit your request for a staff loan</p>
+          <p className="text-sm text-green-600">Submit your request for a staff loan with flexible payment terms</p>
         </div>
       </div>
       
@@ -1788,39 +1829,106 @@ const LoanRequestForm = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Monthly Installment</label>
-              <input
-                type="text"
-                name="Repayment Installment"
-                value={`Ksh${formData["Repayment Installment"]}`}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-                readOnly
-              />
+              <label className="block text-sm font-medium text-gray-700">Number of Monthly Deductions</label>
+              <select
+                name="Number of Months"
+                value={formData["Number of Months"]}
+                onChange={handleChange}
+                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                required
+              >
+                <option value={2}>2 Months</option>
+                <option value={3}>3 Months</option>
+                <option value={4}>4 Months</option>
+                <option value={6}>6 Months</option>
+                <option value={12}>12 Months</option>
+              </select>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">First Payment Date</label>
-              <input
-                type="date"
-                name="First Payment Date"
-                value={formData["First Payment Date"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-                readOnly
-              />
+          {/* Monthly Deduction Section */}
+          <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+            <h3 className="text-lg font-medium text-gray-800">Monthly Deduction Settings</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <label className="block text-sm font-medium text-gray-700">Calculated Monthly Deduction</label>
+                <input
+                  type="text"
+                  name="Monthly Deduction"
+                  value={`Ksh${formData["Monthly Deduction"]}`}
+                  className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100"
+                  readOnly
+                />
+                <p className="text-xs text-gray-500">
+                  Based on loan amount divided by {formData["Number of Months"]} months
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    name="Use Custom Deduction"
+                    checked={formData["Use Custom Deduction"]}
+                    onChange={handleChange}
+                    className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm font-medium text-gray-700">Use Custom Monthly Deduction</span>
+                </label>
+                
+                {formData["Use Custom Deduction"] && (
+                  <div className="space-y-1">
+                    <div className="relative rounded-lg shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">Ksh</span>
+                      </div>
+                      <input
+                        type="number"
+                        name="Custom Monthly Deduction"
+                        value={formData["Custom Monthly Deduction"]}
+                        onChange={handleChange}
+                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-sm border border-gray-300 rounded-lg"
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                      />
+                    </div>
+                    <p className="text-xs text-orange-600">
+                      Total custom payments over {formData["Number of Months"]} months: Ksh{(parseFloat(formData["Custom Monthly Deduction"]) * formData["Number of Months"] || 0).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Second Payment Date</label>
-              <input
-                type="date"
-                name="Second Payment Date"
-                value={formData["Second Payment Date"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
-                readOnly
-              />
+
+            <div className="bg-white p-3 rounded border">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">Final Monthly Deduction</h4>
+              <div className="text-2xl font-bold text-green-600">
+                Ksh{finalMonthlyDeduction || '0.00'}
+              </div>
             </div>
           </div>
+
+          {/* Repayment Schedule */}
+          {formData["Repayment Schedule"].length > 0 && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-800 mb-3">Repayment Schedule</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {formData["Repayment Schedule"].map((date, index) => (
+                  <div key={index} className="bg-white p-3 rounded-lg shadow-sm text-center">
+                    <div className="text-xs text-gray-500">Payment {index + 1}</div>
+                    <div className="text-sm font-medium text-gray-900">
+                      {new Date(date).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-green-600">
+                      Ksh{finalMonthlyDeduction || '0.00'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Reason for Loan</label>
@@ -1837,8 +1945,7 @@ const LoanRequestForm = () => {
           </div>
 
           <div className="pt-4 flex justify-between">
-            
-             <button
+            <button
               type="button"
               onClick={() => setView('list')}
               className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center"
@@ -1875,6 +1982,372 @@ const LoanRequestForm = () => {
   );
 };
 
+// Enhanced DocumentsUploadPage Component
+// const DocumentsUploadPage = () => {
+//   const [files, setFiles] = useState<File[]>([]);
+//   const [uploading, setUploading] = useState(false);
+//   const [uploadedDocuments, setUploadedDocuments] = useState<any[]>([]);
+//   const [employeeNumber, setEmployeeNumber] = useState('');
+//   const [documentTypes, setDocumentTypes] = useState<string[]>([]);
+
+//   // Define available document types
+//   const availableDocumentTypes = [
+//     'National ID',
+//     'Passport',
+//     'Academic Certificate',
+//     'Professional Certificate',
+//     'Tax PIN Certificate',
+//     'NHIF Card',
+//     'NSSF Card',
+//     'Bank Statement',
+//     'Payslip',
+//     'Contract',
+//     'Medical Certificate',
+//     'Character Reference',
+//     'Work Permit',
+//     'Driving License',
+//     'Other'
+//   ];
+
+//   useEffect(() => {
+//     fetchEmployeeData();
+//     fetchUploadedDocuments();
+//   }, []);
+
+//   const fetchEmployeeData = async () => {
+//     const { data: { user } } = await supabase.auth.getUser();
+//     if (user?.email) {
+//       try {
+//         const { data } = await supabase
+//           .from('employees')
+//           .select('"Employee Number"')
+//           .eq('"Work Email"', user.email)
+//           .single();
+        
+//         if (data) {
+//           setEmployeeNumber(data["Employee Number"]);
+//         }
+//       } catch (error) {
+//         console.error('Error fetching employee data:', error);
+//       }
+//     }
+//   };
+
+//   const fetchUploadedDocuments = async () => {
+//     if (!employeeNumber) return;
+    
+//     try {
+//       const { data, error } = await supabase
+//         .from('documents')
+//         .select('*')
+//         .eq('employee_number', employeeNumber)
+//         .order('uploaded_at', { ascending: false });
+
+//       if (error) throw error;
+
+//       setUploadedDocuments(data || []);
+      
+//       // Extract existing document types
+//       const existingTypes = (data || []).map(doc => doc.document_type);
+//       setDocumentTypes(existingTypes);
+//     } catch (error) {
+//       console.error('Error fetching documents:', error);
+//     }
+//   };
+
+//   const checkDuplicateDocumentType = (selectedType: string) => {
+//     return documentTypes.includes(selectedType);
+//   };
+
+//   const handleFileUpload = async (file: File, documentType: string) => {
+//     if (!employeeNumber) {
+//       toast.error('Employee information not found');
+//       return false;
+//     }
+
+//     // Check if document type already exists
+//     if (checkDuplicateDocumentType(documentType)) {
+//       toast.error(`You have already uploaded a ${documentType}. Each document type can only be uploaded once.`);
+//       return false;
+//     }
+
+//     setUploading(true);
+    
+//     try {
+//       const fileExt = file.name.split('.').pop();
+//       const fileName = `${employeeNumber}/${documentType}_${Date.now()}.${fileExt}`;
+      
+//       const { data: uploadData, error: uploadError } = await supabase.storage
+//         .from('documents')
+//         .upload(fileName, file);
+
+//       if (uploadError) throw uploadError;
+
+//       const { data: insertData, error: insertError } = await supabase
+//         .from('documents')
+//         .insert([{
+//           employee_number: employeeNumber,
+//           document_type: documentType,
+//           file_name: file.name,
+//           file_path: uploadData.path,
+//           file_size: file.size,
+//           mime_type: file.type,
+//           uploaded_at: new Date().toISOString()
+//         }]);
+
+//       if (insertError) throw insertError;
+
+//       toast.success(`${documentType} uploaded successfully!`);
+      
+//       // Update the document types list
+//       setDocumentTypes(prev => [...prev, documentType]);
+      
+//       await fetchUploadedDocuments();
+//       return true;
+//     } catch (error) {
+//       console.error('Error uploading file:', error);
+//       toast.error('Failed to upload document');
+//       return false;
+//     } finally {
+//       setUploading(false);
+//     }
+//   };
+
+//   const handleDeleteDocument = async (docId: string, filePath: string, documentType: string) => {
+//     try {
+//       // Delete from storage
+//       const { error: storageError } = await supabase.storage
+//         .from('documents')
+//         .remove([filePath]);
+
+//       if (storageError) throw storageError;
+
+//       // Delete from database
+//       const { error: dbError } = await supabase
+//         .from('documents')
+//         .delete()
+//         .eq('id', docId);
+
+//       if (dbError) throw dbError;
+
+//       toast.success('Document deleted successfully');
+      
+//       // Remove from document types list
+//       setDocumentTypes(prev => prev.filter(type => type !== documentType));
+      
+//       await fetchUploadedDocuments();
+//     } catch (error) {
+//       console.error('Error deleting document:', error);
+//       toast.error('Failed to delete document');
+//     }
+//   };
+
+//   const formatFileSize = (bytes: number) => {
+//     if (bytes === 0) return '0 Bytes';
+//     const k = 1024;
+//     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+//     const i = Math.floor(Math.log(bytes) / Math.log(k));
+//     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+//   };
+
+//   return (
+//     <div className="p-6">
+//       <div className="mb-6">
+//         <h2 className="text-2xl font-semibold text-gray-800">Document Management</h2>
+//         <div className="flex items-center mt-2">
+//           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
+//           <p className="text-sm text-green-600">Upload and manage your important documents</p>
+//         </div>
+//       </div>
+
+//       {/* Upload Section */}
+//       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+//         <h3 className="text-lg font-medium text-gray-800 mb-4">Upload New Document</h3>
+        
+//         {/* Document Upload Form */}
+//         <DocumentUploadForm 
+//           onUpload={handleFileUpload}
+//           availableTypes={availableDocumentTypes.filter(type => !documentTypes.includes(type))}
+//           uploading={uploading}
+//         />
+//       </div>
+
+//       {/* Document Type Restrictions Info */}
+//       <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg mb-6">
+//         <div className="flex">
+//           <AlertCircle className="h-5 w-5 text-blue-500" />
+//           <div className="ml-3">
+//             <p className="text-sm text-blue-700">
+//               <strong>Document Upload Policy:</strong> Each document type can only be uploaded once. 
+//               If you need to update a document, please delete the existing one first.
+//             </p>
+//           </div>
+//         </div>
+//       </div>
+
+//       {/* Uploaded Documents */}
+//       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+//         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+//           <h3 className="text-lg font-medium text-gray-800">Uploaded Documents</h3>
+//           <p className="text-sm text-gray-600">
+//             {uploadedDocuments.length} document{uploadedDocuments.length !== 1 ? 's' : ''} uploaded
+//           </p>
+//         </div>
+
+//         {uploadedDocuments.length === 0 ? (
+//           <div className="p-8 text-center">
+//             <div className="h-12 w-12 mx-auto bg-gray-200 rounded-full flex items-center justify-center mb-4">
+//               <FileText className="h-5 w-5 text-gray-500" />
+//             </div>
+//             <h3 className="text-lg font-medium text-gray-900">No documents uploaded</h3>
+//             <p className="mt-1 text-sm text-gray-500">Upload your first document to get started.</p>
+//           </div>
+//         ) : (
+//           <div className="divide-y divide-gray-200">
+//             {uploadedDocuments.map((doc) => (
+//               <div key={doc.id} className="p-6 hover:bg-gray-50">
+//                 <div className="flex items-center justify-between">
+//                   <div className="flex items-center space-x-4">
+//                     <div className="flex-shrink-0">
+//                       <FileText className="h-8 w-8 text-gray-400" />
+//                     </div>
+//                     <div>
+//                       <h4 className="text-sm font-medium text-gray-900">{doc.document_type}</h4>
+//                       <p className="text-sm text-gray-500">{doc.file_name}</p>
+//                       <div className="flex items-center space-x-4 mt-1">
+//                         <span className="text-xs text-gray-500">
+//                           {formatFileSize(doc.file_size)}
+//                         </span>
+//                         <span className="text-xs text-gray-500">
+//                           Uploaded {new Date(doc.uploaded_at).toLocaleDateString()}
+//                         </span>
+//                       </div>
+//                     </div>
+//                   </div>
+                  
+//                   <button
+//                     onClick={() => handleDeleteDocument(doc.id, doc.file_path, doc.document_type)}
+//                     className="text-red-500 hover:text-red-700 transition-colors p-2"
+//                     title="Delete document"
+//                   >
+//                     <Trash2 className="h-4 w-4" />
+//                   </button>
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//         )}
+//       </div>
+//     </div>
+//   );
+// };
+
+// Document Upload Form Component
+const DocumentUploadForm = ({ 
+  onUpload, 
+  availableTypes, 
+  uploading 
+}: { 
+  onUpload: (file: File, type: string) => Promise<boolean>;
+  availableTypes: string[];
+  uploading: boolean;
+}) => {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedFile || !documentType) {
+      toast.error('Please select a file and document type');
+      return;
+    }
+
+    const success = await onUpload(selectedFile, documentType);
+    if (success) {
+      setSelectedFile(null);
+      setDocumentType('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Document Type</label>
+          <select
+            value={documentType}
+            onChange={(e) => setDocumentType(e.target.value)}
+            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            required
+            disabled={availableTypes.length === 0}
+          >
+            <option value="">Select document type</option>
+            {availableTypes.map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
+          {availableTypes.length === 0 && (
+            <p className="text-xs text-orange-600">All document types have been uploaded</p>
+          )}
+        </div>
+        
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Choose File</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+            required
+          />
+        </div>
+      </div>
+
+      {selectedFile && (
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <p className="text-sm text-gray-700">
+            Selected: <strong>{selectedFile.name}</strong> ({Math.round(selectedFile.size / 1024)} KB)
+          </p>
+        </div>
+      )}
+
+      <button
+        type="submit"
+        disabled={uploading || !selectedFile || !documentType || availableTypes.length === 0}
+        className={`w-full px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex items-center justify-center ${
+          uploading || !selectedFile || !documentType || availableTypes.length === 0 ? 'opacity-70 cursor-not-allowed' : ''
+        }`}
+      >
+        {uploading ? (
+          <>
+            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Uploading...
+          </>
+        ) : (
+          <>
+            <UploadCloud className="h-4 w-4 mr-2" />
+            Upload Document
+          </>
+        )}
+      </button>
+    </form>
+  );
+};
 
 const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }) => (
   <div className="p-6">

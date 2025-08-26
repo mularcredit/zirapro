@@ -25,10 +25,13 @@ import {
   Zap,
   Gift,
   Eye,
-  Save
+  Save,
+  MessageSquare,
+  ThumbsUp // Added for recommendation icon
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -66,7 +69,9 @@ type LeaveApplication = {
   "Office Branch": string;
   Reason: string;
   Status: 'pending' | 'approved' | 'rejected';
+  recstatus: 'recommended' | 'not_recommended' | null; // Added recstatus field
   time_added: string;
+  recommendation_notes?: string;
 };
 
 type EmployeeLeaveBalance = {
@@ -177,20 +182,55 @@ const StatusBadge = ({ status }: { status: string }) => {
     'pending': 'bg-yellow-100 text-yellow-800',
     'approved': 'bg-green-100 text-green-800',
     'rejected': 'bg-red-100 text-red-800',
+    'recommended': 'bg-blue-100 text-blue-800',
+    'not_recommended': 'bg-orange-100 text-orange-800',
   };
 
   const statusIcons = {
     'pending': PendingIcon,
     'approved': CheckCircle,
     'rejected': XCircle,
+    'recommended': ThumbsUp, // Changed to ThumbsUp for recommendation
+    'not_recommended': XCircle,
   };
 
-  const Icon = statusIcons[status as keyof typeof statusIcons];
+  const Icon = statusIcons[status as keyof typeof statusIcons] || PendingIcon;
 
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses[status as keyof typeof statusClasses]}`}>
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses[status as keyof typeof statusClasses] || statusClasses.pending}`}>
       <Icon className="w-3 h-3" />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ')}
+    </span>
+  );
+};
+
+// Recommendation Status Badge Component
+const RecStatusBadge = ({ recstatus }: { recstatus: string | null }) => {
+  if (!recstatus) {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-800">
+        <Clock className="w-3 h-3" />
+        Not Reviewed
+      </span>
+    );
+  }
+
+  const statusClasses = {
+    'recommended': 'bg-blue-100 text-blue-800',
+    'not_recommended': 'bg-orange-100 text-orange-800',
+  };
+
+  const statusIcons = {
+    'recommended': ThumbsUp,
+    'not_recommended': XCircle,
+  };
+
+  const Icon = statusIcons[recstatus as keyof typeof statusIcons] || Clock;
+
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full ${statusClasses[recstatus as keyof typeof statusClasses]}`}>
+      <Icon className="w-3 h-3" />
+      {recstatus.charAt(0).toUpperCase() + recstatus.slice(1).replace('_', ' ')}
     </span>
   );
 };
@@ -261,6 +301,12 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
               </div>
             </div>
             <div>
+              <p className="text-sm text-gray-500">Recommendation Status</p>
+              <div className="font-medium">
+                <RecStatusBadge recstatus={application.recstatus} />
+              </div>
+            </div>
+            <div>
               <p className="text-sm text-gray-500">Applied On</p>
               <p className="font-medium">{formatDate(application.time_added)}</p>
             </div>
@@ -270,6 +316,15 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
             <p className="text-sm text-gray-500">Reason</p>
             <p className="font-medium whitespace-pre-line">{application.Reason}</p>
           </div>
+
+          {application.recommendation_notes && (
+            <div>
+              <p className="text-sm text-gray-500">Recommendation Notes</p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="font-medium whitespace-pre-line text-blue-800">{application.recommendation_notes}</p>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="flex justify-end gap-2 pt-6">
@@ -296,10 +351,10 @@ const StatusUpdateModal = ({
   isOpen: boolean; 
   onClose: () => void; 
   applicationId: string | null;
-  action: 'approve' | 'reject' | null;
-  onUpdateStatus: (applicationId: string, status: 'approved' | 'rejected', notes: string) => Promise<void>;
+  action: 'approve' | 'reject' | 'recommend' | 'not_recommend' | null;
+  onUpdateStatus: (applicationId: string, status: 'approved' | 'rejected' | 'recommended' | 'not_recommended', notes: string) => Promise<void>;
 }) => {
-  const [notes, setReason] = useState('');
+  const [notes, setNotes] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleSubmit = async () => {
@@ -307,8 +362,19 @@ const StatusUpdateModal = ({
     
     setIsUpdating(true);
     try {
-      await onUpdateStatus(applicationId, action === 'approve' ? 'approved' : 'rejected', notes);
-      setReason('');
+      let status: 'approved' | 'rejected' | 'recommended' | 'not_recommended';
+      if (action === 'approve') {
+        status = 'approved';
+      } else if (action === 'reject') {
+        status = 'rejected';
+      } else if (action === 'recommend') {
+        status = 'recommended';
+      } else {
+        status = 'not_recommended';
+      }
+      
+      await onUpdateStatus(applicationId, status, notes);
+      setNotes('');
       onClose();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -317,14 +383,66 @@ const StatusUpdateModal = ({
     }
   };
 
+  const getModalTitle = () => {
+    switch (action) {
+      case 'approve': return 'Approve Leave';
+      case 'reject': return 'Reject Leave';
+      case 'recommend': return 'Recommend Leave';
+      case 'not_recommend': return 'Not Recommend Leave';
+      default: return 'Update Leave Status';
+    }
+  };
+
+  const getNotesLabel = () => {
+    switch (action) {
+      case 'approve': return 'Approval Notes';
+      case 'reject': return 'Reason for Rejection';
+      case 'recommend': return 'Recommendation Notes';
+      case 'not_recommend': return 'Reason for Not Recommending';
+      default: return 'Notes';
+    }
+  };
+
+  const getNotesPlaceholder = () => {
+    switch (action) {
+      case 'approve': return 'Add any notes about this approval...';
+      case 'reject': return 'Explain why this leave application is being rejected...';
+      case 'recommend': return 'Add your recommendation notes for this leave application...';
+      case 'not_recommend': return 'Explain why you are not recommending this leave application...';
+      default: return 'Add notes...';
+    }
+  };
+
+  const getButtonColor = () => {
+    switch (action) {
+      case 'approve': return 'bg-green-600 hover:bg-green-700';
+      case 'reject': return 'bg-red-600 hover:bg-red-700';
+      case 'recommend': return 'bg-blue-600 hover:bg-blue-700';
+      case 'not_recommend': return 'bg-orange-600 hover:bg-orange-700';
+      default: return 'bg-gray-600 hover:bg-gray-700';
+    }
+  };
+
+  const getButtonIcon = () => {
+    switch (action) {
+      case 'approve': return CheckCircle;
+      case 'reject': return XCircle;
+      case 'recommend': return ThumbsUp;
+      case 'not_recommend': return XCircle;
+      default: return CheckCircle;
+    }
+  };
+
   if (!isOpen) return null;
+
+  const Icon = getButtonIcon();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">
-            {action === 'approve' ? 'Approve Leave' : 'Reject Leave'}
+            {getModalTitle()}
           </h3>
           <button 
             onClick={onClose}
@@ -337,14 +455,14 @@ const StatusUpdateModal = ({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              {action === 'approve' ? 'Approval Notes' : 'Reason for Rejection'}
+              {getNotesLabel()}
             </label>
             <textarea
               value={notes}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
               rows={4}
-              placeholder={action === 'approve' ? 'Add any notes about this approval...' : 'Explain why this leave application is being rejected...'}
+              placeholder={getNotesPlaceholder()}
             />
           </div>
         </div>
@@ -359,15 +477,15 @@ const StatusUpdateModal = ({
           </button>
           <button 
             onClick={handleSubmit}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm flex items-center gap-2"
+            className={`px-4 py-2 ${getButtonColor()} text-white rounded-lg text-sm flex items-center gap-2`}
             disabled={isUpdating}
           >
             {isUpdating ? (
               <span className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
             ) : (
-              <CheckCircle className="w-4 h-4" />
+              <Icon className="w-4 h-4" />
             )}
-            Update Status
+            {action === 'recommend' ? 'Recommend' : action === 'not_recommend' ? 'Not Recommend' : 'Update Status'}
           </button>
         </div>
       </div>
@@ -462,7 +580,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   // Status update modal state
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
-  const [statusAction, setStatusAction] = useState<'approve' | 'reject' | null>(null);
+  const [statusAction, setStatusAction] = useState<'approve' | 'reject' | 'recommend' | 'not_recommend' | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   
   // Pagination states
@@ -478,6 +596,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   // Loading states for buttons
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [recommendingId, setRecommendingId] = useState<string | null>(null);
+  const [notRecommendingId, setNotRecommendingId] = useState<string | null>(null);
   const [savingBalances, setSavingBalances] = useState(false);
   
   // Form states
@@ -510,7 +630,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
     "Application Type": 'Normal',
     "Office Branch": '',
     "Reason": '',
-    "Status": 'pending'
+    "Status": 'pending',
+    "recstatus": null
   });
   const [accrualSettings, setAccrualSettings] = useState({
     accrualInterval: 'monthly', // 'monthly' or 'quarterly'
@@ -634,22 +755,34 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   };
 
   // Function to open status update modal
-  const openStatusModal = (applicationId: string, action: 'approve' | 'reject') => {
+  const openStatusModal = (applicationId: string, action: 'approve' | 'reject' | 'recommend' | 'not_recommend') => {
     setSelectedApplicationId(applicationId);
     setStatusAction(action);
     setShowStatusModal(true);
   };
 
   // Function to update leave status with reason
-  const handleUpdateStatus = async (applicationId: string, status: 'approved' | 'rejected', notes: string) => {
+  const handleUpdateStatus = async (applicationId: string, status: 'approved' | 'rejected' | 'recommended' | 'not_recommended', notes: string) => {
     setUpdatingStatus(true);
     try {
+      let updateData: any = {};
+      
+      // Handle different update fields based on status type
+      if (status === 'approved' || status === 'rejected') {
+        updateData = { 
+          "Status": status,
+          "Reason": notes 
+        };
+      } else if (status === 'recommended' || status === 'not_recommended') {
+        updateData = { 
+          "recstatus": status,
+          "recommendation_notes": notes 
+        };
+      }
+
       const { error } = await supabase
         .from('leave_application')
-        .update({ 
-          "Status": status,
-          "Reason": notes // This will update the Reason column with the notes
-        })
+        .update(updateData)
         .eq('id', applicationId);
       
       if (error) throw error;
@@ -658,13 +791,12 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
       setLeaveApplications(prev => prev.map(app => 
         app.id === applicationId ? {
           ...app,
-          "Status": status,
-          "Reason": notes
+          ...updateData
         } : app
       ));
       
     } catch (err) {
-      setError(`Failed to ${status === 'approved' ? 'approve' : 'reject'} leave. Please try again.`);
+      setError(`Failed to update status. Please try again.`);
       console.error(err);
     } finally {
       setUpdatingStatus(false);
@@ -716,7 +848,9 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
             "Office Branch": app["Office Branch"] || 'N/A',
             "Reason": app["Reason"],
             "Status": app["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
-            "time_added": app.time_added
+            "recstatus": app.recstatus || null,
+            "time_added": app.time_added,
+            "recommendation_notes": app.recommendation_notes || undefined
           };
         });
 
@@ -765,7 +899,9 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
               "Office Branch": application["Office Branch"] || 'N/A',
               "Reason": application["Reason"],
               "Status": application["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
-              "time_added": application.time_added
+              "recstatus": application.recstatus || null,
+              "time_added": application.time_added,
+              "recommendation_notes": application.recommendation_notes
             }, ...prev]);
           }
           else if (payload.eventType === 'UPDATE') {
@@ -773,8 +909,10 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
               app.id === application.id ? {
                 ...app,
                 "Status": application["Status"].toLowerCase() as 'pending' | 'approved' | 'rejected',
+                "recstatus": application.recstatus || null,
                 "Reason": application["Reason"],
-                "Days": application["Days"]
+                "Days": application["Days"],
+                "recommendation_notes": application.recommendation_notes
               } : app
             ));
           }
@@ -839,6 +977,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           "Office Branch": employee.office,
           "Reason": newLeaveApplication["Reason"],
           "Status": newLeaveApplication["Status"],
+          "recstatus": newLeaveApplication["recstatus"],
           "time_added": new Date().toISOString()
         }])
         .select();
@@ -857,7 +996,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
         "Application Type": 'Normal',
         "Office Branch": '',
         "Reason": '',
-        "Status": 'pending'
+        "Status": 'pending',
+        "recstatus": null
       });
       
     } catch (err) {
@@ -894,6 +1034,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   // Calculate leave statistics for dashboard
   const pendingApplications = leaveApplications.filter(app => app.Status === 'pending').length;
   const approvedApplications = leaveApplications.filter(app => app.Status === 'approved').length;
+  const recommendedApplications = leaveApplications.filter(app => app.recstatus === 'recommended').length;
+  const notRecommendedApplications = leaveApplications.filter(app => app.recstatus === 'not_recommended').length;
   const totalLeaveDaysUsed = leaveBalances.reduce((sum, balance) => sum + balance.used_days, 0);
   const totalLeaveDaysRemaining = leaveBalances.reduce((sum, balance) => sum + balance.remaining_days, 0);
 
@@ -919,10 +1061,10 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
               <Clock className="w-5 h-5" />
             </div>
           </div>
@@ -941,6 +1083,30 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           <div className="space-y-1">
             <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Approved Applications</p>
             <p className="text-gray-900 text-xl font-bold">{approvedApplications}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+              <ThumbsUp className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Recommended</p>
+            <p className="text-gray-900 text-xl font-bold">{recommendedApplications}</p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+              <XCircle className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Not Recommended</p>
+            <p className="text-gray-900 text-xl font-bold">{notRecommendedApplications}</p>
           </div>
         </div>
         
@@ -1039,6 +1205,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Days</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Office Branch</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Recommendation</th>
                   <th className="text-left py-3 px-4 text-gray-700 font-semibold">Applied On</th>
                   <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
                 </tr>
@@ -1072,6 +1239,9 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
                       <StatusBadge status={application.Status} />
                     </td>
                     <td className="py-4 px-4">
+                      <RecStatusBadge recstatus={application.recstatus} />
+                    </td>
+                    <td className="py-4 px-4">
                       <p className="text-gray-700">{formatDate(application.time_added)}</p>
                     </td>
                     <td className="py-4 px-4">
@@ -1085,6 +1255,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
                         </button>
                         {application.Status === 'pending' && (
                           <>
+                          <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
                             <button 
                               onClick={() => openStatusModal(application.id, 'approve')}
                               className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs"
@@ -1092,12 +1263,29 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
                               <CheckCircle className="w-3 h-3" />
                               Approve
                             </button>
+                            </RoleButtonWrapper>
+                            <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
                             <button 
                               onClick={() => openStatusModal(application.id, 'reject')}
                               className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
                             >
                               <XCircle className="w-3 h-3" />
                               Reject
+                            </button>
+                            </RoleButtonWrapper>
+                            <button 
+                              onClick={() => openStatusModal(application.id, 'recommend')}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                              Recommend
+                            </button>
+                            <button 
+                              onClick={() => openStatusModal(application.id, 'not_recommend')}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded text-xs"
+                            >
+                              <XCircle className="w-3 h-3" />
+                              Not Recommend
                             </button>
                           </>
                         )}
@@ -1127,9 +1315,6 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
         action={statusAction}
         onUpdateStatus={handleUpdateStatus}
       />
-
-      {/* Rest of the code remains the same... */}
-      {/* Only showing the relevant parts for brevity */}
 
       {/* Error Alert */}
       {error && (

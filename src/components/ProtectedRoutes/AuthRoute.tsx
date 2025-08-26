@@ -24,12 +24,18 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
       
       if (allowedRoles && !allowedRoles.includes(userRole)) {
         // Redirect based on role
-        if (userRole === 'ADMIN') {
-          navigate('/dashboard');
-        } else if (userRole === 'MANAGER') {
-          navigate('/manager-dashboard');
-        } else {
-          navigate('/staff');
+        switch (userRole) {
+          case 'ADMIN':
+            navigate('/dashboard');
+            break;
+          case 'MANAGER':
+            navigate('/manager-dashboard');
+            break;
+          case 'HR':
+            navigate('/hr-dashboard');
+            break;
+          default:
+            navigate('/staff');
         }
       }
     };

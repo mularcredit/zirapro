@@ -15,33 +15,36 @@ import {
   Calendar,
   FolderOpen,
   Plus,
-  List,
   Newspaper,
-  Check
+  Check,
+  Ban,
+  Square
 } from 'lucide-react';
 
 const DocumentsManager = () => {
   const [activeTab, setActiveTab] = useState('upload');
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState<any>(null);
   const [employeeNumber, setEmployeeNumber] = useState('');
   
   // Upload states
   const [uploading, setUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState({});
-  const fileInputRefs = useRef({});
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadStatus, setUploadStatus] = useState<Record<string, any>>({});
+  const [uploadControllers, setUploadControllers] = useState<Record<string, AbortController>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   
   // Viewer states
-  const [documents, setDocuments] = useState([]);
+  const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [deleting, setDeleting] = useState({});
-  const [selectedDoc, setSelectedDoc] = useState(null);
+  const [deleting, setDeleting] = useState<Record<string, boolean>>({});
+  const [selectedDoc, setSelectedDoc] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
 
   // Document types configuration
   const documentTypes = [
     { id: 'id_front', label: 'Kenyan ID Front', accept: '.jpg,.jpeg' },
     { id: 'id_back', label: 'Kenyan ID Back', accept: '.jpg,.jpeg' },
-    { id: 'kra_pin', label: 'KRA PIN Certificate', accept: '.jpg,.jpeg' },
+    { id: 'kra_pin', label: 'KRA PIN Certificate/ Tax Exemption', accept: '.jpg,.jpeg' },
     { id: 'nssf', label: 'NSSF Card', accept: '.jpg,.jpeg' },
     { id: 'nhif', label: 'NHIF Card', accept: '.jpg,.jpeg' },
     { id: 'cv', label: 'CV/Resume', accept: '.pdf,.doc,.docx' },
@@ -51,17 +54,17 @@ const DocumentsManager = () => {
   const documentLabels = documentTypes.reduce((acc, doc) => {
     acc[doc.id] = doc.label;
     return acc;
-  }, {});
+  }, {} as Record<string, string>);
 
   const [files, setFiles] = useState(
     documentTypes.reduce((acc, doc) => {
       acc[doc.id] = null;
       return acc;
-    }, {})
+    }, {} as Record<string, File | null>)
   );
 
-  // Track which document types are already uploaded
-  const [uploadedDocumentTypes, setUploadedDocumentTypes] = useState(new Set());
+  // Track which document types are already uploaded and their file names
+  const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, string>>({});
 
   // Get current user and employee number
   useEffect(() => {
@@ -73,19 +76,9 @@ const DocumentsManager = () => {
         } else {
           setUser(user);
           
-          // Fetch employee number
+          // For demo purposes, use email as employee number
           if (user?.email) {
-            const { data: employeeData, error: employeeError } = await supabase
-              .from('employees')
-              .select('"Employee Number"')
-              .eq('"Work Email"', user.email)
-              .single();
-            
-            if (employeeError) {
-              console.error('Error fetching employee data:', employeeError);
-            } else if (employeeData) {
-              setEmployeeNumber(employeeData["Employee Number"]);
-            }
+            setEmployeeNumber(user.email.split('@')[0]);
           }
         }
       } catch (error) {
@@ -98,17 +91,9 @@ const DocumentsManager = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
       
-      // Fetch employee number on auth state change
+      // For demo purposes, use email as employee number
       if (session?.user?.email) {
-        const { data: employeeData } = await supabase
-          .from('employees')
-          .select('"Employee Number"')
-          .eq('"Work Email"', session.user.email)
-          .single();
-        
-        if (employeeData) {
-          setEmployeeNumber(employeeData["Employee Number"]);
-        }
+        setEmployeeNumber(session.user.email.split('@')[0]);
       }
     });
 
@@ -124,21 +109,36 @@ const DocumentsManager = () => {
 
   // Update uploaded document types when documents change
   useEffect(() => {
-    const uploadedTypes = new Set();
+    const uploadedDocs: Record<string, string> = {};
     documents.forEach(doc => {
+      // Extract document type from filename (format: type_timestamp.extension)
       const docType = doc.name.split('_')[0];
-      uploadedTypes.add(docType);
+      if (documentTypes.find(dt => dt.id === docType)) {
+        uploadedDocs[docType] = doc.name;
+      }
     });
-    setUploadedDocumentTypes(uploadedTypes);
+    setUploadedDocuments(uploadedDocs);
   }, [documents]);
 
-  // UPLOAD FUNCTIONS
-  const handleFileSelect = (documentType, selectedFile) => {
-    if (!selectedFile || uploadedDocumentTypes.has(documentType)) return;
+  // IMPROVED UPLOAD FUNCTIONS
+  const handleFileSelect = (documentType: string, selectedFile: File | null) => {
+    if (!selectedFile) return;
+    
+    // Prevent upload if document type is already uploaded
+    if (uploadedDocuments[documentType]) {
+      setUploadStatus(prev => ({
+        ...prev,
+        [documentType]: { 
+          status: 'error', 
+          message: 'This document type is already uploaded. Delete the existing one to upload a new version.' 
+        }
+      }));
+      return;
+    }
     
     const docConfig = documentTypes.find(doc => doc.id === documentType);
-    const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
-    const acceptedTypes = docConfig.accept.split(',').map(type => type.trim().toLowerCase());
+    const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase();
+    const acceptedTypes = docConfig?.accept.split(',').map(type => type.trim().toLowerCase()) || [];
     
     const isValidType = acceptedTypes.some(type => {
       if (type === 'image/*') return selectedFile.type.startsWith('image/');
@@ -149,7 +149,7 @@ const DocumentsManager = () => {
     if (!isValidType) {
       setUploadStatus(prev => ({
         ...prev,
-        [documentType]: { status: 'error', message: `Invalid file type. Accepted: ${docConfig.accept}` }
+        [documentType]: { status: 'error', message: `Invalid file type. Accepted: ${docConfig?.accept}` }
       }));
       return;
     }
@@ -164,51 +164,113 @@ const DocumentsManager = () => {
 
     setFiles(prev => ({ ...prev, [documentType]: selectedFile }));
     setUploadStatus(prev => ({ ...prev, [documentType]: { status: 'idle' } }));
+    setUploadProgress(prev => ({ ...prev, [documentType]: 0 }));
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.currentTarget.classList.add('border-blue-400');
   };
 
-  const handleDragLeave = (e) => {
+  const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.currentTarget.classList.remove('border-blue-400');
   };
 
-  const handleDrop = (e, documentType) => {
+  const handleDrop = (e: React.DragEvent, documentType: string) => {
     e.preventDefault();
     e.currentTarget.classList.remove('border-blue-400');
     
-    if (uploadedDocumentTypes.has(documentType)) return;
+    // Prevent drop if document type is already uploaded
+    if (uploadedDocuments[documentType]) {
+      setUploadStatus(prev => ({
+        ...prev,
+        [documentType]: { 
+          status: 'error', 
+          message: 'This document type is already uploaded. Delete the existing one to upload a new version.' 
+        }
+      }));
+      return;
+    }
     
     const droppedFile = e.dataTransfer.files[0];
     handleFileSelect(documentType, droppedFile);
   };
 
-  const uploadFile = async (documentType, file) => {
+  // Improved upload function with retry mechanism and better error handling
+  const uploadFileWithRetry = async (documentType: string, file: File, maxRetries = 3) => {
     if (!file || !employeeNumber) return null;
 
     const fileExt = file.name.split('.').pop();
     const fileName = `${employeeNumber}/${documentType}_${Date.now()}.${fileExt}`;
 
-    const { data, error } = await supabase.storage
-      .from('documents')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false,
-        contentType: file.type
-      });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Create abort controller for this upload
+        const controller = new AbortController();
+        setUploadControllers(prev => ({ ...prev, [documentType]: controller }));
 
-    if (error) throw new Error(error.message || 'Failed to upload file to storage');
+        // Set initial progress
+        setUploadProgress(prev => ({ ...prev, [documentType]: 0 }));
 
-    const { data: urlData } = supabase.storage
-      .from('documents')
-      .getPublicUrl(fileName);
+        const { data, error } = await supabase.storage
+          .from('documents')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type,
+            signal: controller.signal
+          });
 
-    return { ...data, publicUrl: urlData.publicUrl, path: fileName };
+        if (error) {
+          if (error.name === 'AbortError') {
+            throw new Error('Upload cancelled');
+          }
+          throw new Error(error.message || 'Failed to upload file to storage');
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('documents')
+          .getPublicUrl(fileName);
+
+        // Set complete progress
+        setUploadProgress(prev => ({ ...prev, [documentType]: 100 }));
+
+        return { ...data, publicUrl: urlData.publicUrl, path: fileName };
+
+      } catch (error: any) {
+        console.error(`Upload attempt ${attempt} failed for ${documentType}:`, error);
+        
+        if (error.message === 'Upload cancelled') {
+          throw error;
+        }
+
+        if (attempt === maxRetries) {
+          throw new Error(`Upload failed after ${maxRetries} attempts: ${error.message}`);
+        }
+
+        // Wait before retry (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        
+        setUploadStatus(prev => ({
+          ...prev,
+          [documentType]: { 
+            status: 'retrying', 
+            message: `Retrying upload (${attempt}/${maxRetries})...` 
+          }
+        }));
+      } finally {
+        // Clean up controller
+        setUploadControllers(prev => {
+          const newControllers = { ...prev };
+          delete newControllers[documentType];
+          return newControllers;
+        });
+      }
+    }
   };
 
+  // Parallel upload with concurrency control
   const handleUpload = async () => {
     if (!employeeNumber) {
       alert('Employee information not available. Please log in again.');
@@ -216,68 +278,159 @@ const DocumentsManager = () => {
     }
 
     setUploading(true);
-    let hasErrors = false;
-    const uploadResults = [];
+    const filesToUpload = Object.entries(files).filter(([docType, file]) => 
+      file && !uploadedDocuments[docType]
+    );
 
-    for (const doc of documentTypes) {
-      if (files[doc.id] && !uploadedDocumentTypes.has(doc.id)) {
+    if (filesToUpload.length === 0) {
+      setUploading(false);
+      return;
+    }
+
+    // Process uploads with limited concurrency (2 at a time to avoid overwhelming the server)
+    const concurrencyLimit = 2;
+    const results = [];
+    let hasErrors = false;
+
+    for (let i = 0; i < filesToUpload.length; i += concurrencyLimit) {
+      const batch = filesToUpload.slice(i, i + concurrencyLimit);
+      
+      const batchPromises = batch.map(async ([docType, file]) => {
         try {
           setUploadStatus(prev => ({
             ...prev,
-            [doc.id]: { status: 'uploading', message: 'Uploading...' }
+            [docType]: { status: 'uploading', message: 'Uploading...' }
           }));
 
-          const result = await uploadFile(doc.id, files[doc.id]);
-          uploadResults.push({ type: doc.id, result });
+          const result = await uploadFileWithRetry(docType, file!);
           
           setUploadStatus(prev => ({
             ...prev,
-            [doc.id]: { status: 'success', message: 'Upload successful!' }
+            [docType]: { status: 'success', message: 'Upload successful!' }
           }));
-        } catch (error) {
-          console.error(`Error uploading ${doc.label}:`, error);
+
+          return { docType, result, success: true };
+        } catch (error: any) {
+          console.error(`Error uploading ${docType}:`, error);
+          
           setUploadStatus(prev => ({
             ...prev,
-            [doc.id]: { 
+            [docType]: { 
               status: 'error', 
               message: error.message || 'Failed to upload file' 
             }
           }));
+
           hasErrors = true;
+          return { docType, error, success: false };
         }
-      }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
     }
 
     setUploading(false);
     
-    if (!hasErrors && uploadResults.length > 0) {
-      alert('All documents uploaded successfully!');
-      setFiles(documentTypes.reduce((acc, doc) => {
-        acc[doc.id] = null;
-        return acc;
-      }, {}));
-      
-      Object.keys(fileInputRefs.current).forEach(key => {
-        if (fileInputRefs.current[key]) {
-          fileInputRefs.current[key].value = '';
+    const successfulUploads = results.filter(r => r.success).length;
+    const failedUploads = results.filter(r => !r.success).length;
+    
+    if (successfulUploads > 0 && failedUploads === 0) {
+      alert(`All ${successfulUploads} documents uploaded successfully!`);
+      resetUploadForm();
+      fetchDocuments();
+    } else if (successfulUploads > 0 && failedUploads > 0) {
+      alert(`${successfulUploads} documents uploaded successfully, ${failedUploads} failed. Please check the errors and try again.`);
+      // Only reset successful uploads
+      results.forEach(result => {
+        if (result.success) {
+          setFiles(prev => ({ ...prev, [result.docType]: null }));
+          if (fileInputRefs.current[result.docType]) {
+            fileInputRefs.current[result.docType]!.value = '';
+          }
         }
       });
-      
-      // Refresh the documents list to update the uploaded status
       fetchDocuments();
-    } else if (hasErrors) {
-      alert('Some documents failed to upload. Please check the errors and try again.');
+    } else if (failedUploads > 0) {
+      alert('All uploads failed. Please check your internet connection and try again.');
     }
   };
 
-  const removeFile = (documentType) => {
-    if (uploadedDocumentTypes.has(documentType)) return;
+  // Cancel upload function
+  const cancelUpload = (documentType: string) => {
+    const controller = uploadControllers[documentType];
+    if (controller) {
+      controller.abort();
+      setUploadStatus(prev => ({
+        ...prev,
+        [documentType]: { status: 'cancelled', message: 'Upload cancelled' }
+      }));
+    }
+  };
+
+  // Cancel all uploads
+  const cancelAllUploads = () => {
+    Object.values(uploadControllers).forEach(controller => {
+      if (controller) {
+        controller.abort();
+      }
+    });
+    
+    setUploading(false);
+    setUploadControllers({});
+    
+    // Reset status for uploading files
+    const newStatus: Record<string, any> = {};
+    Object.keys(uploadStatus).forEach(docType => {
+      if (uploadStatus[docType]?.status === 'uploading' || uploadStatus[docType]?.status === 'retrying') {
+        newStatus[docType] = { status: 'cancelled', message: 'Upload cancelled' };
+      } else {
+        newStatus[docType] = uploadStatus[docType];
+      }
+    });
+    setUploadStatus(newStatus);
+  };
+
+  const resetUploadForm = () => {
+    setFiles(documentTypes.reduce((acc, doc) => {
+      acc[doc.id] = null;
+      return acc;
+    }, {} as Record<string, File | null>));
+    
+    setUploadProgress({});
+    setUploadStatus({});
+    
+    Object.keys(fileInputRefs.current).forEach(key => {
+      if (fileInputRefs.current[key]) {
+        fileInputRefs.current[key]!.value = '';
+      }
+    });
+  };
+
+  const removeFile = (documentType: string) => {
+    // Don't allow removing files for already uploaded document types
+    if (uploadedDocuments[documentType]) {
+      setUploadStatus(prev => ({
+        ...prev,
+        [documentType]: { 
+          status: 'error', 
+          message: 'Cannot remove - document already uploaded. Delete from "View Documents" tab to replace.' 
+        }
+      }));
+      return;
+    }
+    
+    // Cancel upload if in progress
+    if (uploadStatus[documentType]?.status === 'uploading') {
+      cancelUpload(documentType);
+    }
     
     setFiles(prev => ({ ...prev, [documentType]: null }));
     setUploadStatus(prev => ({ ...prev, [documentType]: { status: 'idle' } }));
+    setUploadProgress(prev => ({ ...prev, [documentType]: 0 }));
     
     if (fileInputRefs.current[documentType]) {
-      fileInputRefs.current[documentType].value = '';
+      fileInputRefs.current[documentType]!.value = '';
     }
   };
 
@@ -307,6 +460,7 @@ const DocumentsManager = () => {
             .from('documents')
             .getPublicUrl(fullPath);
           
+          // Extract document type from filename
           const docType = doc.name.split('_')[0];
           
           return {
@@ -330,14 +484,14 @@ const DocumentsManager = () => {
     }
   };
 
-  const getFileType = (filename) => {
-    const extension = filename.split('.').pop().toLowerCase();
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension)) return 'image';
+  const getFileType = (filename: string) => {
+    const extension = filename.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(extension || '')) return 'image';
     if (extension === 'pdf') return 'pdf';
     return 'document';
   };
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
@@ -345,7 +499,7 @@ const DocumentsManager = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const getFileIcon = (file, fileType) => {
+  const getFileIcon = (file: File | null, fileType?: string) => {
     if (file) {
       if (file.type?.startsWith('image/')) return <Image size={24} className="text-blue-500" />;
       if (file.type === 'application/pdf') return <FileText size={24} className="text-red-500" />;
@@ -362,12 +516,12 @@ const DocumentsManager = () => {
     }
   };
 
-  const handleView = (doc) => {
+  const handleView = (doc: any) => {
     setSelectedDoc(doc);
     setShowModal(true);
   };
 
-  const handleDownload = async (doc) => {
+  const handleDownload = async (doc: any) => {
     try {
       const { data, error } = await supabase.storage
         .from('documents')
@@ -389,7 +543,7 @@ const DocumentsManager = () => {
     }
   };
 
-  const handleDelete = async (doc) => {
+  const handleDelete = async (doc: any) => {
     if (!confirm(`Are you sure you want to delete ${doc.name}?`)) return;
 
     setDeleting(prev => ({ ...prev, [doc.name]: true }));
@@ -417,6 +571,9 @@ const DocumentsManager = () => {
   };
 
   const hasFilesToUpload = Object.values(files).some(file => file !== null);
+  const hasActiveUploads = Object.values(uploadStatus).some(status => 
+    status?.status === 'uploading' || status?.status === 'retrying'
+  );
 
   if (!user) {
     return (
@@ -484,7 +641,10 @@ const DocumentsManager = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {documentTypes.map((doc) => {
-              const isUploaded = uploadedDocumentTypes.has(doc.id);
+              const isUploaded = uploadedDocuments[doc.id];
+              const status = uploadStatus[doc.id];
+              const progress = uploadProgress[doc.id] || 0;
+              const isUploading = status?.status === 'uploading' || status?.status === 'retrying';
               
               return (
                 <div 
@@ -500,13 +660,16 @@ const DocumentsManager = () => {
                           <span className="text-sm">Uploaded</span>
                         </div>
                       )}
-                      {uploadStatus[doc.id]?.status === 'success' && (
+                      {status?.status === 'success' && (
                         <CheckCircle size={16} className="text-green-500" />
                       )}
-                      {uploadStatus[doc.id]?.status === 'error' && (
+                      {status?.status === 'error' && (
                         <AlertCircle size={16} className="text-red-500" />
                       )}
-                      {uploadStatus[doc.id]?.status === 'uploading' && (
+                      {status?.status === 'cancelled' && (
+                        <Ban size={16} className="text-orange-500" />
+                      )}
+                      {isUploading && (
                         <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                       )}
                     </div>
@@ -517,74 +680,110 @@ const DocumentsManager = () => {
                       <CheckCircle size={32} className="mx-auto mb-2 text-green-500" />
                       <p className="text-green-700 font-medium">Document already uploaded</p>
                       <p className="text-sm text-green-600 mt-1">
-                        Go to the View tab to manage your documents
+                        {uploadedDocuments[doc.id]}
                       </p>
                     </div>
                   ) : (
-                    <div
-                      className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
-                        files[doc.id] 
-                          ? 'border-green-300 bg-green-50' 
-                          : 'border-gray-300 hover:border-blue-400'
-                      }`}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={(e) => handleDrop(e, doc.id)}
-                      onClick={() => fileInputRefs.current[doc.id]?.click()}
-                    >
-                      <input
-                        ref={el => fileInputRefs.current[doc.id] = el}
-                        type="file"
-                        accept={doc.accept}
-                        onChange={(e) => handleFileSelect(doc.id, e.target.files[0])}
-                        className="hidden"
-                        disabled={isUploaded}
-                      />
+                    <div>
+                      <div
+                        className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors ${
+                          files[doc.id] 
+                            ? 'border-green-300 bg-green-50' 
+                            : 'border-gray-300 hover:border-blue-400'
+                        }`}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, doc.id)}
+                        onClick={() => fileInputRefs.current[doc.id]?.click()}
+                      >
+                        <input
+                          ref={el => fileInputRefs.current[doc.id] = el}
+                          type="file"
+                          accept={doc.accept}
+                          onChange={(e) => handleFileSelect(doc.id, e.target.files?.[0] || null)}
+                          className="hidden"
+                          disabled={!!isUploaded || uploading}
+                        />
 
-                      {files[doc.id] ? (
-                        <div className="flex flex-col items-center">
-                          <div className="text-blue-500 mb-2">
-                            {getFileIcon(files[doc.id])}
+                        {files[doc.id] ? (
+                          <div className="flex flex-col items-center">
+                            <div className="text-blue-500 mb-2">
+                              {getFileIcon(files[doc.id])}
+                            </div>
+                            <p className="text-sm font-medium text-gray-700 truncate max-w-full">
+                              {files[doc.id]!.name}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {(files[doc.id]!.size / 1024).toFixed(1)} KB
+                            </p>
+                            
+                            <div className="flex gap-2 mt-3">
+                              {isUploading && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    cancelUpload(doc.id);
+                                  }}
+                                  className="text-orange-500 hover:text-orange-700 text-sm flex items-center"
+                                >
+                                  <Square size={14} className="mr-1" /> Cancel
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeFile(doc.id);
+                                }}
+                                disabled={isUploading || !!isUploaded}
+                                className="text-red-500 hover:text-red-700 text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                <X size={14} className="mr-1" /> Remove
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-sm font-medium text-gray-700 truncate max-w-full">
-                            {files[doc.id].name}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {(files[doc.id].size / 1024).toFixed(1)} KB
-                          </p>
-                          
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeFile(doc.id);
-                            }}
-                            className="mt-3 text-red-500 hover:text-red-700 text-sm flex items-center"
-                          >
-                            <X size={14} className="mr-1" /> Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="py-4">
-                          <Upload size={24} className="mx-auto mb-2 text-gray-400" />
-                          <p className="text-sm text-gray-600">
-                            Drag & drop or click to upload
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Accepted: {doc.accept}
-                          </p>
+                        ) : (
+                          <div className={`py-4 ${isUploaded ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            <Upload size={24} className="mx-auto mb-2 text-gray-400" />
+                            <p className="text-sm text-gray-600">
+                              {isUploaded ? 'Document already uploaded' : 'Drag & drop or click to upload'}
+                            </p>
+                            {!isUploaded && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Accepted Format: {doc.accept}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Progress bar for uploading files */}
+                      {isUploading && (
+                        <div className="mt-3">
+                          <div className="flex justify-between text-sm text-gray-600 mb-1">
+                            <span>{status?.message}</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${progress}%` }}
+                            ></div>
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
 
-                  {uploadStatus[doc.id]?.message && (
+                  {status?.message && !isUploading && (
                     <p className={`text-sm mt-2 ${
-                      uploadStatus[doc.id]?.status === 'error' ? 'text-red-500' : 
-                      uploadStatus[doc.id]?.status === 'success' ? 'text-green-500' : 
+                      status?.status === 'error' ? 'text-red-500' : 
+                      status?.status === 'success' ? 'text-green-500' : 
+                      status?.status === 'cancelled' ? 'text-orange-500' :
                       'text-blue-500'
                     }`}>
-                      {uploadStatus[doc.id]?.message}
+                      {status?.message}
                     </p>
                   )}
                 </div>
@@ -592,7 +791,28 @@ const DocumentsManager = () => {
             })}
           </div>
 
-          <div className="mt-8 flex justify-end">
+          <div className="mt-8 flex justify-between items-center">
+            <div className="flex gap-2">
+              {hasActiveUploads && (
+                <button
+                  type="button"
+                  onClick={cancelAllUploads}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-lg flex items-center"
+                >
+                  <Square size={16} className="mr-2" />
+                  Cancel All
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={resetUploadForm}
+                disabled={uploading}
+                className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Reset Form
+              </button>
+            </div>
+            
             <button
               type="button"
               onClick={handleUpload}
@@ -653,62 +873,79 @@ const DocumentsManager = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {documents.map((doc) => (
-                <div key={doc.name} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {getFileIcon(null, doc.fileType)}
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-800 truncate">
-                          {doc.label}
-                        </h3>
-                        <p className="text-sm text-gray-500 truncate">
-                          {doc.name}
-                        </p>
+              {documents.map((doc) => {
+                const isAlreadyUploaded = uploadedDocuments[doc.type] === doc.name;
+                
+                return (
+                  <div key={doc.name} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        {getFileIcon(null, doc.fileType)}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-gray-800 truncate">
+                            {doc.label}
+                          </h3>
+                          <p className="text-sm text-gray-500 truncate">
+                            {doc.name}
+                          </p>
+                        </div>
+                      </div>
+                      {isAlreadyUploaded && (
+                        <div className="flex items-center gap-1 text-green-600">
+                          <Check size={16} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Calendar size={14} />
+                        <span>{doc.uploadDate}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <File size={14} />
+                        <span>{doc.formattedSize}</span>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar size={14} />
-                      <span>{doc.uploadDate}</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleView(doc)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                      >
+                        <Eye size={14} />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+                      >
+                        <Download size={14} />
+                        Download
+                      </button>
+                      <button
+                        onClick={() => handleDelete(doc)}
+                        disabled={deleting[doc.name]}
+                        className="flex items-center justify-center px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {deleting[doc.name] ? (
+                          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <Trash2 size={14} />
+                        )}
+                      </button>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <File size={14} />
-                      <span>{doc.formattedSize}</span>
-                    </div>
+                    
+                    {isAlreadyUploaded && (
+                      <div className="mt-3 p-2 bg-blue-50 rounded-lg">
+                        <p className="text-xs text-blue-700 text-center">
+                          <strong>Note:</strong> Delete this document from here to upload a new version
+                        </p>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleView(doc)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
-                    >
-                      <Eye size={14} />
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleDownload(doc)}
-                      className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
-                    >
-                      <Download size={14} />
-                      Download
-                    </button>
-                    <button
-                      onClick={() => handleDelete(doc)}
-                      disabled={deleting[doc.name]}
-                      className="flex items-center justify-center px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
-                    >
-                      {deleting[doc.name] ? (
-                        <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <Trash2 size={14} />
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

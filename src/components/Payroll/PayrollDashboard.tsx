@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -8,6 +8,9 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
 import GlowButton from '../UI/GlowButton';
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
@@ -30,6 +33,7 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [taxYear, setTaxYear] = useState(new Date().getFullYear().toString());
   const [isGenerating, setIsGenerating] = useState(false);
+   const [selectedMonth, setSelectedMonth] = useState<Date | null>(null);
 
   const generateP9Form = async (employeeData) => {
     setIsGenerating(true);
@@ -1550,8 +1554,440 @@ const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPe
   );
 };
 
+// P10 Form Generator Component - FIXED VERSION
+const P10FormGenerator = ({ isOpen, onClose }) => {
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [isLoading, setIsLoading] = useState(false);
+
+  const generateP10Form = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch all employee data from Supabase with proper error handling
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('*');
+
+      if (error) {
+        console.error('Supabase error:', error);
+        toast.error('Error fetching employee data: ' + error.message);
+        return;
+      }
+
+      if (!employees || employees.length === 0) {
+        toast.error('No employee data found in the system');
+        return;
+      }
+
+      console.log('Fetched employees:', employees.length);
+
+      // Prepare P10 data - Map Supabase fields to P10 format
+      const p10Data = employees.map(employee => {
+        // Get values from Supabase with proper fallbacks
+        const taxPin = employee['Tax PIN'] || employee.tax_pin || 'PENDING';
+        const employeeName = `${employee['First Name'] || ''} ${employee['Middle Name'] || ''} ${employee['Last Name'] || ''}`.trim() || employee.employee_name || 'N/A';
+        const basicSalary = parseFloat(employee['Basic Salary'] || employee.basic_salary || 0);
+        
+        // Calculate allowances
+        const houseAllowance = parseFloat(employee.house_allowance || 0);
+        const transportAllowance = parseFloat(employee.travel_allowance || 0);
+        const medicalAllowance = parseFloat(employee.medical_allowance || 0);
+        const otherAllowances = parseFloat(employee.other_allowances || 0);
+        
+        // Calculate gross pay
+        const totalGrossPay = basicSalary + houseAllowance + transportAllowance + medicalAllowance + otherAllowances;
+        
+        // Get statutory numbers
+        const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
+        const nssfNumber = employee['NSSF Number'] || '';
+        
+        // Calculate deductions based on gross pay
+        const nhifDeduction = nhifNumber ? calculateNHIF(totalGrossPay) : 0;
+        const nssfDeduction = nssfNumber ? calculateNSSF(totalGrossPay) : 0;
+        const housingLevy = taxPin !== 'PENDING' ? calculateHousingLevy(totalGrossPay, true) : 0;
+        
+        // Calculate taxable pay
+        const taxablePay = totalGrossPay - nssfDeduction - housingLevy;
+        
+        // Calculate PAYE
+        const payeAmount = calculatePAYE(taxablePay);
+
+
+        return [
+          'A00000000001', // Tax PIN
+          employeeName, // Employee Name
+          'Resident', // Resident Status
+          'Primary Employee', // Service Status
+          'No', // Disability Status
+          '', // Exemption Certificate Number
+          basicSalary, // Total Emoluments - Cash Pay
+          0, // Value of Car Benefit
+          0, // Value of Meals
+          houseAllowance + transportAllowance + medicalAllowance + otherAllowances, // Non Cash Benefits
+          'Benefit not given', // Type of Housing
+          houseAllowance, // Housing Benefit
+          transportAllowance + medicalAllowance + otherAllowances, // Other Benefits
+          totalGrossPay, // Total Gross Pay
+          nhifDeduction, // SHIF
+          nssfDeduction, // NSSF Contribution
+          0, // Other Pension Contribution
+          0, // Post Retirement Medical Fund
+          0, // Mortgage Interest
+          housingLevy, // Affordable Housing Levy
+          taxablePay, // Taxable Pay
+          2400, // Monthly Personal Relief (KSh 2,400)
+          0, // Amount of Insurance Relief
+          '', // PAYE Tax
+          payeAmount // Self Assessed PAYE Tax
+        ];
+      });
+
+      console.log('P10 data prepared for', p10Data.length, 'employees');
+
+      // Create Excel headers as per P10 form
+      const headers = [
+        'Employer Pin',
+        'Employee Name',
+        'Resident Status',
+        'Service Status',
+        'Disability Status',
+        'Exemption Certificate Number',
+        'Total Emoluments - Cash Pay',
+        'Value of Car Benefit',
+        'Value of Meals',
+        'Non Cash Benefits',
+        'Type of Housing',
+        'Housing Benefit',
+        'Other Benefits',
+        'Total Gross Pay',
+        'SHIF',
+        'NSSF Contribution',
+        'Other Pension Contribution',
+        'Post Retirement Medical Fund',
+        'Mortgage Interest',
+        'Affordable Housing Levy',
+        'Taxable Pay',
+        'Monthly Personal Relief',
+        'Amount of Insurance Relief',
+        'PAYE Tax',
+        'Self Assessed PAYE Tax'
+      ];
+
+      // Create worksheet with headers
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...p10Data]);
+      
+      // Format the worksheet
+      const range = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = 0; R <= range.e.r; ++R) {
+        for (let C = 0; C <= range.e.c; ++C) {
+          const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cellAddress]) continue;
+          
+          // Format header row
+          if (R === 0) {
+            ws[cellAddress].s = {
+              font: { bold: true },
+              fill: { fgColor: { rgb: "CCCCCC" } }
+            };
+          }
+          
+          // Format number columns
+          if (R > 0 && C >= 6 && C !== 10) { // Skip text columns
+            if (typeof ws[cellAddress].v === 'number') {
+              ws[cellAddress].t = 'n';
+              ws[cellAddress].z = '#,##0.00';
+            }
+          }
+        }
+      }
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 12 }, // Tax PIN
+        { wch: 25 }, // Employee Name
+        { wch: 10 }, // Resident Status
+        { wch: 15 }, // Service Status
+        { wch: 12 }, // Disability Status
+        { wch: 12 }, // Exemption Certificate
+        { wch: 15 }, // Cash Pay
+        { wch: 12 }, // Car Benefit
+        { wch: 12 }, // Meals
+        { wch: 15 }, // Non Cash Benefits
+        { wch: 20 }, // Type of Housing
+        { wch: 15 }, // Housing Benefit
+        { wch: 15 }, // Other Benefits
+        { wch: 15 }, // Total Gross Pay
+        { wch: 12 }, // SHIF
+        { wch: 15 }, // NSSF
+        { wch: 15 }, // Other Pension
+        { wch: 15 }, // Post Retirement
+        { wch: 15 }, // Mortgage Interest
+        { wch: 15 }, // Housing Levy
+        { wch: 15 }, // Taxable Pay
+        { wch: 15 }, // Personal Relief
+        { wch: 15 }, // Insurance Relief
+        { wch: 12 }, // PAYE Tax
+        { wch: 15 }  // Self Assessed PAYE
+      ];
+      
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'P10 EMPLOYER RETURN');
+      
+      // Generate Excel file
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      
+      // Create download
+      saveAs(data, `P10_Employer_Return_${selectedYear}.xlsx`);
+
+      toast.success(`P10 Form generated successfully for ${p10Data.length} employees!`);
+      onClose();
+    } catch (error) {
+      console.error('Error generating P10 form:', error);
+      toast.error('Failed to generate P10 form: ' + error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+            Generate P10 Form (Employer Return)
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+            disabled={isLoading}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-3 rounded-md border border-blue-100">
+            <div className="flex items-center gap-2 text-blue-800 mb-2">
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                P10 Employer Return Form
+              </span>
+            </div>
+            <p className="text-xs text-blue-700">
+              This will generate the P10 form with all employee tax information for KRA submission.
+            </p>
+          </div>
+
+        
+        </div>
+
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={generateP10Form}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader className="w-4 h-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Generate P10 Excel
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Statutory Deductions Tabs Component
+const StatutoryDeductionsTabs = ({ records, onFilterChange }) => {
+  const [activeTab, setActiveTab] = useState('all');
+
+  const tabs = [
+    { id: 'all', label: 'All Records', icon: Users },
+    { id: 'nhif', label: 'NHIF', icon: TrendingUp },
+    { id: 'paye', label: 'PAYE', icon: Calculator },
+    { id: 'nssf', label: 'NSSF', icon: DollarSign },
+    { id: 'ahl', label: 'Housing Levy', icon: FileText }
+  ];
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    
+    // Filter records based on tab selection
+    let filteredRecords = records;
+    
+    switch (tabId) {
+      case 'nhif':
+        filteredRecords = records.filter(record => record.nhif_deduction > 0);
+        break;
+      case 'paye':
+        filteredRecords = records.filter(record => record.paye_tax > 0);
+        break;
+      case 'nssf':
+        filteredRecords = records.filter(record => record.nssf_deduction > 0);
+        break;
+      case 'ahl':
+        filteredRecords = records.filter(record => record.housing_levy > 0);
+        break;
+      default:
+        filteredRecords = records;
+    }
+    
+    onFilterChange(filteredRecords, tabId);
+  };
+
+  const getTabCount = (tabId) => {
+    switch (tabId) {
+      case 'nhif':
+        return records.filter(record => record.nhif_deduction > 0).length;
+      case 'paye':
+        return records.filter(record => record.paye_tax > 0).length;
+      case 'nssf':
+        return records.filter(record => record.nssf_deduction > 0).length;
+      case 'ahl':
+        return records.filter(record => record.housing_levy > 0).length;
+      default:
+        return records.length;
+    }
+  };
+
+  const getTabTotal = (tabId) => {
+    switch (tabId) {
+      case 'nhif':
+        return records.reduce((sum, record) => sum + record.nhif_deduction, 0);
+      case 'paye':
+        return records.reduce((sum, record) => sum + record.paye_tax, 0);
+      case 'nssf':
+        return records.reduce((sum, record) => sum + record.nssf_deduction, 0);
+      case 'ahl':
+        return records.reduce((sum, record) => sum + record.housing_levy, 0);
+      default:
+        return records.reduce((sum, record) => sum + record.total_deductions, 0);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg mb-6">
+      {/* Tab Headers */}
+      <div className="border-b border-gray-200">
+        <nav className="flex space-x-8" aria-label="Tabs">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            const count = getTabCount(tab.id);
+            const total = getTabTotal(tab.id);
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className={`${
+                  isActive
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+                <span className="bg-gray-100 text-gray-900 rounded-full px-2.5 py-0.5 text-xs font-medium">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content - Summary Cards */}
+      <div className="p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {activeTab === 'all' ? (
+            <>
+              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">Total PAYE</p>
+                    <p className="text-gray-900 text-lg font-bold">KSh {Math.round(getTabTotal('paye')).toLocaleString()}</p>
+                  </div>
+                
+                </div>
+              </div>
+              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">Total NHIF</p>
+                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nhif').toLocaleString()}</p>
+                  </div>
+                
+                </div>
+              </div>
+              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">Total NSSF</p>
+                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nssf').toLocaleString()}</p>
+                  </div>
+                
+                </div>
+              </div>
+              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-600 text-sm font-medium">Housing Levy</p>
+                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('ahl').toLocaleString()}</p>
+                  </div>
+              
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="col-span-full">
+              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-6 rounded-lg border border-gray-200 text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {tabs.find(tab => tab.id === activeTab)?.label} Summary
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-gray-600 text-sm">Employees Affected</p>
+                    <p className="text-gray-900 text-2xl font-bold">{getTabCount(activeTab)}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600 text-sm">Total Amount</p>
+                    <p className="text-gray-900 text-2xl font-bold">KSh {Math.round(getTabTotal(activeTab)).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 export default function PayrollDashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('all');
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -1566,6 +2002,7 @@ export default function PayrollDashboard() {
   const [departments, setDepartments] = useState(['all']);
   const [branches, setBranches] = useState([{ value: 'all', label: 'All Branches' }]);
   const [payrollRecords, setPayrollRecords] = useState([]);
+  const [filteredRecords, setFilteredRecords] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSummary, setShowSummary] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(null);
@@ -1575,9 +2012,10 @@ export default function PayrollDashboard() {
   const [showBulkMpesaModal, setShowBulkMpesaModal] = useState(false);
   const [selectedEmployeeForMpesa, setSelectedEmployeeForMpesa] = useState(null);
   
-  // New Modal States
+  // Modal States
   const [showP9Modal, setShowP9Modal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showP10Modal, setShowP10Modal] = useState(false);
   
   const itemsPerPage = 5;
 
@@ -1847,6 +2285,7 @@ const handleSingleMpesaPayment = (employee) => {
           });
 
           setPayrollRecords(payrollData);
+          setFilteredRecords(payrollData); // Initialize filtered records
         }
       } catch (err) {
         console.error('Error:', err);
@@ -1858,38 +2297,49 @@ const handleSingleMpesaPayment = (employee) => {
     fetchEmployees();
   }, [actualPeriod]);
 
-  // Filter records based on search and filters - IMPROVED SEARCH
-  const filteredRecords = payrollRecords.filter(record => {
-    // Improved search logic
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    // If no search term, don't filter by search
-    const matchesSearch = !searchTerm.trim() || 
-      // Search in employee name (handle potential null/undefined)
-      (record.employee_name || '').toLowerCase().includes(searchLower) ||
-      // Search in employee ID (handle potential null/undefined) 
-      (record.employee_id || '').toLowerCase().includes(searchLower) ||
-      // Search in department
-      (record.department || '').toLowerCase().includes(searchLower) ||
-      // Search in position
-      (record.position || '').toLowerCase().includes(searchLower) ||
-      // Search in first name and last name separately (in case they're stored separately)
-      searchLower.split(' ').every(term => 
-        (record.employee_name || '').toLowerCase().includes(term)
-      );
-    
-    const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
-    const matchesPaymentMethod = selectedPaymentMethod === 'all' || record.payment_method === selectedPaymentMethod;
-    const matchesBranch = selectedBranch === 'all' || record.branch === selectedBranch;
-    
-    return matchesSearch && matchesDepartment && matchesPaymentMethod && matchesBranch;
-  });
+  // Handle statutory deductions filter change
+  const handleStatutoryFilterChange = (records, tabId) => {
+    setFilteredRecords(records);
+    setCurrentPage(1); // Reset to first page when filter changes
+  };
+
+  // Apply additional filters on top of statutory filter
+  const applyAdditionalFilters = (records) => {
+    return records.filter(record => {
+      // Improved search logic
+      const searchLower = searchTerm.toLowerCase().trim();
+      
+      // If no search term, don't filter by search
+      const matchesSearch = !searchTerm.trim() || 
+        // Search in employee name (handle potential null/undefined)
+        (record.employee_name || '').toLowerCase().includes(searchLower) ||
+        // Search in employee ID (handle potential null/undefined) 
+        (record.employee_id || '').toLowerCase().includes(searchLower) ||
+        // Search in department
+        (record.department || '').toLowerCase().includes(searchLower) ||
+        // Search in position
+        (record.position || '').toLowerCase().includes(searchLower) ||
+        // Search in first name and last name separately (in case they're stored separately)
+        searchLower.split(' ').every(term => 
+          (record.employee_name || '').toLowerCase().includes(term)
+        );
+      
+      const matchesDepartment = selectedDepartment === 'all' || record.department === selectedDepartment;
+      const matchesPaymentMethod = selectedPaymentMethod === 'all' || record.payment_method === selectedPaymentMethod;
+      const matchesBranch = selectedBranch === 'all' || record.branch === selectedBranch;
+      
+      return matchesSearch && matchesDepartment && matchesPaymentMethod && matchesBranch;
+    });
+  };
+
+  // Get the final filtered records after applying all filters
+  const finalFilteredRecords = applyAdditionalFilters(filteredRecords);
 
   // Get current page data
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredRecords.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredRecords.length / itemsPerPage);
+  const currentItems = finalFilteredRecords.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(finalFilteredRecords.length / itemsPerPage);
 
   const handleViewPayslip = (record, index) => {
     setSelectedRecord(record);
@@ -1901,8 +2351,8 @@ const handleSingleMpesaPayment = (employee) => {
 
     const newIndex = direction === 'prev' ? currentRecordIndex - 1 : currentRecordIndex + 1;
     
-    if (newIndex >= 0 && newIndex < filteredRecords.length) {
-      setSelectedRecord(filteredRecords[newIndex]);
+    if (newIndex >= 0 && newIndex < finalFilteredRecords.length) {
+      setSelectedRecord(finalFilteredRecords[newIndex]);
       setCurrentRecordIndex(newIndex);
       
       // Update page if needed
@@ -1927,14 +2377,14 @@ const handleSingleMpesaPayment = (employee) => {
     });
   };
 
-  // Calculate totals
-  const totalGrossPay = filteredRecords.reduce((sum, record) => sum + record.gross_pay, 0);
-  const totalDeductions = filteredRecords.reduce((sum, record) => sum + record.total_deductions, 0);
-  const totalNetPay = filteredRecords.reduce((sum, record) => sum + record.net_pay, 0);
-  const totalPAYE = filteredRecords.reduce((sum, record) => sum + record.paye_tax, 0);
-  const totalNHIF = filteredRecords.reduce((sum, record) => sum + record.nhif_deduction, 0);
-  const totalNSSF = filteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
-  const totalHousingLevy = filteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
+  // Calculate totals based on final filtered records
+  const totalGrossPay = finalFilteredRecords.reduce((sum, record) => sum + record.gross_pay, 0);
+  const totalDeductions = finalFilteredRecords.reduce((sum, record) => sum + record.total_deductions, 0);
+  const totalNetPay = finalFilteredRecords.reduce((sum, record) => sum + record.net_pay, 0);
+  const totalPAYE = finalFilteredRecords.reduce((sum, record) => sum + record.paye_tax, 0);
+  const totalNHIF = finalFilteredRecords.reduce((sum, record) => sum + record.nhif_deduction, 0);
+  const totalNSSF = finalFilteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
+  const totalHousingLevy = finalFilteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
 
   const paymentMethods = ['all', 'Bank Transfer', 'M-Pesa', 'Airtel Money', 'Cash'];
   const payPeriods = [
@@ -2027,9 +2477,14 @@ const handleSingleMpesaPayment = (employee) => {
             >
               Quick Actions
             </GlowButtonss>
+
+           
+            
           </div>
         </div>
       </div>
+
+     
 
       {/* Quick Actions Modal */}
       {showQuickActions && (
@@ -2090,20 +2545,20 @@ const handleSingleMpesaPayment = (employee) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Payroll Controls</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Pay Period</label>
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
-            >
-              {payPeriods.map(period => (
-                <option key={period.value} value={period.value}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-          </div>
+           <div className="space-y-1">
+      <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">
+        Pay Period
+      </label>
+
+      <DatePicker
+        selected={selectedPeriod ?? null} // ✅ Ensure it's null or Date
+        onChange={(date: Date | null) => setSelectedPeriod(date)}
+        dateFormat="MMMM yyyy"
+        showMonthYearPicker
+        className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+        placeholderText="Select Month"
+      />
+    </div>
 
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Branch Location</label>
@@ -2155,7 +2610,7 @@ const handleSingleMpesaPayment = (employee) => {
               icon={TabletSmartphone} 
               size="md"
               onClick={handleBulkMpesaPayment}
-              disabled={filteredRecords.length === 0}
+              disabled={finalFilteredRecords.length === 0}
             >
               M-PESA Bulk Pay
             </GlowButton>
@@ -2172,6 +2627,9 @@ const handleSingleMpesaPayment = (employee) => {
         >
           {showSummary ? 'Hide Summary' : 'Show Summary'}
         </GlowButtonss>
+
+        
+
         <div className="space-y-1">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -2210,7 +2668,7 @@ const handleSingleMpesaPayment = (employee) => {
             />
             <SummaryCard 
               label="Employee Count" 
-              value={filteredRecords.length} 
+              value={finalFilteredRecords.length} 
               icon={Users} 
               color="purple" 
               isCount={true}
@@ -2230,21 +2688,39 @@ const handleSingleMpesaPayment = (employee) => {
         </>
       )}
 
+      {/* Statutory Deductions Tabs */}
+      <StatutoryDeductionsTabs 
+        records={payrollRecords} 
+        onFilterChange={handleStatutoryFilterChange}
+      />
+
       {/* Detailed Payroll Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Payroll Report</h2>
-              <p className="text-gray-600 text-sm">{filteredRecords.length} records found</p>
+              <p className="text-gray-600 text-sm">{finalFilteredRecords.length} records found</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <GlowButtonss variant="secondary" icon={FileText} size="sm" onClick={() => setShowP9Modal(true)}>
                 P9 Forms
               </GlowButtonss>
+
+                <GlowButtonss 
+                    variant="secondary" 
+                    icon={FileSpreadsheet} 
+                    size="sm" 
+                    onClick={() => setShowP10Modal(true)}
+                  >
+                    P10 Form
+                  </GlowButtonss>
               <GlowButtonss variant="secondary" icon={Download} size="sm" onClick={() => setShowExportModal(true)}>
                 Export
               </GlowButtonss>
+
+                 
+              
             </div>
           </div>
         </div>
@@ -2414,7 +2890,7 @@ const handleSingleMpesaPayment = (employee) => {
           currentPage={currentPage} 
           totalPages={totalPages} 
           onPageChange={handlePageChange}
-          totalItems={filteredRecords.length}
+          totalItems={finalFilteredRecords.length}
           itemsPerPage={itemsPerPage}
           currentItemsCount={currentItems.length}
         />
@@ -2427,7 +2903,7 @@ const handleSingleMpesaPayment = (employee) => {
           onClose={() => setSelectedRecord(null)}
           onPrevious={currentRecordIndex !== null && currentRecordIndex > 0 ? 
             () => handleNavigatePayslip('prev') : undefined}
-          onNext={currentRecordIndex !== null && currentRecordIndex < filteredRecords.length - 1 ? 
+          onNext={currentRecordIndex !== null && currentRecordIndex < finalFilteredRecords.length - 1 ? 
             () => handleNavigatePayslip('next') : undefined}
           companyInfo={companyInfo}
         />
@@ -2447,7 +2923,7 @@ const handleSingleMpesaPayment = (employee) => {
       <MpesaBulkPaymentModal
         isOpen={showBulkMpesaModal}
         onClose={() => setShowBulkMpesaModal(false)}
-        employees={filteredRecords}
+        employees={finalFilteredRecords}
         onConfirm={processBulkMpesaPayment}
       />
 
@@ -2463,8 +2939,16 @@ const handleSingleMpesaPayment = (employee) => {
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
-        records={filteredRecords}
+        records={finalFilteredRecords}
       />
+
+      {/* P10 Form Modal */}
+      {showP10Modal && (
+        <P10FormGenerator
+          isOpen={showP10Modal}
+          onClose={() => setShowP10Modal(false)}
+        />
+      )}
     </div>
   );
 }

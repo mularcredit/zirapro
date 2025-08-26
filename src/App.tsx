@@ -38,6 +38,8 @@ import {MeetingRoom} from './components/zoom/MeetingRoom';
 import { useZoomSDK } from '../src/hooks/useZoom';
 import { createMeetingConfig } from '../backend/zoomAuth';
 import React from 'react';
+import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
+
 
 interface User {
   email: string;
@@ -473,6 +475,7 @@ function App() {
 
   // Main render
   return (
+    <UserProvider>
     <ErrorBoundary>
       <div className="min-h-screen bg-white overflow-x-hidden">
         <Routes>
@@ -518,7 +521,7 @@ function App() {
                                 element={
                                   user?.role === 'STAFF' ? 
                                     <StaffPortalLanding /> : 
-                                    <AuthRoute allowedRoles={['ADMIN','MANAGER']}>
+                                    <AuthRoute allowedRoles={['ADMIN','MANAGER','HR']}>
                                       <Dashboard selectedTown={selectedTown} />
                                     </AuthRoute>
                                 } 
@@ -526,7 +529,7 @@ function App() {
                               <Route 
                                 path="/dashboard" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','MANAGER']}>
+                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR']}>
                                     <Dashboard selectedTown={selectedTown} />
                                   </AuthRoute>
                                 } 
@@ -537,6 +540,7 @@ function App() {
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
+                              
                                <Route path="/expenses" element={<ExpenseModule/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
@@ -573,7 +577,7 @@ function App() {
                               />
                               <Route path="/recruitment" 
                               element={
-                              <AuthRoute allowedRoles={['ADMIN']}>
+                              <AuthRoute allowedRoles={['ADMIN','HR']}>
                                 <RecruitmentDashboard selectedTown={selectedTown} /> 
                                    </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
@@ -640,6 +644,7 @@ function App() {
         />
       </div>
     </ErrorBoundary>
+    </UserProvider>
   );
 }
 

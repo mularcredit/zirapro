@@ -40,8 +40,8 @@ const ROLES = {
     icon: <User className="w-4 h-4 text-green-500" />,
     requiresLocation: true
   },
-  VIEWER: {
-    label: 'Viewer',
+  HR: {
+    label: 'HR',
     description: 'Read-only access to location-specific features',
     icon: <Eye className="w-4 h-4 text-gray-500" />,
     requiresLocation: true

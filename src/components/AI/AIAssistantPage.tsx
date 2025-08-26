@@ -85,7 +85,7 @@ export const AIAssistantPage = () => {
   }, 0) / hrData?.length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-500 to-blue-900 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <motion.header 
@@ -94,25 +94,25 @@ export const AIAssistantPage = () => {
           className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4"
         >
           <div>
-            <h1 className="text-4xl font-bold text-white flex items-center gap-4">
-              <div className="p-3 bg-white/10 backdrop-blur-md rounded-xl text-white border border-white/20">
+            <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-4">
+              <div className="p-3 bg-blue-100 rounded-xl text-blue-600 border border-blue-200">
                 <Bot className="w-8 h-8" />
               </div>
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-purple-400">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                 HR AI Assistant
               </span>
             </h1>
-            <p className="text-white/80 mt-2 max-w-lg">
+            <p className="text-gray-600 mt-2 max-w-lg">
               AI-powered workforce analytics and insights for your organization
             </p>
           </div>
           
           <motion.div 
             whileHover={{ scale: 1.02 }}
-            className="flex items-center gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2"
+            className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-full px-4 py-2"
           >
-            <Sparkles className="w-5 h-5 text-yellow-300" />
-            <span className="text-sm font-medium text-white">AI Assistant</span>
+            <Sparkles className="w-5 h-5 text-blue-500" />
+            <span className="text-sm font-medium text-blue-700">AI Assistant</span>
           </motion.div>
         </motion.header>
 
@@ -125,49 +125,49 @@ export const AIAssistantPage = () => {
         >
           <motion.div 
             whileHover={{ y: -5 }}
-            className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all"
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-blue-500/20 rounded-lg text-blue-300">
+              <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                 <Users className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-white/90">Total Employees</h3>
+              <h3 className="font-medium text-gray-700">Total Employees</h3>
             </div>
-            <p className="text-4xl font-bold text-white">
+            <p className="text-4xl font-bold text-gray-900">
               {hrData ? hrData.length : '--'}
-              <span className="text-sm font-normal ml-2 text-white/60">employees</span>
+              <span className="text-sm font-normal ml-2 text-gray-500">employees</span>
             </p>
           </motion.div>
 
           <motion.div 
             whileHover={{ y: -5 }}
-            className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all"
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-green-500/20 rounded-lg text-green-300">
+              <div className="p-2 bg-green-100 rounded-lg text-green-600">
                 <Activity className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-white/90">Active Employees</h3>
+              <h3 className="font-medium text-gray-700">Active Employees</h3>
             </div>
-            <p className="text-4xl font-bold text-white">
+            <p className="text-4xl font-bold text-gray-900">
               {activeEmployees || '--'}
-              <span className="text-sm font-normal ml-2 text-white/60">active</span>
+              <span className="text-sm font-normal ml-2 text-gray-500">active</span>
             </p>
           </motion.div>
 
           <motion.div 
             whileHover={{ y: -5 }}
-            className="bg-white/5 backdrop-blur-md rounded-2xl p-6 border border-white/10 hover:border-white/20 transition-all"
+            className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm hover:shadow-md transition-all"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="p-2 bg-purple-500/20 rounded-lg text-purple-300">
+              <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
                 <BarChart2 className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-white/90">Avg. Tenure</h3>
+              <h3 className="font-medium text-gray-700">Avg. Tenure</h3>
             </div>
-            <p className="text-4xl font-bold text-white">
+            <p className="text-4xl font-bold text-gray-900">
               {avgTenure ? avgTenure.toFixed(1) : '--'}
-              <span className="text-sm font-normal ml-2 text-white/60">years</span>
+              <span className="text-sm font-normal ml-2 text-gray-500">years</span>
             </p>
           </motion.div>
         </motion.div>
@@ -177,7 +177,7 @@ export const AIAssistantPage = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white/5 backdrop-blur-lg rounded-2xl overflow-hidden border border-white/10 shadow-xl"
+          className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-lg"
         >
           {/* Messages */}
           <div className="h-[500px] overflow-y-auto p-6 space-y-6 custom-scrollbar">
@@ -195,16 +195,16 @@ export const AIAssistantPage = () => {
                   >
                     <div className={`max-w-[80%] rounded-2xl p-5 ${msg.role === 'user' 
                       ? 'bg-gradient-to-br from-blue-600 to-blue-500 text-white rounded-br-none' 
-                      : 'bg-white/10 text-white rounded-bl-none border border-white/10'}`}
+                      : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'}`}
                     >
                       <div className="flex items-center gap-3 mb-2">
                         {msg.role === 'user' ? (
-                          <div className="p-1.5 bg-white/20 rounded-full">
+                          <div className="p-1.5 bg-white/30 rounded-full">
                             <User className="w-4 h-4" />
                           </div>
                         ) : (
-                          <div className="p-1.5 bg-blue-500/30 rounded-full">
-                            <Cpu className="w-4 h-4 text-blue-300" />
+                          <div className="p-1.5 bg-blue-500/20 rounded-full">
+                            <Cpu className="w-4 h-4 text-blue-600" />
                           </div>
                         )}
                         <span className="text-sm font-medium">
@@ -222,17 +222,17 @@ export const AIAssistantPage = () => {
                   animate={{ opacity: 1 }}
                   className="flex justify-start"
                 >
-                  <div className="bg-white/10 text-white rounded-2xl rounded-bl-none p-5 max-w-[80%] border border-white/10">
+                  <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-bl-none p-5 max-w-[80%] border border-gray-200">
                     <div className="flex items-center gap-3">
-                      <div className="p-1.5 bg-blue-500/30 rounded-full">
-                        <Cpu className="w-4 h-4 text-blue-300" />
+                      <div className="p-1.5 bg-blue-500/20 rounded-full">
+                        <Cpu className="w-4 h-4 text-blue-600" />
                       </div>
                       <span className="text-sm font-medium">HR Assistant</span>
                     </div>
                     <div className="mt-3 flex space-x-2">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
-                      <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '200ms' }} />
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '400ms' }} />
                     </div>
                   </div>
                 </motion.div>
@@ -241,12 +241,12 @@ export const AIAssistantPage = () => {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-white/10 p-5 bg-white/5 backdrop-blur-md">
+          <div className="border-t border-gray-200 p-5 bg-gray-50">
             {error && (
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-4 bg-red-500/10 text-red-300 p-3 rounded-lg text-sm border border-red-500/20"
+                className="mb-4 bg-red-100 text-red-700 p-3 rounded-lg text-sm border border-red-200"
               >
                 {error}
               </motion.div>
@@ -256,7 +256,7 @@ export const AIAssistantPage = () => {
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-transparent text-white placeholder-white/40 text-sm"
+                className="flex-1 bg-white border border-gray-300 rounded-xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 text-sm"
                 placeholder="Ask about your HR data (e.g. 'Show turnover trends')"
                 disabled={loading}
               />
@@ -265,12 +265,12 @@ export const AIAssistantPage = () => {
                 disabled={loading || !message.trim()}
                 whileTap={{ scale: 0.95 }}
                 whileHover={{ scale: 1.05 }}
-                className="p-3.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 transition-all flex items-center justify-center shadow-lg shadow-blue-500/20"
+                className="p-3.5 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-400 hover:to-blue-500 disabled:opacity-50 transition-all flex items-center justify-center shadow-md shadow-blue-500/30"
               >
                 <Send className="w-5 h-5" />
               </motion.button>
             </form>
-            <p className="text-xs text-white/50 mt-3 text-center">
+            <p className="text-xs text-gray-500 mt-3 text-center">
               AI assistant may produce inaccurate information about people or policies
             </p>
           </div>
@@ -285,11 +285,11 @@ export const AIAssistantPage = () => {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
+          background: rgba(0, 0, 0, 0.1);
           border-radius: 3px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.3);
+          background: rgba(0, 0, 0, 0.2);
         }
       `}</style>
     </div>
