@@ -581,7 +581,9 @@ function App() {
                                 <RecruitmentDashboard selectedTown={selectedTown} /> 
                                    </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
-                              <Route path="/performance" element={<PerformanceDashboard selectedTown={selectedTown} />} />
+                              <Route path="/performance" element={<AuthRoute allowedRoles={['ADMIN']}>
+                                <PerformanceDashboard selectedTown={selectedTown} />
+                                </AuthRoute>} />
                               <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
                               <Route path="/training" element={<AdminVideoUpload/>} />
                               <Route path="/ai-assistant" element={<AIAssistantPage />} /> 
