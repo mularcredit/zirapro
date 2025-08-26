@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -1819,171 +1819,171 @@ const P10FormGenerator = ({ isOpen, onClose }) => {
 };
 
 // Statutory Deductions Tabs Component
-const StatutoryDeductionsTabs = ({ records, onFilterChange }) => {
-  const [activeTab, setActiveTab] = useState('all');
+// const StatutoryDeductionsTabs = ({ records, onFilterChange }) => {
+//   const [activeTab, setActiveTab] = useState('all');
 
-  const tabs = [
-    { id: 'all', label: 'All Records', icon: Users },
-    { id: 'nhif', label: 'NHIF', icon: TrendingUp },
-    { id: 'paye', label: 'PAYE', icon: Calculator },
-    { id: 'nssf', label: 'NSSF', icon: DollarSign },
-    { id: 'ahl', label: 'Housing Levy', icon: FileText }
-  ];
+//   const tabs = [
+//     { id: 'all', label: 'All Records', icon: Users },
+//     { id: 'nhif', label: 'NHIF', icon: Tally1 },
+//     { id: 'paye', label: 'PAYE', icon: Tally1 },
+//     { id: 'nssf', label: 'NSSF', icon: Tally1 },
+//     { id: 'ahl', label: 'Housing Levy', icon: Tally1}
+//   ];
 
-  const handleTabChange = (tabId) => {
-    setActiveTab(tabId);
+//   const handleTabChange = (tabId) => {
+//     setActiveTab(tabId);
     
-    // Filter records based on tab selection
-    let filteredRecords = records;
+//     // Filter records based on tab selection
+//     let filteredRecords = records;
     
-    switch (tabId) {
-      case 'nhif':
-        filteredRecords = records.filter(record => record.nhif_deduction > 0);
-        break;
-      case 'paye':
-        filteredRecords = records.filter(record => record.paye_tax > 0);
-        break;
-      case 'nssf':
-        filteredRecords = records.filter(record => record.nssf_deduction > 0);
-        break;
-      case 'ahl':
-        filteredRecords = records.filter(record => record.housing_levy > 0);
-        break;
-      default:
-        filteredRecords = records;
-    }
+//     switch (tabId) {
+//       case 'nhif':
+//         filteredRecords = records.filter(record => record.nhif_deduction > 0);
+//         break;
+//       case 'paye':
+//         filteredRecords = records.filter(record => record.paye_tax > 0);
+//         break;
+//       case 'nssf':
+//         filteredRecords = records.filter(record => record.nssf_deduction > 0);
+//         break;
+//       case 'ahl':
+//         filteredRecords = records.filter(record => record.housing_levy > 0);
+//         break;
+//       default:
+//         filteredRecords = records;
+//     }
     
-    onFilterChange(filteredRecords, tabId);
-  };
+//     onFilterChange(filteredRecords, tabId);
+//   };
 
-  const getTabCount = (tabId) => {
-    switch (tabId) {
-      case 'nhif':
-        return records.filter(record => record.nhif_deduction > 0).length;
-      case 'paye':
-        return records.filter(record => record.paye_tax > 0).length;
-      case 'nssf':
-        return records.filter(record => record.nssf_deduction > 0).length;
-      case 'ahl':
-        return records.filter(record => record.housing_levy > 0).length;
-      default:
-        return records.length;
-    }
-  };
+//   const getTabCount = (tabId) => {
+//     switch (tabId) {
+//       case 'nhif':
+//         return records.filter(record => record.nhif_deduction > 0).length;
+//       case 'paye':
+//         return records.filter(record => record.paye_tax > 0).length;
+//       case 'nssf':
+//         return records.filter(record => record.nssf_deduction > 0).length;
+//       case 'ahl':
+//         return records.filter(record => record.housing_levy > 0).length;
+//       default:
+//         return records.length;
+//     }
+//   };
 
-  const getTabTotal = (tabId) => {
-    switch (tabId) {
-      case 'nhif':
-        return records.reduce((sum, record) => sum + record.nhif_deduction, 0);
-      case 'paye':
-        return records.reduce((sum, record) => sum + record.paye_tax, 0);
-      case 'nssf':
-        return records.reduce((sum, record) => sum + record.nssf_deduction, 0);
-      case 'ahl':
-        return records.reduce((sum, record) => sum + record.housing_levy, 0);
-      default:
-        return records.reduce((sum, record) => sum + record.total_deductions, 0);
-    }
-  };
+//   const getTabTotal = (tabId) => {
+//     switch (tabId) {
+//       case 'nhif':
+//         return records.reduce((sum, record) => sum + record.nhif_deduction, 0);
+//       case 'paye':
+//         return records.reduce((sum, record) => sum + record.paye_tax, 0);
+//       case 'nssf':
+//         return records.reduce((sum, record) => sum + record.nssf_deduction, 0);
+//       case 'ahl':
+//         return records.reduce((sum, record) => sum + record.housing_levy, 0);
+//       default:
+//         return records.reduce((sum, record) => sum + record.total_deductions, 0);
+//     }
+//   };
 
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg mb-6">
-      {/* Tab Headers */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-8" aria-label="Tabs">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            const count = getTabCount(tab.id);
-            const total = getTabTotal(tab.id);
+//   return (
+//     <div className="bg-white border border-gray-200 rounded-lg mb-6">
+//       {/* Tab Headers */}
+//       <div className="border-b border-gray-200">
+//         <nav className="flex space-x-8" aria-label="Tabs">
+//           {tabs.map((tab) => {
+//             const Icon = tab.icon;
+//             const isActive = activeTab === tab.id;
+//             const count = getTabCount(tab.id);
+//             const total = getTabTotal(tab.id);
             
-            return (
-              <button
-                key={tab.id}
-                onClick={() => handleTabChange(tab.id)}
-                className={`${
-                  isActive
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-                <span className="bg-gray-100 text-gray-900 rounded-full px-2.5 py-0.5 text-xs font-medium">
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+//             return (
+//               <button
+//                 key={tab.id}
+//                 onClick={() => handleTabChange(tab.id)}
+//                 className={`${
+//                   isActive
+//                     ? 'border-blue-500 text-blue-600'
+//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+//                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
+//               >
+//                 <Icon className="w-4 h-4" />
+//                 {tab.label}
+//                 <span className="bg-gray-100 text-gray-900 rounded-full px-2.5 py-0.5 text-xs font-medium">
+//                   {count}
+//                 </span>
+//               </button>
+//             );
+//           })}
+//         </nav>
+//       </div>
 
-      {/* Tab Content - Summary Cards */}
-      <div className="p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {activeTab === 'all' ? (
-            <>
-              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium">Total PAYE</p>
-                    <p className="text-gray-900 text-lg font-bold">KSh {Math.round(getTabTotal('paye')).toLocaleString()}</p>
-                  </div>
+//       {/* Tab Content - Summary Cards */}
+//       <div className="p-4">
+//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+//           {activeTab === 'all' ? (
+//             <>
+//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+//                 <div className="flex items-center justify-between">
+//                   <div>
+//                     <p className="text-gray-600 text-sm font-medium">Total PAYE</p>
+//                     <p className="text-gray-900 text-lg font-bold">KSh {Math.round(getTabTotal('paye')).toLocaleString()}</p>
+//                   </div>
                 
-                </div>
-              </div>
-              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium">Total NHIF</p>
-                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nhif').toLocaleString()}</p>
-                  </div>
+//                 </div>
+//               </div>
+//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+//                 <div className="flex items-center justify-between">
+//                   <div>
+//                     <p className="text-gray-600 text-sm font-medium">Total NHIF</p>
+//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nhif').toLocaleString()}</p>
+//                   </div>
                 
-                </div>
-              </div>
-              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium">Total NSSF</p>
-                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nssf').toLocaleString()}</p>
-                  </div>
+//                 </div>
+//               </div>
+//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+//                 <div className="flex items-center justify-between">
+//                   <div>
+//                     <p className="text-gray-600 text-sm font-medium">Total NSSF</p>
+//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nssf').toLocaleString()}</p>
+//                   </div>
                 
-                </div>
-              </div>
-              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-600 text-sm font-medium">Housing Levy</p>
-                    <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('ahl').toLocaleString()}</p>
-                  </div>
+//                 </div>
+//               </div>
+//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
+//                 <div className="flex items-center justify-between">
+//                   <div>
+//                     <p className="text-gray-600 text-sm font-medium">Housing Levy</p>
+//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('ahl').toLocaleString()}</p>
+//                   </div>
               
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="col-span-full">
-              <div className="bg-gradient-to-r from-green-50 to-gray-100 p-6 rounded-lg border border-gray-200 text-center">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {tabs.find(tab => tab.id === activeTab)?.label} Summary
-                </h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-gray-600 text-sm">Employees Affected</p>
-                    <p className="text-gray-900 text-2xl font-bold">{getTabCount(activeTab)}</p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600 text-sm">Total Amount</p>
-                    <p className="text-gray-900 text-2xl font-bold">KSh {Math.round(getTabTotal(activeTab)).toLocaleString()}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
+//                 </div>
+//               </div>
+//             </>
+//           ) : (
+//             <div className="col-span-full">
+//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-6 rounded-lg border border-gray-200 text-center">
+//                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
+//                   {tabs.find(tab => tab.id === activeTab)?.label} Summary
+//                 </h3>
+//                 <div className="grid grid-cols-2 gap-4">
+//                   <div>
+//                     <p className="text-gray-600 text-sm">Employees Affected</p>
+//                     <p className="text-gray-900 text-2xl font-bold">{getTabCount(activeTab)}</p>
+//                   </div>
+//                   <div>
+//                     <p className="text-gray-600 text-sm">Total Amount</p>
+//                     <p className="text-gray-900 text-2xl font-bold">KSh {Math.round(getTabTotal(activeTab)).toLocaleString()}</p>
+//                   </div>
+//                 </div>
+//               </div>
+//             </div>
+//           )}
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 
 export default function PayrollDashboard() {
@@ -2657,7 +2657,7 @@ const handleSingleMpesaPayment = (employee) => {
             <SummaryCard 
               label="Total Deductions" 
               value={totalDeductions} 
-              icon={TrendingUp} 
+              icon={Box} 
               color="red"
             />
             <SummaryCard 
@@ -2689,10 +2689,10 @@ const handleSingleMpesaPayment = (employee) => {
       )}
 
       {/* Statutory Deductions Tabs */}
-      <StatutoryDeductionsTabs 
+      {/* <StatutoryDeductionsTabs 
         records={payrollRecords} 
         onFilterChange={handleStatutoryFilterChange}
-      />
+      /> */}
 
       {/* Detailed Payroll Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
