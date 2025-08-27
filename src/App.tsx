@@ -42,6 +42,7 @@ import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
 
 interface User {
   email: string;
+  usernames:string;
   role: string;
   town?: string;
 }
@@ -371,6 +372,7 @@ function App() {
 
           if (session?.user) {
             const userRole = session.user.user_metadata?.role || 'STAFF';
+            const userNames= session.user.user_metadata?.usernames || 'STAFF';
             const userTown = session.user.user_metadata?.town || '';
             
             // Show email verification toast only once
@@ -383,7 +385,8 @@ function App() {
             setUser({
               email: session.user.email || '',
               role: userRole,
-              town: userTown
+              town: userTown,
+              usernames:userNames
             });
 
             if (userTown) {

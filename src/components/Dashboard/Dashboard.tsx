@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase"
 import { TownProps } from '../../types/supabase';
 
-export default function DashboardMain({ selectedTown, selectedRegion }: TownProps) {
+export default function DashboardMain({ selectedTown, onTownChange }: TownProps) {
   const [phoneNumber, setPhoneNumber] = useState("+254");
   const [activeTab, setActiveTab] = useState("overview");
   const [showSupportPopup, setShowSupportPopup] = useState(false);
@@ -21,10 +21,7 @@ export default function DashboardMain({ selectedTown, selectedRegion }: TownProp
   // Fetch data from Supabase with town filtering
   useEffect(() => {
     fetchDashboardData();
-  }, [selectedTown,selectedRegion]); // A
-  // dd selectedTown as 
-  
-  
+  }, [selectedTown]); // Add selectedTown as dependency
 
   const fetchDashboardData = async () => {
     try {
@@ -35,9 +32,6 @@ export default function DashboardMain({ selectedTown, selectedRegion }: TownProp
       
       if (selectedTown && selectedTown !== 'ADMIN_ALL') {
         employeesQuery = employeesQuery.eq('Town', selectedTown);
-      }
-        if (selectedRegion && selectedRegion !== 'All Regions') {
-        employeesQuery = employeesQuery.eq('Area', selectedRegion);
       }
       
       const { count: employeesCount, error: employeesError } = await employeesQuery;
