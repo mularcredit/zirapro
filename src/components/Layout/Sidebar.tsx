@@ -23,21 +23,22 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import solo from '../../../public/solo.png';
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton'
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
-  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment' },
+  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },
-  { id: 'payroll', label: 'Payroll', icon: DollarSign, path: '/payroll' },
+  { id: 'payroll', label: 'Payroll', icon: DollarSign, path: '/payroll', allowedRoles: ['ADMIN', 'HR'] },
   { id: 'performance', label: 'Performance', icon: TrendingUp, path: '/performance' },
-  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training' },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports' },
+  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR'] },
+  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR'] },
   { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses' },
-  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck' },
+  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck', allowedRoles: ['ADMIN', 'HR'] },
   { id: 'conferencing', label: 'Conferencing', icon: Video, path: '/videocall' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings', allowedRoles: ['ADMIN'] },
 ];
 
 export default function Sidebar() {
@@ -116,17 +117,18 @@ export default function Sidebar() {
         </motion.div>
 
         {/* Navigation */}
-        <nav className="space-y-2  flex-1">
+        <nav className="space-y-2 flex-1">
           {menuItems.map((item) => {
             const isActive = currentPath === item.path;
-            return (
+            
+            // Create the button component
+            const ButtonComponent = (
               <motion.button
-                key={item.id}
                 onClick={() => navigate(item.path)}
-                className={`w-full flex items-center   px-0.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden group ${
+                className={`w-full flex items-center px-0.5 py-3 rounded-xl transition-all duration-200 relative overflow-hidden group ${
                   isActive
                     ? 'bg-white/15 text-gray-900 shadow-lg'
-                    : 'text-gray-900  hover:text-gray-900 hover:bg-white/10'
+                    : 'text-gray-900 hover:text-gray-900 hover:bg-white/10'
                 }`}
                 whileHover={{ 
                   scale: 1.02,
@@ -174,6 +176,26 @@ export default function Sidebar() {
                 )}
               </motion.button>
             );
+
+            // If item has required roles, wrap it with RoleButtonWrapper
+            if (item.allowedRoles) {
+              return (
+                <RoleButtonWrapper 
+                  key={item.id}
+                  allowedRoles={item.allowedRoles}
+                  fallback={null} // Don't render anything if user doesn't have access
+                >
+                  {ButtonComponent}
+                </RoleButtonWrapper>
+              );
+            }
+
+            // Otherwise, return the button directly
+            return (
+              <div key={item.id}>
+                {ButtonComponent}
+              </div>
+            );
           })}
         </nav>
 
@@ -220,44 +242,13 @@ export default function Sidebar() {
           }}
         >
           <div className="flex items-center">
-            <motion.div 
-              className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center ml-1 shadow-inner"
-              whileHover={{ rotate: 5 }}
-            >
-              <Settings className="w-5 h-5 text-gray-900/80" />
-            </motion.div>
-            <AnimatePresence>
-              {(isHovered || !isCollapsed) && (
-                <motion.div
-                  className="ml-3 flex-1"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <p className="text-sm font-medium text-gray-900">Settings</p>
-                  <p className="text-xs text-green-200">Account & Preferences</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+           
+           
           </div>
           
-          <AnimatePresence>
-            {(isHovered || !isCollapsed) && (
-              <motion.button
-                className="w-full mt-4 flex items-center text-gray-900/80 hover:text-gray-900 py-2 px-3 rounded-lg hover:bg-white/5 transition-colors"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                whileHover={{ x: 5 }}
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                <span className="text-sm">Logout</span>
-              </motion.button>
-            )}
-          </AnimatePresence>
+          
         </motion.div>
-      </div>
-    </motion.div>
+        </div>
+        </motion.div>
   );
 }

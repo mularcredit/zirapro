@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Users, DollarSign, CreditCard, UserRound, CalendarDays, NotepadText, BellDot, Blocks, Wallet, Phone, TrendingUp, HelpCircle, Calendar, CheckCircle, Clock, AlertCircle, ChevronRight, Zap, BarChart2, PieChart, Settings, FileText } from "lucide-react";
+import { Users, DollarSign, CreditCard, UserRound, CalendarDays, NotepadText, BellDot, Blocks, Wallet, Phone, TrendingUp, HelpCircle, Calendar, CheckCircle, Clock, AlertCircle, ChevronRight, Zap, BarChart2, PieChart, Settings, FileText, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase"
+import { TownProps } from '../../types/supabase';
 
-export default function DashboardMain() {
+export default function DashboardMain({ selectedTown, selectedRegion }: TownProps) {
   const [phoneNumber, setPhoneNumber] = useState("+254");
   const [activeTab, setActiveTab] = useState("overview");
   const [showSupportPopup, setShowSupportPopup] = useState(false);
@@ -17,39 +18,65 @@ export default function DashboardMain() {
   
   const navigate = useNavigate();
 
-  // Animated gradient background
-  const gradientStyle = {
-    background: '',
-    backgroundSize: '400% 400%',
-    animation: 'gradient 15s ease infinite'
-  };
-
-  // Fetch data from Supabase
+  // Fetch data from Supabase with town filtering
   useEffect(() => {
     fetchDashboardData();
-  }, []);
+  }, [selectedTown,selectedRegion]); // A
+  // dd selectedTown as 
+  
+  
 
   const fetchDashboardData = async () => {
     try {
-      // Fetch employees count
-      const { count: employeesCount, error: employeesError } = await supabase
+      // Fetch employees count with town filter
+      let employeesQuery = supabase
         .from('employees')
         .select('*', { count: 'exact', head: true });
       
+      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+        employeesQuery = employeesQuery.eq('Town', selectedTown);
+      }
+        if (selectedRegion && selectedRegion !== 'All Regions') {
+        employeesQuery = employeesQuery.eq('Area', selectedRegion);
+      }
+      
+      const { count: employeesCount, error: employeesError } = await employeesQuery;
+      
       // Fetch leave requests count
-      const { count: leaveRequestsCount, error: leaveRequestsError } = await supabase
+      let leaveRequestsQuery = supabase
         .from('leave_application')
         .select('*', { count: 'exact', head: true });
       
+  
+      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+        leaveRequestsQuery = leaveRequestsQuery.eq('Office Branch', selectedTown);
+      }
+      
+      const { count: leaveRequestsCount, error: leaveRequestsError } = await leaveRequestsQuery;
+      
       // Fetch salary advances count
-      const { count: salaryAdvancesCount, error: salaryAdvancesError } = await supabase
+      let salaryAdvancesQuery = supabase
         .from('salary_advance')
         .select('*', { count: 'exact', head: true });
       
+      // If you have town filtering for salary advances, add it here
+     if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+         salaryAdvancesQuery = salaryAdvancesQuery.eq('Office Branch', selectedTown);
+       }
+      
+      const { count: salaryAdvancesCount, error: salaryAdvancesError } = await salaryAdvancesQuery;
+      
       // Fetch job applications count
-      const { count: jobApplicationsCount, error: jobApplicationsError } = await supabase
-        .from('job_applications')
+      let jobApplicationsQuery = supabase
+        .from('expenses')
         .select('*', { count: 'exact', head: true });
+      
+      // If you have town filtering for job applications, add it here
+       if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+         jobApplicationsQuery = jobApplicationsQuery.eq('branch', selectedTown);
+       }
+      
+      const { count: jobApplicationsCount, error: jobApplicationsError } = await jobApplicationsQuery;
 
       if (employeesError || leaveRequestsError || salaryAdvancesError || jobApplicationsError) {
         console.error("Error fetching data:", {
@@ -97,8 +124,15 @@ export default function DashboardMain() {
     setTimeout(() => setShowSupportPopup(false), 5000);
   };
 
+  // Get town display name
+  const getTownDisplayName = () => {
+    if (!selectedTown) return "All Towns";
+    if (selectedTown === 'ADMIN_ALL') return "All Towns";
+    return selectedTown;
+  };
+
   return (
-    <div className="min-h-screen p-6" style={gradientStyle}>
+    <div className="min-h-screen p-6">
       <style jsx global>{`
         @keyframes gradient {
           0% { background-position: 0% 50%; }
@@ -179,7 +213,7 @@ export default function DashboardMain() {
         </div>
       )}
 
-      {/* Welcome Section - Compact Version with Image */}
+      {/* Welcome Section with Town Filter Indicator */}
       <div className="mb-8 relative">
         <div className="bg-white rounded-2xl p-6 relative overflow-hidden card-hover glow-effect">
           {/* Floating gradient circles - smaller */}
@@ -196,7 +230,13 @@ export default function DashboardMain() {
                 />
                 <div>
                   <h1 className="text-xl font-bold text-gray-800 mb-1">Welcome back<span className="wave-animation">👋</span></h1>
-                  <p className="text-sm text-gray-600 max-w-md">Your dashboard is ready with the latest updates.</p>
+                  <p className="text-sm text-gray-600 max-w-md">
+                    Your dashboard is ready with the latest updates for{" "}
+                    <span className="font-medium text-indigo-600 flex items-center mt-1">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      {getTownDisplayName()}
+                    </span>
+                  </p>
                 </div>
               </div>
               
@@ -235,19 +275,19 @@ export default function DashboardMain() {
             onClick={() => setActiveTab('payroll')}
             className={`pb-3 px-1 font-medium text-sm ${activeTab === 'payroll' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Payroll
+            
           </button>
           <button 
             onClick={() => setActiveTab('loans')}
             className={`pb-3 px-1 font-medium text-sm ${activeTab === 'loans' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Loans
+            
           </button>
           <button 
             onClick={() => setActiveTab('reports')}
             className={`pb-3 px-1 font-medium text-sm ${activeTab === 'reports' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
-            Reports
+            
           </button>
         </div>
       </div>
@@ -331,7 +371,7 @@ export default function DashboardMain() {
           <div className="absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-sm text-gray-500 mb-1">Job Applications</p>
+              <p className="text-sm text-gray-500 mb-1">Expenses</p>
               <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.jobApplications}</h3>
               <div className="flex items-center text-sm text-purple-600"></div>
             </div>
@@ -348,45 +388,6 @@ export default function DashboardMain() {
               <div className="bg-green-600 h-2 rounded-full w-full"></div>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content Area */}
-      
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-2xl p-6 card-hover">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="font-semibold text-gray-800">Recent Activity</h2>
-          <button className="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
-            View All
-          </button>
-        </div>
-        
-        <div className="space-y-4">
-          {[
-            { icon: <FileText className="w-5 h-5 text-green-600" />, title: "Payroll processed for August", time: "10 mins ago", status: "completed" },
-            { icon: <Users className="w-5 h-5 text-blue-600" />, title: "New employee onboarded", time: "45 mins ago", status: "completed" },
-            { icon: <CreditCard className="w-5 h-5 text-purple-600" />, title: "Loan application approved", time: "2 hours ago", status: "completed" },
-            { icon: <DollarSign className="w-5 h-5 text-orange-600" />, title: "Salary advance requested", time: "4 hours ago", status: "pending" }
-          ].map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
-              <div className="flex items-center">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center mr-3 bg-gray-100">
-                  {item.icon}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-800">{item.title}</p>
-                  <p className="text-xs text-gray-500">{item.time}</p>
-                </div>
-              </div>
-              <div className={`text-xs px-2 py-1 rounded-full ${
-                item.status === 'completed' ? 'text-green-600 bg-green-100' : 'text-orange-600 bg-orange-100'
-              }`}>
-                {item.status === 'completed' ? 'Completed' : 'Pending'}
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     </div>

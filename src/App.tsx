@@ -40,7 +40,6 @@ import { createMeetingConfig } from '../backend/zoomAuth';
 import React from 'react';
 import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
 
-
 interface User {
   email: string;
   role: string;
@@ -48,7 +47,10 @@ interface User {
 }
 
 interface Branch {
-  'Branch Office': string;
+  id: number;
+  "Branch Office": string;
+  "Area": string;
+  created_at: string;
 }
 
 const Loader = () => {
@@ -139,7 +141,10 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedTown, setSelectedTown] = useState<string>('');
+  const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
   const [branches, setBranches] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [filteredTowns, setFilteredTowns] = useState<string[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   
@@ -178,38 +183,113 @@ function App() {
     await joinMeeting(meetingConfig);
   };
 
-  // Fetch branches from Supabase
+  // Fetch branches and regions from Supabase
   useEffect(() => {
-    const fetchBranches = async () => {
+    const fetchBranchesAndRegions = async () => {
       if (isFetchingBranches) return;
       
       setIsFetchingBranches(true);
       try {
         const { data, error } = await supabase
           .from('kenya_branches')
-          .select('"Branch Office"')
+          .select('"Branch Office", "Area"')
           .order('"Branch Office"', { ascending: true });
 
         if (error) throw error;
         
+        // Extract unique towns
         const branchNames = data?.map((item: Branch) => item['Branch Office']).filter(Boolean) || [];
         setBranches(branchNames);
+        
+        // Extract unique regions from Area column
+        const uniqueRegions = Array.from(
+          new Set(data?.map((item: Branch) => item['Area']).filter(Boolean))
+        ) as string[];
+        
+        // Add "All Regions" option
+        setRegions(['All Regions', ...uniqueRegions.sort()]);
+        setFilteredTowns(branchNames); // Initially show all towns
+        
       } catch (error) {
         console.error('Error fetching branches:', error);
-        setBranches(['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika']);
+        const fallbackTowns = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika'];
+        const fallbackRegions = ['All Regions', 'HQ', 'Coastal', 'Western', 'Rift Valley'];
+        
+        setBranches(fallbackTowns);
+        setRegions(fallbackRegions);
+        setFilteredTowns(fallbackTowns);
+        toast.error('Failed to load branch data. Using fallback data.');
       } finally {
         setIsFetchingBranches(false);
       }
     };
 
-    fetchBranches();
+    fetchBranchesAndRegions();
   }, []);
 
-  const handleTownChange = useCallback((town: string) => {
+  // Handler for region change
+  const handleRegionChange = useCallback(async (regionName: string) => {
+    setSelectedRegion(regionName);
+    
+    if (regionName === 'All Regions') {
+      setFilteredTowns(branches);
+      return;
+    }
+    
+    try {
+      // Fetch towns for the selected region
+      const { data, error } = await supabase
+        .from('kenya_branches')
+        .select('"Branch Office"')
+        .eq('"Area"', regionName)
+        .order('"Branch Office"', { ascending: true });
+
+      if (error) throw error;
+      
+      const townsInRegion = data?.map((item: { "Branch Office": string }) => item['Branch Office']).filter(Boolean) || [];
+      setFilteredTowns(townsInRegion);
+      
+      // If current selected town is not in the new region, reset it
+      if (selectedTown && !townsInRegion.includes(selectedTown)) {
+        setSelectedTown('');
+        localStorage.removeItem('selectedTown');
+        
+        // Also update user metadata if logged in
+        if (session?.user) {
+          await supabase.auth.updateUser({
+            data: { town: '' }
+          });
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error filtering towns by region:', error);
+      toast.error('Failed to filter towns by region');
+    }
+  }, [branches, selectedTown, session]);
+
+  const handleTownChange = useCallback(async (town: string) => {
     if (town === selectedTown) return;
     
     setSelectedTown(town);
     localStorage.setItem('selectedTown', town);
+    
+    // If a specific town is selected, find its region
+    if (town) {
+      try {
+        const { data, error } = await supabase
+          .from('kenya_branches')
+          .select('"Area"')
+          .eq('"Branch Office"', town)
+          .single();
+
+        if (!error && data) {
+          setSelectedRegion(data.Area);
+        }
+      } catch (error) {
+        console.error('Error finding region for town:', error);
+      }
+    }
     
     if (session?.user) {
       supabase.auth.updateUser({
@@ -246,6 +326,7 @@ function App() {
       setUser(null);
       setSession(null);
       setSelectedTown('');
+      setSelectedRegion('All Regions');
       localStorage.removeItem('selectedTown');
       navigate('/login', { replace: true });
     } catch (error) {
@@ -253,6 +334,7 @@ function App() {
       setUser(null);
       setSession(null);
       setSelectedTown('');
+      setSelectedRegion('All Regions');
       localStorage.removeItem('selectedTown');
       navigate('/login', { replace: true });
     }
@@ -307,6 +389,21 @@ function App() {
             if (userTown) {
               setSelectedTown(userTown);
               localStorage.setItem('selectedTown', userTown);
+              
+              // Find the region for this town
+              try {
+                const { data } = await supabase
+                  .from('kenya_branches')
+                  .select('"Area"')
+                  .eq('"Branch Office"', userTown)
+                  .single();
+
+                if (data) {
+                  setSelectedRegion(data.Area);
+                }
+              } catch (error) {
+                console.error('Error finding region for town:', error);
+              }
             }
 
             const newUrl = window.location.pathname;
@@ -353,6 +450,21 @@ function App() {
                             session.user.user_metadata?.town || '';
           if (savedTown && branches.length > 0 && branches.includes(savedTown)) {
             setSelectedTown(savedTown);
+            
+            // Find the region for this town
+            try {
+              const { data } = await supabase
+                .from('kenya_branches')
+                .select('"Area"')
+                .eq('"Branch Office"', savedTown)
+                .single();
+
+              if (data) {
+                setSelectedRegion(data.Area);
+              }
+            } catch (error) {
+              console.error('Error finding region for town:', error);
+            }
           }
 
           const currentPath = location.pathname;
@@ -367,6 +479,7 @@ function App() {
         } else {
           setUser(null);
           setSelectedTown('');
+          setSelectedRegion('All Regions');
           localStorage.removeItem('selectedTown');
           
           const publicPaths = ['/login', '/update-password'];
@@ -409,6 +522,21 @@ function App() {
         if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
           setSelectedTown(userData.town);
           localStorage.setItem('selectedTown', userData.town);
+          
+          // Find the region for this town
+          try {
+            const { data } = await supabase
+              .from('kenya_branches')
+              .select('"Area"')
+              .eq('"Branch Office"', userData.town)
+              .single();
+
+            if (data) {
+              setSelectedRegion(data.Area);
+            }
+          } catch (error) {
+            console.error('Error finding region for town:', error);
+          }
         }
         
         // Only show welcome toast and navigate for actual sign-in events, not token refreshes
@@ -427,6 +555,7 @@ function App() {
       } else {
         setUser(null);
         setSelectedTown('');
+        setSelectedRegion('All Regions');
         localStorage.removeItem('selectedTown');
         
         if (event === 'SIGNED_OUT') {
@@ -496,14 +625,18 @@ function App() {
                 <div className="flex flex-col min-h-screen bg-gray-50">
                   <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-100/30 via-transparent to-transparent"></div>
                   <div className="relative flex flex-1 w-full overflow-x-hidden">
-                    <Sidebar selectedTown={selectedTown} />
+                    <Sidebar selectedTown={selectedTown} selectedRegion={selectedRegion} />
                     <div className="flex-1 min-w-0 flex flex-col">
                       <Header 
                         user={user} 
                         onLogout={handleLogout} 
                         selectedTown={selectedTown}
                         onTownChange={handleTownChange}
-                        towns={branches}
+                        selectedRegion={selectedRegion}
+                        onRegionChange={handleRegionChange}
+                        towns={filteredTowns}
+                        regions={regions}
+                        allTowns={branches}
                       />
                       <main className="flex-1 overflow-x-hidden p-4">
                         <AnimatePresence mode="wait">
@@ -522,32 +655,32 @@ function App() {
                                   user?.role === 'STAFF' ? 
                                     <StaffPortalLanding /> : 
                                     <AuthRoute allowedRoles={['ADMIN','MANAGER','HR']}>
-                                      <Dashboard selectedTown={selectedTown} />
+                                      <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                     </AuthRoute>
                                 } 
                               />
                               <Route 
                                 path="/dashboard" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR']}>
-                                    <Dashboard selectedTown={selectedTown} />
+                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL']}>
+                                    <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                   </AuthRoute>
                                 } 
                               />
-                              <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} />} />
+                              <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
                               <Route path="/add-employee" element={<AddEmployeePage />} />
                               <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
                               
-                               <Route path="/expenses" element={<ExpenseModule/>} />
+                               <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 
                                 element={
                                   <AuthRoute allowedRoles={['ADMIN']}>
-                                    <PayrollDashboard selectedTown={selectedTown} />
+                                    <PayrollDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                   </AuthRoute>
                                 } 
                               />
@@ -571,22 +704,22 @@ function App() {
                                 path="/adminconfirm" 
                                 element={
                                   <AuthRoute allowedRoles={['ADMIN']}>
-                                    <StaffSignupRequests selectedTown={selectedTown}/>
+                                    <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>
                                   </AuthRoute>
                                 } 
                               />
                               <Route path="/recruitment" 
                               element={
                               <AuthRoute allowedRoles={['ADMIN','HR']}>
-                                <RecruitmentDashboard selectedTown={selectedTown} /> 
+                                <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} /> 
                                    </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
                               <Route path="/performance" element={<AuthRoute allowedRoles={['ADMIN']}>
-                                <PerformanceDashboard selectedTown={selectedTown} />
+                                <PerformanceDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                 </AuthRoute>} />
-                              <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} />} />
+                              <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
                               <Route path="/training" element={<AdminVideoUpload/>} />
-                              <Route path="/ai-assistant" element={<AIAssistantPage />} /> 
+                              <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} /> 
                               
                               <Route 
                                 path="/videocall" 
@@ -597,7 +730,7 @@ function App() {
                                   />
                                 } 
                               />
-                              <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown}/>} />
+                              <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="*" element={<NotFound />} />
                             </Routes>
                           </motion.div>

@@ -31,6 +31,9 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
           case 'MANAGER':
             navigate('/manager-dashboard');
             break;
+            case 'REGIONAL':
+            navigate('/regional-dashboard');
+            break;
           case 'HR':
             navigate('/hr-dashboard');
             break;

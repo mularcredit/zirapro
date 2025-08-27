@@ -66,7 +66,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   // Admin emails that should skip branch auto-detection
   const ADMIN_EMAILS = [
     'admin@mularcredit.co.ke',
-    'olivia.hr@mularcredit.com',
+    'hr@mularcredit.co.ke',
     'it@mularcredit.co.ke'
   ];
 
@@ -152,32 +152,62 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   // Function to fetch branch from employee email
-  const fetchBranchFromEmail = async (email: string) => {
-    if (!email.endsWith('@mularcredit.co.ke') || isAdminEmail(email)) {
-      setIsBranchAutoPopulated(false);
+ // Function to fetch branch from employee email
+// Function to fetch branch from employee email
+const fetchBranchFromEmail = async (email: string) => {
+  // Allow both @mularcredit.co.ke and @mularcredit.com domains
+  const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
+  
+  if (!isValidDomain || isAdminEmail(email)) {
+    setIsBranchAutoPopulated(false);
+    return;
+  }
+
+  try {
+    // First check if email exists in manager_email column
+    const { data: managerData, error: managerError } = await supabase
+      .from('employees')
+      .select('Town')
+      .eq('manager_email', email)
+      .single();
+
+    if (managerData && managerData.Town) {
+      setSelectedBranch(managerData.Town);
+      setIsBranchAutoPopulated(true);
       return;
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('Office')
-        .eq('Work Email', email)
-        .single();
+    // If not found in manager_email, check regional_manager column
+    const { data: regionalManagerData, error: regionalManagerError } = await supabase
+      .from('employees')
+      .select('Branch')
+      .eq('regional_manager', email)
+      .single();
 
-      if (error) throw error;
-      
-      if (data && data.Office) {
-        setSelectedBranch(data.Office);
-        setIsBranchAutoPopulated(true);
-      } else {
-        setIsBranchAutoPopulated(false);
-      }
-    } catch (error) {
-      console.error('Error fetching employee branch:', error);
+    if (regionalManagerData && regionalManagerData.Branch) {
+      setSelectedBranch(regionalManagerData.Branch);
+      setIsBranchAutoPopulated(true);
+      return;
+    }
+
+    // If neither found, check the regular Work Email field as fallback
+    const { data: employeeData, error: employeeError } = await supabase
+      .from('employees')
+      .select('Office')
+      .eq('Work Email', email)
+      .single();
+
+    if (employeeData && employeeData.Office) {
+      setSelectedBranch(employeeData.Office);
+      setIsBranchAutoPopulated(true);
+    } else {
       setIsBranchAutoPopulated(false);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching employee branch:', error);
+    setIsBranchAutoPopulated(false);
+  }
+};
 
   // Handle email change with debounce
   useEffect(() => {

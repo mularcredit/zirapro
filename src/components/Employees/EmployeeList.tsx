@@ -12,6 +12,7 @@ import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
 import { useNavigate, useParams } from 'react-router-dom';
 import { utils, writeFile } from 'xlsx';
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 
@@ -522,6 +523,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
           
           {/* Buttons - moved to a new row on smaller screens */}
           <div className="flex space-x-2 h-[42px] md:col-span-5 lg:col-span-1">
+             <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
             <GlowButton 
               variant="primary" 
               icon={Edit3Icon} 
@@ -531,6 +533,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
             >
               Bulk Edit
             </GlowButton>
+            </RoleButtonWrapper>
             
             {/* <GlowButton 
               variant="secondary" 
@@ -611,7 +614,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               >
                 View/Edit
               </GlowButton>
-
+               <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
               <GlowButton 
                 variant="danger" 
                 size="sm" 
@@ -620,6 +623,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               >
                 Terminate
               </GlowButton>
+              </RoleButtonWrapper>
               {/* <GlowButton 
                 variant="danger" 
                 size="sm" 

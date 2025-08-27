@@ -39,7 +39,7 @@ import {
   Ban,
   MessageSquare
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase'; // Adjust the import path as needed
+import { supabase } from '../../lib/supabase';
 
 interface Expense {
   id: string;
@@ -69,6 +69,11 @@ interface Employee {
   job_level: string;
 }
 
+// Add props interface for town filtering
+interface ExpenseModuleProps {
+  selectedTown?: string;
+}
+
 const EXPENSE_TYPES = [
   { id: 'operational', name: 'Operational Expenses' },
   { id: 'travel', name: 'Travel & Transport' },
@@ -94,8 +99,8 @@ const EXPENSE_CATEGORIES = [
   { id: 'other', name: 'Other', color: 'bg-slate-500' }
 ];
 
-const ExpenseModule: React.FC = () => {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+const ExpenseModule: React.FC<ExpenseModuleProps> = ({ selectedTown }) => {
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [branches, setBranches] = useState<string[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -130,6 +135,27 @@ const ExpenseModule: React.FC = () => {
     employeeId: '',
     receiptFile: null as File | null
   });
+
+  // Filter expenses based on selected town using useMemo for performance
+  const filteredByTown = useMemo(() => {
+    if (!selectedTown || selectedTown === 'ADMIN_ALL') {
+      return allExpenses;
+    }
+    
+    console.log('Filtering expenses for town:', selectedTown);
+    console.log('Total expenses before filter:', allExpenses.length);
+    
+    const filtered = allExpenses.filter(expense => {
+      // Handle case sensitivity and potential null values
+      const expenseBranch = expense.branch?.toString().trim();
+      const targetTown = selectedTown.toString().trim();
+      
+      return expenseBranch === targetTown;
+    });
+    
+    console.log('Filtered expenses count:', filtered.length);
+    return filtered;
+  }, [allExpenses, selectedTown]);
 
   // Fetch expenses and employee data from Supabase
   useEffect(() => {
@@ -173,7 +199,7 @@ const ExpenseModule: React.FC = () => {
           receiptUploaded: !!item.receipt
         }));
         
-        setExpenses(formattedData);
+        setAllExpenses(formattedData);
       }
     } catch (error) {
       console.error('Error fetching expenses:', error);
@@ -209,8 +235,9 @@ const ExpenseModule: React.FC = () => {
     }
   };
 
-  // Calculate summary statistics
+  // Calculate summary statistics using filtered data
   const summaryStats = useMemo(() => {
+    const expenses = filteredByTown; // Use filtered data instead of all expenses
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
     const approvedExpenses = expenses.filter(e => e.status === 'approved');
     const pendingExpenses = expenses.filter(e => e.status === 'pending');
@@ -240,11 +267,11 @@ const ExpenseModule: React.FC = () => {
       pettyCash: pettyCashExpenses,
       employee: employeeExpenses
     };
-  }, [expenses]);
+  }, [filteredByTown]);
 
-  // Filter expenses
+  // Filter expenses (now applying to already town-filtered data)
   const filteredExpenses = useMemo(() => {
-    return expenses.filter(expense => {
+    return filteredByTown.filter(expense => {
       const matchesSearch = expense.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            expense.submittedBy.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -257,7 +284,7 @@ const ExpenseModule: React.FC = () => {
       
       return matchesSearch && matchesStatus && matchesCategory && matchesBranch && matchesDepartment && matchesExpenseType;
     });
-  }, [expenses, searchTerm, statusFilter, categoryFilter, branchFilter, departmentFilter, expenseTypeFilter]);
+  }, [filteredByTown, searchTerm, statusFilter, categoryFilter, branchFilter, departmentFilter, expenseTypeFilter]);
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,7 +362,7 @@ const ExpenseModule: React.FC = () => {
           receiptUploaded: !!data[0].receipt
         };
         
-        setExpenses([newExpenseData, ...expenses]);
+        setAllExpenses([newExpenseData, ...allExpenses]);
       }
 
       // Reset form
@@ -388,7 +415,7 @@ const ExpenseModule: React.FC = () => {
       }
 
       // Update local state
-      setExpenses(expenses.map(expense => 
+      setAllExpenses(allExpenses.map(expense => 
         expense.id === approvalExpense.id 
           ? {
               ...expense,
@@ -443,7 +470,7 @@ const ExpenseModule: React.FC = () => {
       }
 
       // Update local state
-      setExpenses(expenses.map(expense => 
+      setAllExpenses(allExpenses.map(expense => 
         expense.id === receiptUploadExpense.id 
           ? { ...expense, receipt: publicUrl, receiptUploaded: true }
           : expense
@@ -501,6 +528,13 @@ const ExpenseModule: React.FC = () => {
     }).format(amount);
   };
 
+  // Get town display name
+  const getTownDisplayName = () => {
+    if (!selectedTown) return "All Towns";
+    if (selectedTown === 'ADMIN_ALL') return "All Towns";
+    return selectedTown;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -520,14 +554,18 @@ const ExpenseModule: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Expense Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Track expenses across branches, departments, rent, and petty cash</p>
+              <p className="text-sm text-gray-600 mt-1">
+                Track expenses across branches, departments, rent, and petty cash
+                {selectedTown && selectedTown !== 'ADMIN_ALL' && (
+                  <span className="text-blue-600 font-medium ml-2">
+                    • Filtered for {getTownDisplayName()}
+                  </span>
+                )}
+              </p>
             </div>
             
             <div className="flex items-center space-x-3">
-              <button className="flex items-center space-x-2 px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium">
-                <Download className="w-4 h-4" />
-                <span>Export</span>
-              </button>
+             
               
               <button
                 onClick={() => setShowAddForm(true)}
@@ -542,6 +580,9 @@ const ExpenseModule: React.FC = () => {
       </div>
 
       <div className="px-8 py-8 space-y-8">
+        {/* Debug Info - Remove in production */}
+        
+
         {/* Enhanced Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
   <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -604,6 +645,8 @@ const ExpenseModule: React.FC = () => {
     </div>
   </div>
 </div>
+
+        {/* Rest of the component remains the same... */}
         {/* Enhanced Filters */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <div className="flex flex-col space-y-4">
@@ -712,6 +755,11 @@ const ExpenseModule: React.FC = () => {
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-medium text-gray-900">
               {filteredExpenses.length} expenses
+              {selectedTown && selectedTown !== 'ADMIN_ALL' && (
+                <span className="text-sm font-normal text-gray-500 ml-2">
+                  in {getTownDisplayName()}
+                </span>
+              )}
             </h2>
           </div>
 
@@ -719,7 +767,12 @@ const ExpenseModule: React.FC = () => {
             <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
               <Receipt className="w-8 h-8 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No expenses found</h3>
-              <p className="text-gray-600">Try adjusting your search or filter criteria</p>
+              <p className="text-gray-600">
+                {selectedTown && selectedTown !== 'ADMIN_ALL' 
+                  ? `No expenses found for ${getTownDisplayName()}. Try adjusting your search or filter criteria.`
+                  : 'Try adjusting your search or filter criteria'
+                }
+              </p>
             </div>
           ) : (
             <div className={viewMode === 'grid' 
@@ -887,8 +940,7 @@ const ExpenseModule: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Enhanced Add Expense Modal */}
+      
       {showAddForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
@@ -1117,72 +1169,74 @@ const ExpenseModule: React.FC = () => {
         </div>
       )}
 
-      {/* Approval Modal */}
-      {showApprovalModal && approvalExpense && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900">
-                  {approvalAction === 'approve' ? 'Approve' : 'Reject'} Expense
-                </h2>
-                <button
-                  onClick={() => setShowApprovalModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <h3 className="text-base font-medium text-gray-900 mb-2">{approvalExpense.title}</h3>
-                <p className="text-sm text-gray-600 mb-4">{formatCurrency(approvalExpense.amount)}</p>
-              </div>
 
-              {approvalAction === 'reject' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rejection Reason
-                  </label>
-                  <textarea
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
-                    placeholder="Please provide a reason for rejection..."
-                    required
-                  />
+       {/* Approval Modal */}
+            {showApprovalModal && approvalExpense && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                  <div className="border-b border-gray-200 px-6 py-4">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-medium text-gray-900">
+                        {approvalAction === 'approve' ? 'Approve' : 'Reject'} Expense
+                      </h2>
+                      <button
+                        onClick={() => setShowApprovalModal(false)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <h3 className="text-base font-medium text-gray-900 mb-2">{approvalExpense.title}</h3>
+                      <p className="text-sm text-gray-600 mb-4">{formatCurrency(approvalExpense.amount)}</p>
+                    </div>
+      
+                    {approvalAction === 'reject' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Rejection Reason
+                        </label>
+                        <textarea
+                          value={rejectionReason}
+                          onChange={(e) => setRejectionReason(e.target.value)}
+                          rows={3}
+                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
+                          placeholder="Please provide a reason for rejection..."
+                          required
+                        />
+                      </div>
+                    )}
+      
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setShowApprovalModal(false)}
+                        className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleApprovalAction}
+                        disabled={uploading || (approvalAction === 'reject' && !rejectionReason.trim())}
+                        className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center space-x-2 ${
+                          approvalAction === 'approve'
+                            ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white'
+                            : 'bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white'
+                        }`}
+                      >
+                        {uploading && <Loader className="w-4 h-4 animate-spin" />}
+                        <span>{uploading ? 'Processing...' : (approvalAction === 'approve' ? 'Approve' : 'Reject')}</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              )}
-
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowApprovalModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleApprovalAction}
-                  disabled={uploading || (approvalAction === 'reject' && !rejectionReason.trim())}
-                  className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center space-x-2 ${
-                    approvalAction === 'approve'
-                      ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white'
-                      : 'bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white'
-                  }`}
-                >
-                  {uploading && <Loader className="w-4 h-4 animate-spin" />}
-                  <span>{uploading ? 'Processing...' : (approvalAction === 'approve' ? 'Approve' : 'Reject')}</span>
-                </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+            )}
 
-      {/* Receipt Upload Modal */}
+
+{/* Receipt Upload Modal */}
       {showReceiptUpload && receiptUploadExpense && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -1250,108 +1304,110 @@ const ExpenseModule: React.FC = () => {
           </div>
         </div>
       )}
-      
+
       {/* Expense Details Modal */}
-      {selectedExpense && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-lg font-medium text-gray-900">Expense Details</h2>
-                <button
-                  onClick={() => setSelectedExpense(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+            {selectedExpense && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-lg">
+                  <div className="border-b border-gray-200 px-6 py-4">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-medium text-gray-900">Expense Details</h2>
+                      <button
+                        onClick={() => setSelectedExpense(null)}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="p-6 space-y-4">
+                    <div>
+                      <h3 className="text-base font-medium text-gray-900 mb-2">{selectedExpense.title}</h3>
+                      <p className="text-sm text-gray-600">{selectedExpense.description}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="font-medium text-gray-700">Amount</p>
+                        <p className="text-gray-900">{formatCurrency(selectedExpense.amount)}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Status</p>
+                        <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${getStatusColor(selectedExpense.status)}`}>
+                          {selectedExpense.status}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Date</p>
+                        <p className="text-gray-900">{new Date(selectedExpense.date).toLocaleDateString('en-GB')}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Location</p>
+                        <p className="text-gray-900">{selectedExpense.location}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Branch</p>
+                        <p className="text-gray-900">{selectedExpense.branch}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Department</p>
+                        <p className="text-gray-900">{selectedExpense.department}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Submitted by</p>
+                        <p className="text-gray-900">{selectedExpense.submittedBy}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Employee ID</p>
+                        <p className="text-gray-900">{selectedExpense.employeeId || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Category</p>
+                        <p className="text-gray-900">{getCategoryInfo(selectedExpense.category).name}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-700">Type</p>
+                        <p className="text-gray-900">{getExpenseTypeName(selectedExpense.expenseType)}</p>
+                      </div>
+                    </div>
+      
+                    {selectedExpense.receipt && (
+                      <div>
+                        <p className="font-medium text-gray-700 mb-2">Receipt</p>
+                        <a
+                          href={selectedExpense.receipt}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View Receipt</span>
+                        </a>
+                      </div>
+                    )}
+      
+                    {selectedExpense.status === 'approved' && selectedExpense.approvedBy && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                        <p className="text-sm text-emerald-800">
+                          Approved by <strong>{selectedExpense.approvedBy}</strong> on{' '}
+                          {selectedExpense.approvedDate && new Date(selectedExpense.approvedDate).toLocaleDateString('en-GB')}
+                        </p>
+                      </div>
+                    )}
+      
+                    {selectedExpense.status === 'rejected' && selectedExpense.rejectionReason && (
+                      <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
+                        <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason</p>
+                        <p className="text-sm text-red-700">{selectedExpense.rejectionReason}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-            
-            <div className="p-6 space-y-4">
-              <div>
-                <h3 className="text-base font-medium text-gray-900 mb-2">{selectedExpense.title}</h3>
-                <p className="text-sm text-gray-600">{selectedExpense.description}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium text-gray-700">Amount</p>
-                  <p className="text-gray-900">{formatCurrency(selectedExpense.amount)}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Status</p>
-                  <span className={`inline-block px-2 py-1 rounded-md text-xs font-medium ${getStatusColor(selectedExpense.status)}`}>
-                    {selectedExpense.status}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Date</p>
-                  <p className="text-gray-900">{new Date(selectedExpense.date).toLocaleDateString('en-GB')}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Location</p>
-                  <p className="text-gray-900">{selectedExpense.location}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Branch</p>
-                  <p className="text-gray-900">{selectedExpense.branch}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Department</p>
-                  <p className="text-gray-900">{selectedExpense.department}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Submitted by</p>
-                  <p className="text-gray-900">{selectedExpense.submittedBy}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Employee ID</p>
-                  <p className="text-gray-900">{selectedExpense.employeeId || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Category</p>
-                  <p className="text-gray-900">{getCategoryInfo(selectedExpense.category).name}</p>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-700">Type</p>
-                  <p className="text-gray-900">{getExpenseTypeName(selectedExpense.expenseType)}</p>
-                </div>
-              </div>
+            )}
 
-              {selectedExpense.receipt && (
-                <div>
-                  <p className="font-medium text-gray-700 mb-2">Receipt</p>
-                  <a
-                    href={selectedExpense.receipt}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span>View Receipt</span>
-                  </a>
-                </div>
-              )}
 
-              {selectedExpense.status === 'approved' && selectedExpense.approvedBy && (
-                <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                  <p className="text-sm text-emerald-800">
-                    Approved by <strong>{selectedExpense.approvedBy}</strong> on{' '}
-                    {selectedExpense.approvedDate && new Date(selectedExpense.approvedDate).toLocaleDateString('en-GB')}
-                  </p>
-                </div>
-              )}
-
-              {selectedExpense.status === 'rejected' && selectedExpense.rejectionReason && (
-                <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
-                  <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason</p>
-                  <p className="text-sm text-red-700">{selectedExpense.rejectionReason}</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

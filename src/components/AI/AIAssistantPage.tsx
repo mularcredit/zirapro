@@ -1,42 +1,81 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { queryDeepSeek } from '../../services/deepseek'
 import { supabase } from '../../lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, User, Cpu, Database, Users, Activity, Sparkles, Bot, BarChart2 } from 'lucide-react'
+import { Send, User, Cpu, Database, Users, Activity, Sparkles, Bot, BarChart2, MapPin } from 'lucide-react'
+import { TownProps } from '../../types/supabase'
 
-export const AIAssistantPage = () => {
+export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
   const [message, setMessage] = useState('')
   const [conversation, setConversation] = useState<Array<{role: string, content: string, id: string}>>([])
   const [loading, setLoading] = useState(false)
-  const [hrData, setHrData] = useState<any>(null)
+  const [allEmployees, setAllEmployees] = useState<any[]>([]) // Store ALL employees
   const [error, setError] = useState<string | null>(null)
 
+  // Filter employees based on selected town using useMemo for performance
+  const filteredEmployees = useMemo(() => {
+    if (!selectedTown || selectedTown === 'ADMIN_ALL') {
+      return allEmployees;
+    }
+    
+    console.log('Filtering employees for town:', selectedTown);
+    console.log('Total employees before filter:', allEmployees.length);
+    
+    const filtered = allEmployees.filter(employee => {
+      // Handle case sensitivity and potential null values
+      const employeeTown = employee.Town?.toString().trim();
+      const targetTown = selectedTown.toString().trim();
+      
+      return employeeTown === targetTown;
+    });
+    
+    console.log('Filtered employees count:', filtered.length);
+    return filtered;
+  }, [allEmployees, selectedTown]);
+
+  // Fetch ALL employees once on component mount
   useEffect(() => {
-    const fetchHrData = async () => {
+    const fetchAllEmployees = async () => {
       try {
+        console.log('Fetching ALL employees...');
+        
         const { data, error } = await supabase
           .from('employees')
           .select('*')
         
-        if (error) throw error
+        if (error) {
+          console.error('Supabase error:', error);
+          throw error;
+        }
         
-        setHrData(data)
-        setConversation([{
-          role: 'system',
-          content: `There are ${data.length} employees in the system.`,
-          id: 'system-init'
-        }, {
-          role: 'assistant',
-          content: `Hello! I'm your HR AI Assistant. I can help you analyze data for ${data.length} employees. What would you like to know?`,
-          id: 'welcome-message'
-        }])
+        console.log('Fetched total employees:', data?.length);
+        setAllEmployees(data || []);
+        
       } catch (err) {
-        setError('Failed to load HR data')
+        setError('Failed to load employee data')
         console.error(err)
       }
     }
-    fetchHrData()
-  }, [])
+    
+    fetchAllEmployees()
+  }, []) // Only run once on mount
+
+  // Update conversation when filtered data changes
+  useEffect(() => {
+    const townContext = selectedTown && selectedTown !== 'ADMIN_ALL' 
+      ? `for ${selectedTown} town` 
+      : 'across all towns'
+    
+    setConversation([{
+      role: 'system',
+      content: `There are ${filteredEmployees.length} employees in the system ${townContext}.`,
+      id: 'system-init'
+    }, {
+      role: 'assistant',
+      content: `Hello! I'm your HR AI Assistant. I can help you analyze data for ${filteredEmployees.length} employees ${townContext}. What would you like to know?`,
+      id: 'welcome-message'
+    }])
+  }, [filteredEmployees, selectedTown])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -52,8 +91,13 @@ export const AIAssistantPage = () => {
     setConversation(prev => [...prev, userMessage])
     
     try {
+      // Add town context to the AI query using filtered data
+      const townContext = selectedTown && selectedTown !== 'ADMIN_ALL' 
+        ? `Data is filtered for ${selectedTown} town. ` 
+        : 'Data includes all towns. '
+      
       const context = [
-        `Current employee count: ${hrData?.length || 0}`,
+        `${townContext}Current employee count: ${filteredEmployees.length}`,
         ...conversation.map(c => c.content)
       ].join('\n')
       
@@ -76,13 +120,22 @@ export const AIAssistantPage = () => {
     }
   }
 
-  // Calculate some HR metrics
-  const activeEmployees = hrData?.filter((e: any) => e.status === 'active').length
-  const avgTenure = hrData?.reduce((acc: number, e: any) => {
-    const startDate = new Date(e.start_date)
-    const tenure = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
-    return acc + tenure
-  }, 0) / hrData?.length
+  // Calculate HR metrics using filtered data
+  const activeEmployees = filteredEmployees.filter((e: any) => e.status === 'active').length
+  const avgTenure = filteredEmployees.length > 0 
+    ? filteredEmployees.reduce((acc: number, e: any) => {
+        const startDate = new Date(e.start_date)
+        const tenure = (Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
+        return acc + tenure
+      }, 0) / filteredEmployees.length
+    : 0
+
+  // Get town display name
+  const getTownDisplayName = () => {
+    if (!selectedTown) return "All Towns";
+    if (selectedTown === 'ADMIN_ALL') return "All Towns";
+    return selectedTown;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-4 md:p-8">
@@ -103,7 +156,11 @@ export const AIAssistantPage = () => {
               </span>
             </h1>
             <p className="text-gray-600 mt-2 max-w-lg">
-              AI-powered workforce analytics and insights for your organization
+              AI-powered workforce analytics and insights for{" "}
+              <span className="font-medium text-blue-600 flex items-center mt-1">
+                <MapPin className="w-4 h-4 mr-1" />
+                {getTownDisplayName()}
+              </span>
             </p>
           </div>
           
@@ -115,6 +172,9 @@ export const AIAssistantPage = () => {
             <span className="text-sm font-medium text-blue-700">AI Assistant</span>
           </motion.div>
         </motion.header>
+
+        {/* Debug Info - Remove in production */}
+        
 
         {/* HR Summary Cards */}
         <motion.div 
@@ -134,8 +194,10 @@ export const AIAssistantPage = () => {
               <h3 className="font-medium text-gray-700">Total Employees</h3>
             </div>
             <p className="text-4xl font-bold text-gray-900">
-              {hrData ? hrData.length : '--'}
-              <span className="text-sm font-normal ml-2 text-gray-500">employees</span>
+              {filteredEmployees.length}
+              <span className="text-sm font-normal ml-2 text-gray-500">
+                {selectedTown && selectedTown !== 'ADMIN_ALL' ? `in ${selectedTown}` : 'across all towns'}
+              </span>
             </p>
           </motion.div>
 
@@ -150,7 +212,7 @@ export const AIAssistantPage = () => {
               <h3 className="font-medium text-gray-700">Active Employees</h3>
             </div>
             <p className="text-4xl font-bold text-gray-900">
-              {activeEmployees || '--'}
+              {activeEmployees}
               <span className="text-sm font-normal ml-2 text-gray-500">active</span>
             </p>
           </motion.div>

@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
 import { User, Briefcase, CreditCard, Phone, Mail, MapPin } from 'lucide-react';
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 type Employee = Database['public']['Tables']['employees']['Row'] & {
   'SHIF Number'?: string | null;
@@ -677,6 +678,7 @@ const EditEmployeePage = () => {
               </GlowButton>
             </>
           ) : (
+             <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
             <GlowButton 
               onClick={handleEditToggle}
               icon={PencilLine}
@@ -684,6 +686,7 @@ const EditEmployeePage = () => {
             >
               Edit Employee
             </GlowButton>
+            </RoleButtonWrapper>
           )}
         </div>
       </div>
