@@ -29,7 +29,8 @@ import {
   MessageSquare,
   ThumbsUp,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Loader2 // Add this import for the loader icon
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
@@ -40,7 +41,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Types
+// Types (unchanged from your code)
 type LeaveType = {
   id: string;
   name: string;
@@ -113,7 +114,7 @@ interface BranchAreaMapping {
   [branch: string]: string;
 }
 
-// Default leave types (Kenyan standard)
+// Default leave types (Kenyan standard) - unchanged
 const DEFAULT_LEAVE_TYPES: LeaveType[] = [
   { id: 'annual', name: 'Annual Leave', description: 'Paid time off work', is_deductible: true, is_continuous: true, max_days: 24, icon: 'Sun' },
   { id: 'compassionate', name: 'Compassionate Leave', description: 'Time off due to family bereavement', is_deductible: false, is_continuous: true, max_days: 7, icon: 'Heart' },
@@ -124,7 +125,7 @@ const DEFAULT_LEAVE_TYPES: LeaveType[] = [
   { id: 'other', name: 'Other Leave', description: 'Other types of leave', is_deductible: true, is_continuous: true, icon: 'Gift' },
 ];
 
-// Sample holidays (Kenyan public holidays)
+// Sample holidays (Kenyan public holidays) - unchanged
 const SAMPLE_HOLIDAYS: Holiday[] = [
   { id: '1', name: 'New Year', date: '2023-01-01', recurring: true },
   { id: '2', name: 'Good Friday', date: '2023-04-07', recurring: true },
@@ -138,7 +139,7 @@ const SAMPLE_HOLIDAYS: Holiday[] = [
   { id: '10', name: 'Boxing Day', date: '2023-12-26', recurring: true },
 ];
 
-// Helper functions
+// Helper functions (unchanged)
 const getIconComponent = (iconName: string) => {
   switch (iconName) {
     case 'Sun': return Sun;
@@ -185,7 +186,7 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString(undefined, options);
 };
 
-// Status Badge Component
+// Status Badge Component (unchanged)
 const StatusBadge = ({ status }: { status: string }) => {
   const statusClasses = {
     'pending': 'bg-yellow-100 text-yellow-800',
@@ -213,7 +214,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
-// Recommendation Status Badge Component
+// Recommendation Status Badge Component (unchanged)
 const RecStatusBadge = ({ recstatus }: { recstatus: string | null }) => {
   if (!recstatus) {
     return (
@@ -244,7 +245,7 @@ const RecStatusBadge = ({ recstatus }: { recstatus: string | null }) => {
   );
 };
 
-// Leave Type Icon Component
+// Leave Type Icon Component (unchanged)
 const LeaveTypeIcon = ({ type }: { type: LeaveType }) => {
   const Icon = getIconComponent(type.icon);
   return (
@@ -254,7 +255,7 @@ const LeaveTypeIcon = ({ type }: { type: LeaveType }) => {
   );
 };
 
-// Detailed View Component
+// Detailed View Component (unchanged)
 const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveApplication, onClose: () => void }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -349,7 +350,7 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
   );
 };
 
-// Status Update Modal Component
+// Status Update Modal Component (unchanged)
 const StatusUpdateModal = ({ 
   isOpen, 
   onClose, 
@@ -502,7 +503,7 @@ const StatusUpdateModal = ({
   );
 };
 
-// Pagination Component
+// Pagination Component (unchanged)
 const Pagination = ({ 
   currentPage, 
   totalPages, 
@@ -573,7 +574,7 @@ const Pagination = ({
   );
 };
 
-// Function to get branch from town using the reference table
+// Function to get branch from town using the reference table (unchanged)
 const getBranchFromTown = async (town: string): Promise<string | null> => {
   try {
     const { data, error } = await supabase
@@ -598,7 +599,7 @@ const getBranchFromTown = async (town: string): Promise<string | null> => {
   }
 };
 
-// Get town/area display name
+// Get town/area display name (unchanged)
 const getDisplayName = (currentTown: string, isArea: boolean) => {
   if (!currentTown) return "All Towns";
   if (currentTown === 'ADMIN_ALL') return "All Towns";
@@ -608,6 +609,42 @@ const getDisplayName = (currentTown: string, isArea: boolean) => {
   }
   
   return currentTown;
+};
+
+// Skeleton Loader Component for Table Rows
+const TableSkeletonLoader = ({ rows = 5, columns = 9 }) => {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, rowIndex) => (
+        <tr key={rowIndex} className="border-b border-gray-300 animate-pulse">
+          {Array.from({ length: columns }).map((_, colIndex) => (
+            <td key={colIndex} className="py-4 px-4">
+              <div className="h-4 bg-gray-200 rounded"></div>
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
+  );
+};
+
+// Stats Card Skeleton Loader
+const StatsSkeletonLoader = () => {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div key={index} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm animate-pulse">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2 rounded-lg bg-gray-200 h-9 w-9"></div>
+          </div>
+          <div className="space-y-1">
+            <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+            <div className="h-5 bg-gray-200 rounded w-1/2"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 // Leave Management Dashboard
@@ -799,7 +836,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
   );
   const totalHolidayPages = Math.ceil(holidays.length / holidaysPerPage);
 
-  // Function to create leave balance records
+  // Function to create leave balance records (unchanged)
   const createLeaveBalances = (employeesData: Employee[], applicationsData: LeaveApplication[]) => {
     const balances: EmployeeLeaveBalance[] = [];
     
@@ -854,7 +891,8 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
     return balances;
   };
 
-  // Function to update balance accruals
+  // Function to update balance accruals (unchanged)
+    // Function to update balance accruals (unchanged)
   const updateBalanceAccrual = (balanceIndex: number, field: 'monthly_accrual' | 'quarterly_accrual' | 'annual_accrual', value: number) => {
     setLeaveBalances(prev => {
       const updated = [...prev];
@@ -1054,7 +1092,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
     };
   }, [currentTown]);
 
-  // Form handlers
+  // Form handlers (unchanged)
   const handleAddLeaveType = () => {
     const newType: LeaveType = {
       ...newLeaveType,
@@ -1192,79 +1230,83 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
-              <Clock className="w-5 h-5" />
+      {loading ? (
+        <StatsSkeletonLoader />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-yellow-100 text-yellow-600">
+                <Clock className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Pending Applications</p>
+              <p className="text-gray-900 text-xl font-bold">{pendingApplications}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Pending Applications</p>
-            <p className="text-gray-900 text-xl font-bold">{pendingApplications}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-green-100 text-green-600">
-              <CheckCircle className="w-5 h-5" />
+          
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-green-100 text-green-600">
+                <CheckCircle className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Approved Applications</p>
+              <p className="text-gray-900 text-xl font-bold">{approvedApplications}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Approved Applications</p>
-            <p className="text-gray-900 text-xl font-bold">{approvedApplications}</p>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
-              <ThumbsUp className="w-5 h-5" />
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                <ThumbsUp className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Recommended</p>
+              <p className="text-gray-900 text-xl font-bold">{recommendedApplications}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Recommended</p>
-            <p className="text-gray-900 text-xl font-bold">{recommendedApplications}</p>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
-              <XCircle className="w-5 h-5" />
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                <XCircle className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Not Recommended</p>
+              <p className="text-gray-900 text-xl font-bold">{notRecommendedApplications}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Not Recommended</p>
-            <p className="text-gray-900 text-xl font-bold">{notRecommendedApplications}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
-              <Calendar className="w-5 h-5" />
+          
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-orange-100 text-orange-600">
+                <Calendar className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Used</p>
+              <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Used</p>
-            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-              <User className="w-5 h-5" />
+          
+          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
+                <User className="w-5 h-5" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Remaining</p>
+              <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Remaining</p>
-            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Tabs Navigation */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1342,88 +1384,92 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
                 </tr>
               </thead>
               <tbody>
-                {paginatedApplications.map((application) => (
-                  <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <div className="space-y-1">
-                        <p className="text-gray-900 font-semibold">{application.Name}</p>
-                        <p className="text-gray-500 text-xs">{application["Employee Number"]}</p>
-                      </div>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{application["Leave Type"]}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">
-                        {formatDate(application["Start Date"])}
-                        {application["End Date"] !== application["Start Date"] && ` - ${formatDate(application["End Date"])}`}
-                        {application["Type"] === 'Half Day' && ' (Half day)'}
-                      </p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{application.Days}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{application["Office Branch"]}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <StatusBadge status={application.Status} />
-                    </td>
-                    <td className="py-4 px-4">
-                      <RecStatusBadge recstatus={application.recstatus} />
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-gray-700">{formatDate(application.time_added)}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex justify-center gap-1">
-                        <button 
-                          onClick={() => setSelectedApplication(application)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
-                        >
-                          <Eye className="w-3 h-3" />
-                          View
-                        </button>
-                        {application.Status === 'pending' && (
-                          <>
-                          <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
-                            <button 
-                              onClick={() => openStatusModal(application.id, 'approve')}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs"
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Approve
-                            </button>
-                            </RoleButtonWrapper>
+                {loading ? (
+                  <TableSkeletonLoader rows={5} columns={9} />
+                ) : (
+                  paginatedApplications.map((application) => (
+                    <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
+                      <td className="py-4 px-4">
+                        <div className="space-y-1">
+                          <p className="text-gray-900 font-semibold">{application.Name}</p>
+                          <p className="text-gray-500 text-xs">{application["Employee Number"]}</p>
+                        </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">{application["Leave Type"]}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">
+                          {formatDate(application["Start Date"])}
+                          {application["End Date"] !== application["Start Date"] && ` - ${formatDate(application["End Date"])}`}
+                          {application["Type"] === 'Half Day' && ' (Half day)'}
+                        </p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">{application.Days}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">{application["Office Branch"]}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <StatusBadge status={application.Status} />
+                      </td>
+                      <td className="py-4 px-4">
+                        <RecStatusBadge recstatus={application.recstatus} />
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-gray-700">{formatDate(application.time_added)}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <div className="flex justify-center gap-1">
+                          <button 
+                            onClick={() => setSelectedApplication(application)}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
+                          >
+                            <Eye className="w-3 h-3" />
+                            View
+                          </button>
+                          {application.Status === 'pending' && (
+                            <>
                             <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
-                            <button 
-                              onClick={() => openStatusModal(application.id, 'reject')}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Reject
-                            </button>
-                            </RoleButtonWrapper>
-                            <button 
-                              onClick={() => openStatusModal(application.id, 'recommend')}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
-                            >
-                              <ThumbsUp className="w-3 h-3" />
-                              Recommend
-                            </button>
-                            <button 
-                              onClick={() => openStatusModal(application.id, 'not_recommend')}
-                              className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded text-xs"
-                            >
-                              <XCircle className="w-3 h-3" />
-                              Not Recommend
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                              <button 
+                                onClick={() => openStatusModal(application.id, 'approve')}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 hover:bg-green-200 text-green-700 rounded text-xs"
+                              >
+                                <CheckCircle className="w-3 h-3" />
+                                Approve
+                              </button>
+                              </RoleButtonWrapper>
+                              <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
+                              <button 
+                                onClick={() => openStatusModal(application.id, 'reject')}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                Reject
+                              </button>
+                              </RoleButtonWrapper>
+                              <button 
+                                onClick={() => openStatusModal(application.id, 'recommend')}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded text-xs"
+                              >
+                                <ThumbsUp className="w-3 h-3" />
+                                Recommend
+                              </button>
+                              <button 
+                                onClick={() => openStatusModal(application.id, 'not_recommend')}
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded text-xs"
+                              >
+                                <XCircle className="w-3 h-3" />
+                                Not Recommend
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1474,6 +1520,16 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
           application={selectedApplication} 
           onClose={() => setSelectedApplication(null)} 
         />
+      )}
+
+      {/* Global Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
+            <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+            <p className="text-gray-700">Loading data...</p>
+          </div>
+        </div>
       )}
     </div>
   );
