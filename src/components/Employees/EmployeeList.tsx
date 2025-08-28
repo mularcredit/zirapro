@@ -16,11 +16,26 @@ import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 type Employee = Database['public']['Tables']['employees']['Row'];
 
+interface AreaTownMapping {
+  [area: string]: string[];
+}
+
+interface BranchAreaMapping {
+  [branch: string]: string;
+}
+
 const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Area/Town mapping state
+  const [areaTownMapping, setAreaTownMapping] = useState<AreaTownMapping>({});
+  const [branchAreaMapping, setBranchAreaMapping] = useState<BranchAreaMapping>({});
+  const [isArea, setIsArea] = useState<boolean>(false);
+  const [townsInArea, setTownsInArea] = useState<string[]>([]);
+  const [currentTown, setCurrentTown] = useState<string>(selectedTown || '');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,34 +56,119 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
   const quickActionsRef = useRef<HTMLDivElement>(null);
   const addEmployeeRef = useRef<HTMLDivElement>(null);
 
+  // Load area-town mapping and set current town
+  useEffect(() => {
+    const loadMappings = async () => {
+      try {
+        // Fetch the area-town mapping from the database
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('Branch, Town');
+        
+        if (employeesError) {
+          console.error("Error loading area-town mapping:", employeesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const mapping: AreaTownMapping = {};
+        employeesData?.forEach(item => {
+          if (item.Branch && item.Town) {
+            if (!mapping[item.Branch]) {
+              mapping[item.Branch] = [];
+            }
+            if (!mapping[item.Branch].includes(item.Town)) {
+              mapping[item.Branch].push(item.Town);
+            }
+          }
+        });
+        
+        setAreaTownMapping(mapping);
+        
+        // Fetch branch-area mapping from kenya_branches
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('kenya_branches')
+          .select('"Branch Office", "Area"');
+        
+        if (branchesError) {
+          console.error("Error loading branch-area mapping:", branchesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const branchMapping: BranchAreaMapping = {};
+        branchesData?.forEach(item => {
+          if (item['Branch Office'] && item['Area']) {
+            branchMapping[item['Branch Office']] = item['Area'];
+          }
+        });
+        
+        setBranchAreaMapping(branchMapping);
+        
+        // Set current town from props or localStorage
+        const savedTown = localStorage.getItem('selectedTown');
+        if (savedTown && (!selectedTown || selectedTown === 'ADMIN_ALL')) {
+          setCurrentTown(savedTown);
+          if (onTownChange) {
+            onTownChange(savedTown);
+          }
+        } else if (selectedTown) {
+          setCurrentTown(selectedTown);
+          localStorage.setItem('selectedTown', selectedTown);
+        }
+      } catch (error) {
+        console.error("Error in loadMappings:", error);
+      }
+    };
+
+    loadMappings();
+  }, [selectedTown, onTownChange]);
+
+  // Check if current selection is an area and get its towns
+  useEffect(() => {
+    if (currentTown && areaTownMapping[currentTown]) {
+      setIsArea(true);
+      setTownsInArea(areaTownMapping[currentTown]);
+    } else {
+      setIsArea(false);
+      setTownsInArea([]);
+    }
+  }, [currentTown, areaTownMapping]);
+
   // Fetch employees from Supabase
   useEffect(() => {
-  const fetchEmployees = async () => {
-    try {
-      setLoading(true);
-      let query = supabase
-        .from('employees')
-        .select('*')
-        .order('Employee Number', { ascending: false });
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        let query = supabase
+          .from('employees')
+          .select('*')
+          .order('Employee Number', { ascending: false });
 
-      // Only apply town filter if selectedTown exists and is not 'ADMIN_ALL'
-      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
-        query = query.eq('Town', selectedTown);
+        // Apply town/area filtering
+        if (currentTown && currentTown !== 'ADMIN_ALL') {
+          if (isArea && townsInArea.length > 0) {
+            // Filter by all towns in the area
+            query = query.in('Town', townsInArea);
+          } else {
+            // Filter by specific town
+            query = query.eq('Town', currentTown);
+          }
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+        setEmployees(data || []);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch employees');
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setEmployees(data || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch employees');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchEmployees();
-}, [selectedTown]); // Add selectedTown as dependency
+    fetchEmployees();
+  }, [currentTown, isArea, townsInArea]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -89,17 +189,43 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
 
   // Filter employees
   const filteredEmployees = employees.filter(employee => {
-      if (selectedTown && selectedTown !== 'ADMIN_ALL' && employee.Town !== selectedTown) {
-    return false;
-  }
+    // Apply town/area filter
+    if (currentTown && currentTown !== 'ADMIN_ALL') {
+      if (isArea) {
+        // Check if employee's town is in the area's towns list
+        if (!townsInArea.includes(employee.Town || '')) {
+          return false;
+        }
+      } else {
+        // Check if employee's town matches the selected town
+        if (employee.Town !== currentTown) {
+          return false;
+        }
+      }
+    }
+    
+    // Apply other filters
     const fullName = `${employee['First Name']} ${employee['Middle Name']} ${employee['Last Name']}`.toLowerCase();
     const matchesSearch = fullName.includes(searchTerm.toLowerCase()) || 
                          employee['Employee Number']?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = selectedDepartment === 'all' || employee['Employee Type'] === selectedDepartment;
     const matchesBranch = selectedBranch === 'all' || employee.Branch === selectedBranch;
     const matchesEmploymentType = selectedEmploymentType === 'all' || employee.Office === selectedEmploymentType;
+    
     return matchesSearch && matchesDepartment && matchesBranch && matchesEmploymentType;
   });
+
+  // Get display name for current selection
+  const getDisplayName = () => {
+    if (!currentTown) return "All Towns";
+    if (currentTown === 'ADMIN_ALL') return "All Towns";
+    
+    if (isArea) {
+      return `${currentTown} Region`;
+    }
+    
+    return currentTown;
+  };
 
   // Pagination logic
   const indexOfLastEmployee = currentPage * employeesPerPage;
@@ -415,7 +541,9 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Employee Management</h1>
-          <p className="text-gray-600 mt-1">Manage your workforce with comprehensive employee records</p>
+          <p className="text-gray-600 mt-1">
+            Managing employees for <span className="font-semibold text-green-600">{getDisplayName()}</span>
+          </p>
         </div>
         <div className='flex space-x-3'>
           <GlowButton 
@@ -427,15 +555,6 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
           
           {/* Quick Actions Dropdown */}
           <div className="relative" ref={quickActionsRef}>
-            {/* <GlowButton 
-              icon={ChevronDown} 
-              iconPosition="right"
-              onClick={() => setIsQuickActionsOpen(!isQuickActionsOpen)}
-              className="flex items-center"
-            >
-              Quick Actions
-            </GlowButton> */}
-            
             {isQuickActionsOpen && (
               <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                 <div className="py-1">
@@ -534,16 +653,6 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               Bulk Edit
             </GlowButton>
             </RoleButtonWrapper>
-            
-            {/* <GlowButton 
-              variant="secondary" 
-              icon={PrinterIcon} 
-              size="sm" 
-              className="h-full"
-              onClick={handlePrint}
-            >
-              Print
-            </GlowButton> */}
           </div>
         </div>
       </div>
@@ -624,14 +733,6 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 Terminate
               </GlowButton>
               </RoleButtonWrapper>
-              {/* <GlowButton 
-                variant="danger" 
-                size="sm" 
-                icon={CircleOff}
-                onClick={() => employee['Employee Number'] && handleTerminate(employee['Employee Number'])}
-              >
-                Terminate
-              </GlowButton> */}
             </div>
           </motion.div>
         ))}

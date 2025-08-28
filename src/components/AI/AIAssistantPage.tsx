@@ -5,33 +5,106 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Send, User, Cpu, Database, Users, Activity, Sparkles, Bot, BarChart2, MapPin } from 'lucide-react'
 import { TownProps } from '../../types/supabase'
 
+interface AreaTownMapping {
+  [area: string]: string[];
+}
+
+interface BranchAreaMapping {
+  [branch: string]: string;
+}
+
 export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
   const [message, setMessage] = useState('')
   const [conversation, setConversation] = useState<Array<{role: string, content: string, id: string}>>([])
   const [loading, setLoading] = useState(false)
   const [allEmployees, setAllEmployees] = useState<any[]>([]) // Store ALL employees
   const [error, setError] = useState<string | null>(null)
+  
+  // Area/Town mapping state
+  const [areaTownMapping, setAreaTownMapping] = useState<AreaTownMapping>({});
+  const [branchAreaMapping, setBranchAreaMapping] = useState<BranchAreaMapping>({});
+  const [isArea, setIsArea] = useState<boolean>(false);
+  const [townsInArea, setTownsInArea] = useState<string[]>([]);
+  const [currentTown, setCurrentTown] = useState<string>(selectedTown || '');
 
-  // Filter employees based on selected town using useMemo for performance
-  const filteredEmployees = useMemo(() => {
-    if (!selectedTown || selectedTown === 'ADMIN_ALL') {
-      return allEmployees;
+  // Load area-town mapping and set current town
+  useEffect(() => {
+    const loadMappings = async () => {
+      try {
+        // Fetch the area-town mapping from the database
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('Branch, Town');
+        
+        if (employeesError) {
+          console.error("Error loading area-town mapping:", employeesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const mapping: AreaTownMapping = {};
+        employeesData?.forEach(item => {
+          if (item.Branch && item.Town) {
+            if (!mapping[item.Branch]) {
+              mapping[item.Branch] = [];
+            }
+            if (!mapping[item.Branch].includes(item.Town)) {
+              mapping[item.Branch].push(item.Town);
+            }
+          }
+        });
+        
+        setAreaTownMapping(mapping);
+        
+        // Fetch branch-area mapping from kenya_branches
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('kenya_branches')
+          .select('"Branch Office", "Area"');
+        
+        if (branchesError) {
+          console.error("Error loading branch-area mapping:", branchesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const branchMapping: BranchAreaMapping = {};
+        branchesData?.forEach(item => {
+          if (item['Branch Office'] && item['Area']) {
+            branchMapping[item['Branch Office']] = item['Area'];
+          }
+        });
+        
+        setBranchAreaMapping(branchMapping);
+        
+        // Set current town from props or localStorage
+        const savedTown = localStorage.getItem('selectedTown');
+        if (savedTown && (!selectedTown || selectedTown === 'ADMIN_ALL')) {
+          setCurrentTown(savedTown);
+          if (onTownChange) {
+            onTownChange(savedTown);
+          }
+        } else if (selectedTown) {
+          setCurrentTown(selectedTown);
+          localStorage.setItem('selectedTown', selectedTown);
+        }
+      } catch (error) {
+        console.error("Error in loadMappings:", error);
+      }
+    };
+
+    loadMappings();
+  }, [selectedTown, onTownChange]);
+
+  // Check if current selection is an area and get its towns
+  useEffect(() => {
+    if (currentTown && areaTownMapping[currentTown]) {
+      setIsArea(true);
+      setTownsInArea(areaTownMapping[currentTown]);
+    } else {
+      setIsArea(false);
+      setTownsInArea([]);
     }
-    
-    console.log('Filtering employees for town:', selectedTown);
-    console.log('Total employees before filter:', allEmployees.length);
-    
-    const filtered = allEmployees.filter(employee => {
-      // Handle case sensitivity and potential null values
-      const employeeTown = employee.Town?.toString().trim();
-      const targetTown = selectedTown.toString().trim();
-      
-      return employeeTown === targetTown;
-    });
-    
-    console.log('Filtered employees count:', filtered.length);
-    return filtered;
-  }, [allEmployees, selectedTown]);
+  }, [currentTown, areaTownMapping]);
 
   // Fetch ALL employees once on component mount
   useEffect(() => {
@@ -60,11 +133,32 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
     fetchAllEmployees()
   }, []) // Only run once on mount
 
+  // Filter employees based on selected town using useMemo for performance
+  const filteredEmployees = useMemo(() => {
+    if (!currentTown || currentTown === 'ADMIN_ALL') {
+      return allEmployees;
+    }
+    
+    console.log('Filtering employees for:', currentTown, 'isArea:', isArea);
+    console.log('Total employees before filter:', allEmployees.length);
+    
+    const filtered = allEmployees.filter(employee => {
+      if (isArea && townsInArea.length > 0) {
+        // Filter by all towns in the area
+        return townsInArea.includes(employee.Town || '');
+      } else {
+        // Filter by specific town
+        return employee.Town === currentTown;
+      }
+    });
+    
+    console.log('Filtered employees count:', filtered.length);
+    return filtered;
+  }, [allEmployees, currentTown, isArea, townsInArea]);
+
   // Update conversation when filtered data changes
   useEffect(() => {
-    const townContext = selectedTown && selectedTown !== 'ADMIN_ALL' 
-      ? `for ${selectedTown} town` 
-      : 'across all towns'
+    const townContext = getTownContext();
     
     setConversation([{
       role: 'system',
@@ -75,7 +169,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
       content: `Hello! I'm your HR AI Assistant. I can help you analyze data for ${filteredEmployees.length} employees ${townContext}. What would you like to know?`,
       id: 'welcome-message'
     }])
-  }, [filteredEmployees, selectedTown])
+  }, [filteredEmployees, currentTown, isArea, townsInArea])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,9 +186,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
     
     try {
       // Add town context to the AI query using filtered data
-      const townContext = selectedTown && selectedTown !== 'ADMIN_ALL' 
-        ? `Data is filtered for ${selectedTown} town. ` 
-        : 'Data includes all towns. '
+      const townContext = getTownContext();
       
       const context = [
         `${townContext}Current employee count: ${filteredEmployees.length}`,
@@ -120,6 +212,19 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
     }
   }
 
+  // Helper function to get town context
+  const getTownContext = () => {
+    if (!currentTown || currentTown === 'ADMIN_ALL') {
+      return 'across all towns';
+    }
+    
+    if (isArea) {
+      return `for ${currentTown} area (${townsInArea.length} towns)`;
+    }
+    
+    return `for ${currentTown} town`;
+  };
+
   // Calculate HR metrics using filtered data
   const activeEmployees = filteredEmployees.filter((e: any) => e.status === 'active').length
   const avgTenure = filteredEmployees.length > 0 
@@ -132,9 +237,14 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
 
   // Get town display name
   const getTownDisplayName = () => {
-    if (!selectedTown) return "All Towns";
-    if (selectedTown === 'ADMIN_ALL') return "All Towns";
-    return selectedTown;
+    if (!currentTown) return "All Towns";
+    if (currentTown === 'ADMIN_ALL') return "All Towns";
+    
+    if (isArea) {
+      return `${currentTown} Area (${townsInArea.length} towns)`;
+    }
+    
+    return currentTown;
   };
 
   return (
@@ -196,7 +306,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
             <p className="text-4xl font-bold text-gray-900">
               {filteredEmployees.length}
               <span className="text-sm font-normal ml-2 text-gray-500">
-                {selectedTown && selectedTown !== 'ADMIN_ALL' ? `in ${selectedTown}` : 'across all towns'}
+                {getTownContext()}
               </span>
             </p>
           </motion.div>

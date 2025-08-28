@@ -16,7 +16,7 @@ export const UserProvider = ({ children }) => {
         const userRole = session.user.user_metadata?.role;
         
         // Validate that the role is one of your expected roles
-        const validRoles = ['ADMIN', 'MANAGER', 'STAFF','HR'];
+        const validRoles = ['ADMIN', 'MANAGER', 'STAFF','HR','OPERATIONS','REGIONAL'];
         const role = validRoles.includes(userRole) ? userRole : 'STAFF';
         
         setUser({
@@ -36,7 +36,7 @@ export const UserProvider = ({ children }) => {
       async (event, session) => {
         if (session?.user) {
           const userRole = session.user.user_metadata?.role;
-          const validRoles = ['ADMIN', 'MANAGER', 'STAFF','HR'];
+          const validRoles = ['ADMIN', 'MANAGER', 'STAFF','HR','OPERATIONS','REGIONAL'];
           const role = validRoles.includes(userRole) ? userRole : 'STAFF';
           
           setUser({

@@ -67,7 +67,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const ADMIN_EMAILS = [
     'admin@mularcredit.co.ke',
     'hr@mularcredit.co.ke',
-    'it@mularcredit.co.ke'
+    'it@mularcredit.co.ke',
+    'olivia.hr@mularcredit.com',
+    'daniel.admin@mularcredit.com'
+
   ];
 
   const isAdminEmail = (email: string) => {

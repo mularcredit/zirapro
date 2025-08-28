@@ -27,7 +27,9 @@ import {
   Eye,
   Save,
   MessageSquare,
-  ThumbsUp // Added for recommendation icon
+  ThumbsUp,
+  MapPin,
+  RefreshCw
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
@@ -69,7 +71,7 @@ type LeaveApplication = {
   "Office Branch": string;
   Reason: string;
   Status: 'pending' | 'approved' | 'rejected';
-  recstatus: 'recommended' | 'not_recommended' | null; // Added recstatus field
+  recstatus: 'recommended' | 'not_recommended' | null;
   time_added: string;
   recommendation_notes?: string;
 };
@@ -102,6 +104,14 @@ type Employee = {
   hire_date: string;
   office: string;
 };
+
+interface AreaTownMapping {
+  [area: string]: string[];
+}
+
+interface BranchAreaMapping {
+  [branch: string]: string;
+}
 
 // Default leave types (Kenyan standard)
 const DEFAULT_LEAVE_TYPES: LeaveType[] = [
@@ -146,7 +156,6 @@ const calculateWorkingDays = (startDate: string, endDate: string, holidays: Holi
   const end = new Date(endDate);
   let count = 0;
   
-  // Adjust for half day if start and end are the same
   if (start.toDateString() === end.toDateString()) {
     return 0.5;
   }
@@ -154,7 +163,7 @@ const calculateWorkingDays = (startDate: string, endDate: string, holidays: Holi
   const current = new Date(start);
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not weekend
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
       const isHoliday = holidays.some(h => {
         const holidayDate = new Date(h.date);
         return holidayDate.getDate() === current.getDate() &&
@@ -190,7 +199,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     'pending': PendingIcon,
     'approved': CheckCircle,
     'rejected': XCircle,
-    'recommended': ThumbsUp, // Changed to ThumbsUp for recommendation
+    'recommended': ThumbsUp,
     'not_recommended': XCircle,
   };
 
@@ -564,9 +573,54 @@ const Pagination = ({
   );
 };
 
+// Function to get branch from town using the reference table
+const getBranchFromTown = async (town: string): Promise<string | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('kenya_branches')
+      .select('"Branch Office"')
+      .ilike('Area', `%${town}%`)
+      .limit(1);
+
+    if (error) {
+      console.error("Error fetching branch from town:", error);
+      return null;
+    }
+
+    if (data && data.length > 0) {
+      return data[0]['Branch Office'];
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error in getBranchFromTown:", error);
+    return null;
+  }
+};
+
+// Get town/area display name
+const getDisplayName = (currentTown: string, isArea: boolean) => {
+  if (!currentTown) return "All Towns";
+  if (currentTown === 'ADMIN_ALL') return "All Towns";
+  
+  if (isArea) {
+    return `${currentTown} Region`;
+  }
+  
+  return currentTown;
+};
+
 // Leave Management Dashboard
-export default function LeaveManagementSystem({ selectedTown }: TownProps) {
-  // State
+export default function LeaveManagementSystem({ selectedTown, onTownChange, selectedRegion }: TownProps) {
+  // Add the same state variables from DashboardMain for town filtering
+  const [currentTown, setCurrentTown] = useState<string>(selectedTown || '');
+  const [areaTownMapping, setAreaTownMapping] = useState<AreaTownMapping>({});
+  const [branchAreaMapping, setBranchAreaMapping] = useState<BranchAreaMapping>({});
+  const [isArea, setIsArea] = useState<boolean>(false);
+  const [townsInArea, setTownsInArea] = useState<string[]>([]);
+  const [debugInfo, setDebugInfo] = useState<string>("Initializing...");
+  
+  // Original state variables
   const [activeTab, setActiveTab] = useState('applications');
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>(DEFAULT_LEAVE_TYPES);
   const [holidays, setHolidays] = useState<Holiday[]>(SAMPLE_HOLIDAYS);
@@ -634,10 +688,91 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
     "recstatus": null
   });
   const [accrualSettings, setAccrualSettings] = useState({
-    accrualInterval: 'monthly', // 'monthly' or 'quarterly'
-    accrualAmount: 2, // 2 days per interval
+    accrualInterval: 'monthly',
+    accrualAmount: 2,
     nextAccrualDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]
   });
+
+  // Load area-town mapping and saved town from localStorage on component mount
+  useEffect(() => {
+    const loadMappings = async () => {
+      try {
+        // Fetch the area-town mapping from the database
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('Branch, Town');
+        
+        if (employeesError) {
+          console.error("Error loading area-town mapping:", employeesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const mapping: AreaTownMapping = {};
+        employeesData?.forEach(item => {
+          if (item.Branch && item.Town) {
+            if (!mapping[item.Branch]) {
+              mapping[item.Branch] = [];
+            }
+            mapping[item.Branch].push(item.Town);
+          }
+        });
+        
+        setAreaTownMapping(mapping);
+        
+        // Fetch branch-area mapping from kenya_branches
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('kenya_branches')
+          .select('"Branch Office", "Area"');
+        
+        if (branchesError) {
+          console.error("Error loading branch-area mapping:", branchesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const branchMapping: BranchAreaMapping = {};
+        branchesData?.forEach(item => {
+          if (item['Branch Office'] && item['Area']) {
+            branchMapping[item['Branch Office']] = item['Area'];
+          }
+        });
+        
+        setBranchAreaMapping(branchMapping);
+        setDebugInfo("Mappings loaded successfully");
+      } catch (error) {
+        console.error("Error in loadMappings:", error);
+        setDebugInfo(`Error loading mappings: ${error.message}`);
+      }
+    };
+
+    loadMappings();
+
+    const savedTown = localStorage.getItem('selectedTown');
+    if (savedTown && (!selectedTown || selectedTown === 'ADMIN_ALL')) {
+      setCurrentTown(savedTown);
+      if (onTownChange) {
+        onTownChange(savedTown);
+      }
+      setDebugInfo(`Loaded saved town from storage: "${savedTown}"`);
+    } else if (selectedTown) {
+      setCurrentTown(selectedTown);
+      localStorage.setItem('selectedTown', selectedTown);
+      setDebugInfo(`Using town from props: "${selectedTown}"`);
+    }
+  }, [selectedTown, onTownChange]);
+
+  // Check if current selection is an area and get its towns
+  useEffect(() => {
+    if (currentTown && areaTownMapping[currentTown]) {
+      setIsArea(true);
+      setTownsInArea(areaTownMapping[currentTown]);
+      setDebugInfo(`"${currentTown}" is an area containing towns: ${areaTownMapping[currentTown].join(', ')}`);
+    } else {
+      setIsArea(false);
+      setTownsInArea([]);
+    }
+  }, [currentTown, areaTownMapping]);
 
   // Calculate paginated data
   const paginatedApplications = leaveApplications.slice(
@@ -668,12 +803,10 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   const createLeaveBalances = (employeesData: Employee[], applicationsData: LeaveApplication[]) => {
     const balances: EmployeeLeaveBalance[] = [];
     
-    // Only create balances for deductible leave types
     const deductibleLeaveTypes = DEFAULT_LEAVE_TYPES.filter(type => type.is_deductible);
     
     employeesData.forEach(employee => {
       deductibleLeaveTypes.forEach(leaveType => {
-        // Calculate used days for this employee and leave type
         const usedDays = applicationsData
           .filter(app => 
             app["Employee Number"] === employee.employee_number && 
@@ -682,7 +815,6 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           )
           .reduce((sum, app) => sum + (app.Days || 0), 0);
         
-        // Set default accrual values based on leave type
         let monthlyAccrual = 0;
         let quarterlyAccrual = 0;
         let annualAccrual = 0;
@@ -738,13 +870,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   const saveBalanceChanges = async () => {
     setSavingBalances(true);
     try {
-      // In a real app, you would save these to your database
-      // For now, we'll just show a success message
       console.log('Saving balance changes:', leaveBalances);
-      
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       alert('Leave balance settings saved successfully!');
     } catch (err) {
       setError('Failed to save balance changes. Please try again.');
@@ -767,7 +894,6 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
     try {
       let updateData: any = {};
       
-      // Handle different update fields based on status type
       if (status === 'approved' || status === 'rejected') {
         updateData = { 
           "Status": status,
@@ -787,7 +913,6 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
       
       if (error) throw error;
       
-      // Update local state
       setLeaveApplications(prev => prev.map(app => 
         app.id === applicationId ? {
           ...app,
@@ -808,7 +933,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
     const fetchLeaveApplications = async () => {
       setLoading(true);
       try {
-        console.log('[DEBUG] Fetching applications for town:', selectedTown);
+        console.log('[DEBUG] Fetching applications for town:', currentTown);
         
         // Build base query
         let query = supabase
@@ -817,9 +942,9 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           .order('time_added', { ascending: false });
 
         // Apply Office Branch filter if selected
-        if (selectedTown && selectedTown !== 'ADMIN_ALL') {
-          console.log('[DEBUG] Applying filter for town:', selectedTown);
-          query = query.eq('"Office Branch"', selectedTown.trim()); // Note the quotes
+        if (currentTown && currentTown !== 'ADMIN_ALL') {
+          console.log('[DEBUG] Applying filter for town:', currentTown);
+          query = query.eq('"Office Branch"', currentTown.trim());
         }
 
         // Execute query
@@ -875,8 +1000,8 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           event: '*',
           schema: 'public',
           table: 'leave_application',
-          filter: selectedTown && selectedTown !== 'ADMIN_ALL' 
-            ? `"Office Branch"=eq.${selectedTown.trim()}` // Quotes here too
+          filter: currentTown && currentTown !== 'ADMIN_ALL' 
+            ? `"Office Branch"=eq.${currentTown.trim()}`
             : undefined
         },
         (payload) => {
@@ -927,7 +1052,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
       console.log('[DEBUG] Cleaning up subscription');
       supabase.removeChannel(subscription);
     };
-  }, [selectedTown]);
+  }, [currentTown]);
 
   // Form handlers
   const handleAddLeaveType = () => {
@@ -1007,11 +1132,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   };
 
   const handleRunAccrual = () => {
-    // In a real app, this would run on a schedule (e.g., monthly)
-    // For this example, we'll manually trigger it
-    
     const newBalances = leaveBalances.map(balance => {
-      // Only accrue for deductible leave types (like Annual Leave)
       const leaveType = leaveTypes.find(lt => lt.id === balance.leave_type_id);
       if (leaveType?.is_deductible) {
         return {
@@ -1026,8 +1147,6 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
     
     setLeaveBalances(newBalances);
     setShowAccrualSettings(false);
-    
-    // In a real app, you would update the next accrual date based on the interval
     console.log(`Leave days accrued. Next accrual would be on ${accrualSettings.nextAccrualDate}`);
   };
 
@@ -1039,23 +1158,35 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
   const totalLeaveDaysUsed = leaveBalances.reduce((sum, balance) => sum + balance.used_days, 0);
   const totalLeaveDaysRemaining = leaveBalances.reduce((sum, balance) => sum + balance.remaining_days, 0);
 
+  // Refresh function
+  const handleRefresh = () => {
+    window.location.reload();
+  };
+
   return (
     <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
-      {/* Header Section */}
+      {/* Header Section with Town Filter */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Leave Management System</h1>
             <p className="text-gray-600 text-sm">Manage employee leave applications, balances, and settings</p>
+            <div className="flex items-center mt-2">
+              <span className="text-sm text-gray-600 mr-2">Viewing:</span>
+              <span className="font-medium text-indigo-600 flex items-center">
+                <MapPin className="w-4 h-4 mr-1" />
+                {getDisplayName(currentTown, isArea)}
+              </span>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            {/* <button
-              onClick={() => setShowLeaveApplicationForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+            <button 
+              onClick={handleRefresh}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium border border-gray-300"
             >
-              <Plus className="w-4 h-4" />
-              Apply for Leave
-            </button> */}
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
           </div>
         </div>
       </div>
@@ -1118,7 +1249,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           </div>
           <div className="space-y-1">
             <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Used</p>
-            {/* <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p> */}
+            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p>
           </div>
         </div>
         
@@ -1130,7 +1261,7 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
           </div>
           <div className="space-y-1">
             <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Remaining</p>
-            {/* <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p> */}
+            <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p>
           </div>
         </div>
       </div>
@@ -1145,12 +1276,12 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
             >
               Leave Applications
             </button>
-            {/* <button
+            <button
               onClick={() => setActiveTab('balances')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'balances' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Leave Balances
-            </button> */}
+            </button>
             <button
               onClick={() => setActiveTab('types')}
               className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'types' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
@@ -1183,14 +1314,14 @@ export default function LeaveManagementSystem({ selectedTown }: TownProps) {
                 <p className="text-gray-600 text-sm">{leaveApplications.length} applications found</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {/* <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
+                <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
                   <Filter className="w-3 h-3" />
                   Filter
                 </button>
                 <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
                   <Download className="w-3 h-3" />
                   Export
-                </button> */}
+                </button>
               </div>
             </div>
           </div>

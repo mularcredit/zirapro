@@ -42,7 +42,7 @@ import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
 
 interface User {
   email: string;
-  usernames:string;
+  
   role: string;
   town?: string;
 }
@@ -372,7 +372,7 @@ function App() {
 
           if (session?.user) {
             const userRole = session.user.user_metadata?.role || 'STAFF';
-            const userNames= session.user.user_metadata?.usernames || 'STAFF';
+          
             const userTown = session.user.user_metadata?.town || '';
             
             // Show email verification toast only once
@@ -386,7 +386,7 @@ function App() {
               email: session.user.email || '',
               role: userRole,
               town: userTown,
-              usernames:userNames
+              
             });
 
             if (userTown) {
@@ -665,7 +665,7 @@ function App() {
                               <Route 
                                 path="/dashboard" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL']}>
+                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL','OPERATIONS']}>
                                     <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                   </AuthRoute>
                                 } 
@@ -706,14 +706,14 @@ function App() {
                               <Route 
                                 path="/adminconfirm" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN']}>
+                                  <AuthRoute allowedRoles={['ADMIN','OPERATIONS']}>
                                     <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>
                                   </AuthRoute>
                                 } 
                               />
                               <Route path="/recruitment" 
                               element={
-                              <AuthRoute allowedRoles={['ADMIN','HR']}>
+                              <AuthRoute allowedRoles={['ADMIN','HR','OPERATIONS']}>
                                 <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} /> 
                                    </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
