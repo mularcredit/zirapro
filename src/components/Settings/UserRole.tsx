@@ -57,6 +57,12 @@ const ROLES = {
     description: 'Read-only access to location-specific features',
     icon: <Eye className="w-4 h-4 text-gray-500" />,
     requiresLocation: true
+  },
+   CHECKER: {
+    label: 'CHECKER',
+    description: 'Read-only access to location-specific features',
+    icon: <Eye className="w-4 h-4 text-gray-500" />,
+    requiresLocation: true
   }
 };
 
@@ -77,6 +83,7 @@ const RoleBadge = ({ role }: { role: keyof typeof ROLES }) => {
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
       role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
       role === 'MANAGER' ? 'bg-blue-100 text-blue-800' :
+      role === 'CHECKER' ? 'bg-orange-100 text-orange-800' :
        role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-800' :
       role === 'REGIONAL' ? 'bg-violet-100 text-violet-800' :
       role === 'STAFF' ? 'bg-green-100 text-green-800' :
@@ -289,6 +296,7 @@ const RoleToggle = ({
         <div className={`p-2 rounded-lg ${
           role === 'ADMIN' ? 'bg-purple-100 text-purple-600' :
           role === 'MANAGER' ? 'bg-blue-100 text-blue-600' :
+           role === 'CHECKER' ? 'bg-orange-100 text-orange-600' :
            role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-600' :
           role === 'REGIONAL' ? 'bg-violet-100 text-violet-600' :
           role === 'STAFF' ? 'bg-green-100 text-green-600' :
@@ -463,6 +471,7 @@ const UserEditModal = ({
                     editedUser.role === role ? 
                     (role === 'ADMIN' ? 'border-purple-500 bg-purple-50 text-purple-700' :
                      role === 'MANAGER' ? 'border-blue-500 bg-blue-50 text-blue-700' :
+                      role === 'CHECKER' ? 'border-orange-500 bg-orange-50 text-orange-700' :
                      role === 'REGIONAL' ? 'border-violet-500 bg-violet-50 text-blue-700' :
                      role === 'OPERATIONS' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' :
                      role === 'STAFF' ? 'border-green-500 bg-green-50 text-green-700' :

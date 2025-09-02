@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1 } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1, Clock, CheckCircle, XCircle, Eye, AlertTriangle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -10,7 +10,7 @@ import html2pdf from 'html2pdf.js';
 import GlowButton from '../UI/GlowButton';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
@@ -26,6 +26,714 @@ const formatPhoneNumber = (phone) => {
   }
   
   return cleaned;
+};
+
+// Maker-Checker Status Badge Component
+const StatusBadge = ({ status }) => {
+  const statusConfig = {
+    pending: {
+      bg: 'bg-yellow-100',
+      text: 'text-yellow-800',
+      icon: Clock,
+      label: 'Pending Approval'
+    },
+    approved: {
+      bg: 'bg-green-100',
+      text: 'text-green-800',
+      icon: CheckCircle,
+      label: 'Approved'
+    },
+    rejected: {
+      bg: 'bg-red-100',
+      text: 'text-red-800',
+      icon: XCircle,
+      label: 'Rejected'
+    },
+    processing: {
+      bg: 'bg-blue-100',
+      text: 'text-blue-800',
+      icon: Loader,
+      label: 'Processing'
+    },
+    completed: {
+      bg: 'bg-emerald-100',
+      text: 'text-emerald-800',
+      icon: CheckCircle,
+      label: 'Completed'
+    },
+    failed: {
+      bg: 'bg-red-100',
+      text: 'text-red-800',
+      icon: XCircle,
+      label: 'Failed'
+    }
+  };
+
+  const config = statusConfig[status] || statusConfig.pending;
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${config.bg} ${config.text}`}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+};
+
+// Pending Payment Card Component
+const PendingPaymentCard = ({ payment, onApprove, onReject, onViewDetails, userRole }) => {
+  const isChecker = userRole === 'checker' || userRole === 'admin';
+  const totalAmount = payment.type === 'bulk' 
+    ? payment.employees_data?.reduce((sum, emp) => sum + (emp.net_pay || 0), 0) || 0
+    : payment.employee_data?.net_pay || 0;
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            {payment.type === 'bulk' ? (
+              <Users className="w-5 h-5 text-orange-600" />
+            ) : (
+              <Smartphone className="w-5 h-5 text-orange-600" />
+            )}
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              {payment.type === 'bulk' 
+                ? `Bulk Payment (${payment.employees_data?.length || 0} employees)`
+                : `Payment to ${payment.employee_data?.employee_name || 'Unknown'}`
+              }
+            </h3>
+            <p className="text-sm text-gray-600">
+              Initiated by {payment.created_by_email} • {new Date(payment.created_at).toLocaleString()}
+            </p>
+          </div>
+        </div>
+        <StatusBadge status={payment.status} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <p className="text-sm text-gray-600">Total Amount</p>
+          <p className="font-bold text-lg text-green-600">KSh {totalAmount.toLocaleString()}</p>
+        </div>
+        <div>
+          <p className="text-sm text-gray-600">Payment Method</p>
+          <p className="font-medium">M-Pesa B2C</p>
+        </div>
+      </div>
+
+      {payment.type === 'bulk' && payment.employees_data && (
+        <div className="mb-4">
+          <p className="text-sm text-gray-600 mb-2">Employees:</p>
+          <div className="max-h-20 overflow-y-auto text-sm">
+            {payment.employees_data.slice(0, 3).map((emp, index) => (
+              <div key={index} className="flex justify-between py-1">
+                <span>{emp.employee_name}</span>
+                <span>KSh {emp.net_pay?.toLocaleString()}</span>
+              </div>
+            ))}
+            {payment.employees_data.length > 3 && (
+              <p className="text-gray-500 text-xs mt-1">
+                +{payment.employees_data.length - 3} more employees
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onViewDetails(payment)}
+          className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 flex items-center justify-center gap-2"
+        >
+          <Eye className="w-4 h-4" />
+          View Details
+        </button>
+        
+        {isChecker && payment.status === 'pending' && (
+          <>
+            <button
+              onClick={() => onApprove(payment)}
+              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center justify-center gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Approve
+            </button>
+            <button
+              onClick={() => onReject(payment)}
+              className="flex-1 px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center justify-center gap-2"
+            >
+              <XCircle className="w-4 h-4" />
+              Reject
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Payment Details Modal Component
+const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, userRole }) => {
+  if (!isOpen || !payment) return null;
+
+  const isChecker = userRole === 'checker' || userRole === 'admin';
+  const totalAmount = payment.type === 'bulk' 
+    ? payment.employees_data?.reduce((sum, emp) => sum + (emp.net_pay || 0), 0) || 0
+    : payment.employee_data?.net_pay || 0;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
+        <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">Payment Request Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {/* Payment Summary */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Payment Type</p>
+                <p className="font-semibold">{payment.type === 'bulk' ? 'Bulk Payment' : 'Single Payment'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Total Amount</p>
+                <p className="font-semibold text-green-600">KSh {totalAmount.toLocaleString()}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Status</p>
+                <StatusBadge status={payment.status} />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Created</p>
+                <p className="font-semibold">{new Date(payment.created_at).toLocaleString()}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Justification */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-2">Justification</h3>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <p className="text-gray-700">{payment.justification}</p>
+            </div>
+          </div>
+
+          {/* Audit Trail */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3">Audit Trail</h3>
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span>Payment request created by <strong>{payment.created_by_email}</strong></span>
+                <span className="text-gray-500">{new Date(payment.created_at).toLocaleString()}</span>
+              </div>
+              {payment.approved_by_email && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>Approved by <strong>{payment.approved_by_email}</strong></span>
+                  <span className="text-gray-500">{new Date(payment.approved_at).toLocaleString()}</span>
+                </div>
+              )}
+              {payment.rejected_by_email && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span>Rejected by <strong>{payment.rejected_by_email}</strong></span>
+                  <span className="text-gray-500">{new Date(payment.rejected_at).toLocaleString()}</span>
+                  {payment.rejection_reason && (
+                    <span className="text-red-600">- {payment.rejection_reason}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Employee Details */}
+          <div className="mb-6">
+            <h3 className="font-semibold text-gray-900 mb-3">
+              {payment.type === 'bulk' ? 'Employees to be Paid' : 'Employee Details'}
+            </h3>
+            
+            {payment.type === 'bulk' && payment.employees_data ? (
+              <div className="max-h-60 overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Employee</th>
+                      <th className="px-3 py-2 text-right">Phone Number</th>
+                      <th className="px-3 py-2 text-right">Net Pay</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payment.employees_data.map((emp, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-3 py-2">
+                          <div>
+                            <p className="font-medium">{emp.employee_name}</p>
+                            <p className="text-gray-500 text-xs">{emp.employee_id}</p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">{emp.employeeNu}</td>
+                        <td className="px-3 py-2 text-right font-medium">KSh {emp.net_pay?.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : payment.employee_data && (
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Employee Name</p>
+                    <p className="font-medium">{payment.employee_data.employee_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Employee ID</p>
+                    <p className="font-medium">{payment.employee_data.employee_id}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Phone Number</p>
+                    <p className="font-medium">{payment.employee_data.employeeNu}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Department</p>
+                    <p className="font-medium">{payment.employee_data.department}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {isChecker && payment.status === 'pending' && (
+            <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => onApprove(payment)}
+                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Approve Payment
+              </button>
+              <button
+                onClick={() => onReject(payment)}
+                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center justify-center gap-2"
+              >
+                <XCircle className="w-4 h-4" />
+                Reject Payment
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Rejection Modal Component
+const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
+  const [reason, setReason] = useState('');
+
+  const handleConfirm = () => {
+    if (reason.trim()) {
+      onConfirm(reason);
+      setReason('');
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <XCircle className="h-5 w-5 text-red-600" />
+          Reject Payment Request
+        </h3>
+        
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Reason for rejection <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Please provide a reason for rejecting this payment request..."
+            rows={4}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
+          />
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!reason.trim()}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Confirm Rejection
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// M-PESA Single Payment Modal (Modified for Maker-Checker)
+const MpesaSinglePaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  employee, 
+  onConfirm,
+  userRole = 'maker'
+}) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [justification, setJustification] = useState('');
+
+  const handlePayment = async () => {
+    if (userRole === 'maker' && !justification.trim()) {
+      toast.error('Please provide a justification for this payment request');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await onConfirm(justification);
+      onClose();
+    } catch (error) {
+      console.error('Payment error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Smartphone className="h-5 w-5 text-green-600" />
+          {userRole === 'maker' ? 'Create Payment Request' : 'Confirm M-PESA Payment'}
+        </h3>
+        
+        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+          <p className="text-sm text-gray-600 mb-2">
+            {userRole === 'maker' 
+              ? 'You are creating a payment request for:'
+              : 'You are about to send an M-PESA payment to:'
+            }
+          </p>
+          <div className="space-y-1">
+            <p className="font-medium">{employee.employee_name}</p>
+            <p className="text-sm text-gray-600">ID: {employee.employee_id}</p>
+            <p className="text-sm text-gray-600">
+              Phone: {employee.employeeNu || 'No phone number available'}
+            </p>
+            <p className="text-sm text-gray-600">
+              Amount: KSh {employee.net_pay?.toLocaleString()}
+            </p>
+          </div>
+        </div>
+
+        {userRole === 'maker' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Justification <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              placeholder="Please provide a justification for this payment request..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            />
+          </div>
+        )}
+
+        {userRole === 'maker' && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <p className="font-medium">Maker-Checker Process</p>
+                <p>This payment will be submitted for approval before processing.</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handlePayment}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isProcessing || (userRole === 'maker' && !justification.trim())}
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                {userRole === 'maker' ? 'Submit Request' : 'Confirm Payment'}
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// M-PESA Bulk Payment Modal (Modified for Maker-Checker)
+const MpesaBulkPaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  employees, 
+  onConfirm,
+  userRole = 'maker'
+}) => {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
+  const [justification, setJustification] = useState('');
+
+  useEffect(() => {
+    // Initialize all employees as selected
+    const initialSelected = {};
+    employees.forEach(emp => {
+      initialSelected[emp.employee_id] = true;
+    });
+    setSelectedStaff(initialSelected);
+  }, [employees]);
+
+  // Filter employees based on search
+  const filteredEmployees = employees.filter(emp => 
+    emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Calculate total amount for selected employees
+  const calculateTotalAmount = () => {
+    return employees.reduce((total, emp) => {
+      if (selectedStaff[emp.employee_id]) {
+        return total + (emp.net_pay || 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  // Get count of selected staff
+  const getSelectedStaffCount = () => {
+    return Object.values(selectedStaff).filter(selected => selected).length;
+  };
+
+  // Toggle selection for a staff member
+  const toggleStaffSelection = (id) => {
+    setSelectedStaff(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  // Select all staff
+  const selectAllStaff = () => {
+    const newSelection = {};
+    employees.forEach(emp => {
+      newSelection[emp.employee_id] = true;
+    });
+    setSelectedStaff(newSelection);
+  };
+
+  // Deselect all staff
+  const deselectAllStaff = () => {
+    setSelectedStaff({});
+  };
+
+  const handleBulkPayment = async () => {
+    if (userRole === 'maker' && !justification.trim()) {
+      toast.error('Please provide a justification for this bulk payment request');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const selectedEmployees = employees.filter(emp => selectedStaff[emp.employee_id]);
+      await onConfirm(selectedEmployees, justification);
+      onClose();
+    } catch (error) {
+      console.error('Bulk payment error:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-green-600" />
+          {userRole === 'maker' ? 'Create Bulk Payment Request' : 'Confirm M-PESA Bulk Payment'}
+        </h3>
+        
+        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+          <p className="text-sm text-gray-600">
+            {userRole === 'maker' 
+              ? `You are creating a bulk payment request for ${getSelectedStaffCount()} selected staff members.`
+              : `You are about to process M-PESA B2C payments for ${getSelectedStaffCount()} selected staff members.`
+            }
+          </p>
+          
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={selectAllStaff}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Select All
+            </button>
+            <button
+              onClick={deselectAllStaff}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Deselect All
+            </button>
+          </div>
+          
+          <div className="mt-3 border-t pt-3">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Total Amount:</span>
+              <span className="font-bold text-green-700">
+                KSh {calculateTotalAmount().toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {userRole === 'maker' && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Justification <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              placeholder="Please provide a justification for this bulk payment request..."
+              rows={3}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            />
+          </div>
+        )}
+
+        {userRole === 'maker' && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <p className="font-medium">Maker-Checker Process</p>
+                <p>This bulk payment will be submitted for approval before processing.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Search input */}
+        <div className="mb-4 relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search employees..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+          />
+        </div>
+        
+        <div className="mb-4 max-h-60 overflow-y-auto">
+          <p className="text-sm font-medium mb-2">Staff to be paid:</p>
+          <ul className="text-sm divide-y divide-gray-200">
+            {filteredEmployees.map(emp => (
+              <li key={emp.employee_id} className="py-2 flex items-center justify-between">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedStaff[emp.employee_id] || false}
+                    onChange={() => toggleStaffSelection(emp.employee_id)}
+                    className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  />
+                  <div>
+                    <div className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
+                      {emp.employee_name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {emp.employeeNu || 'No phone number'} • {emp.employee_id}
+                    </div>
+                  </div>
+                </div>
+                <span className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
+                  KSh {emp.net_pay?.toLocaleString()}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isProcessing}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleBulkPayment}
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isProcessing || getSelectedStaffCount() === 0 || (userRole === 'maker' && !justification.trim())}
+          >
+            {isProcessing ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                {userRole === 'maker' 
+                  ? `Submit Request (${getSelectedStaffCount()})`
+                  : `Confirm M-Pesa Payment (${getSelectedStaffCount()})`
+                }
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 // P9 Form Generator Component
@@ -503,272 +1211,6 @@ const ExportModal = ({ isOpen, onClose, records }) => {
               <>
                 <Download size={16} />
                 Export {exportFormat.toUpperCase()}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// M-PESA Single Payment Modal
-const MpesaSinglePaymentModal = ({ 
-  isOpen, 
-  onClose, 
-  employee, 
-  onConfirm 
-}) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    try {
-      await onConfirm();
-      onClose();
-    } catch (error) {
-      console.error('Payment error:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-          <Smartphone className="h-5 w-5 text-green-600" />
-          Confirm M-PESA Payment
-        </h3>
-        
-        <div className="mb-4 p-3 bg-gray-50 rounded-md">
-          <p className="text-sm text-gray-600 mb-2">
-            You are about to send an M-PESA payment to:
-          </p>
-          <div className="space-y-1">
-            <p className="font-medium">{employee.employee_name}</p>
-            <p className="text-sm text-gray-600">ID: {employee.employee_id}</p>
-            <p className="text-sm text-gray-600">
-              Phone: {employee.employeeNu || 'No phone number available'}
-            </p>
-            <p className="text-sm text-gray-600">
-              Amount: KSh {employee.net_pay?.toLocaleString()}
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            disabled={isProcessing}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handlePayment}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-            disabled={isProcessing}
-          >
-            {isProcessing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <Send size={16} />
-                Confirm Payment
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// M-PESA Bulk Payment Modal
-const MpesaBulkPaymentModal = ({ 
-  isOpen, 
-  onClose, 
-  employees, 
-  onConfirm 
-}) => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedStaff, setSelectedStaff] = useState({});
-  const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    // Initialize all employees as selected
-    const initialSelected = {};
-    employees.forEach(emp => {
-      initialSelected[emp.employee_id] = true;
-    });
-    setSelectedStaff(initialSelected);
-  }, [employees]);
-
-  // Filter employees based on search
-  const filteredEmployees = employees.filter(emp => 
-    emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  // Calculate total amount for selected employees
-  const calculateTotalAmount = () => {
-    return employees.reduce((total, emp) => {
-      if (selectedStaff[emp.employee_id]) {
-        return total + (emp.net_pay || 0);
-      }
-      return total;
-    }, 0);
-  };
-
-  // Get count of selected staff
-  const getSelectedStaffCount = () => {
-    return Object.values(selectedStaff).filter(selected => selected).length;
-  };
-
-  // Toggle selection for a staff member
-  const toggleStaffSelection = (id) => {
-    setSelectedStaff(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
-  };
-
-  // Select all staff
-  const selectAllStaff = () => {
-    const newSelection = {};
-    employees.forEach(emp => {
-      newSelection[emp.employee_id] = true;
-    });
-    setSelectedStaff(newSelection);
-  };
-
-  // Deselect all staff
-  const deselectAllStaff = () => {
-    setSelectedStaff({});
-  };
-
-  const handleBulkPayment = async () => {
-    setIsProcessing(true);
-    try {
-      const selectedEmployees = employees.filter(emp => selectedStaff[emp.employee_id]);
-      await onConfirm(selectedEmployees);
-      onClose();
-    } catch (error) {
-      console.error('Bulk payment error:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-          <Users className="h-5 w-5 text-green-600" />
-          Confirm M-PESA Bulk Payment
-        </h3>
-        
-        <div className="mb-4 p-3 bg-gray-50 rounded-md">
-          <p className="text-sm text-gray-600">
-            You are about to process M-PESA B2C payments for {getSelectedStaffCount()} selected staff members.
-          </p>
-          
-          <div className="mt-3 flex gap-2">
-            <button
-              onClick={selectAllStaff}
-              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-            >
-              Select All
-            </button>
-            <button
-              onClick={deselectAllStaff}
-              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-            >
-              Deselect All
-            </button>
-          </div>
-          
-          <div className="mt-3 border-t pt-3">
-            <div className="flex justify-between text-sm">
-              <span className="font-medium">Total Amount:</span>
-              <span className="font-bold text-green-700">
-                KSh {calculateTotalAmount().toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Search input */}
-        <div className="mb-4 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search employees..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
-          />
-        </div>
-        
-        <div className="mb-4 max-h-60 overflow-y-auto">
-          <p className="text-sm font-medium mb-2">Staff to be paid:</p>
-          <ul className="text-sm divide-y divide-gray-200">
-            {filteredEmployees.map(emp => (
-              <li key={emp.employee_id} className="py-2 flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedStaff[emp.employee_id] || false}
-                    onChange={() => toggleStaffSelection(emp.employee_id)}
-                    className="mr-2 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                  />
-                  <div>
-                    <div className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
-                      {emp.employee_name}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {emp.employeeNu || 'No phone number'} • {emp.employee_id}
-                    </div>
-                  </div>
-                </div>
-                <span className={selectedStaff[emp.employee_id] ? "font-medium" : "text-gray-500"}>
-                  KSh {emp.net_pay?.toLocaleString()}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            disabled={isProcessing}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleBulkPayment}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-            disabled={isProcessing || getSelectedStaffCount() === 0}
-          >
-            {isProcessing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                Processing M-Pesa...
-              </>
-            ) : (
-              <>
-                <Send size={16} />
-                Confirm M-Pesa Payment ({getSelectedStaffCount()})
               </>
             )}
           </button>
@@ -1818,174 +2260,6 @@ const P10FormGenerator = ({ isOpen, onClose }) => {
   );
 };
 
-// Statutory Deductions Tabs Component
-// const StatutoryDeductionsTabs = ({ records, onFilterChange }) => {
-//   const [activeTab, setActiveTab] = useState('all');
-
-//   const tabs = [
-//     { id: 'all', label: 'All Records', icon: Users },
-//     { id: 'nhif', label: 'NHIF', icon: Tally1 },
-//     { id: 'paye', label: 'PAYE', icon: Tally1 },
-//     { id: 'nssf', label: 'NSSF', icon: Tally1 },
-//     { id: 'ahl', label: 'Housing Levy', icon: Tally1}
-//   ];
-
-//   const handleTabChange = (tabId) => {
-//     setActiveTab(tabId);
-    
-//     // Filter records based on tab selection
-//     let filteredRecords = records;
-    
-//     switch (tabId) {
-//       case 'nhif':
-//         filteredRecords = records.filter(record => record.nhif_deduction > 0);
-//         break;
-//       case 'paye':
-//         filteredRecords = records.filter(record => record.paye_tax > 0);
-//         break;
-//       case 'nssf':
-//         filteredRecords = records.filter(record => record.nssf_deduction > 0);
-//         break;
-//       case 'ahl':
-//         filteredRecords = records.filter(record => record.housing_levy > 0);
-//         break;
-//       default:
-//         filteredRecords = records;
-//     }
-    
-//     onFilterChange(filteredRecords, tabId);
-//   };
-
-//   const getTabCount = (tabId) => {
-//     switch (tabId) {
-//       case 'nhif':
-//         return records.filter(record => record.nhif_deduction > 0).length;
-//       case 'paye':
-//         return records.filter(record => record.paye_tax > 0).length;
-//       case 'nssf':
-//         return records.filter(record => record.nssf_deduction > 0).length;
-//       case 'ahl':
-//         return records.filter(record => record.housing_levy > 0).length;
-//       default:
-//         return records.length;
-//     }
-//   };
-
-//   const getTabTotal = (tabId) => {
-//     switch (tabId) {
-//       case 'nhif':
-//         return records.reduce((sum, record) => sum + record.nhif_deduction, 0);
-//       case 'paye':
-//         return records.reduce((sum, record) => sum + record.paye_tax, 0);
-//       case 'nssf':
-//         return records.reduce((sum, record) => sum + record.nssf_deduction, 0);
-//       case 'ahl':
-//         return records.reduce((sum, record) => sum + record.housing_levy, 0);
-//       default:
-//         return records.reduce((sum, record) => sum + record.total_deductions, 0);
-//     }
-//   };
-
-//   return (
-//     <div className="bg-white border border-gray-200 rounded-lg mb-6">
-//       {/* Tab Headers */}
-//       <div className="border-b border-gray-200">
-//         <nav className="flex space-x-8" aria-label="Tabs">
-//           {tabs.map((tab) => {
-//             const Icon = tab.icon;
-//             const isActive = activeTab === tab.id;
-//             const count = getTabCount(tab.id);
-//             const total = getTabTotal(tab.id);
-            
-//             return (
-//               <button
-//                 key={tab.id}
-//                 onClick={() => handleTabChange(tab.id)}
-//                 className={`${
-//                   isActive
-//                     ? 'border-blue-500 text-blue-600'
-//                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-//                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2`}
-//               >
-//                 <Icon className="w-4 h-4" />
-//                 {tab.label}
-//                 <span className="bg-gray-100 text-gray-900 rounded-full px-2.5 py-0.5 text-xs font-medium">
-//                   {count}
-//                 </span>
-//               </button>
-//             );
-//           })}
-//         </nav>
-//       </div>
-
-//       {/* Tab Content - Summary Cards */}
-//       <div className="p-4">
-//         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-//           {activeTab === 'all' ? (
-//             <>
-//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-gray-600 text-sm font-medium">Total PAYE</p>
-//                     <p className="text-gray-900 text-lg font-bold">KSh {Math.round(getTabTotal('paye')).toLocaleString()}</p>
-//                   </div>
-                
-//                 </div>
-//               </div>
-//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-gray-600 text-sm font-medium">Total NHIF</p>
-//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nhif').toLocaleString()}</p>
-//                   </div>
-                
-//                 </div>
-//               </div>
-//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-gray-600 text-sm font-medium">Total NSSF</p>
-//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('nssf').toLocaleString()}</p>
-//                   </div>
-                
-//                 </div>
-//               </div>
-//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-4 rounded-lg border border-gray-200">
-//                 <div className="flex items-center justify-between">
-//                   <div>
-//                     <p className="text-gray-600 text-sm font-medium">Housing Levy</p>
-//                     <p className="text-gray-900 text-lg font-bold">KSh {getTabTotal('ahl').toLocaleString()}</p>
-//                   </div>
-              
-//                 </div>
-//               </div>
-//             </>
-//           ) : (
-//             <div className="col-span-full">
-//               <div className="bg-gradient-to-r from-green-50 to-gray-100 p-6 rounded-lg border border-gray-200 text-center">
-//                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-//                   {tabs.find(tab => tab.id === activeTab)?.label} Summary
-//                 </h3>
-//                 <div className="grid grid-cols-2 gap-4">
-//                   <div>
-//                     <p className="text-gray-600 text-sm">Employees Affected</p>
-//                     <p className="text-gray-900 text-2xl font-bold">{getTabCount(activeTab)}</p>
-//                   </div>
-//                   <div>
-//                     <p className="text-gray-600 text-sm">Total Amount</p>
-//                     <p className="text-gray-900 text-2xl font-bold">KSh {Math.round(getTabTotal(activeTab)).toLocaleString()}</p>
-//                   </div>
-//                 </div>
-//               </div>
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-
 export default function PayrollDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState('all');
@@ -2017,6 +2291,17 @@ export default function PayrollDashboard() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [showP10Modal, setShowP10Modal] = useState(false);
   
+  // Maker-Checker States - Now using Supabase
+  const [paymentRequests, setPaymentRequests] = useState([]);
+  const [userRole, setUserRole] = useState('maker');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showApprovalQueue, setShowApprovalQueue] = useState(false);
+  const [selectedPaymentForDetails, setSelectedPaymentForDetails] = useState(null);
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [paymentToReject, setPaymentToReject] = useState(null);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  
   const itemsPerPage = 5;
 
   // Get current month in YYYY-MM format
@@ -2027,6 +2312,97 @@ export default function PayrollDashboard() {
 
   // Get the actual period to use for calculations
   const actualPeriod = selectedPeriod === 'current' ? getCurrentPeriod() : selectedPeriod;
+
+  // Fetch user profile and role from Supabase
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          console.warn('User not authenticated');
+          return;
+        }
+
+        setCurrentUser(user);
+
+        // Try to get user profile, default to maker if not found
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (profileError) {
+          console.warn('No user profile found, defaulting to maker role');
+          setUserRole('maker');
+        } else {
+          setUserRole(profile.role || 'maker');
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        setUserRole('maker');
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
+
+  // Fetch payment requests from Supabase
+  const fetchPaymentRequests = async () => {
+    try {
+      setIsLoadingRequests(true);
+      const { data, error } = await supabase
+        .from('payment_flows_with_users')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching payment requests:', error);
+        toast.error('Failed to load payment requests');
+        return;
+      }
+
+      setPaymentRequests(data || []);
+    } catch (error) {
+      console.error('Error fetching payment requests:', error);
+      toast.error('Failed to load payment requests');
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
+  // Load payment requests on component mount and when user changes
+  useEffect(() => {
+    if (currentUser) {
+      fetchPaymentRequests();
+    }
+  }, [currentUser]);
+
+  // Subscribe to real-time payment request changes
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const subscription = supabase
+      .channel('payment_flows_channel')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payment_flows'
+        },
+        (payload) => {
+          console.log('Payment request change:', payload);
+          fetchPaymentRequests(); // Refresh the list when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [currentUser]);
 
   // Fetch company information from Supabase
   useEffect(() => {
@@ -2055,7 +2431,205 @@ export default function PayrollDashboard() {
     fetchCompanyInfo();
   }, []);
 
-  // M-PESA Payment Functions
+  // Create payment request in Supabase
+ // Example usage in your React component
+const createPaymentRequest = async (employee, type, justification, employees = null) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  const requestData = {
+    type: type,
+    employee_data: type === 'single' ? employee : null,
+    employees_data: type === 'bulk' ? employees : null,
+    justification: justification,
+    created_by: user.id
+  };
+
+  // ✅ Step 1: Insert without expanding relationships
+  const { data, error } = await supabase
+    .from('payment_flows')
+    .insert([requestData])
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // ✅ Step 2: Fetch creator email separately
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')   // or 'auth.users' if you store email there
+    .select('email')
+    .eq('id', user.id)
+    .single();
+
+  if (profileError) throw profileError;
+
+  // ✅ Return combined result
+  return { ...data, created_by_email: profile.email };
+};
+
+
+const approvePayment = async (paymentId) => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  const { data, error } = await supabase
+    .from('payment_flows')
+    .update({
+      status: 'approved',
+      approved_by: user.id,
+      approved_at: new Date().toISOString()
+    })
+    .eq('id', paymentId)
+    .select('*, approved_by_email:approved_by(email)')
+    .single();
+
+  if (error) throw error;
+  return data;
+};
+
+  // Approve payment request in Supabase
+  // const approvePayment = async (payment) => {
+  //   try {
+  //     const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+  //     if (userError || !user) {
+  //       toast.error('User not authenticated');
+  //       return;
+  //     }
+
+  //     // Optimistic update
+  //     setPaymentRequests(prev => 
+  //       prev.map(req => 
+  //         req.id === payment.id 
+  //           ? { 
+  //               ...req, 
+  //               status: 'approved',
+  //               approved_by: user.id,
+  //               approved_at: new Date().toISOString(),
+  //               approved_by_email: user.email
+  //             }
+  //           : req
+  //       )
+  //     );
+
+  //     const { data, error } = await supabase
+  //       .from('payment_flows')
+  //       .update({
+  //         status: 'approved',
+  //         approved_by: user.id,
+  //         approved_at: new Date().toISOString()
+  //       })
+  //       .eq('id', payment.id)
+  //       .select('*')
+  //       .single();
+
+  //     if (error) {
+  //       console.error('Error approving payment request:', error);
+  //       toast.error('Failed to approve payment request');
+  //       // Revert optimistic update
+  //       fetchPaymentRequests();
+  //       return;
+  //     }
+
+  //     // Process the actual M-Pesa payment
+  //     try {
+  //       if (payment.type === 'single') {
+  //         await processSingleMpesaPayment(payment.employee_data);
+  //       } else {
+  //         await processBulkMpesaPayment(payment.employees_data);
+  //       }
+
+  //       // Update status to completed
+  //       await supabase
+  //         .from('payment_flows')
+  //         .update({
+  //           status: 'completed',
+  //           processed_at: new Date().toISOString()
+  //         })
+  //         .eq('id', payment.id);
+
+  //       // Update local state
+  //       setPaymentRequests(prev => 
+  //         prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
+  //       );
+
+  //       toast.success('Payment approved and processed successfully!');
+  //     } catch (error) {
+  //       // Update status to failed
+  //       await supabase
+  //         .from('payment_flows')
+  //         .update({
+  //           status: 'failed',
+  //           processed_at: new Date().toISOString(),
+  //           metadata: { error: error.message }
+  //         })
+  //         .eq('id', payment.id);
+
+  //       setPaymentRequests(prev => 
+  //         prev.map(req => req.id === payment.id ? { ...req, status: 'failed' } : req)
+  //       );
+        
+  //       console.error('Payment processing error:', error);
+  //       toast.error('Payment approved but failed to process');
+  //     }
+  //   } catch (error) {
+  //     console.error('Payment approval error:', error);
+  //     toast.error('Failed to approve payment request');
+  //   }
+  // };
+
+  // Reject payment request in Supabase
+  const rejectPayment = async (payment, reason) => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        toast.error('User not authenticated');
+        return;
+      }
+
+      // Optimistic update
+      setPaymentRequests(prev => 
+        prev.map(req => 
+          req.id === payment.id 
+            ? { 
+                ...req, 
+                status: 'rejected',
+                rejected_by: user.id,
+                rejected_at: new Date().toISOString(),
+                rejection_reason: reason,
+                rejected_by_email: user.email
+              }
+            : req
+        )
+      );
+
+      const { data, error } = await supabase
+        .from('payment_flows')
+        .update({
+          status: 'rejected',
+          rejected_by: user.id,
+          rejected_at: new Date().toISOString(),
+          rejection_reason: reason
+        })
+        .eq('id', payment.id)
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('Error rejecting payment request:', error);
+        toast.error('Failed to reject payment request');
+        // Revert optimistic update
+        fetchPaymentRequests();
+        return;
+      }
+
+      toast.success('Payment request rejected');
+    } catch (error) {
+      console.error('Payment rejection error:', error);
+      toast.error('Failed to reject payment request');
+    }
+  };
+
+  // M-PESA Payment Functions (Original - now used only after approval)
   const processSingleMpesaPayment = async (employee) => {
     try {
       const phoneNumber = employee.employeeNu;
@@ -2123,14 +2697,34 @@ export default function PayrollDashboard() {
     return results;
   };
 
-  // Add this function to the main component, right after the processBulkMpesaPayment function
-const handleSingleMpesaPayment = (employee) => {
-  setSelectedEmployeeForMpesa(employee);
-  setShowSingleMpesaModal(true);
-};
+  // Modified handlers for maker-checker workflow
+  const handleSingleMpesaPayment = (employee) => {
+    setSelectedEmployeeForMpesa(employee);
+    setShowSingleMpesaModal(true);
+  };
 
- const handleBulkMpesaPayment = () => {
+  const handleBulkMpesaPayment = () => {
     setShowBulkMpesaModal(true);
+  };
+
+  const handleConfirmSinglePayment = async (justification) => {
+    if (userRole === 'admin') {
+      // Admin can process immediately
+      await processSingleMpesaPayment(selectedEmployeeForMpesa);
+    } else {
+      // Create payment request for approval
+      await createPaymentRequest(selectedEmployeeForMpesa, 'single', justification);
+    }
+  };
+
+  const handleConfirmBulkPayment = async (selectedEmployees, justification) => {
+    if (userRole === 'admin') {
+      // Admin can process immediately
+      await processBulkMpesaPayment(selectedEmployees);
+    } else {
+      // Create payment request for approval
+      await createPaymentRequest(null, 'bulk', justification, selectedEmployees);
+    }
   };
 
   // Fetch employees from Supabase
@@ -2386,6 +2980,11 @@ const handleSingleMpesaPayment = (employee) => {
   const totalNSSF = finalFilteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
   const totalHousingLevy = finalFilteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
 
+  // Get pending payments counts for different statuses
+  const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
+  const approvedCount = paymentRequests.filter(p => p.status === 'approved').length;
+  const rejectedCount = paymentRequests.filter(p => p.status === 'rejected').length;
+
   const paymentMethods = ['all', 'Bank Transfer', 'M-Pesa', 'Airtel Money', 'Cash'];
   const payPeriods = [
     { value: 'current', label: 'Current Month' },
@@ -2441,9 +3040,30 @@ const handleSingleMpesaPayment = (employee) => {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Payroll Management</h1>
-            <p className="text-gray-600 text-sm">Complete payroll processing with PAYE, NHIF, NSSF, Housing Levy calculations</p>
+            <p className="text-gray-600 text-sm">Complete payroll processing with Maker-Checker M-Pesa payment workflow</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            {/* Role Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-xs font-medium text-blue-700 capitalize">
+                {userRole} Role
+              </span>
+            </div>
+            
+            {/* Pending Payments Alert */}
+            {(userRole === 'checker' || userRole === 'admin') && pendingCount > 0 && (
+              <button
+                onClick={() => setShowApprovalQueue(true)}
+                className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100"
+              >
+                <AlertTriangle className="w-4 h-4 text-orange-600" />
+                <span className="text-xs font-medium text-orange-700">
+                  {pendingCount} Pending Approvals
+                </span>
+              </button>
+            )}
+
             <div className="relative group">
               {!isSendingPayslips && (
                 <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10 hidden group-hover:block">
@@ -2478,13 +3098,109 @@ const handleSingleMpesaPayment = (employee) => {
               Quick Actions
             </GlowButtonss>
 
-           
-            
+            {/* Role Switcher (for demo purposes) */}
+            <RoleButtonWrapper allowedRoles={['CHECKER']}>
+            <select
+              value={userRole}
+              onChange={(e) => setUserRole(e.target.value)}
+              className="px-3 py-1 text-xs bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="maker">Maker</option>
+              <option value="checker">Checker</option>
+              
+            </select>
+            </RoleButtonWrapper>
           </div>
         </div>
       </div>
 
-     
+      {/* Maker-Checker Approval Queue */}
+      {showApprovalQueue && (userRole === 'checker' || userRole === 'admin') && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-orange-600" />
+              Payment Approval Queue
+              {isLoadingRequests && (
+                <Loader className="w-4 h-4 animate-spin text-gray-400" />
+              )}
+            </h2>
+            <button
+              onClick={() => setShowApprovalQueue(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Approval Queue Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+            <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-4 h-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-800">Pending</span>
+              </div>
+              <p className="text-2xl font-bold text-orange-700">{pendingCount}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-4 border border-green-200">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="w-4 h-4 text-green-600" />
+                <span className="text-sm font-medium text-green-800">Approved</span>
+              </div>
+              <p className="text-2xl font-bold text-green-700">{approvedCount}</p>
+            </div>
+            <div className="bg-red-50 rounded-lg p-4 border border-red-200">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-medium text-red-800">Rejected</span>
+              </div>
+              <p className="text-2xl font-bold text-red-700">{rejectedCount}</p>
+            </div>
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">Total Value</span>
+              </div>
+              <p className="text-lg font-bold text-blue-700">
+                KSh {paymentRequests
+                  .filter(p => p.status === 'pending')
+                  .reduce((sum, p) => sum + (p.total_amount || 0), 0)
+                  .toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          {/* Pending Payments List */}
+          {paymentRequests.length > 0 ? (
+            <div className="grid gap-4">
+              {paymentRequests
+                .filter(payment => payment.status !== 'completed')
+                .map((payment) => (
+                <PendingPaymentCard
+                  key={payment.id}
+                  payment={payment}
+                  userRole={userRole}
+                  onApprove={() => approvePayment(payment)}
+                  onReject={() => {
+                    setPaymentToReject(payment);
+                    setShowRejectionModal(true);
+                  }}
+                  onViewDetails={() => {
+                    setSelectedPaymentForDetails(payment);
+                    setShowPaymentDetails(true);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No pending payments</h3>
+              <p className="text-gray-600">All payment requests have been processed.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Quick Actions Modal */}
       {showQuickActions && (
@@ -2536,6 +3252,19 @@ const handleSingleMpesaPayment = (employee) => {
               }}>
                 Schedule Payments
               </GlowButtonss>
+              {(userRole === 'checker' || userRole === 'admin') && (
+                <GlowButtonss 
+                  variant="secondary" 
+                  icon={Clock} 
+                  size="sm" 
+                  onClick={() => {
+                    setShowApprovalQueue(true);
+                    setShowQuickActions(false);
+                  }}
+                >
+                  Approval Queue ({pendingCount})
+                </GlowButtonss>
+              )}
             </div>
           </div>
         </div>
@@ -2612,7 +3341,7 @@ const handleSingleMpesaPayment = (employee) => {
               onClick={handleBulkMpesaPayment}
               disabled={finalFilteredRecords.length === 0}
             >
-              M-PESA Bulk Pay
+              {userRole === 'admin' ? 'M-PESA Bulk Pay' : 'Request Bulk Pay'}
             </GlowButton>
           </div>
         </div>
@@ -2688,12 +3417,6 @@ const handleSingleMpesaPayment = (employee) => {
         </>
       )}
 
-      {/* Statutory Deductions Tabs */}
-      {/* <StatutoryDeductionsTabs 
-        records={payrollRecords} 
-        onFilterChange={handleStatutoryFilterChange}
-      /> */}
-
       {/* Detailed Payroll Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
@@ -2719,8 +3442,16 @@ const handleSingleMpesaPayment = (employee) => {
                 Export
               </GlowButtonss>
 
-                 
-              
+              {(userRole === 'checker' || userRole === 'admin') && (
+                <GlowButtonss 
+                  variant="secondary" 
+                  icon={Clock} 
+                  size="sm" 
+                  onClick={() => setShowApprovalQueue(true)}
+                >
+                  Approvals ({pendingCount})
+                </GlowButtonss>
+              )}
             </div>
           </div>
         </div>
@@ -2794,7 +3525,7 @@ const handleSingleMpesaPayment = (employee) => {
                             size="sm" 
                              onClick={() => handleSingleMpesaPayment(record)}
                           >
-                            mpesa
+                            {userRole === 'admin' ? 'M-Pesa' : 'Request Pay'}
                           </GlowButton>
                           <GlowButtonss 
                             variant="secondary" 
@@ -2915,7 +3646,8 @@ const handleSingleMpesaPayment = (employee) => {
           isOpen={showSingleMpesaModal}
           onClose={() => setShowSingleMpesaModal(false)}
           employee={selectedEmployeeForMpesa}
-          onConfirm={() => processSingleMpesaPayment(selectedEmployeeForMpesa)}
+          onConfirm={handleConfirmSinglePayment}
+          userRole={userRole}
         />
       )}
 
@@ -2924,7 +3656,35 @@ const handleSingleMpesaPayment = (employee) => {
         isOpen={showBulkMpesaModal}
         onClose={() => setShowBulkMpesaModal(false)}
         employees={finalFilteredRecords}
-        onConfirm={processBulkMpesaPayment}
+        onConfirm={handleConfirmBulkPayment}
+        userRole={userRole}
+      />
+
+      {/* Payment Details Modal */}
+      <PaymentDetailsModal
+        payment={selectedPaymentForDetails}
+        isOpen={showPaymentDetails}
+        onClose={() => setShowPaymentDetails(false)}
+        onApprove={() => {
+          approvePayment(selectedPaymentForDetails);
+          setShowPaymentDetails(false);
+        }}
+        onReject={() => {
+          setPaymentToReject(selectedPaymentForDetails);
+          setShowRejectionModal(true);
+          setShowPaymentDetails(false);
+        }}
+        userRole={userRole}
+      />
+
+      {/* Rejection Modal */}
+      <RejectionModal
+        isOpen={showRejectionModal}
+        onClose={() => setShowRejectionModal(false)}
+        onConfirm={(reason) => {
+          rejectPayment(paymentToReject, reason);
+          setPaymentToReject(null);
+        }}
       />
 
       {/* P9 Form Modal */}

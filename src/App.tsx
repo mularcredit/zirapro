@@ -32,13 +32,15 @@ import UpdatePasswordPage from './pages/UpdatePassword';
 import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
 import VideoConferenceComponent from '../src/components/staff portal/VideoConf'
 import { ApplicationsTable } from './components/Recruitment/components/ApplicationsTable';
-import {MeetingJoin} from './components/zoom/MeetingJoin';
+
 import WarningModule from './components/Warning/StaffCheck'
 import {MeetingRoom} from './components/zoom/MeetingRoom';
 import { useZoomSDK } from '../src/hooks/useZoom';
 import { createMeetingConfig } from '../backend/zoomAuth';
 import React from 'react';
 import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
+import MFAVerification from './pages/MFAverification';
+import LoanTargetsCalculator from './components/Perfomance/LoanTargetsCalculator';
 
 interface User {
   email: string;
@@ -148,6 +150,7 @@ function App() {
   const [filteredTowns, setFilteredTowns] = useState<string[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
+  
   
   // Zoom meeting state
   const {
@@ -341,19 +344,24 @@ function App() {
     }
   }, [navigate]);
 
-  const handleLoginSuccess = useCallback((town: string, userRole: string) => {
-    if (town) {
-      handleTownChange(town);
-    }
-    
-    // Set flag to show welcome toast only once
-    hasShownWelcomeToast.current = true;
-    
-    setTimeout(() => {
+ const handleLoginSuccess = useCallback((town: string, userRole: string) => {
+  if (town) {
+    handleTownChange(town);
+  }
+
+  hasShownWelcomeToast.current = true;
+
+  setTimeout(() => {
+    // For CHECKER role, the MFA flow will handle navigation after verification
+    // For other roles, navigate immediately
+    if (userRole !== 'CHECKER') {
       const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
       navigate(targetPath, { replace: true });
-    }, 100);
-  }, [navigate, handleTownChange]);
+    }
+    // CHECKER role will be handled by MFA verification success callback
+  }, 100);
+}, [navigate, handleTownChange]);
+
 
   // Handle email confirmation redirect
   useEffect(() => {
@@ -612,6 +620,7 @@ function App() {
       <div className="min-h-screen bg-white overflow-x-hidden">
         <Routes>
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+           <Route path="/verify" element={<MFAVerification/>} />
           <Route path="/update-password" element={<UpdatePasswordPage/>} />
           
           <Route 
@@ -657,7 +666,7 @@ function App() {
                                 element={
                                   user?.role === 'STAFF' ? 
                                     <StaffPortalLanding /> : 
-                                    <AuthRoute allowedRoles={['ADMIN','MANAGER','HR']}>
+                                    <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','CHECKER']}>
                                       <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                     </AuthRoute>
                                 } 
@@ -665,7 +674,7 @@ function App() {
                               <Route 
                                 path="/dashboard" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL','OPERATIONS']}>
+                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL','OPERATIONS','CHECKER']}>
                                     <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                   </AuthRoute>
                                 } 
@@ -676,13 +685,14 @@ function App() {
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
+            
                               
                                <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN']}>
+                                  <AuthRoute allowedRoles={['ADMIN','CHECKER']}>
                                     <PayrollDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                   </AuthRoute>
                                 } 
@@ -690,7 +700,7 @@ function App() {
                               <Route 
                                 path="/settings" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN']}>
+                                  <AuthRoute allowedRoles={['ADMIN','CHECKER']}>
                                     <UserRolesSettings />
                                   </AuthRoute>
                                 } 
@@ -698,7 +708,7 @@ function App() {
                               <Route 
                                 path="/salaryadmin" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN']}>
+                                  <AuthRoute allowedRoles={['ADMIN','CHECKER']}>
                                     <SalaryAdvanceAdmin />
                                   </AuthRoute>
                                 } 
@@ -706,20 +716,20 @@ function App() {
                               <Route 
                                 path="/adminconfirm" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','OPERATIONS']}>
+                                  <AuthRoute allowedRoles={['ADMIN','OPERATIONS','CHECKER']}>
                                     <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>
                                   </AuthRoute>
                                 } 
                               />
                               <Route path="/recruitment" 
                               element={
-                              <AuthRoute allowedRoles={['ADMIN','HR','OPERATIONS']}>
+                              <AuthRoute allowedRoles={['ADMIN','HR','OPERATIONS','CHECKER']}>
                                 <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} /> 
                                    </AuthRoute>  } />
                               <Route path="/applications" element={<ApplicationsTable />} />
-                              <Route path="/performance" element={<AuthRoute allowedRoles={['ADMIN']}>
+                              <Route path="/performance" element={
                                 <PerformanceDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
-                                </AuthRoute>} />
+                                } />
                               <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
                               <Route path="/training" element={<AdminVideoUpload/>} />
                               <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} /> 

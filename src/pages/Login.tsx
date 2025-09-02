@@ -60,6 +60,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [isBranchAutoPopulated, setIsBranchAutoPopulated] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
+  
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -69,8 +70,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     'hr@mularcredit.co.ke',
     'it@mularcredit.co.ke',
     'olivia.hr@mularcredit.com',
-    'daniel.admin@mularcredit.com'
-
+    'daniel.admin@mularcredit.com',
+    'checker.superadmin@mularcredit.com'
   ];
 
   const isAdminEmail = (email: string) => {
@@ -154,63 +155,59 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     }
   };
 
-  // Function to fetch branch from employee email
- // Function to fetch branch from employee email
-// Function to fetch branch from employee email
-const fetchBranchFromEmail = async (email: string) => {
-  // Allow both @mularcredit.co.ke and @mularcredit.com domains
-  const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
-  
-  if (!isValidDomain || isAdminEmail(email)) {
-    setIsBranchAutoPopulated(false);
-    return;
-  }
-
-  try {
-    // First check if email exists in manager_email column
-    const { data: managerData, error: managerError } = await supabase
-      .from('employees')
-      .select('Town')
-      .eq('manager_email', email)
-      .single();
-
-    if (managerData && managerData.Town) {
-      setSelectedBranch(managerData.Town);
-      setIsBranchAutoPopulated(true);
+  const fetchBranchFromEmail = async (email: string) => {
+    const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
+    
+    if (!isValidDomain || isAdminEmail(email)) {
+      setIsBranchAutoPopulated(false);
       return;
     }
 
-    // If not found in manager_email, check regional_manager column
-    const { data: regionalManagerData, error: regionalManagerError } = await supabase
-      .from('employees')
-      .select('Branch')
-      .eq('regional_manager', email)
-      .single();
+    try {
+      // First check if email exists in manager_email column
+      const { data: managerData, error: managerError } = await supabase
+        .from('employees')
+        .select('Town')
+        .eq('manager_email', email)
+        .single();
 
-    if (regionalManagerData && regionalManagerData.Branch) {
-      setSelectedBranch(regionalManagerData.Branch);
-      setIsBranchAutoPopulated(true);
-      return;
-    }
+      if (managerData && managerData.Town) {
+        setSelectedBranch(managerData.Town);
+        setIsBranchAutoPopulated(true);
+        return;
+      }
 
-    // If neither found, check the regular Work Email field as fallback
-    const { data: employeeData, error: employeeError } = await supabase
-      .from('employees')
-      .select('Office')
-      .eq('Work Email', email)
-      .single();
+      // If not found in manager_email, check regional_manager column
+      const { data: regionalManagerData, error: regionalManagerError } = await supabase
+        .from('employees')
+        .select('Branch')
+        .eq('regional_manager', email)
+        .single();
 
-    if (employeeData && employeeData.Office) {
-      setSelectedBranch(employeeData.Office);
-      setIsBranchAutoPopulated(true);
-    } else {
+      if (regionalManagerData && regionalManagerData.Branch) {
+        setSelectedBranch(regionalManagerData.Branch);
+        setIsBranchAutoPopulated(true);
+        return;
+      }
+
+      // If neither found, check the regular Work Email field as fallback
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('Office')
+        .eq('Work Email', email)
+        .single();
+
+      if (employeeData && employeeData.Office) {
+        setSelectedBranch(employeeData.Office);
+        setIsBranchAutoPopulated(true);
+      } else {
+        setIsBranchAutoPopulated(false);
+      }
+    } catch (error) {
+      console.error('Error fetching employee branch:', error);
       setIsBranchAutoPopulated(false);
     }
-  } catch (error) {
-    console.error('Error fetching employee branch:', error);
-    setIsBranchAutoPopulated(false);
-  }
-};
+  };
 
   // Handle email change with debounce
   useEffect(() => {
@@ -230,6 +227,33 @@ const fetchBranchFromEmail = async (email: string) => {
     return () => clearTimeout(timer);
   }, [email, isSignUp]);
 
+  const sendMFACode = async (userId: string, email: string) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-mfa-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          userId,
+          email
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send MFA code');
+      }
+
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send verification code');
+      return false;
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -243,7 +267,35 @@ const fetchBranchFromEmail = async (email: string) => {
       if (error) throw error;
 
       const userRole = data.user?.user_metadata?.role || 'STAFF';
+      console.log('User role detected:', userRole);
 
+      // Check if user is CHECKER role - require MFA
+      if (userRole === 'CHECKER') {
+        console.log('CHECKER role detected, initiating MFA...');
+        
+        // Immediately redirect to verification page without any delay
+        navigate(`/verify?email=${encodeURIComponent(email)}&userId=${data.user.id}&role=CHECKER`);
+        
+        // Send MFA code in the background
+        sendMFACode(data.user.id, email)
+          .then((success) => {
+            if (success) {
+              toast.success('Verification code sent to your email');
+            } else {
+              toast.error('Failed to send verification code');
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to send MFA code:', error);
+          });
+        
+        setLoading(false);
+        return; // Stop execution here
+      }
+
+      // Handle other roles (non-CHECKER) normally
+      console.log('Non-CHECKER role, proceeding with normal login...');
+      
       if (userRole === 'ADMIN' || isAdminEmail(email)) {
         toast.success('Admin login successful!');
         onLoginSuccess('ADMIN_ALL', userRole);
@@ -264,6 +316,7 @@ const fetchBranchFromEmail = async (email: string) => {
         navigate('/dashboard');
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       toast.error(error.message || 'Login failed');
       if (error.message === 'Please select your branch office') {
         await supabase.auth.signOut();

@@ -422,7 +422,7 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
                 <p style="font-size: 14px; color: #64748b;">Please take this warning seriously and address the issues mentioned above. Failure to improve may result in further disciplinary action.</p>
                 
                 <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
-                  <p>This is an automated message from Zira HR System. Please do not reply to this email.</p>
+                  <p>Please do not reply to this email.</p>
                 </div>
               </div>
             `,

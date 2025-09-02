@@ -29,16 +29,16 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
-  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS'] },
+  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },
-  { id: 'payroll', label: 'Payroll', icon: DollarSign, path: '/payroll', allowedRoles: ['ADMIN'] },
+  { id: 'payroll', label: 'Payroll', icon: DollarSign, path: '/payroll', allowedRoles: ['ADMIN','CHECKER'] },
   { id: 'performance', label: 'Performance', icon: TrendingUp, path: '/performance' },
-  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR','OPERATIONS'] },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR','OPERATIONS','MANAGER','REGIONAL'] },
-  { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses',allowedRoles: ['ADMIN', 'OPERATIONS','MANAGER','REGIONAL'] },
-  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck', allowedRoles: ['ADMIN', 'HR','OPERATIONS'] },
+  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
+  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR','OPERATIONS','MANAGER','REGIONAL','CHECKER'] },
+  { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses',allowedRoles: ['ADMIN', 'OPERATIONS','MANAGER','REGIONAL','CHECKER'] },
+  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'conferencing', label: 'Conferencing', icon: Video, path: '/videocall' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings', allowedRoles: ['ADMIN'] },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings', allowedRoles: ['ADMIN','CHECKER'] },
 ];
 
 export default function Sidebar() {

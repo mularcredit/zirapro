@@ -37,6 +37,9 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
              case 'OPERATIONS':
             navigate('/operations-dashboard');
             break;
+            case 'CHECKER':
+            navigate('/checker-dashboard');
+            break;
           case 'HR':
             navigate('/hr-dashboard');
             break;
