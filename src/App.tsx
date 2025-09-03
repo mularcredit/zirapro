@@ -368,19 +368,30 @@ function App() {
 useEffect(() => {
   const handleEmailConfirmation = async () => {
     const type = searchParams.get('type');
+    const token = searchParams.get('token');
     const accessToken = searchParams.get('access_token');
     
-    // Handle password reset links separately
-    if (type === 'recovery' && accessToken) {
-      // Redirect to password update page instead of auto-login
-      navigate('/update-password', { 
-        replace: true,
-        state: { accessToken } 
-      });
+    // Handle password recovery - this runs AFTER Supabase auto-login
+    if (type === 'recovery' && (token || accessToken)) {
+      console.log('Password recovery detected, setting flag...');
+      
+      // Set flag to prevent normal auth flow
+      sessionStorage.setItem('isPasswordRecovery', 'true');
+      
+      // Clear the URL parameters to prevent loops
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // The user is already authenticated by Supabase at this point
+      // Just ensure we stay on the password reset page
+      if (location.pathname !== '/update-password') {
+        navigate('/update-password', { replace: true });
+      }
+      
       return;
     }
     
-    // Handle signup confirmation as before
+    // Handle signup confirmation as before (keep your existing code)
     if (type === 'signup' && accessToken) {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
@@ -442,7 +453,7 @@ useEffect(() => {
   };
 
   handleEmailConfirmation();
-}, [navigate, searchParams]);
+}, [navigate, searchParams, location.pathname]);
 
   // Main auth state management
   useEffect(() => {
@@ -521,73 +532,92 @@ useEffect(() => {
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Prevent duplicate handling of the same event
-      if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
-        return;
+  // In your App.js file, find the onAuthStateChange section and REPLACE it with this:
+
+const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+  // Check if this is a password recovery session
+  const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+  
+  console.log('Auth state change:', event, 'Is password recovery:', isPasswordRecovery);
+  
+  // Prevent duplicate handling of the same event
+  if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
+    return;
+  }
+  lastAuthEvent.current = event;
+
+  setSession(session);
+  setAuthChecked(true);
+
+  if (session?.user?.email) {
+    const userData = {
+      email: session.user.email,
+      role: session.user.user_metadata?.role || 'STAFF',
+      town: session.user.user_metadata?.town || ''
+    };
+    
+    setUser(userData);
+    
+    // If this is a password recovery session, don't do normal navigation
+    if (isPasswordRecovery) {
+      console.log('Skipping normal auth flow for password recovery');
+      
+      // Make sure we're on the update password page
+      if (location.pathname !== '/update-password') {
+        navigate('/update-password', { replace: true });
       }
-      lastAuthEvent.current = event;
+      return; // Exit early, don't do normal auth flow
+    }
+    
+    // Normal auth flow for regular logins (keep your existing code)...
+    if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
+      setSelectedTown(userData.town);
+      localStorage.setItem('selectedTown', userData.town);
+      
+      try {
+        const { data } = await supabase
+          .from('kenya_branches')
+          .select('"Area"')
+          .eq('"Branch Office"', userData.town)
+          .single();
 
-      setSession(session);
-      setAuthChecked(true);
-
-      if (session?.user?.email) {
-        const userData = {
-          email: session.user.email,
-          role: session.user.user_metadata?.role || 'STAFF',
-          town: session.user.user_metadata?.town || ''
-        };
-        
-        setUser(userData);
-        
-        if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
-          setSelectedTown(userData.town);
-          localStorage.setItem('selectedTown', userData.town);
-          
-          // Find the region for this town
-          try {
-            const { data } = await supabase
-              .from('kenya_branches')
-              .select('"Area"')
-              .eq('"Branch Office"', userData.town)
-              .single();
-
-            if (data) {
-              setSelectedRegion(data.Area);
-            }
-          } catch (error) {
-            console.error('Error finding region for town:', error);
-          }
+        if (data) {
+          setSelectedRegion(data.Area);
         }
-        
-        // Only show welcome toast and navigate for actual sign-in events, not token refreshes
-        if (event === 'SIGNED_IN' && !hasShownWelcomeToast.current) {
-          hasShownWelcomeToast.current = true;
-          toast.success(`Welcome back, ${userData.email}!`);
-          
-          const currentPath = location.pathname;
-          const publicPaths = ['/login', '/update-password'];
-          
-          if (publicPaths.includes(currentPath)) {
-            const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
-            navigate(targetPath, { replace: true });
-          }
-        }
-      } else {
-        setUser(null);
-        setSelectedTown('');
-        setSelectedRegion('All Regions');
-        localStorage.removeItem('selectedTown');
-        
-        if (event === 'SIGNED_OUT') {
-          hasShownWelcomeToast.current = false;
-          lastAuthEvent.current = '';
-          navigationHandled.current = false;
-          navigate('/login', { replace: true });
-        }
+      } catch (error) {
+        console.error('Error finding region for town:', error);
       }
-    });
-
+    }
+    
+    // Only show welcome toast and navigate for actual sign-in events, not token refreshes
+    if (event === 'SIGNED_IN' && !hasShownWelcomeToast.current) {
+      hasShownWelcomeToast.current = true;
+      toast.success(`Welcome back, ${userData.email}!`);
+      
+      const currentPath = location.pathname;
+      const publicPaths = ['/login', '/update-password'];
+      
+      if (publicPaths.includes(currentPath)) {
+        const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
+        navigate(targetPath, { replace: true });
+      }
+    }
+  } else {
+    setUser(null);
+    setSelectedTown('');
+    setSelectedRegion('All Regions');
+    localStorage.removeItem('selectedTown');
+    
+    if (event === 'SIGNED_OUT') {
+      hasShownWelcomeToast.current = false;
+      lastAuthEvent.current = '';
+      navigationHandled.current = false;
+      // Clear password recovery flag on sign out
+      sessionStorage.removeItem('isPasswordRecovery');
+      navigate('/login', { replace: true });
+    }
+  }
+});
     return () => {
       subscription.unsubscribe();
     };
