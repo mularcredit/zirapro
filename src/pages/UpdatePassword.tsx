@@ -64,7 +64,7 @@ const UpdatePasswordPage = () => {
       
       // Redirect after 2 seconds
       setTimeout(() => {
-        navigate('/staff');
+        navigate('/update-password');
       }, 2000);
     } catch (error) {
       console.error('Error updating password:', error);
