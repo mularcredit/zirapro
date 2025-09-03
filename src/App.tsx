@@ -620,7 +620,7 @@ function App() {
       <div className="min-h-screen bg-white overflow-x-hidden">
         <Routes>
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-           <Route path="/verify" element={<MFAVerification/>} />
+           <Route path="/mfa" element={<MFAVerification/>} />
           <Route path="/update-password" element={<UpdatePasswordPage/>} />
           
           <Route 

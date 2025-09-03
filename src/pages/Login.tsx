@@ -274,7 +274,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         console.log('CHECKER role detected, initiating MFA...');
         
         // Immediately redirect to verification page without any delay
-        navigate(`/verify?email=${encodeURIComponent(email)}&userId=${data.user.id}&role=CHECKER`);
+        navigate(`/mfa?email=${encodeURIComponent(email)}&userId=${data.user.id}&role=CHECKER`);
         
         // Send MFA code in the background
         sendMFACode(data.user.id, email)
