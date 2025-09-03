@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Edit, Search, Upload, Download } from 'lucide-react';
 
 // Type definitions matching table headers
 type EmployeePerformance = {
@@ -278,20 +278,180 @@ const EditModal = ({
   );
 };
 
+// Bulk Upload Modal Component
+const BulkUploadModal = ({
+  isOpen,
+  onClose,
+  onUpload,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpload: (data: any[]) => void;
+}) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+      setError(null);
+    }
+  };
+
+  const handleUpload = () => {
+    if (!file) {
+      setError('Please select a file');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const lines = content.split('\n');
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        const data = lines.slice(1).map((line, index) => {
+          if (!line.trim()) return null;
+          
+          const values = line.split(',').map(v => v.trim());
+          const record: any = {};
+          
+          headers.forEach((header, i) => {
+            // Convert numeric fields to numbers
+            const numericFields = [
+              'total_clients', 'retained_clients', 'new_clients_active', 
+              'new_clients_inactive', 'retained_active', 'retained_inactive',
+              'total_active', 'total_inactive', 'no_of_disb', 'disb_amount',
+              'targeted_disb_no', 'targeted_disb_amount', 'targeted_olb',
+              'actual_olb', 'collected_loan_amount', 'overdue_loans'
+            ];
+            
+            if (numericFields.includes(header)) {
+              record[header] = Number(values[i]) || 0;
+            } else {
+              record[header] = values[i];
+            }
+          });
+          
+          return record;
+        }).filter(record => record !== null);
+
+        onUpload(data);
+        setIsProcessing(false);
+        onClose();
+      } catch (err) {
+        setError('Error processing file. Please check the format.');
+        setIsProcessing(false);
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Error reading file');
+      setIsProcessing(false);
+    };
+
+    reader.readAsText(file);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-semibold mb-4">Bulk Upload</h2>
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Upload CSV File
+          </label>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFileChange}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+          <p className="text-xs text-gray-500 mt-2">
+            CSV should include headers matching the table columns
+          </p>
+        </div>
+        
+        {error && (
+          <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded">
+            {error}
+          </div>
+        )}
+        
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 bg-gray-100 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={isProcessing}
+            className="px-4 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded hover:bg-blue-200 transition-colors disabled:opacity-50"
+          >
+            {isProcessing ? 'Processing...' : 'Upload'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Utility function to export data to CSV
+const exportToCSV = (data: any[], filename: string) => {
+  if (data.length === 0) return;
+  
+  const headers = Object.keys(data[0]);
+  const csvContent = [
+    headers.join(','),
+    ...data.map(row => 
+      headers.map(header => {
+        const value = row[header];
+        return typeof value === 'string' && value.includes(',') 
+          ? `"${value}"` 
+          : value;
+      }).join(',')
+    )
+  ].join('\n');
+  
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
 // Employee Performance Table Component
 export const EmployeePerformanceTable = ({ 
   performance, 
   employees = [],
-  
-  onUpdate 
+  onUpdate,
+  onBulkUpload
 }: { 
   performance: EmployeePerformance[]; 
   employees?: Employee[];
   onUpdate: (perf: EmployeePerformance) => void; 
+  onBulkUpload: (data: any[]) => void;
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [bulkUploadModalOpen, setBulkUploadModalOpen] = useState(false);
   const [selectedPerf, setSelectedPerf] = useState<EmployeePerformance | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState('all');
@@ -337,39 +497,48 @@ export const EmployeePerformanceTable = ({
   };
 
   const handleSave = (updatedData: any) => {
-  if (!selectedPerf || !selectedPerf.id) {
-    console.error('No selected performance record or missing ID');
-    alert('Cannot save: Invalid performance record');
-    return;
-  }
-  
-  // Create the complete updated performance object with the original ID
-  const updatedPerf: EmployeePerformance = {
-    ...selectedPerf,
-    ...updatedData,
-    id: selectedPerf.id, // Ensure the ID is preserved
-    // Convert numeric fields
-    total_clients: Number(updatedData.total_clients) || 0,
-    retained_clients: Number(updatedData.retained_clients) || 0,
-    new_clients_active: Number(updatedData.new_clients_active) || 0,
-    new_clients_inactive: Number(updatedData.new_clients_inactive) || 0,
-    retained_active: Number(updatedData.retained_active) || 0,
-    retained_inactive: Number(updatedData.retained_inactive) || 0,
-    total_active: Number(updatedData.total_active) || 0,
-    total_inactive: Number(updatedData.total_inactive) || 0,
-    no_of_disb: Number(updatedData.no_of_disb) || 0,
-    disb_amount: Number(updatedData.disb_amount) || 0,
-    targeted_disb_no: Number(updatedData.targeted_disb_no) || 0,
-    targeted_disb_amount: Number(updatedData.targeted_disb_amount) || 0,
-    targeted_olb: Number(updatedData.targeted_olb) || 0,
-    actual_olb: Number(updatedData.actual_olb) || 0,
-    collected_loan_amount: Number(updatedData.collected_loan_amount) || 0,
-    overdue_loans: Number(updatedData.overdue_loans) || 0,
+    if (!selectedPerf || !selectedPerf.id) {
+      console.error('No selected performance record or missing ID');
+      alert('Cannot save: Invalid performance record');
+      return;
+    }
+    
+    // Create the complete updated performance object with the original ID
+    const updatedPerf: EmployeePerformance = {
+      ...selectedPerf,
+      ...updatedData,
+      id: selectedPerf.id, // Ensure the ID is preserved
+      // Convert numeric fields
+      total_clients: Number(updatedData.total_clients) || 0,
+      retained_clients: Number(updatedData.retained_clients) || 0,
+      new_clients_active: Number(updatedData.new_clients_active) || 0,
+      new_clients_inactive: Number(updatedData.new_clients_inactive) || 0,
+      retained_active: Number(updatedData.retained_active) || 0,
+      retained_inactive: Number(updatedData.retained_inactive) || 0,
+      total_active: Number(updatedData.total_active) || 0,
+      total_inactive: Number(updatedData.total_inactive) || 0,
+      no_of_disb: Number(updatedData.no_of_disb) || 0,
+      disb_amount: Number(updatedData.disb_amount) || 0,
+      targeted_disb_no: Number(updatedData.targeted_disb_no) || 0,
+      targeted_disb_amount: Number(updatedData.targeted_disb_amount) || 0,
+      targeted_olb: Number(updatedData.targeted_olb) || 0,
+      actual_olb: Number(updatedData.actual_olb) || 0,
+      collected_loan_amount: Number(updatedData.collected_loan_amount) || 0,
+      overdue_loans: Number(updatedData.overdue_loans) || 0,
+    };
+    
+    onUpdate(updatedPerf);
+    setEditModalOpen(false);
   };
-  
-  onUpdate(updatedPerf);
-  setEditModalOpen(false);
-};
+
+  const handleExport = () => {
+    exportToCSV(filteredPerformance, `employee-performance-${new Date().toISOString().split('T')[0]}`);
+  };
+
+  const handleBulkUpload = (data: any[]) => {
+    onBulkUpload(data);
+    setBulkUploadModalOpen(false);
+  };
 
   // Get unique branches for filter
   const branches = [...new Set(safeEmployees.map(emp => emp.Town).filter(Boolean))];
@@ -379,6 +548,22 @@ export const EmployeePerformanceTable = ({
       <div className="p-4 flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Employee Performance</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBulkUploadModalOpen(true)}
+              className="text-xs px-3 py-2 bg-blue-100 text-blue-700 border border-blue-300 rounded hover:bg-blue-200 transition-colors flex items-center gap-1"
+            >
+              <Upload className="w-4 h-4" />
+              Bulk Upload
+            </button>
+            <button
+              onClick={handleExport}
+              className="text-xs px-3 py-2 bg-green-100 text-green-700 border border-green-300 rounded hover:bg-green-200 transition-colors flex items-center gap-1"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -519,13 +704,18 @@ export const EmployeePerformanceTable = ({
           { key: 'overdue_loans', label: 'Overdue Loans', type: 'number', value: selectedPerf?.overdue_loans || 0 },
         ]}
       />
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isOpen={bulkUploadModalOpen}
+        onClose={() => setBulkUploadModalOpen(false)}
+        onUpload={handleBulkUpload}
+      />
     </div>
   );
 };
 
 // Branch Performance Table Component
-// Branch Performance Table Component - Simplified
-// Branch Performance Table Component - Updated with branch filter
 export const BranchPerformanceTable = ({ 
   employeePerformance, 
   employees = [],
@@ -536,7 +726,7 @@ export const BranchPerformanceTable = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const [branchFilter, setBranchFilter] = useState('all'); // Added branch filter state
+  const [branchFilter, setBranchFilter] = useState('all');
   
   // Get current month for display
   const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -586,24 +776,34 @@ export const BranchPerformanceTable = ({
     const matchesSearch = Object.values(perf).some(
       value => value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
     );
-    const matchesBranch = branchFilter === 'all' || perf.branch === branchFilter; // Added branch filter condition
+    const matchesBranch = branchFilter === 'all' || perf.branch === branchFilter;
     return matchesSearch && matchesBranch;
   });
 
   const totalPages = Math.ceil(filteredPerformance.length / rowsPerPage);
   const paginatedData = filteredPerformance.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
+  const handleExport = () => {
+    exportToCSV(filteredPerformance, `branch-performance-${new Date().toISOString().split('T')[0]}`);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-4 flex flex-col gap-4">
         <div className="flex justify-between items-center">
           <h2 className="text-lg font-semibold">Branch Performance</h2>
-          <span className="text-sm text-gray-500">
-            {currentMonth}
-          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExport}
+              className="text-xs px-3 py-2 bg-green-100 text-green-700 border border-green-300 rounded hover:bg-green-200 transition-colors flex items-center gap-1"
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4"> {/* Changed to 3 columns */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
             <SearchInput 
@@ -612,7 +812,6 @@ export const BranchPerformanceTable = ({
               placeholder="Search branches..."
             />
           </div>
-          {/* Added Branch Filter */}
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
             <select 
@@ -629,7 +828,6 @@ export const BranchPerformanceTable = ({
         </div>
       </div>
 
-      {/* Rest of the component remains the same */}
       {/* Top Pagination */}
       <div className="px-4 pb-2 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">

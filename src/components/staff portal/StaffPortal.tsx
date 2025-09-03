@@ -38,7 +38,7 @@ import Profile from './Profile';
 import ChatComponent from './Chat';
 import VideoConferenceComponent from './VideoConf';
 import UserProfileDropdown from './UserProfile';
-import PasswordResetModal from './test';
+import PasswordResetModal from './PasswordRestModal';
 import DocumentsUploadPage from './Documents';
 import PayslipViewer from './PayslipViewer';
 import EmployeeBioPage from './Bio';
@@ -2426,7 +2426,7 @@ const UserProfileHeader = ({ userName, setActiveTab }: UserProfileHeaderProps) =
         userName={userName} 
         setActiveTab={setActiveTab} 
         />
- <PasswordResetModal
+      <PasswordResetModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />

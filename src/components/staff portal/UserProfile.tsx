@@ -178,13 +178,7 @@ const UserProfileDropdown = ({
           ref={dropdownRef}
           className=" bg-white rounded-lg shadow-xl border border-gray-200  min-w-full"
         >
-          <button 
-            onClick={() => navigate('/staff')}
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
-          >
-            <User className="h-4 w-4 mr-3 text-gray-500" />
-            View Profile
-          </button>
+         
           <button 
             onClick={handlePasswordReset}
             className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
