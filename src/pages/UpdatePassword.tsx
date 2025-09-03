@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { supabaseAdmin } from '../../src/lib/supabase';
+import { supabase } from '../../src/lib/supabase';
 import toast from 'react-hot-toast';
 import { LockKeyhole, Check, Eye, EyeOff } from 'lucide-react';
 
@@ -19,15 +19,15 @@ const UpdatePasswordPage = () => {
   useEffect(() => {
     // Check if we have a valid reset token without automatically logging in
     const checkResetToken = async () => {
-      const token = searchParams.get('token');
       const type = searchParams.get('type');
+      const accessToken = searchParams.get('access_token');
       
-      if (type === 'recovery' && token) {
+      if (type === 'recovery' && accessToken) {
         try {
-          // Verify the token without setting a session
-          const { error } = await supabaseAdmin.auth.verifyOtp({
-            token_hash: token,
-            type: 'recovery',
+          // Set the session from the token without redirecting
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: ''
           });
           
           if (error) {
@@ -76,8 +76,8 @@ const UpdatePasswordPage = () => {
     setIsLoading(true);
 
     try {
-      // This will update the password and automatically log the user in
-      const { error } = await supabaseAdmin.auth.updateUser({
+      // This will update the password
+      const { error } = await supabase.auth.updateUser({
         password: password
       });
 
@@ -86,13 +86,16 @@ const UpdatePasswordPage = () => {
       toast.success('Password updated successfully!');
       setIsSuccess(true);
       
-      // Redirect after 2 seconds
+      // Sign out the user after password reset
+      await supabase.auth.signOut();
+      
+      // Redirect to login after 2 seconds
       setTimeout(() => {
-        navigate('/staff-portal');
+        navigate('/login');
       }, 2000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating password:', error);
-      toast.error('Failed to update password');
+      toast.error('Failed to update password: ' + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +126,7 @@ const UpdatePasswordPage = () => {
           </div>
           <h2 className="mt-3 text-lg font-medium text-gray-900">Password Updated</h2>
           <p className="mt-2 text-sm text-gray-500">
-            Your password has been successfully updated. You'll be redirected shortly.
+            Your password has been successfully updated. You'll be redirected to login.
           </p>
         </div>
       </div>

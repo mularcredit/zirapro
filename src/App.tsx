@@ -364,75 +364,85 @@ function App() {
 
 
   // Handle email confirmation redirect
-  useEffect(() => {
-    const handleEmailConfirmation = async () => {
-      const type = searchParams.get('type');
-      const accessToken = searchParams.get('access_token');
-      
-      if ((type === 'signup' || type === 'recovery') && accessToken) {
-        try {
-          const { data: { session }, error } = await supabase.auth.getSession();
+  // Handle email confirmation redirect
+useEffect(() => {
+  const handleEmailConfirmation = async () => {
+    const type = searchParams.get('type');
+    const accessToken = searchParams.get('access_token');
+    
+    // Handle password reset links separately
+    if (type === 'recovery' && accessToken) {
+      // Redirect to password update page instead of auto-login
+      navigate('/update-password', { 
+        replace: true,
+        state: { accessToken } 
+      });
+      return;
+    }
+    
+    // Handle signup confirmation as before
+    if (type === 'signup' && accessToken) {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          navigate('/login', { replace: true });
+          return;
+        }
+
+        if (session?.user) {
+          const userRole = session.user.user_metadata?.role || 'STAFF';
+          const userTown = session.user.user_metadata?.town || '';
           
-          if (error) {
-            navigate('/login', { replace: true });
-            return;
+          // Show email verification toast only once
+          if (!hasShownWelcomeToast.current) {
+            toast.success('Email verified successfully! Welcome to Zira HR.');
+            hasShownWelcomeToast.current = true;
           }
-
-          if (session?.user) {
-            const userRole = session.user.user_metadata?.role || 'STAFF';
           
-            const userTown = session.user.user_metadata?.town || '';
-            
-            // Show email verification toast only once
-            if (!hasShownWelcomeToast.current) {
-              toast.success('Email verified successfully! Welcome to Zira HR.');
-              hasShownWelcomeToast.current = true;
-            }
-            
-            setSession(session);
-            setUser({
-              email: session.user.email || '',
-              role: userRole,
-              town: userTown,
-              
-            });
+          setSession(session);
+          setUser({
+            email: session.user.email || '',
+            role: userRole,
+            town: userTown,
+          });
 
-            if (userTown) {
-              setSelectedTown(userTown);
-              localStorage.setItem('selectedTown', userTown);
-              
-              // Find the region for this town
-              try {
-                const { data } = await supabase
-                  .from('kenya_branches')
-                  .select('"Area"')
-                  .eq('"Branch Office"', userTown)
-                  .single();
+          if (userTown) {
+            setSelectedTown(userTown);
+            localStorage.setItem('selectedTown', userTown);
+            
+            // Find the region for this town
+            try {
+              const { data } = await supabase
+                .from('kenya_branches')
+                .select('"Area"')
+                .eq('"Branch Office"', userTown)
+                .single();
 
-                if (data) {
-                  setSelectedRegion(data.Area);
-                }
-              } catch (error) {
-                console.error('Error finding region for town:', error);
+              if (data) {
+                setSelectedRegion(data.Area);
               }
+            } catch (error) {
+              console.error('Error finding region for town:', error);
             }
-
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
-
-            const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
-            navigate(targetPath, { replace: true });
-          } else {
-            navigate('/login', { replace: true });
           }
-        } catch (error) {
+
+          const newUrl = window.location.pathname;
+          window.history.replaceState({}, '', newUrl);
+
+          const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
+          navigate(targetPath, { replace: true });
+        } else {
           navigate('/login', { replace: true });
         }
+      } catch (error) {
+        navigate('/login', { replace: true });
       }
-    };
+    }
+  };
 
-    handleEmailConfirmation();
-  }, [navigate, searchParams]);
+  handleEmailConfirmation();
+}, [navigate, searchParams]);
 
   // Main auth state management
   useEffect(() => {
