@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { queryDeepSeek } from "../../services/deepseek";
-import { MessageCircle, X, Send, Bot, User } from "lucide-react";
+import { MessageCircle, X, Send, Bot, User, MessageCircleMore } from "lucide-react";
 
 
 const ChatFloater = () => {
@@ -185,7 +185,7 @@ const ChatFloater = () => {
             onClick={() => setIsOpen(true)}
             className="group relative bg-gradient-to-r from-red-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110"
           >
-            <MessageCircle size={20} className="transition-transform duration-300 group-hover:rotate-12" />
+            <MessageCircleMore size={20} className="transition-transform duration-300 group-hover:rotate-12" />
             
             {/* Pulse animation */}
             <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse opacity-75 -z-10"></div>

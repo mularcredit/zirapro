@@ -99,7 +99,7 @@ export default function WarningModule() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   // Predefined warning templates
   const [warningTemplates, setWarningTemplates] = useState([

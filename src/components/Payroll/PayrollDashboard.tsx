@@ -2353,7 +2353,7 @@ export default function PayrollDashboard() {
     try {
       setIsLoadingRequests(true);
       const { data, error } = await supabase
-        .from('payment_flows_with_users')
+        .from('payment_flows')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -2454,127 +2454,127 @@ const createPaymentRequest = async (employee, type, justification, employees = n
   if (error) throw error;
 
   // ✅ Step 2: Fetch creator email separately
-  const { data: profile, error: profileError } = await supabase
-    .from('user_profiles')   // or 'auth.users' if you store email there
-    .select('email')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError) throw profileError;
+  
 
   // ✅ Return combined result
-  return { ...data, created_by_email: profile.email };
+  return { ...data, created_by_email: user.email };
 };
 
 
-const approvePayment = async (paymentId) => {
-  const { data: { user } } = await supabase.auth.getUser();
+// const approvePayment = async (payment) => { // Changed parameter name to be clearer
+//   const { data: { user } } = await supabase.auth.getUser();
   
-  const { data, error } = await supabase
-    .from('payment_flows')
-    .update({
-      status: 'approved',
-      approved_by: user.id,
-      approved_at: new Date().toISOString()
-    })
-    .eq('id', paymentId)
-    .select('*, approved_by_email:approved_by(email)')
-    .single();
+//   // Extract the actual ID from the payment object
+//   const paymentId = payment.id;
+  
+//   console.log('Payment ID:', paymentId);
+//   console.log('Payment ID type:', typeof paymentId);
+  
+//   const { data, error } = await supabase
+//     .from('payment_flows')
+//     .update({
+//       status: 'approved',
+//       approved_by: user.id,
+//       approved_at: new Date().toISOString()
+//     })
+//     .eq('id', paymentId) // Now using the actual ID string
+//     .select()
+//     .single();
 
-  if (error) throw error;
-  return data;
-};
+//   if (error) throw error;
+//   return data;
+// };
 
   // Approve payment request in Supabase
-  // const approvePayment = async (payment) => {
-  //   try {
-  //     const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const approvePayment = async (payment) => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-  //     if (userError || !user) {
-  //       toast.error('User not authenticated');
-  //       return;
-  //     }
+      if (userError || !user) {
+        toast.error('User not authenticated');
+        return;
+      }
 
-  //     // Optimistic update
-  //     setPaymentRequests(prev => 
-  //       prev.map(req => 
-  //         req.id === payment.id 
-  //           ? { 
-  //               ...req, 
-  //               status: 'approved',
-  //               approved_by: user.id,
-  //               approved_at: new Date().toISOString(),
-  //               approved_by_email: user.email
-  //             }
-  //           : req
-  //       )
-  //     );
+      // Optimistic update
+      setPaymentRequests(prev => 
+        prev.map(req => 
+          req.id === payment.id 
+            ? { 
+                ...req, 
+                status: 'approved',
+                approved_by: user.id,
+                approved_at: new Date().toISOString(),
+                approved_by_email: user.email
+              }
+            : req
+        )
+      );
 
-  //     const { data, error } = await supabase
-  //       .from('payment_flows')
-  //       .update({
-  //         status: 'approved',
-  //         approved_by: user.id,
-  //         approved_at: new Date().toISOString()
-  //       })
-  //       .eq('id', payment.id)
-  //       .select('*')
-  //       .single();
+      const { data, error } = await supabase
+        .from('payment_flows')
+        .update({
+          status: 'approved',
+          approved_by: user.id,
+          approved_at: new Date().toISOString()
+        })
+        .eq('id', payment.id)
+        .select('*')
+        .single();
 
-  //     if (error) {
-  //       console.error('Error approving payment request:', error);
-  //       toast.error('Failed to approve payment request');
-  //       // Revert optimistic update
-  //       fetchPaymentRequests();
-  //       return;
-  //     }
+      if (error) {
+        console.error('Error approving payment request:', error);
+        toast.error('Failed to approve payment request');
+        // Revert optimistic update
+        fetchPaymentRequests();
+        return;
+      }
 
-  //     // Process the actual M-Pesa payment
-  //     try {
-  //       if (payment.type === 'single') {
-  //         await processSingleMpesaPayment(payment.employee_data);
-  //       } else {
-  //         await processBulkMpesaPayment(payment.employees_data);
-  //       }
+      // Process the actual M-Pesa payment
+      try {
+        if (payment.type === 'single') {
+          await processSingleMpesaPayment(payment.employee_data);
+        } else {
+          await processBulkMpesaPayment(payment.employees_data);
+        }
 
-  //       // Update status to completed
-  //       await supabase
-  //         .from('payment_flows')
-  //         .update({
-  //           status: 'completed',
-  //           processed_at: new Date().toISOString()
-  //         })
-  //         .eq('id', payment.id);
+        // Update status to completed
+        await supabase
+          .from('payment_flows')
+          .update({
+            status: 'completed',
+            processed_at: new Date().toISOString()
+          })
+          .eq('id', payment.id);
 
-  //       // Update local state
-  //       setPaymentRequests(prev => 
-  //         prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
-  //       );
+        // Update local state
+        setPaymentRequests(prev => 
+          prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
+        );
 
-  //       toast.success('Payment approved and processed successfully!');
-  //     } catch (error) {
-  //       // Update status to failed
-  //       await supabase
-  //         .from('payment_flows')
-  //         .update({
-  //           status: 'failed',
-  //           processed_at: new Date().toISOString(),
-  //           metadata: { error: error.message }
-  //         })
-  //         .eq('id', payment.id);
+        toast.success('Payment approved and processed successfully!');
+      } catch (error) {
+        // Update status to failed
+        await supabase
+          .from('payment_flows')
+          .update({
+            status: 'failed',
+            processed_at: new Date().toISOString(),
+            metadata: { error: error.message }
+          })
+          .eq('id', payment.id);
 
-  //       setPaymentRequests(prev => 
-  //         prev.map(req => req.id === payment.id ? { ...req, status: 'failed' } : req)
-  //       );
+        setPaymentRequests(prev => 
+          prev.map(req => req.id === payment.id ? { ...req, status: 'failed' } : req)
+        );
         
-  //       console.error('Payment processing error:', error);
-  //       toast.error('Payment approved but failed to process');
-  //     }
-  //   } catch (error) {
-  //     console.error('Payment approval error:', error);
-  //     toast.error('Failed to approve payment request');
-  //   }
-  // };
+        console.error('Payment processing error:', error);
+        toast.error('Payment approved but failed to process');
+      }
+    } catch (error) {
+      console.error('Payment approval error:', error);
+      toast.error('Failed to approve payment request');
+    }
+  };
 
   // Reject payment request in Supabase
   const rejectPayment = async (payment, reason) => {
@@ -3107,6 +3107,7 @@ const approvePayment = async (paymentId) => {
             >
               <option value="maker">Maker</option>
               <option value="checker">Checker</option>
+              <option value="admin">Admin</option>
               
             </select>
             </RoleButtonWrapper>
