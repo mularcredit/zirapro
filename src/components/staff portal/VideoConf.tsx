@@ -31,7 +31,7 @@ const VideoConferenceComponent= () => {
             Video Conference
           </h1>
           <p className="text-gray-600">
-            Join meetings seamlessly with Google Meet integration
+            
           </p>
         </header>
 
