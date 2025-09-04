@@ -28,7 +28,8 @@ import {
   MapPinOff,
   Trash2,
   Bell,
-  Mail
+  Mail,
+  PhoneCall
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -2370,7 +2371,7 @@ const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }
         onClick={() => setActiveTab('loan')}
       />
       <PortalCard 
-        icon={<MessageSquare className="w-5 h-5 text-gray-600" />}
+        icon={<PhoneCall className="w-5 h-5 text-gray-600" />}
         title="Communication Hub"
         description="Chat and video calls"
         onClick={() => setActiveTab('VideoConf')}
@@ -2806,7 +2807,7 @@ const StaffPortal = () => {
             
             <div>
               <SidebarNavItem 
-                icon={<Banknote className="h-4 w-4" />}
+                icon={<Wallet className="h-4 w-4" />}
                 label="Financial"
                 active={activeTab === 'salary-advance' || activeTab === 'loan'}
                 onClick={() => toggleMenu('financial')}
@@ -2833,7 +2834,7 @@ const StaffPortal = () => {
             
             <div>
               <SidebarNavItem 
-                icon={<MessageSquare className="h-4 w-4" />}
+                icon={<PhoneCall className="h-4 w-4" />}
                 label="Communication"
                 active={activeTab === 'chat' || activeTab === 'VideoConf'}
                 onClick={() => toggleMenu('communication')}
