@@ -534,7 +534,7 @@ const LeaveApplicationForm = () => {
       toast.success('Leave application submitted successfully!');
       
       // Redirect to leave history
-      navigate('/staff-portal?tab=leave-history');
+      navigate('/staff?tab=leave-history');
       
       setFormData(prev => ({
         ...prev,
