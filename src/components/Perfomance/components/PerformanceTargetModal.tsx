@@ -184,13 +184,13 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
         
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs">
               {error}
             </div>
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target For</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Target For</label>
             <Select
               options={targetForOptions}
               value={getCurrentValue('target_for', targetForOptions)}
@@ -204,7 +204,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           
           {formData.target_for === 'employee' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Employee</label>
               <Select
                 options={employeeOptions}
                 value={employeeOptions.find(opt => opt.value === formData.employee_id) || null}
@@ -219,7 +219,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           
           {formData.target_for === 'branch' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
               <Select
                 options={branchOptions}
                 value={branchOptions.find(opt => opt.value === formData.branch_id) || null}
@@ -234,7 +234,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           
           {formData.target_for === 'product' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Type</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Product Type</label>
               <Select
                 options={productTypeOptions}
                 value={getCurrentValue('product_type', productTypeOptions)}
@@ -248,7 +248,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Type</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Target Type</label>
             <Select
               options={targetTypeOptions}
               value={getCurrentValue('target_type', targetTypeOptions)}
@@ -261,7 +261,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Period</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Period</label>
             <Select
               options={periodOptions}
               value={getCurrentValue('period', periodOptions)}
@@ -274,13 +274,13 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Target Value</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Target Value</label>
             <input
               type="number"
               name="target_value"
               value={formData.target_value}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
               required
               min="0"
               step="0.01"
@@ -289,14 +289,14 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="start_date"
                   value={formData.start_date}
                   onChange={(e) => handleDateChange('start_date', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -304,14 +304,14 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date (Optional)</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">End Date (Optional)</label>
               <div className="relative">
                 <input
                   type="date"
                   name="end_date"
                   value={formData.end_date || ''}
                   onChange={(e) => handleDateChange('end_date', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   min={formData.start_date}
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -327,7 +327,7 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
               onChange={handleChange}
               className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
             />
-            <label className="ml-2 block text-sm text-gray-700">
+            <label className="ml-2 block text-xs text-gray-700">
               Active Target
             </label>
           </div>
@@ -336,14 +336,14 @@ const PerformanceTargetModal: React.FC<PerformanceTargetModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
             >
               {isSubmitting ? 'Saving...' : (
                 <>

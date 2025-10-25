@@ -75,12 +75,12 @@ const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () 
         </div>
 
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
+          <p className="text-xs text-gray-600">
             Enter your email address and we'll send you a link to reset your password.
           </p>
 
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-xs font-medium text-gray-700 mb-1">
               Email address
             </label>
             <input
@@ -95,7 +95,7 @@ const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () 
           </div>
 
           {message.text && (
-            <div className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xs ${message.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
               {message.text}
             </div>
           )}
@@ -104,7 +104,7 @@ const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
@@ -112,7 +112,7 @@ const PasswordResetModal = ({ isOpen, onClose }: { isOpen: boolean, onClose: () 
               type="button"
               onClick={handleResetPassword}
               disabled={isSubmitting}
-              className={`px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 ${
+              className={`px-4 py-2 border border-transparent rounded-md text-xs font-medium text-white bg-green-600 hover:bg-green-700 ${
                 isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >

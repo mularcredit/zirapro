@@ -241,7 +241,7 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
         {/* Form Content */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs">
               {error}
             </div>
           )}
@@ -251,25 +251,25 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <h4 className="font-medium text-gray-700">Personal Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">First Name*</label>
                 <input
                   type="text"
                   name="first_name"
                   value={formData.first_name}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Last Name*</label>
                 <input
                   type="text"
                   name="last_name"
                   value={formData.last_name}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
               </div>
@@ -277,25 +277,25 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">ID Number</label>
                 <input
                   type="text"
                   name="id_number"
                   value={formData.id_number || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Date of Birth</label>
                 <div className="relative">
                   <input
                     type="date"
                     name="date_of_birth"
                     value={formData.date_of_birth || ''}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   />
                   <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
                 </div>
@@ -304,24 +304,24 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Gender</label>
                 <Select
                   options={genderOptions}
                   value={selectedGender}
                   onChange={(option) => handleSelectChange('gender', option?.value || '')}
                   styles={selectStyles}
-                  className="text-sm"
+                  className="text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Marital Status</label>
                 <Select
                   options={maritalStatusOptions}
                   value={selectedMaritalStatus}
                   onChange={(option) => handleSelectChange('marital_status', option?.value || '')}
                   styles={selectStyles}
-                  className="text-sm"
+                  className="text-xs"
                 />
               </div>
             </div>
@@ -332,71 +332,71 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <h4 className="font-medium text-gray-700">Contact Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number*</label>
                 <input
                   type="tel"
                   name="phone_number"
                   value={formData.phone_number}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
                 <input
                   type="email"
                   name="email"
                   value={formData.email || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Address</label>
               <input
                 type="text"
                 name="address"
                 value={formData.address || ''}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Town</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Town</label>
                 <input
                   type="text"
                   name="town"
                   value={formData.town || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Postal Code</label>
                 <input
                   type="text"
                   name="postal_code"
                   value={formData.postal_code || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Occupation</label>
                 <input
                   type="text"
                   name="occupation"
                   value={formData.occupation || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
               </div>
             </div>
@@ -407,27 +407,27 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <h4 className="font-medium text-gray-700">Financial Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Income</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Monthly Income</label>
                 <input
                   type="number"
                   name="monthly_income"
                   value={formData.monthly_income || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   step="0.01"
                   min="0"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Registration Date*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Registration Date*</label>
                 <div className="relative">
                   <input
                     type="date"
                     name="registration_date"
                     value={formData.registration_date}
                     onChange={handleInputChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                     required
                   />
                   <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -441,24 +441,24 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <h4 className="font-medium text-gray-700">Administrative Information</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Status*</label>
                 <Select
                   options={statusOptions}
                   value={selectedStatus}
                   onChange={(option) => handleSelectChange('status', option?.value || 'Active')}
                   styles={selectStyles}
-                  className="text-sm"
+                  className="text-xs"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loan Officer</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Loan Officer</label>
                 <Select
                   options={employeeOptions}
                   value={selectedEmployee}
                   onChange={(option) => handleSelectChange('loan_officer', option?.value || '')}
                   styles={selectStyles}
-                  className="text-sm"
+                  className="text-xs"
                   isClearable
                   placeholder="Select Loan Officer"
                 />
@@ -466,13 +466,13 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
               <Select
                 options={branchOptions}
                 value={selectedBranch}
                 onChange={(option) => handleSelectChange('branch_id', option?.value || null)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 isClearable
                 placeholder="Select Branch"
               />
@@ -484,14 +484,14 @@ const ClientModal = ({ client, onClose, onSave, employees, branches }: ClientMod
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
             >
               {isSubmitting ? 'Saving...' : (
                 <>

@@ -45,13 +45,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         {messages.length === 0 ? (
           <div className="text-center text-gray-400 mt-8">
             <p>No messages yet</p>
-            <p className="text-sm">Start a conversation with the participants</p>
+            <p className="text-xs">Start a conversation with the participants</p>
           </div>
         ) : (
           messages.map((message) => (
             <div key={message.id} className="bg-gray-700 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-blue-400 text-sm font-medium">{message.sender}</span>
+                <span className="text-blue-400 text-xs font-medium">{message.sender}</span>
                 <span className="text-gray-500 text-xs">
                   {new Date(message.timestamp).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -59,7 +59,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   })}
                 </span>
               </div>
-              <p className="text-white text-sm">{message.message}</p>
+              <p className="text-white text-xs">{message.message}</p>
             </div>
           ))
         )}

@@ -206,7 +206,7 @@ const BranchPerformanceTable: React.FC<BranchPerformanceModalProps> = ({
             
             {/* Basic Information */}
             <div className="bg-gray-50 rounded-xl p-4 space-y-4">
-              <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-gray-800 flex items-center gap-2">
                 <CalendarIcon className="w-4 h-4 text-indigo-500" />
                 Basic Information
               </h4>
@@ -259,7 +259,7 @@ const BranchPerformanceTable: React.FC<BranchPerformanceModalProps> = ({
 
             {/* KPI Metrics */}
             <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-100">
-              <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-emerald-600" />
                 Key Performance Indicators
               </h4>
@@ -391,7 +391,7 @@ const BranchPerformanceTable: React.FC<BranchPerformanceModalProps> = ({
 
             {/* Targets */}
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 border border-amber-100">
-              <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Target className="w-4 h-4 text-amber-600" />
                 Performance Targets
               </h4>
@@ -436,7 +436,7 @@ const BranchPerformanceTable: React.FC<BranchPerformanceModalProps> = ({
 
             {/* Activity Metrics */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-              <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+              <h4 className="text-xs font-semibold text-gray-800 mb-4 flex items-center gap-2">
                 <Activity className="w-4 h-4 text-blue-600" />
                 Activity Metrics
               </h4>

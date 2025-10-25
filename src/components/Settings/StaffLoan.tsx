@@ -205,7 +205,7 @@ const LoanRequestsAdmin = () => {
             placeholder="Search loan requests..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
           />
         </div>
       </div>
@@ -262,13 +262,13 @@ const LoanRequestsAdmin = () => {
               {filteredLoans.map((loan) => (
                 <tr key={loan.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{loan["Full Name"]}</div>
-                    <div className="text-sm text-gray-500">{loan["Employee Number"]}</div>
+                    <div className="text-xs font-medium text-gray-900">{loan["Full Name"]}</div>
+                    <div className="text-xs text-gray-500">{loan["Employee Number"]}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {loan["Office Branch"]}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-900">
                     {formatKES(Number(loan["Basic Salary"]))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -278,7 +278,7 @@ const LoanRequestsAdmin = () => {
                           type="text"
                           value={editedLoanAmount}
                           onChange={(e) => setEditedLoanAmount(e.target.value)}
-                          className="w-24 p-1 border rounded text-sm"
+                          className="w-24 p-1 border rounded text-xs"
                         />
                         <button 
                           onClick={() => handleLoanAmountSave(loan.id)}
@@ -295,7 +295,7 @@ const LoanRequestsAdmin = () => {
                       </div>
                     ) : (
                       <div 
-                        className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
+                        className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
                         onClick={() => handleLoanAmountEdit(loan.id, loan["Loan Amount"])}
                       >
                         {formatKES(Number(loan["Loan Amount"]))}
@@ -309,7 +309,7 @@ const LoanRequestsAdmin = () => {
                           type="text"
                           value={editedInstallment}
                           onChange={(e) => setEditedInstallment(e.target.value)}
-                          className="w-24 p-1 border rounded text-sm"
+                          className="w-24 p-1 border rounded text-xs"
                           placeholder="Monthly amount"
                         />
                         <button 
@@ -321,24 +321,24 @@ const LoanRequestsAdmin = () => {
                       </div>
                     ) : (
                       <div 
-                        className="text-sm text-gray-500 cursor-pointer hover:underline"
+                        className="text-xs text-gray-500 cursor-pointer hover:underline"
                         onClick={() => handleInstallmentEdit(loan.id, loan["Repayment Installment"])}
                       >
                         {loan["Repayment Installment"] || 'N/A'}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     <div>1st: {formatDate(loan["First Payment Date"])}</div>
                     <div>2nd: {formatDate(loan["Second Payment Date"])}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                  <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
                     {loan["Reason for Loan"]}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       {getStatusIcon(loan["status"])}
-                      <span className="ml-2 text-sm text-gray-500 capitalize">
+                      <span className="ml-2 text-xs text-gray-500 capitalize">
                         {loan["status"] || 'Pending'}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ const LoanRequestsAdmin = () => {
                     <div className="flex items-center">
                       <button 
                         onClick={() => setShowNotesDropdown(showNotesDropdown === loan.id ? null : loan.id)}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+                        className="flex items-center text-xs text-gray-500 hover:text-gray-700"
                       >
                         Notes <ChevronDown className="h-4 w-4 ml-1" />
                       </button>
@@ -358,7 +358,7 @@ const LoanRequestsAdmin = () => {
                           value={notes[loan.id] || ''}
                           onChange={(e) => handleNoteChange(loan.id, e.target.value)}
                           placeholder="Add admin notes..."
-                          className="w-full p-2 border rounded text-sm mb-2"
+                          className="w-full p-2 border rounded text-xs mb-2"
                           rows={3}
                         />
                         <div className="flex justify-end space-x-2">
@@ -378,10 +378,10 @@ const LoanRequestsAdmin = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {new Date(loan.time_added).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
                     {(!loan["status"] || loan["status"].toLowerCase() === 'pending') && (
                       <div className="flex space-x-2">
                         <button

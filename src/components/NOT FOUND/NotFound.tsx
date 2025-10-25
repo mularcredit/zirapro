@@ -85,7 +85,7 @@ export default function Unauthorized() {
 
                 {/* Available modules showcase */}
                 <div className="bg-white/40 rounded-2xl p-6 backdrop-blur-sm border border-white/30">
-                  <h3 className="text-sm font-medium text-gray-700 mb-4 flex items-center justify-center gap-2">
+                  <h3 className="text-xs font-medium text-gray-700 mb-4 flex items-center justify-center gap-2">
                     <Compass className="h-4 w-4" />
                     Available to explore
                   </h3>
@@ -99,7 +99,7 @@ export default function Unauthorized() {
                         <span className="text-lg group-hover:scale-110 transition-transform duration-200">
                           {module.icon}
                         </span>
-                        <span className="text-sm font-medium text-gray-700">
+                        <span className="text-xs font-medium text-gray-700">
                           {module.name}
                         </span>
                       </div>

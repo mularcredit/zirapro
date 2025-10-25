@@ -200,12 +200,12 @@ const Profile = () => {
               <h3 className="text-lg font-medium text-gray-900">
                 {employeeData["First Name"]} {employeeData["Last Name"]}
               </h3>
-              <p className="text-sm text-gray-500">{employeeData["Employee Number"]}</p>
+              <p className="text-xs text-gray-500">{employeeData["Employee Number"]}</p>
             </div>
           </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-sm font-medium"
+            className="flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-medium"
           >
             {isEditing ? (
               <>
@@ -226,7 +226,7 @@ const Profile = () => {
       <div className="flex mb-4 border-b">
         <button
           onClick={() => setActiveSection('statutory')}
-          className={`px-4 py-2 font-medium text-sm ${
+          className={`px-4 py-2 font-medium text-xs ${
             activeSection === 'statutory'
               ? 'border-b-2 border-green-600 text-green-700'
               : 'text-gray-500 hover:text-gray-700'
@@ -236,7 +236,7 @@ const Profile = () => {
         </button>
         <button
           onClick={() => setActiveSection('voluntary')}
-          className={`px-4 py-2 font-medium text-sm ${
+          className={`px-4 py-2 font-medium text-xs ${
             activeSection === 'voluntary'
               ? 'border-b-2 border-green-600 text-green-700'
               : 'text-gray-500 hover:text-gray-700'
@@ -255,27 +255,27 @@ const Profile = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* NSSF */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">NSSF</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">NSSF</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">NSSF Number</label>
+                  <label className="block text-xs text-gray-600 mb-1">NSSF Number</label>
                   <input
                     type="text"
                     name="NSSF Number"
                     value={employeeData["NSSF Number"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div>
                 {/* <div>
-                  <label className="block text-sm text-gray-600 mb-1">NSSF Deduction</label>
+                  <label className="block text-xs text-gray-600 mb-1">NSSF Deduction</label>
                   <input
                     type="text"
                     name="NSSF Deduction"
                     value={employeeData["NSSF Deduction"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div> */}
@@ -284,27 +284,27 @@ const Profile = () => {
 
             {/* SHIF */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">SHIF</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">SHIF</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">SHIF Number</label>
+                  <label className="block text-xs text-gray-600 mb-1">SHIF Number</label>
                   <input
                     type="text"
                     name="SHIF Number"
                     value={employeeData["SHIF Number"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div>
                 {/* <div>
-                  <label className="block text-sm text-gray-600 mb-1">SHIF Deduction</label>
+                  <label className="block text-xs text-gray-600 mb-1">SHIF Deduction</label>
                   <input
                     type="text"
                     name="SHIF Deduction"
                     value={employeeData["SHIF Deduction"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div> */}
@@ -313,27 +313,27 @@ const Profile = () => {
 
             {/* Tax */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Tax Information</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">Tax Information</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">KRA PIN</label>
+                  <label className="block text-xs text-gray-600 mb-1">KRA PIN</label>
                   <input
                     type="text"
                     name="Tax PIN"
                     value={employeeData["Tax PIN"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div>
                 {/* <div>
-                  <label className="block text-sm text-gray-600 mb-1">Housing Levy</label>
+                  <label className="block text-xs text-gray-600 mb-1">Housing Levy</label>
                   <input
                     type="text"
                     name="Housing Levy Deduction"
                     value={employeeData["Housing Levy Deduction"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div> */}
@@ -342,28 +342,28 @@ const Profile = () => {
 
             {/* Other */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Other</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">Other</h4>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-gray-600 mb-1">HELB</label>
+                  <label className="block text-xs text-gray-600 mb-1">HELB</label>
                   <input
                     type="text"
                     name="HELB"
                     value={employeeData["HELB"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div>
                 {employeeData["HELB"] === "Yes" && (
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">HELB Option</label>
+                    <label className="block text-xs text-gray-600 mb-1">HELB Option</label>
                     <input
                       type="text"
                       name="HELB option"
                       value={employeeData["HELB option"] || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                       readOnly={!isEditing}
                     />
                   </div>
@@ -383,40 +383,40 @@ const Profile = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Pension */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Pension</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">Pension</h4>
               <div className="space-y-4">
                 {/* <div>
-                  <label className="block text-sm text-gray-600 mb-1">Pension Deduction</label>
+                  <label className="block text-xs text-gray-600 mb-1">Pension Deduction</label>
                   <input
                     type="text"
                     name="Pension Deduction"
                     value={employeeData["Pension Deduction"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div> */}
                 {employeeData["Pension Deduction"] === "Yes" && (
                   <>
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">Employee AVC</label>
+                      <label className="block text-xs text-gray-600 mb-1">Employee AVC</label>
                       <input
                         type="text"
                         name="Employee AVC"
                         value={employeeData["Employee AVC"] || ''}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                         readOnly={!isEditing}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm text-gray-600 mb-1">Employer AVC</label>
+                      <label className="block text-xs text-gray-600 mb-1">Employer AVC</label>
                       <input
                         type="text"
                         name="Employer AVC"
                         value={employeeData["Employer AVC"] || ''}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                        className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                         readOnly={!isEditing}
                       />
                     </div>
@@ -427,16 +427,16 @@ const Profile = () => {
 
             {/* Other Voluntary */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Other Voluntary</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-3">Other Voluntary</h4>
               <div className="space-y-4">
                 {/* <div>
-                  <label className="block text-sm text-gray-600 mb-1">S</label>
+                  <label className="block text-xs text-gray-600 mb-1">S</label>
                   <input
                     type="text"
                     name="WIBA"
                     value={employeeData["WIBA"] || ''}
                     onChange={handleChange}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded"
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded"
                     readOnly={!isEditing}
                   />
                 </div> */}
@@ -450,14 +450,14 @@ const Profile = () => {
         <div className="mt-6 flex justify-end space-x-3">
           <button
             onClick={() => setIsEditing(false)}
-            className="px-4 py-2 border border-gray-300 text-sm font-medium rounded hover:bg-gray-50"
+            className="px-4 py-2 border border-gray-300 text-xs font-medium rounded hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isUpdating}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700"
+            className="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700"
           >
             {isUpdating ? (
               <>

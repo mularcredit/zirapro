@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { queryDeepSeek } from "../../services/deepseek";
-import { MessageCircle, X, Send, Bot, User, MessageCircleMore } from "lucide-react";
-
+import { MessageCircle, X, Send, Bot, User, MessageCircleMore, Cpu } from "lucide-react";
 
 const ChatFloater = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -170,7 +169,7 @@ const ChatFloater = () => {
   const FormattedMessage = ({ content }) => {
     return (
       <div 
-        className="text-sm leading-relaxed"
+        className="text-xs leading-relaxed"
         dangerouslySetInnerHTML={{ __html: content }} 
       />
     );
@@ -178,27 +177,31 @@ const ChatFloater = () => {
 
   return (
     <div className="font-sans">
-      {/* Floating Action Button */}
+      {/* Floating Action Button - Smaller and Faint */}
       {!isOpen && (
         <div className="fixed bottom-6 right-6 z-50">
           <button
             onClick={() => setIsOpen(true)}
-            className="group relative bg-gradient-to-r from-red-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white p-4 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110"
+            className="group relative bg-blue-600/30 backdrop-blur-sm hover:bg-white/40 text-gray-600 p-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-300/50"
           >
-            <MessageCircleMore size={20} className="transition-transform duration-300 group-hover:rotate-12" />
+            <img
+              src="/avatars.png"
+              alt="Avatar"
+              className="w-8 h-8 object-cover rounded-full"
+            />
             
-            {/* Pulse animation */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse opacity-75 -z-10"></div>
+            {/* Subtle pulse animation */}
+            <div className="absolute inset-0 rounded-full bg-white/40 animate-pulse opacity-50 -z-10"></div>
             
             {/* Notification badge */}
-            <div className="absolute -top-1 -right-1  text-white text-xs rounded-full w-5 h-5 flex items-center justify-center animate-bounce">
-              🎉
+            <div className="absolute -top-1 -right-1 bg-blue-500/70 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              <MessageCircleMore size={12} />
             </div>
           </button>
         </div>
       )}
 
-      {/* Chat Window */}
+      {/* Chat Window - UNCHANGED */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-96 h-[500px] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 flex flex-col overflow-hidden transition-all duration-500">
           {/* Header */}
@@ -207,12 +210,16 @@ const ChatFloater = () => {
               <div className="flex items-center space-x-3">
                 <div className="relative">
                   <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                    <Bot size={16} className="text-white" />
+                    <img
+                      src="/avatars.png"
+                      alt="Avatar"
+                      className="w-10 h-10 object-cover rounded-full"
+                    />
                   </div>
                   <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
                 </div>
                 <div>
-                  <h2 className="text-white font-semibold text-sm">Loan Portfolio AI</h2>
+                  <h2 className="text-white font-semibold text-xs">Loan Portfolio AI</h2>
                   <p className="text-white/70 text-xs">Performance Assistant</p>
                 </div>
               </div>
@@ -240,9 +247,13 @@ const ChatFloater = () => {
             {messages.length === 0 && (
               <div className="text-center py-8">
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mx-auto mb-3 flex items-center justify-center">
-                  <Bot size={24} className="text-blue-600" />
+                  <img
+                    src="/avatars.png"
+                    alt="Avatar"
+                    className="w-10 h-10 object-cover rounded-full"
+                  />
                 </div>
-                <p className="text-gray-600 text-sm mb-2">Welcome to Loan Portfolio AI</p>
+                <p className="text-gray-600 text-xs mb-2">Welcome to Loan Portfolio AI</p>
                 <p className="text-gray-400 text-xs px-2">Ask about targets, projections, OLB calculations, or retention strategies.</p>
                 <div className="mt-4 space-y-2">
                   <p className="text-gray-500 text-xs font-medium">Try asking:</p>
@@ -344,7 +355,7 @@ const ChatFloater = () => {
                   placeholder="Ask about targets, projections, OLB calculations..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-2xl text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
+                  className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-2xl text-xs placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all duration-200"
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                   disabled={loading}
                 />

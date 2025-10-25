@@ -332,21 +332,21 @@ const PayslipModal = ({
           <div className="flex gap-2">
             <button
               onClick={handleDownloadPDF}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
             >
               <Download size={16} />
               Download PDF
             </button>
             {/* <button
               onClick={handlePrint}
-              className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
             >
               <Printer size={16} />
               Print
             </button> */}
             <button
               onClick={onClose}
-              className="px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
+              className="px-3 py-2 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
             >
               <X size={16} />
               Close
@@ -370,7 +370,7 @@ const PayslipModal = ({
               </div>
               <div className="text-right">
                 <h2 className="text-xl font-bold">PAYSLIP</h2>
-                <div className="text-gray-300 text-sm">
+                <div className="text-gray-300 text-xs">
                   {record["Pay Period"] ? new Date(record["Pay Period"] + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                 </div>
               </div>
@@ -463,7 +463,7 @@ const PayslipModal = ({
             {onPrevious && (
               <button
                 onClick={onPrevious}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
               >
                 <ArrowLeft size={16} />
                 Previous
@@ -472,7 +472,7 @@ const PayslipModal = ({
             {onNext && (
               <button
                 onClick={onNext}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2 ml-auto"
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2 ml-auto"
               >
                 Next
                 <ArrowRight size={16} />
@@ -620,7 +620,7 @@ const PayslipViewer = () => {
         <h2 className="text-2xl font-semibold text-gray-800">My Payslips</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">View and download your payslips</p>
+          <p className="text-xs text-green-600">View and download your payslips</p>
         </div>
       </div>
 
@@ -636,7 +636,7 @@ const PayslipViewer = () => {
                 placeholder="Search payslips..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full pl-10 pr-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               />
             </div>
           </div>
@@ -646,7 +646,7 @@ const PayslipViewer = () => {
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
             >
               <option value="all">All Periods</option>
               {getUniquePeriods().map(period => (
@@ -659,7 +659,7 @@ const PayslipViewer = () => {
 
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Total Records</label>
-            <div className="px-4 py-2 text-sm bg-gray-50 rounded-lg border border-gray-300">
+            <div className="px-4 py-2 text-xs bg-gray-50 rounded-lg border border-gray-300">
               {filteredPayslips.length} payslip{filteredPayslips.length !== 1 ? 's' : ''} found
             </div>
           </div>
@@ -669,7 +669,7 @@ const PayslipViewer = () => {
       {/* Payslips Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="px-4 py-3 text-left text-gray-700 font-semibold">Pay Period</th>

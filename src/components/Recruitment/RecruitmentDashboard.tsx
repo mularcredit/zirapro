@@ -6,7 +6,7 @@ import { SummaryCard } from './components/SummaryCard';
 import { GlowButton } from './components/GlowButton';
 import { FiltersSection } from './components/FiltersSection';
 import { TabsNavigation } from './components/TabsNavigation';
-import PositionsTable  from './components/PositionsTable';
+import PositionsTable from './components/PositionsTable';
 import { ApplicationsTable } from './components/ApplicationsTable';
 import { BranchesSection } from './components/BranchesSection';
 import { NewPositionModal } from './components/NewPositionModal';
@@ -18,6 +18,18 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+interface Position {
+  id: string | number;
+  title: string;
+  department: string;
+  type: string;
+  branch: string;
+  status: 'open' | 'closed' | 'pending';
+  applications?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export default function RecruitmentDashboard() {
   const [selectedTab, setSelectedTab] = useState('positions');
   const [selectedBranch, setSelectedBranch] = useState('all');
@@ -28,27 +40,61 @@ export default function RecruitmentDashboard() {
   const [showNewPositionModal, setShowNewPositionModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [applications, setApplications] = useState<any[]>([]);
+  const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedApplication, setSelectedApplication] = useState<any | null>(null);
 
-  useEffect(() => {
-    const fetchApplications = async () => {
+  // Fetch positions from Supabase
+  const fetchPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('job_positions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching positions:', error);
+        // Fallback to static data if Supabase fails
+        setPositions(jobPositions);
+      } else {
+        setPositions(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching positions:', error);
+      setPositions(jobPositions); // Fallback to static data
+    }
+  };
+
+  // Fetch applications from Supabase
+  const fetchApplications = async () => {
+    try {
       const { data, error } = await supabase
         .from('job_applications')
         .select('*');
       
       if (!error) {
-        setApplications(data);
+        setApplications(data || []);
       } else {
         console.error('Error fetching applications:', error);
       }
+    } catch (error) {
+      console.error('Error fetching applications:', error);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchPositions(), fetchApplications()]);
       setLoading(false);
     };
 
-    fetchApplications();
+    loadData();
   }, []);
 
-  const filteredPositions = jobPositions.filter(position => {
+  // Filter positions based on selections
+  const filteredPositions = positions.filter(position => {
     const matchesBranch = selectedBranch === 'all' || position.branch === selectedBranch;
     const matchesDepartment = selectedDepartment === 'All Departments' || position.department === selectedDepartment;
     const matchesStatus = selectedStatus === 'All Statuses' || position.status === selectedStatus;
@@ -73,27 +119,29 @@ export default function RecruitmentDashboard() {
   });
 
   const statusCounts = {
-    'Critically Needed': jobPositions.filter(p => p.status === 'Critically Needed').length,
-    'Urgent': jobPositions.filter(p => p.status === 'Urgent').length,
-    'Normal': jobPositions.filter(p => p.status === 'Normal').length,
+    'open': positions.filter(p => p.status === 'open').length,
+    'closed': positions.filter(p => p.status === 'closed').length,
+    'pending': positions.filter(p => p.status === 'pending').length,
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-lg">Loading recruitment data...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto ">
+    <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Employee Recruitment Portal</h1>
-            <p className="text-gray-600 text-sm">Manage open positions, applications, and hiring needs across all branches</p>
+            <p className="text-gray-600 text-xs">Manage open positions, applications, and hiring needs across all branches</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <GlowButton 
-              icon={Users} 
-              size="sm"
-              onClick={() => setShowNewPositionModal(true)}
-            >
-              Create New Position
-            </GlowButton>
+            
             <GlowButton 
               variant="secondary"
               icon={Filter}
@@ -107,7 +155,10 @@ export default function RecruitmentDashboard() {
       </div>
 
       {showNewPositionModal && (
-        <NewPositionModal onClose={() => setShowNewPositionModal(false)} />
+        <NewPositionModal 
+          onClose={() => setShowNewPositionModal(false)}
+          onPositionAdded={fetchPositions}
+        />
       )}
 
       {showFilters && (
@@ -128,7 +179,7 @@ export default function RecruitmentDashboard() {
       <TabsNavigation 
         selectedTab={selectedTab}
         setSelectedTab={setSelectedTab}
-        jobPositionsCount={jobPositions.length}
+        jobPositionsCount={positions.length}
         applicationsCount={applications.length}
         branchesCount={branches.length}
       />
@@ -136,37 +187,41 @@ export default function RecruitmentDashboard() {
       {selectedTab === 'positions' && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <SummaryCard 
-            label="Critically Needed Positions" 
-            value={statusCounts['Critically Needed']} 
-            icon="AlertCircle" 
-            color="red"
+            label="Open Positions" 
+            value={statusCounts['open']} 
+            icon="" 
+            color="blue"
             isCount={true}
           />
           <SummaryCard 
-            label="Urgent Positions" 
-            value={statusCounts['Urgent']} 
-            icon="Clock" 
+            label="Pending Positions" 
+            value={statusCounts['pending']} 
+            icon="" 
             color="orange"
             isCount={true}
           />
           <SummaryCard 
-            label="Total Open Positions" 
-            value={jobPositions.length} 
-            icon="Briefcase" 
-            color="blue"
+            label="Closed Positions" 
+            value={statusCounts['closed']} 
+            icon="" 
+            color="green"
             isCount={true}
           />
         </div>
       )}
 
       {selectedTab === 'positions' && (
-        <PositionsTable positions={filteredPositions} />
+        <PositionsTable 
+          positions={filteredPositions} 
+          onUpdate={fetchPositions}
+        />
       )}
 
       {selectedTab === 'applications' && (
         <ApplicationsTable 
           applications={filteredApplications} 
-          setSelectedApplication={setSelectedApplication} 
+          setSelectedApplication={setSelectedApplication}
+          onUpdate={fetchApplications}
         />
       )}
 

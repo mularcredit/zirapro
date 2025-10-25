@@ -350,7 +350,7 @@ const TrainingModule = () => {
             <span className="font-medium">Back to training</span>
           </button>
           <div className="flex items-center space-x-3">
-            <span className="text-sm font-medium text-gray-500">
+            <span className="text-xs font-medium text-gray-500">
               {currentVideo.category.charAt(0).toUpperCase() + currentVideo.category.slice(1)} Training
             </span>
             {currentVideo.required && (
@@ -424,12 +424,12 @@ const TrainingModule = () => {
               <p className="text-gray-600 mt-2">{currentVideo.description}</p>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                 <Clock className="h-4 w-4 mr-1.5" />
                 {Math.floor(currentVideo.duration / 60)}m {currentVideo.duration % 60}s
               </span>
               {progress[currentVideo.id]?.completed && (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-800">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   Completed
                 </span>
@@ -441,7 +441,7 @@ const TrainingModule = () => {
           <div className="bg-gray-50 rounded-xl p-6 mb-8">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="w-full">
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <div className="flex justify-between text-xs text-gray-600 mb-2">
                   <span className="font-medium">Your progress</span>
                   <span className="font-semibold">{videoProgress}%</span>
                 </div>
@@ -459,7 +459,7 @@ const TrainingModule = () => {
                   updateVideoProgress(currentVideo.id, newProgress);
                   if (newProgress === 100) handleVideoComplete();
                 }}
-                className="px-6 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
+                className="px-6 py-3 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
               >
                 {videoProgress >= 95 ? 'Mark Complete' : 'Add Progress +5%'}
               </button>
@@ -508,7 +508,7 @@ const TrainingModule = () => {
                     <button
                       onClick={handleQuizSubmit}
                       disabled={Object.keys(quizAnswers).length < quizQuestions.length}
-                      className={`px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm ${
+                      className={`px-6 py-3 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm ${
                         Object.keys(quizAnswers).length < quizQuestions.length 
                           ? 'opacity-50 cursor-not-allowed' 
                           : ''
@@ -545,14 +545,14 @@ const TrainingModule = () => {
                           setQuizSubmitted(false);
                           setQuizAnswers({});
                         }}
-                        className="px-6 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                        className="px-6 py-3 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                       >
                         Try Again
                       </button>
                     ) : (
                       <button
                         onClick={() => setCurrentVideo(null)}
-                        className="px-6 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                        className="px-6 py-3 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                       >
                         Continue Training
                       </button>
@@ -568,7 +568,7 @@ const TrainingModule = () => {
             {getAdjacentVideos().prev ? (
               <button
                 onClick={() => handleSelectVideo(getAdjacentVideos().prev!)}
-                className="flex-1 flex items-center justify-start px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                className="flex-1 flex items-center justify-start px-6 py-3 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <ChevronLeft className="h-5 w-5 mr-2" />
                 <div className="text-left">
@@ -583,7 +583,7 @@ const TrainingModule = () => {
             {getAdjacentVideos().next ? (
               <button
                 onClick={() => handleSelectVideo(getAdjacentVideos().next!)}
-                className="flex-1 flex items-center justify-end px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                className="flex-1 flex items-center justify-end px-6 py-3 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <div className="text-right">
                   <div className="text-xs text-gray-500">Next</div>
@@ -594,7 +594,7 @@ const TrainingModule = () => {
             ) : (
               <button
                 onClick={() => setCurrentVideo(null)}
-                className="flex-1 flex items-center justify-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+                className="flex-1 flex items-center justify-center px-6 py-3 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
               >
                 Finish Section
               </button>
@@ -618,7 +618,7 @@ const TrainingModule = () => {
             </p>
           </div>
           <div className="w-full md:w-80">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-xs text-gray-600 mb-2">
               <span className="font-medium">Overall completion</span>
               <span className="font-semibold">{overallProgress}%</span>
             </div>
@@ -639,7 +639,7 @@ const TrainingModule = () => {
                 <Bookmark className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Total Modules</p>
+                <p className="text-xs font-medium text-gray-500">Total Modules</p>
                 <p className="text-2xl font-semibold text-gray-900">{videos.length}</p>
               </div>
             </div>
@@ -650,7 +650,7 @@ const TrainingModule = () => {
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Completed</p>
+                <p className="text-xs font-medium text-gray-500">Completed</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {Object.values(progress).filter(p => p.completed).length}
                 </p>
@@ -663,7 +663,7 @@ const TrainingModule = () => {
                 <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">In Progress</p>
+                <p className="text-xs font-medium text-gray-500">In Progress</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {Object.values(progress).filter(p => p.progress > 0 && !p.completed).length}
                 </p>
@@ -676,7 +676,7 @@ const TrainingModule = () => {
                 <Lock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-medium text-gray-500">Locked</p>
+                <p className="text-xs font-medium text-gray-500">Locked</p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {videos.filter(v => v.required && !progress[v.id]?.completed).length}
                 </p>
@@ -692,7 +692,7 @@ const TrainingModule = () => {
           <nav className="flex -mb-px overflow-x-auto">
             <button
               onClick={() => setActiveCategory(null)}
-              className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-sm flex items-center ${
+              className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center ${
                 !activeCategory
                   ? 'border-emerald-500 text-emerald-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -705,7 +705,7 @@ const TrainingModule = () => {
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-sm flex items-center transition-colors ${
+                className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center transition-colors ${
                   activeCategory === cat.id
                     ? `${cat.color} border-${cat.color.split('-')[1]}-500`
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -780,7 +780,7 @@ const TrainingModule = () => {
                       }`}>
                         {video.title}
                       </h3>
-                      <p className="text-sm text-gray-600 mt-1">{video.description}</p>
+                      <p className="text-xs text-gray-600 mt-1">{video.description}</p>
                       <div className="flex items-center mt-3 space-x-2">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                           <Clock className="h-3 w-3 mr-1" />
@@ -820,7 +820,7 @@ const TrainingModule = () => {
                           : isCompleted
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                             : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                      } rounded-lg text-sm font-medium transition-colors`}
+                      } rounded-lg text-xs font-medium transition-colors`}
                     >
                       {isLocked ? (
                         <>
@@ -860,7 +860,7 @@ const TrainingModule = () => {
               </p>
             </div>
             <div>
-              <button className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
+              <button className="inline-flex items-center px-6 py-3 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors">
                 <Award className="h-5 w-5 mr-2" />
                 Download Certificate
               </button>

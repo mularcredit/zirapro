@@ -353,7 +353,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="text-center">
           <div className="animate-pulse flex flex-col items-center">
@@ -379,7 +379,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.2 }}
-            className="bg-white rounded-lg shadow-xl w-full max-w-2xl text-sm overflow-y-none"
+            className="bg-white rounded-lg  w-full max-w-2xl text-xs overflow-y-none"
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
@@ -394,7 +394,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">First Name</label>
                   <input
                     type="text"
                     name="First Name"
@@ -406,7 +406,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Middle Name</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Middle Name</label>
                   <input
                     type="text"
                     name="Middle Name"
@@ -418,7 +418,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Last Name</label>
                   <input
                     type="text"
                     name="Last Name"
@@ -430,7 +430,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Number</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Employee Number</label>
                   <input
                     type="text"
                     name="Employee Number"
@@ -442,7 +442,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Work Email</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Work Email</label>
                   <input
                     type="email"
                     name="Work Email"
@@ -454,7 +454,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Mobile Number</label>
                   <input
                     type="tel"
                     name="Mobile Number"
@@ -466,7 +466,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Job Title</label>
                   <input
                     type="text"
                     name="Job Title"
@@ -478,7 +478,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Type</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Employee Type</label>
                   <select
                     name="Employee Type"
                     value={newEmployee['Employee Type'] || ''}
@@ -493,7 +493,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
                   <select
                     name="Branch"
                     value={newEmployee.Branch || ''}
@@ -508,7 +508,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
                   <input
                     type="date"
                     name="Start Date"
@@ -556,13 +556,13 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
           {/* Quick Actions Dropdown */}
           <div className="relative" ref={quickActionsRef}>
             {isQuickActionsOpen && (
-              <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+              <div className="absolute right-0 mt-2 w-56 origin-top-right rounded-md bg-white  ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
                 <div className="py-1">
                   {['import employees', 'Add Employee Login (ESS)', 'terminate employees'].map((action) => (
                     <button
                       key={action}
                       onClick={() => handleQuickAction(action)}
-                      className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      className="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                     >
                       {action}
                     </button>
@@ -575,7 +575,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
       </div>
       
       {/* Filters */}
-      <div className="bg-white/80 text-sm backdrop-blur-sm border border-gray-200 rounded-lg p-6">
+      <div className="bg-white/80 text-xs backdrop-blur-sm border border-gray-200 rounded-lg p-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
           {/* Search Input */}
           <div className="relative md:col-span-2">
@@ -677,7 +677,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                   <h3 className="text-gray-900 font-semibold">
                     {employee['First Name']} {employee['Last Name']}
                   </h3>
-                  <p className="text-gray-600 text-sm">{employee['Employee Number']}</p>
+                  <p className="text-gray-600 text-xs">{employee['Employee Number']}</p>
                 </div>
               </div>
               <div className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -690,22 +690,22 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
             </div>
             
             <div className="space-y-2 mb-4">
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-xs">
                 <MapPin className="w-4 h-4 text-green-800" />
                 <span className="text-gray-700">{employee['Job Level']} • {employee.Branch}</span>
               </div>
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-xs">
                 <span className="text-gray-600">{employee['Job Title']}</span>
               </div>
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-xs">
                 <Mail className="w-4 h-4 text-green-800" />
                 <span className="text-gray-700 truncate">{employee['Work Email']}</span>
               </div>
-              <div className="flex items-center space-x-2 text-sm">
+              <div className="flex items-center space-x-2 text-xs">
                 <Phone className="w-4 h-4 text-green-800" />
                 <span className="text-gray-700">{employee['Mobile Number']}</span>
               </div>
-              <div className="text-sm">
+              <div className="text-xs">
                 <span className="text-gray-600">Office Town: </span>
                 <span className="text-green-800 font-semibold">
                   {employee.Office}
@@ -740,15 +740,15 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
 
       {/* Pagination */}
       {filteredEmployees.length > 0 && (
-        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="text-sm text-gray-600">
+        <div className="mt-6 flex flex-col text-xs sm:flex-row justify-between items-center gap-4">
+          <div className="text-xs text-gray-600">
             Showing {indexOfFirstEmployee + 1} to {Math.min(indexOfLastEmployee, filteredEmployees.length)} of {filteredEmployees.length} employees
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              className="px-3 text-xs py-1 border rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -834,7 +834,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-300"
+            className="bg-white rounded-xl  w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden border border-gray-300"
           >
             {/* Header */}
             <div className="p-6 pb-0 flex justify-between items-center sticky top-0 bg-white z-10 border-b border-gray-300">
@@ -842,7 +842,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                 <h2 className="text-2xl font-bold text-gray-800">
                   {selectedEmployee['First Name']} {selectedEmployee['Last Name']}
                 </h2>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-xs text-gray-500 mt-1">
                   Employee ID: {selectedEmployee['Employee Number']}
                 </p>
               </div>

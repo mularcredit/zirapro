@@ -26,7 +26,7 @@ export const ParticipantVideo: React.FC<ParticipantVideoProps> = ({
             <div className="bg-gray-600 rounded-full p-4 mb-2 mx-auto w-16 h-16 flex items-center justify-center">
               <User className="w-8 h-8 text-gray-300" />
             </div>
-            <p className="text-white text-sm font-medium">{displayName}</p>
+            <p className="text-white text-xs font-medium">{displayName}</p>
           </div>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -41,7 +41,7 @@ export const ParticipantVideo: React.FC<ParticipantVideoProps> = ({
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <span className="text-white text-sm font-medium truncate">
+            <span className="text-white text-xs font-medium truncate">
               {displayName}
             </span>
             {isHost && (

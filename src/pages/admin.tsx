@@ -192,7 +192,7 @@ export default function StaffSignupRequests() {
         <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-6 mb-8 transition-all hover:shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500 uppercase tracking-wider">Pending Requests</p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Requests</p>
               <p className="text-3xl font-bold text-gray-900 mt-1">{requests.length}</p>
             </div>
             <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
@@ -234,7 +234,7 @@ export default function StaffSignupRequests() {
                               Pending
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 mt-2">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 mt-2">
                             <div className="flex items-center space-x-1.5">
                               <Building className="w-4 h-4 text-gray-400" />
                               <span>{request.branch}</span>
@@ -253,7 +253,7 @@ export default function StaffSignupRequests() {
                       <button
                         onClick={() => handleReject(request.id, request.email)}
                         disabled={processingId === request.id}
-                        className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                        className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs"
                       >
                         {processingId === request.id ? (
                           <>
@@ -271,7 +271,7 @@ export default function StaffSignupRequests() {
                       <button
                         onClick={() => handleApprove(request.id, request.email, request.branch)}
                         disabled={processingId === request.id}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
                       >
                         {processingId === request.id ? (
                           <>

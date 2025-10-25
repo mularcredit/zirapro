@@ -376,7 +376,7 @@ const SalaryAdvanceAdmin = () => {
           {approvedApplications.length > 0 && (
             <button
               onClick={() => setShowBulkPaymentModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
             >
               <Send size={16} />
               Pay Approved Staff ({getSelectedStaffCount()})
@@ -390,7 +390,7 @@ const SalaryAdvanceAdmin = () => {
               placeholder="Search applications..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
             />
           </div>
         </div>
@@ -442,13 +442,13 @@ const SalaryAdvanceAdmin = () => {
               {filteredApplications.map((app) => (
                 <tr key={app.id}>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{app["Full Name"]}</div>
-                    <div className="text-sm text-gray-500">{app["Employee Number"]}</div>
+                    <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
+                    <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {app["Office Branch"]}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -458,7 +458,7 @@ const SalaryAdvanceAdmin = () => {
                           type="text"
                           value={editedAmount}
                           onChange={(e) => setEditedAmount(e.target.value)}
-                          className="w-24 p-1 border rounded text-sm"
+                          className="w-24 p-1 border rounded text-xs"
                         />
                         <button 
                           onClick={() => handleAmountSave(app.id)}
@@ -475,20 +475,20 @@ const SalaryAdvanceAdmin = () => {
                       </div>
                     ) : (
                       <div 
-                        className="text-sm font-medium text-gray-900 cursor-pointer hover:underline"
+                        className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
                         onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
                       >
                         {formatKES(Number(app["Amount Requested"]))}
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                  <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
                     {app["Reason for Advance"]}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       {getStatusIcon(app["status"])}
-                      <span className="ml-2 text-sm text-gray-500 capitalize">
+                      <span className="ml-2 text-xs text-gray-500 capitalize">
                         {app["status"] || 'Pending'}
                       </span>
                     </div>
@@ -497,7 +497,7 @@ const SalaryAdvanceAdmin = () => {
                     <div className="flex items-center">
                       <button 
                         onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
-                        className="flex items-center text-sm text-gray-500 hover:text-gray-700"
+                        className="flex items-center text-xs text-gray-500 hover:text-gray-700"
                       >
                         Notes <ChevronDown className="h-4 w-4 ml-1" />
                       </button>
@@ -508,7 +508,7 @@ const SalaryAdvanceAdmin = () => {
                           value={notes[app.id] || ''}
                           onChange={(e) => handleNoteChange(app.id, e.target.value)}
                           placeholder="Add admin notes..."
-                          className="w-full p-2 border rounded text-sm mb-2"
+                          className="w-full p-2 border rounded text-xs mb-2"
                           rows={3}
                         />
                         <div className="flex justify-end space-x-2">
@@ -528,10 +528,10 @@ const SalaryAdvanceAdmin = () => {
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {new Date(app.time_added).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
                     {(!app["status"] || app["status"].toLowerCase() === 'pending') && (
                       <div className="flex space-x-2">
                         <button
@@ -566,7 +566,7 @@ const SalaryAdvanceAdmin = () => {
             </h3>
             
             <div className="mb-4 p-3 bg-gray-50 rounded-md">
-              <p className="text-sm text-gray-600">
+              <p className="text-xs text-gray-600">
                 You are about to process M-Pesa B2C payments for {getSelectedStaffCount()} selected staff members.
               </p>
               
@@ -586,7 +586,7 @@ const SalaryAdvanceAdmin = () => {
               </div>
               
               <div className="mt-3 border-t pt-3">
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-xs">
                   <span className="font-medium">Total Amount:</span>
                   <span className="font-bold text-green-700">{formatKES(calculateTotalAmount())}</span>
                 </div>
@@ -594,8 +594,8 @@ const SalaryAdvanceAdmin = () => {
             </div>
             
             <div className="mb-4 max-h-60 overflow-y-auto">
-              <p className="text-sm font-medium mb-2">Staff to be paid:</p>
-              <ul className="text-sm divide-y divide-gray-200">
+              <p className="text-xs font-medium mb-2">Staff to be paid:</p>
+              <ul className="text-xs divide-y divide-gray-200">
                 {approvedApplications.map(app => (
                   <li key={app.id} className="py-2 flex items-center justify-between">
                     <div className="flex items-center">
@@ -629,14 +629,14 @@ const SalaryAdvanceAdmin = () => {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowBulkPaymentModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                 disabled={isProcessingBulkPayment}
               >
                 Cancel
               </button>
               <button
                 onClick={handleBulkPayment}
-                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+                className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
                 disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0}
               >
                 {isProcessingBulkPayment ? (

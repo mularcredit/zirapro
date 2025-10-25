@@ -40,7 +40,7 @@ const CommunicationDropdown = ({
         >
           <button
             onClick={() => setActiveTab('chat')}
-            className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+            className={`w-full text-left px-4 py-2 text-xs flex items-center ${
               activeTab === 'chat'
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-100'
@@ -51,7 +51,7 @@ const CommunicationDropdown = ({
           </button>
           <button
             onClick={() => setActiveTab('video')}
-            className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+            className={`w-full text-left px-4 py-2 text-xs flex items-center ${
               activeTab === 'video'
                 ? 'bg-gray-100 text-gray-900'
                 : 'text-gray-700 hover:bg-gray-100'

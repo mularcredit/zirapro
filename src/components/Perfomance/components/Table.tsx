@@ -365,14 +365,14 @@ const BulkUploadModal = ({
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-semibold mb-4">Bulk Upload</h2>
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
             Upload CSV File
           </label>
           <input
             type="file"
             accept=".csv"
             onChange={handleFileChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            className="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
           />
           <p className="text-xs text-gray-500 mt-2">
             CSV should include headers matching the table columns
@@ -380,7 +380,7 @@ const BulkUploadModal = ({
         </div>
         
         {error && (
-          <div className="mb-4 p-2 bg-red-100 text-red-700 text-sm rounded">
+          <div className="mb-4 p-2 bg-red-100 text-red-700 text-xs rounded">
             {error}
           </div>
         )}

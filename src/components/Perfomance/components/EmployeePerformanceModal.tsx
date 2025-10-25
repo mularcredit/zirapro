@@ -198,19 +198,19 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
         
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs">
               {error}
             </div>
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee*</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Employee*</label>
             <Select
               options={employeeOptions}
               value={selectedEmployee}
               onChange={(option) => handleSelectChange('employee_id', option)}
               styles={selectStyles}
-              className="text-sm"
+              className="text-xs"
               placeholder="Select Employee"
               isSearchable
               required
@@ -219,27 +219,27 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Date*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Date*</label>
               <div className="relative">
                 <input
                   type="date"
                   name="date"
                   value={formData.date}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
               </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Period*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Period*</label>
               <Select
                 options={periodOptions}
                 value={selectedPeriod}
                 onChange={(option) => handleSelectChange('period', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 isSearchable={false}
               />
             </div>
@@ -251,26 +251,26 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">New Loans (First-time)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">New Loans (First-time)*</label>
                 <input
                   type="number"
                   name="new_loans"
                   value={formData.new_loans}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Loans Disbursed*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Total Loans Disbursed*</label>
                 <input
                   type="number"
                   name="loans_disbursed"
                   value={formData.loans_disbursed}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
@@ -279,13 +279,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
                 <input
                   type="number"
                   name="outstanding_balance"
                   value={formData.outstanding_balance}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -293,13 +293,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Arrears Amount (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Arrears Amount (KSh)*</label>
                 <input
                   type="number"
                   name="arrears_amount"
                   value={formData.arrears_amount}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -309,26 +309,26 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Loans in Arrears*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Loans in Arrears*</label>
                 <input
                   type="number"
                   name="loans_in_arrears"
                   value={formData.loans_in_arrears}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Active Loans*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Total Active Loans*</label>
                 <input
                   type="number"
                   name="total_active_loans"
                   value={formData.total_active_loans}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
@@ -337,13 +337,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Portfolio Size (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Portfolio Size (KSh)*</label>
                 <input
                   type="number"
                   name="portfolio_size"
                   value={formData.portfolio_size}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -351,13 +351,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">PAR Amount (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">PAR Amount (KSh)*</label>
                 <input
                   type="number"
                   name="par_amount"
                   value={formData.par_amount}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -372,26 +372,26 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Target*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Disbursement Target*</label>
                 <input
                   type="number"
                   name="disbursement_target"
                   value={formData.disbursement_target}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Target (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Collection Target (KSh)*</label>
                 <input
                   type="number"
                   name="collection_target"
                   value={formData.collection_target}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -401,13 +401,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Field Visits Target*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Field Visits Target*</label>
                 <input
                   type="number"
                   name="field_visits_target"
                   value={formData.field_visits_target}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
@@ -421,26 +421,26 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Clients Visited*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Clients Visited*</label>
                 <input
                   type="number"
                   name="clients_visited"
                   value={formData.clients_visited}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Collection Amount (KSh)*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Collection Amount (KSh)*</label>
                 <input
                   type="number"
                   name="collection_amount"
                   value={formData.collection_amount}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -450,13 +450,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Attendance Days*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Attendance Days*</label>
                 <input
                   type="number"
                   name="attendance_days"
                   value={formData.attendance_days}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="1"
                   max={formData.working_days}
@@ -464,13 +464,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Working Days*</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Working Days*</label>
                 <input
                   type="number"
                   name="working_days"
                   value={formData.working_days}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                   min="1"
                   max="31"
@@ -479,13 +479,13 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Average TAT (Hours)*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Average TAT (Hours)*</label>
               <input
                 type="number"
                 name="tat_average"
                 value={formData.tat_average}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 required
                 min="0"
                 step="0.1"
@@ -497,14 +497,14 @@ const EmployeePerformanceModal: React.FC<EmployeePerformanceModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
             >
               {isSubmitting ? 'Saving...' : (
                 <>

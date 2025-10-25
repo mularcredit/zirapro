@@ -308,7 +308,7 @@ const AdminVideoUpload = () => {
             <Film className="h-5 w-5 mr-2 text-blue-500" />
             Upload Training Video
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 mt-1">
             Add new training content to the staff portal
           </p>
         </div>
@@ -318,14 +318,14 @@ const AdminVideoUpload = () => {
           {/* Video Upload Section */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Video File <span className="text-red-500">*</span>
               </label>
               
               {!videoFile ? (
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                   <div className="space-y-1 text-center">
-                    <div className="flex text-sm text-gray-600 justify-center">
+                    <div className="flex text-xs text-gray-600 justify-center">
                       <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
                         <span>Upload a video file</span>
                         <input
@@ -353,7 +353,7 @@ const AdminVideoUpload = () => {
                         <Film className="h-5 w-5 text-blue-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                        <p className="text-xs font-medium text-gray-900 truncate max-w-xs">
                           {videoFile.name}
                         </p>
                         <p className="text-xs text-gray-500">
@@ -391,14 +391,14 @@ const AdminVideoUpload = () => {
 
             {/* Thumbnail Upload */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
                 Thumbnail Image (Optional)
               </label>
               
               {!thumbnailFile ? (
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
                   <div className="space-y-1 text-center">
-                    <div className="flex text-sm text-gray-600 justify-center">
+                    <div className="flex text-xs text-gray-600 justify-center">
                       <label className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
                         <span>Upload a thumbnail</span>
                         <input
@@ -426,7 +426,7 @@ const AdminVideoUpload = () => {
                         <Image className="h-5 w-5 text-purple-600" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                        <p className="text-xs font-medium text-gray-900 truncate max-w-xs">
                           {thumbnailFile.name}
                         </p>
                         <p className="text-xs text-gray-500">
@@ -464,7 +464,7 @@ const AdminVideoUpload = () => {
           {/* Progress bar */}
           {isUploading && (
             <div>
-              <div className="flex justify-between text-sm text-gray-500 mb-1">
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>Uploading...</span>
                 <span>{uploadProgress}%</span>
               </div>
@@ -480,7 +480,7 @@ const AdminVideoUpload = () => {
           {/* Video Details Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="title" className="block text-xs font-medium text-gray-700 mb-1">
                 Title <span className="text-red-500">*</span>
               </label>
               <input
@@ -495,7 +495,7 @@ const AdminVideoUpload = () => {
             </div>
 
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="category" className="block text-xs font-medium text-gray-700 mb-1">
                 Category <span className="text-red-500">*</span>
               </label>
               <select
@@ -515,7 +515,7 @@ const AdminVideoUpload = () => {
             </div>
 
             <div>
-              <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="duration" className="block text-xs font-medium text-gray-700 mb-1">
                 Duration (HH:MM:SS)
               </label>
               <input
@@ -531,7 +531,7 @@ const AdminVideoUpload = () => {
             </div>
 
             <div>
-              <label htmlFor="order" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="order" className="block text-xs font-medium text-gray-700 mb-1">
                 Display Order
               </label>
               <input
@@ -555,7 +555,7 @@ const AdminVideoUpload = () => {
                   onChange={handleInputChange}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="required" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="required" className="ml-2 block text-xs text-gray-700">
                   Required Training
                 </label>
               </div>
@@ -569,7 +569,7 @@ const AdminVideoUpload = () => {
                   onChange={handleInputChange}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="quiz_required" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="quiz_required" className="ml-2 block text-xs text-gray-700">
                   Include Quiz
                 </label>
               </div>
@@ -578,7 +578,7 @@ const AdminVideoUpload = () => {
 
           {/* Description */}
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="description" className="block text-xs font-medium text-gray-700 mb-1">
               Description
             </label>
             <textarea
@@ -596,14 +596,14 @@ const AdminVideoUpload = () => {
             <button
               type="button"
               onClick={resetForm}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Reset
             </button>
             <button
               type="submit"
               disabled={isUploading || !videoFile}
-              className={`px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 ${
+              className={`px-4 py-2 border border-transparent rounded-md text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 ${
                 isUploading || !videoFile ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -623,7 +623,7 @@ const AdminVideoUpload = () => {
         </div>
         <div className="p-6">
           {existingVideos.length === 0 ? (
-            <p className="text-sm text-gray-500">No videos uploaded yet</p>
+            <p className="text-xs text-gray-500">No videos uploaded yet</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -649,19 +649,19 @@ const AdminVideoUpload = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {existingVideos.map((video) => (
                     <tr key={video.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-900">
                         {video.order}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-900">
                         {video.title}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500 capitalize">
                         {video.category.replace('-', ' ')}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                         {Math.floor(video.duration / 3600)}h {Math.floor((video.duration % 3600) / 60)}m
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                         {video.required ? (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                             Yes

@@ -404,97 +404,124 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
   return (
     <>
-      <header className="bg-white/95 z-10 backdrop-blur-sm border-b border-gray-200 px-6 py-4 shadow-sm relative z-40">
-        <div className="flex items-center justify-between">
-          {/* Company Logo and Name - Clickable to edit */}
-          <motion.div 
-            className="flex items-center space-x-3 cursor-pointer hover:bg-gray-100 rounded-lg p-2 transition-colors"
-            onClick={() => setProfileModalOpen(true)}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {companyProfile?.image_url ? (
-              <img 
-                src={companyProfile.image_url} 
-                alt="Company Logo" 
-                className="w-10 h-10 rounded-lg object-cover shadow-md"
-              />
-            ) : (
-              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-700 rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl">
-                  {companyProfile?.company_name?.[0] || 'C'}
-                </span>
-              </div>
-            )}
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900 line-clamp-1">
-                {companyProfile?.company_name || 'Company Name'}
-              </h1>
-              <p className="text-xs text-gray-500 line-clamp-1">
-                {companyProfile?.company_tagline || 'HR Management System'}
-              </p>
-            </div>
-          </motion.div>
-          
-          {/* Right side icons */}
-          <div className="flex items-center space-x-4">
-            {/* Search bar */}
-            {/* <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search employees, records..."
-                className="bg-gray-50 border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.3)] transition-all duration-200 w-60"
-              />
-            </div> */}
-
-            {/* Notification bell */}
-            <motion.button
-              className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors duration-200"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleBellClick}
-              aria-label="Notifications"
+      {/* Floating Header with Curved Edges */}
+      <motion.header 
+        className="bg-white/95  z-10 mx-4 mt-4 mb-2 relative z-40 font-poppins"
+        style={{
+          borderRadius: '20px',
+          // boxShadow: `
+          //   0 10px 30px rgba(0, 0, 0, 0.1),
+          //   0 5px 15px rgba(0, 200, 83, 0.1),
+          //   inset 0 1px 0 rgba(255, 255, 255, 0.4)
+          // `,
+          border: '1px solid rgba(32, 32, 32, 0.2)',
+          fontFamily: "'Poppins', sans-serif"
+        }}
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Company Logo and Name - Clickable to edit */}
+            <motion.div 
+              className="flex items-center space-x-3 cursor-pointer hover:bg-gray-100 rounded-xl p-2 transition-colors"
+              onClick={() => setProfileModalOpen(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
             >
-              <Bell className="w-5 h-5" />
-              {showNotificationDot && totalNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+              {companyProfile?.image_url ? (
+                <img 
+                  src={companyProfile.image_url} 
+                  alt="Company Logo" 
+                  className="w-10 h-10 rounded-xl object-cover shadow-md"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-green-700 rounded-xl flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-xl">
+                    {companyProfile?.company_name?.[0] || 'C'}
+                  </span>
+                </div>
               )}
-              {totalNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  {totalNotifications}
-                </span>
-              )}
-            </motion.button>
-            
-            {/* User profile */}
-            <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-gray-100 border border-gray-200">
-              <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
-                <User className="w-4 h-4 text-white" />
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900 line-clamp-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  {companyProfile?.company_name || 'Company Name'}
+                </h1>
+                <p className="text-xs text-gray-500 line-clamp-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                  {companyProfile?.company_tagline || 'HR Management System'}
+                </p>
               </div>
-              <div className="text-sm hidden sm:block">
-                <p className="text-gray-900 font-medium line-clamp-1">{user?.email || 'Admin User'}</p>
-                <p className="text-green-800 capitalize">{user?.role || 'Administrator'}</p>
-              </div>
-            </div>
+            </motion.div>
             
-            {/* Logout button */}
-            {onLogout && (
+            {/* Right side icons */}
+            <div className="flex items-center space-x-3">
+              {/* Search bar */}
+              {/* <div className="relative hidden md:block">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search employees, records..."
+                  className="bg-gray-50 border border-gray-300 rounded-xl pl-10 pr-4 py-2 text-gray-900 placeholder-gray-500 focus:outline-none focus:border-green-500 focus:shadow-[0_0_15px_rgba(34,197,94,0.3)] transition-all duration-200 w-60"
+                  style={{ fontFamily: "'Poppins', sans-serif" }}
+                />
+              </div> */}
+
+              {/* Notification bell */}
               <motion.button
-                onClick={onLogout}
-                className="p-2 text-gray-600 hover:text-red-500 transition-colors duration-200"
+                className="relative p-2 text-gray-600 hover:text-gray-900 transition-colors duration-200 rounded-xl hover:bg-gray-100"
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
-                aria-label="Logout"
+                onClick={handleBellClick}
+                aria-label="Notifications"
               >
-                <LogOut className="w-5 h-5" />
+                <Bell className="w-5 h-5" />
+                {showNotificationDot && totalNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                )}
+                {totalNotifications > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                    {totalNotifications}
+                  </span>
+                )}
               </motion.button>
-            )}
+              
+              {/* User profile */}
+              <motion.div 
+                className="flex items-center space-x-3 px-3 py-2 rounded-xl bg-gray-100 border border-gray-200"
+                whileHover={{ scale: 1.02 }}
+                transition={{ duration: 0.2 }}
+              >
+                <div className="w-8 h-8 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-xs hidden sm:block">
+                  <p className="text-gray-900 font-medium line-clamp-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    {user?.email || 'Admin User'}
+                  </p>
+                  <p className="text-green-800 capitalize" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                    {user?.role || 'Administrator'}
+                  </p>
+                </div>
+              </motion.div>
+              
+              {/* Logout button */}
+              {onLogout && (
+                <motion.button
+                  onClick={onLogout}
+                  className="p-2 text-gray-600 hover:text-red-500 transition-colors duration-200 rounded-xl hover:bg-gray-100"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-5 h-5" />
+                </motion.button>
+              )}
+            </div>
           </div>
         </div>
-      </header>
+      </motion.header>
 
-      {/* Company Profile Modal */}
+      {/* Company Profile Modal - Updated with curved design */}
       <AnimatePresence>
         {profileModalOpen && (
           <>
@@ -513,17 +540,21 @@ export default function Header({ user, onLogout }: HeaderProps) {
               className="fixed inset-0 flex items-center justify-center z-50 p-4"
             >
               <div 
-                className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+                style={{
+                  boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold text-gray-900">
+                    <h2 className="text-xl font-semibold text-gray-900" style={{ fontFamily: "'Poppins', sans-serif" }}>
                       {companyProfile ? 'Edit Company Profile' : 'Create Company Profile'}
                     </h2>
                     <button
                       onClick={handleCancelProfile}
-                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                      className="text-gray-500 hover:text-gray-700 transition-colors rounded-lg p-1 hover:bg-gray-100"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -531,7 +562,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
                   {/* Logo Upload */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
                       Company Logo
                     </label>
                     <div className="flex items-center space-x-4">
@@ -541,7 +572,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
                             <img 
                               src={logoPreview} 
                               alt="Logo Preview" 
-                              className="w-16 h-16 rounded-lg object-cover shadow"
+                              className="w-16 h-16 rounded-xl object-cover shadow"
                             />
                             <button
                               onClick={() => {
@@ -558,19 +589,21 @@ export default function Header({ user, onLogout }: HeaderProps) {
                           <img 
                             src={companyProfile.image_url} 
                             alt="Current Logo" 
-                            className="w-16 h-16 rounded-lg object-cover shadow"
+                            className="w-16 h-16 rounded-xl object-cover shadow"
                           />
                         ) : (
-                          <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
+                          <div className="w-16 h-16 bg-gray-100 rounded-xl flex items-center justify-center">
                             <Image className="w-6 h-6 text-gray-400" />
                           </div>
                         )}
                       </div>
                       <div>
                         <label className="cursor-pointer">
-                          <div className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg flex items-center space-x-2 transition-colors">
+                          <div className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl flex items-center space-x-2 transition-colors">
                             <Upload className="w-4 h-4" />
-                            <span>{logoPreview ? 'Change Logo' : 'Upload Logo'}</span>
+                            <span style={{ fontFamily: "'Poppins', sans-serif" }}>
+                              {logoPreview ? 'Change Logo' : 'Upload Logo'}
+                            </span>
                             <input 
                               type="file" 
                               className="hidden" 
@@ -580,7 +613,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
                             />
                           </div>
                         </label>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500 mt-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
                           Recommended size: 256x256px
                         </p>
                       </div>
@@ -589,7 +622,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
                   {/* Company Name */}
                   <div className="mb-4">
-                    <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="company_name" className="block text-xs font-medium text-gray-700 mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
                       Company Name
                     </label>
                     <input
@@ -597,14 +630,15 @@ export default function Header({ user, onLogout }: HeaderProps) {
                       id="company_name"
                       value={newProfile.company_name}
                       onChange={(e) => setNewProfile({...newProfile, company_name: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
                       placeholder="Enter company name"
                     />
                   </div>
 
                   {/* Company Tagline */}
                   <div className="mb-6">
-                    <label htmlFor="company_tagline" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="company_tagline" className="block text-xs font-medium text-gray-700 mb-1" style={{ fontFamily: "'Poppins', sans-serif" }}>
                       Tagline
                     </label>
                     <input
@@ -612,7 +646,8 @@ export default function Header({ user, onLogout }: HeaderProps) {
                       id="company_tagline"
                       value={newProfile.company_tagline}
                       onChange={(e) => setNewProfile({...newProfile, company_tagline: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
                       placeholder="Enter company tagline"
                     />
                   </div>
@@ -621,14 +656,16 @@ export default function Header({ user, onLogout }: HeaderProps) {
                   <div className="flex justify-end space-x-3">
                     <button
                       onClick={handleCancelProfile}
-                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
                       disabled={uploading}
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleSaveProfile}
-                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center space-x-1"
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl transition-colors flex items-center space-x-1"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
                       disabled={uploading || (!newProfile.company_name && !newProfile.company_tagline && !selectedFile)}
                     >
                       {uploading ? (
@@ -654,7 +691,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
         )}
       </AnimatePresence>
 
-      {/* Notification Sidebar */}
+      {/* Notification Sidebar - Updated with curved design */}
       <AnimatePresence>
         {sidebarOpen && (
           <>
@@ -671,14 +708,18 @@ export default function Header({ user, onLogout }: HeaderProps) {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'tween', duration: 0.3 }}
-              className="fixed right-0 top-0 h-full w-96 bg-white shadow-xl z-50 flex flex-col"
+              className="fixed right-4 top-4 h-[95vh] w-96 bg-white z-50 flex flex-col rounded-2xl"
+              style={{
+                boxShadow: '0 20px 40px rgba(0, 0, 0, 0.15)',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
             >
               {/* Header */}
-              <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-2xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <Bell className="w-5 h-5 text-gray-700" />
-                    <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+                    <h2 className="text-lg font-semibold text-gray-900" style={{ fontFamily: "'Poppins', sans-serif" }}>Notifications</h2>
                     {totalNotifications > 0 && (
                       <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
                         {totalNotifications}
@@ -689,7 +730,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
                     {notifications.items.length > 0 && (
                       <button
                         onClick={handleClearAll}
-                        className="text-gray-500 hover:text-red-500 transition-colors"
+                        className="text-gray-500 hover:text-red-500 transition-colors rounded-lg p-1 hover:bg-gray-100"
                         title="Clear all notifications"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -697,7 +738,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
                     )}
                     <button
                       onClick={() => setSidebarOpen(false)}
-                      className="text-gray-500 hover:text-gray-700 transition-colors"
+                      className="text-gray-500 hover:text-gray-700 transition-colors rounded-lg p-1 hover:bg-gray-100"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -710,8 +751,8 @@ export default function Header({ user, onLogout }: HeaderProps) {
                 {notifications.items.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500">
                     <Bell className="w-12 h-12 mb-4 opacity-50" />
-                    <p className="text-lg font-medium">No notifications</p>
-                    <p className="text-sm">You're all caught up!</p>
+                    <p className="text-lg font-medium" style={{ fontFamily: "'Poppins', sans-serif" }}>No notifications</p>
+                    <p className="text-xs" style={{ fontFamily: "'Poppins', sans-serif" }}>You're all caught up!</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-200">
@@ -730,7 +771,7 @@ export default function Header({ user, onLogout }: HeaderProps) {
                             e.stopPropagation();
                             handleRemoveNotification(notification.id);
                           }}
-                          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors"
+                          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 transition-colors rounded-lg p-1 hover:bg-gray-100"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -749,13 +790,13 @@ export default function Header({ user, onLogout }: HeaderProps) {
                           </div>
                           
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-medium text-gray-900 truncate">
+                            <h3 className="text-xs font-medium text-gray-900 truncate" style={{ fontFamily: "'Poppins', sans-serif" }}>
                               {notification.title}
                             </h3>
-                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
                               {notification.message}
                             </p>
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-xs text-gray-500 mt-2" style={{ fontFamily: "'Poppins', sans-serif" }}>
                               {notification.timestamp.toLocaleDateString()} {notification.timestamp.toLocaleTimeString()}
                             </p>
                           </div>
@@ -772,8 +813,8 @@ export default function Header({ user, onLogout }: HeaderProps) {
 
               {/* Footer */}
               {notifications.items.length > 0 && (
-                <div className="p-4 border-t border-gray-200 bg-gray-50">
-                  <p className="text-xs text-gray-500 text-center">
+                <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-2xl">
+                  <p className="text-xs text-gray-500 text-center" style={{ fontFamily: "'Poppins', sans-serif" }}>
                     {unreadItems.length} unread of {notifications.items.length} total
                   </p>
                 </div>

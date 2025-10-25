@@ -159,13 +159,13 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
         
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs">
               {error}
             </div>
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Employee</label>
             <Select
               options={employeeOptions}
               value={employeeOptions.find(opt => opt.value === formData.employee_id) || null}
@@ -178,7 +178,7 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Client</label>
             <Select
               options={clientOptions}
               value={clientOptions.find(opt => opt.value === formData.client_id) || null}
@@ -192,21 +192,21 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Visit Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Visit Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="visit_date"
                   value={formData.visit_date}
                   onChange={(e) => handleDateChange('visit_date', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
               </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Purpose</label>
               <Select
                 options={purposeOptions}
                 value={getCurrentValue('purpose', purposeOptions)}
@@ -220,44 +220,44 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Outcome</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Outcome</label>
             <textarea
               name="outcome"
               value={formData.outcome || ''}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
               rows={3}
             />
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Next Action</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Next Action</label>
             <input
               type="text"
               name="next_action"
               value={formData.next_action || ''}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
             />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Next Visit Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Next Visit Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="next_visit_date"
                   value={formData.next_visit_date || ''}
                   onChange={(e) => handleDateChange('next_visit_date', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   min={formData.visit_date}
                 />
               </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
               <Select
                 options={branchOptions}
                 value={branchOptions.find(opt => opt.value === formData.branch_id) || null}
@@ -270,7 +270,7 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1 flex items-center gap-1">
               <MapPin className="w-4 h-4" /> Location
             </label>
             <input
@@ -278,7 +278,7 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
               name="location"
               value={formData.location || ''}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
               placeholder="GPS coordinates or address"
             />
           </div>
@@ -287,14 +287,14 @@ const ClientVisitModal: React.FC<ClientVisitModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
             >
               {isSubmitting ? 'Saving...' : (
                 <>

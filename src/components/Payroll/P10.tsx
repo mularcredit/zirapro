@@ -228,14 +228,14 @@ const P10FormGenerator: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
           <div className="bg-blue-50 p-3 rounded-md border border-blue-100">
             <div className="flex items-center gap-2 text-blue-800">
               <Users className="w-4 h-4" />
-              <span className="text-sm font-medium">
+              <span className="text-xs font-medium">
                 This will generate a P10 form for all {employees.length} employees
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tax Year</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Tax Year</label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
@@ -252,14 +252,14 @@ const P10FormGenerator: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
             disabled={isLoading}
           >
             Cancel
           </button>
           <button
             onClick={generateP10Form}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
+            className="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 flex items-center gap-2"
             disabled={isLoading}
           >
             {isLoading ? (

@@ -214,7 +214,7 @@ const LoanTargetsCalculator: React.FC<LoanTargetsCalculatorProps> = ({
                 <Target className="w-5 h-5 text-green-500" />
                 Branch Loan Targets & Performance
               </h2>
-              <p className="text-gray-600 text-sm">Monthly loan targeting based on branch age and retention metrics</p>
+              <p className="text-gray-600 text-xs">Monthly loan targeting based on branch age and retention metrics</p>
             </div>
             <div className="text-xs text-gray-500">
               Average Loan Value: KSh 5,000

@@ -140,7 +140,7 @@ const GlowButton: React.FC<{
   const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
   const sizeClasses = {
     sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-sm",
+    md: "px-4 py-2 text-xs",
     lg: "px-6 py-3 text-base"
   };
   const variantClasses = {
@@ -284,7 +284,7 @@ const Pagination: React.FC<{
           <ChevronsRight className="w-4 h-4" />
         </button>
       </div>
-      <div className="text-sm text-gray-600">
+      <div className="text-xs text-gray-600">
         Page {currentPage} of {totalPages}
       </div>
     </div>
@@ -1724,7 +1724,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Performance Dashboard</h1>
-            <p className="text-sm text-gray-600 mt-1 flex items-center">
+            <p className="text-xs text-gray-600 mt-1 flex items-center">
               Monitor and manage employee and branch performance
               <span className="flex items-center ml-4 text-indigo-600 font-medium">
                 <MapPin className="w-4 h-4 mr-1" />
@@ -1836,7 +1836,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
            
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Report Type</label>
+                <label className="block text-xs font-medium mb-1">Report Type</label>
                 <select
                   value={emailType}
                   onChange={(e) => {
@@ -1850,7 +1850,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Recipient</label>
+                <label className="block text-xs font-medium mb-1">Recipient</label>
                 <select
                   value={emailRecipientType}
                   onChange={(e) => {
@@ -1874,7 +1874,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Frequency</label>
+                <label className="block text-xs font-medium mb-1">Frequency</label>
                 <select
                   value={emailFrequency}
                   onChange={(e) => setEmailFrequency(e.target.value as any)}
@@ -1965,9 +1965,9 @@ const filteredEmployeesByTown = React.useMemo(() => {
           <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Staff Performance Metrics</h2>
-              <p className="text-gray-600 text-sm">
+              <p className="text-gray-600 text-xs">
                 Showing {paginatedEmployees.length} of {filteredEmployees.length} employees
-                <span className="text-sm font-normal text-gray-500 ml-2">
+                <span className="text-xs font-normal text-gray-500 ml-2">
                   in {getDisplayName()}
                 </span>
               </p>
@@ -2084,7 +2084,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                   {/* Disbursement Targets Card */}
                                   <div className="border border-gray-200 rounded-lg p-4">
-                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                       <Target className="w-4 h-4 text-green-500" />
                                       Disbursement Targets
                                     </h3>
@@ -2136,7 +2136,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                  
                                   {/* Client Portfolio Card */}
                                   <div className="border border-gray-200 rounded-lg p-4">
-                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                       <Users className="w-4 h-4 text-green-500" />
                                       Client Portfolio
                                     </h3>
@@ -2162,7 +2162,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                  
                                   {/* Collection Metrics Card */}
                                   <div className="border border-gray-200 rounded-lg p-4">
-                                    <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                    <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                       <Coins className="w-4 h-4 text-yellow-500" />
                                       Collection Metrics
                                     </h3>
@@ -2352,9 +2352,9 @@ const filteredEmployeesByTown = React.useMemo(() => {
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Branch Performance Comparison</h2>
-                <p className="text-gray-600 text-sm">
+                <p className="text-gray-600 text-xs">
                   Showing {paginatedBranches.length} of {filteredBranches.length} branches
-                  <span className="text-sm font-normal text-gray-500 ml-2">
+                  <span className="text-xs font-normal text-gray-500 ml-2">
                     in {getDisplayName()}
                   </span>
                 </p>
@@ -2387,7 +2387,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                       <h3 className="text-lg font-semibold text-gray-900">
                         {branch?.["Branch Office"] || ""}
                       </h3>
-                      <p className="text-gray-600 text-sm">{branch["Area"]}</p>
+                      <p className="text-gray-600 text-xs">{branch["Area"]}</p>
                     </div>
                    
                     <div className="space-y-3 mt-4">
@@ -2523,7 +2523,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {/* Disbursement Targets Card */}
                                 <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                  <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                     <Target className="w-4 h-4 text-green-500" />
                                     Disbursement Targets
                                   </h3>
@@ -2555,7 +2555,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                
                                 {/* Staff Metrics Card */}
                                 <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                  <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                     <Users className="w-4 h-4 text-green-500" />
                                     Staff Metrics
                                   </h3>
@@ -2587,7 +2587,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                
                                 {/* Portfolio Metrics Card */}
                                 <div className="border border-gray-200 rounded-lg p-4">
-                                  <h3 className="font-semibold text-sm flex items-center gap-2 mb-3">
+                                  <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
                                     <Coins className="w-4 h-4 text-yellow-500" />
                                     Portfolio Metrics
                                   </h3>

@@ -624,7 +624,7 @@ const AddEmployeePage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="p-4 md:p-6 max-w-6xl mx-auto text-sm"
+      className="p-4 md:p-6 max-w-6xl mx-auto text-xs"
     >
       <div className="flex items-center justify-between mb-6">
         <button 
@@ -667,42 +667,42 @@ const AddEmployeePage = () => {
           <nav className="flex overflow-x-auto">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'personal' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'personal' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <User className="w-4 h-4 mr-2" />
               Personal
             </button>
             <button
               onClick={() => setActiveTab('employment')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'employment' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'employment' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Briefcase className="w-4 h-4 mr-2" />
               Employment
             </button>
             <button
               onClick={() => setActiveTab('contact')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'contact' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'contact' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Phone className="w-4 h-4 mr-2" />
               Contact
             </button>
             <button
               onClick={() => setActiveTab('financial')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'financial' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'financial' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <CreditCard className="w-4 h-4 mr-2" />
               Financial
             </button>
             <button
               onClick={() => setActiveTab('emergency')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'emergency' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'emergency' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <AlertCircle className="w-4 h-4 mr-2" />
               Emergency
             </button>
             <button
               onClick={() => setActiveTab('dependents')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'dependents' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'dependents' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Users className="w-4 h-4 mr-2" />
               Dependents
@@ -768,7 +768,7 @@ const AddEmployeePage = () => {
                       className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                     >
                       <Upload className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-sm">{previewImage ? 'Change' : 'Upload'}</span>
+                      <span className="text-xs">{previewImage ? 'Change' : 'Upload'}</span>
                     </button>
                     {previewImage && (
                       <button 
@@ -776,7 +776,7 @@ const AddEmployeePage = () => {
                           setPreviewImage(null);
                           setProfileImage(null);
                         }}
-                        className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm text-gray-700"
+                        className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-xs text-gray-700"
                       >
                         <X className="w-4 h-4 mr-2" />
                         Remove

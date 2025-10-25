@@ -35,7 +35,7 @@ export const MeetingJoin: React.FC<MeetingJoinProps> = ({ onJoinMeeting, isConne
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="topic" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="topic" className="block text-xs font-semibold text-gray-700 mb-2">
               Meeting Topic / ID
             </label>
             <div className="relative">
@@ -54,7 +54,7 @@ export const MeetingJoin: React.FC<MeetingJoinProps> = ({ onJoinMeeting, isConne
           </div>
 
           <div>
-            <label htmlFor="userName" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="userName" className="block text-xs font-semibold text-gray-700 mb-2">
               Your Name
             </label>
             <input
@@ -70,7 +70,7 @@ export const MeetingJoin: React.FC<MeetingJoinProps> = ({ onJoinMeeting, isConne
           </div>
 
           <div>
-            <label htmlFor="userEmail" className="block text-sm font-semibold text-gray-700 mb-2">
+            <label htmlFor="userEmail" className="block text-xs font-semibold text-gray-700 mb-2">
               Email (Optional)
             </label>
             <input
@@ -104,7 +104,7 @@ export const MeetingJoin: React.FC<MeetingJoinProps> = ({ onJoinMeeting, isConne
         </form>
 
         <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-          <div className="flex items-center justify-center space-x-2 text-sm text-gray-500">
+          <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
             <Settings className="w-4 h-4" />
             <span>Make sure your camera and microphone are working</span>
           </div>

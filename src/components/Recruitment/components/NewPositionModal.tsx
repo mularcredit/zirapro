@@ -23,25 +23,25 @@ export const NewPositionModal = ({ onClose }: NewPositionModalProps) => {
         </div>
         <form className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Job Title</label>
             <input 
               type="text" 
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               placeholder="e.g. Software Developer"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Department</label>
+              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500">
                 {departments.filter(d => d !== 'All Departments').map(dept => (
                   <option key={dept} value={dept}>{dept}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Employee Type</label>
-              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Employee Type</label>
+              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500">
                 <option value="">Select Type</option>
                 {employeeTypes.map(type => (
                   <option key={type} value={type}>{type}</option>
@@ -51,8 +51,8 @@ export const NewPositionModal = ({ onClose }: NewPositionModalProps) => {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
+              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500">
                 <option value="">Select Branch</option>
                 {branches.map(branch => (
                   <option key={branch.id} value={branch.id}>{branch.name}</option>
@@ -60,8 +60,8 @@ export const NewPositionModal = ({ onClose }: NewPositionModalProps) => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Hiring Priority</label>
-              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Hiring Priority</label>
+              <select className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500">
                 <option value="Normal">Normal</option>
                 <option value="Urgent">Urgent</option>
                 <option value="Critically Needed">Critically Needed</option>
@@ -69,9 +69,9 @@ export const NewPositionModal = ({ onClose }: NewPositionModalProps) => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Job Description</label>
             <textarea 
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               rows={4}
               placeholder="Enter detailed job description..."
             />

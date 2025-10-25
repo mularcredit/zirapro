@@ -44,10 +44,10 @@ export default function StatsCard({
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-600 text-sm font-medium">{title}</p>
+          <p className="text-gray-600 text-xs font-medium">{title}</p>
           <p className="text-gray-900 text-2xl font-bold mt-1">{value}</p>
           {change && (
-            <p className={`text-sm mt-1 ${changeColors[changeType]}`}>
+            <p className={`text-xs mt-1 ${changeColors[changeType]}`}>
               {change}
             </p>
           )}

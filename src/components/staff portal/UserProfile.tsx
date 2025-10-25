@@ -162,7 +162,7 @@ const UserProfileDropdown = ({
           <User className="h-4 w-4 text-green-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900 truncate">{userName}</p>
+          <p className="text-xs font-medium text-gray-900 truncate">{userName}</p>
           <p className="text-xs text-gray-500 truncate">
             {loginStatus.isLoggedIn ? 
               `Logged in at ${loginStatus.lastLogin ? new Date(loginStatus.lastLogin).toLocaleTimeString() : 'recently'}` : 
@@ -181,14 +181,14 @@ const UserProfileDropdown = ({
          
           <button 
             onClick={handlePasswordReset}
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+            className="w-full text-left px-4 py-3 text-xs text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
           >
             <LockKeyhole className="h-4 w-4 mr-3 text-gray-500" />
             Reset Password
           </button>
           <button 
             onClick={handleSignOut}
-            className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
+            className="w-full text-left px-4 py-3 text-xs text-gray-700 hover:bg-gray-50 flex items-center transition-colors"
           >
             <LogOut className="h-4 w-4 mr-3 text-gray-500" />
             Sign out

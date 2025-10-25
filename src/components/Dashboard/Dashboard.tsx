@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Users, CalendarDays, Wallet, NotepadText, Phone, AlertCircle, Settings, HelpCircle, MapPin, RefreshCw } from "lucide-react";
+import { Users, CalendarDays, Wallet, NotepadText, Phone, AlertCircle, Settings, HelpCircle, MapPin, RefreshCw, Cake, Video, BookOpen, FileText, TrendingUp, ChevronRight, Crown, Trophy, Star, Award } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase"
 import { TownProps } from '../../types/supabase';
@@ -10,6 +10,26 @@ interface AreaTownMapping {
 
 interface BranchAreaMapping {
   [branch: string]: string;
+}
+
+interface NewsItem {
+  id: number;
+  type: 'birthday' | 'conference' | 'training' | 'payslip' | 'report';
+  title: string;
+  description: string;
+  date: string;
+  time?: string;
+  participants?: string;
+}
+
+interface TopPerformer {
+  id: number;
+  name: string;
+  position: string;
+  branch: string;
+  performance: number;
+  avatar?: string;
+  isOverall?: boolean;
 }
 
 export default function DashboardMain({ selectedTown, onTownChange, selectedRegion }: TownProps) {
@@ -29,8 +49,97 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
   const [branchAreaMapping, setBranchAreaMapping] = useState<BranchAreaMapping>({});
   const [isArea, setIsArea] = useState<boolean>(false);
   const [townsInArea, setTownsInArea] = useState<string[]>([]);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
   
   const navigate = useNavigate();
+
+  // Mock news data - replace with actual API calls
+  useEffect(() => {
+    const mockNews: NewsItem[] = [
+      {
+        id: 1,
+        type: 'birthday',
+        title: 'Upcoming Birthdays',
+        description: 'John Doe, Sarah Smith, and 3 others have birthdays this week',
+        date: 'This week'
+      },
+      {
+        id: 2,
+        type: 'conference',
+        title: 'Quarterly Review Meeting',
+        description: 'All managers required to attend the virtual conference',
+        date: 'Tomorrow',
+        time: '10:00 AM'
+      },
+      {
+        id: 3,
+        type: 'training',
+        title: 'New Safety Training',
+        description: 'Mandatory training session for all employees',
+        date: 'Next Monday',
+        time: '2:00 PM'
+      },
+      {
+        id: 4,
+        type: 'payslip',
+        title: 'Payslips Available',
+        description: 'March payroll processed and available for download',
+        date: 'Available now'
+      },
+      {
+        id: 5,
+        type: 'report',
+        title: 'Performance Reports',
+        description: 'Q1 performance reports are ready for review',
+        date: 'New'
+      }
+    ];
+    setNewsItems(mockNews);
+  }, []);
+
+  // Mock top performers data - replace with actual API calls
+  useEffect(() => {
+    const mockTopPerformers: TopPerformer[] = [
+      {
+        id: 1,
+        name: "Sarah Johnson",
+        position: "Sales Manager",
+        branch: "Nairobi Central",
+        performance: 98,
+        isOverall: true
+      },
+      {
+        id: 2,
+        name: "Michael Chen",
+        position: "Operations Lead",
+        branch: "Mombasa Branch",
+        performance: 95
+      },
+      {
+        id: 3,
+        name: "Grace Wanjiku",
+        position: "Customer Service",
+        branch: "Kisumu Office",
+        performance: 92
+      },
+      {
+        id: 4,
+        name: "David Omondi",
+        position: "IT Specialist",
+        branch: "Nairobi West",
+        performance: 90
+      },
+      {
+        id: 5,
+        name: "Emily Atieno",
+        position: "Marketing Head",
+        branch: "Eldoret Branch",
+        performance: 88
+      }
+    ];
+    setTopPerformers(mockTopPerformers);
+  }, []);
 
   // Load area-town mapping and saved town from localStorage on component mount
   useEffect(() => {
@@ -406,6 +515,58 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
     return currentTown;
   };
 
+  // Get icon for news type
+  const getNewsIcon = (type: NewsItem['type']) => {
+    switch (type) {
+      case 'birthday': return <Cake className="w-4 h-4" />;
+      case 'conference': return <Video className="w-4 h-4" />;
+      case 'training': return <BookOpen className="w-4 h-4" />;
+      case 'payslip': return <FileText className="w-4 h-4" />;
+      case 'report': return <TrendingUp className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
+    }
+  };
+
+  // Get background color for news type
+  const getNewsBgColor = (type: NewsItem['type']) => {
+    switch (type) {
+      case 'birthday': return 'bg-pink-50';
+      case 'conference': return 'bg-blue-50';
+      case 'training': return 'bg-green-50';
+      case 'payslip': return 'bg-purple-50';
+      case 'report': return 'bg-orange-50';
+      default: return 'bg-gray-50';
+    }
+  };
+
+  // Get text color for news type
+  const getNewsTextColor = (type: NewsItem['type']) => {
+    switch (type) {
+      case 'birthday': return 'text-pink-600';
+      case 'conference': return 'text-blue-600';
+      case 'training': return 'text-green-600';
+      case 'payslip': return 'text-purple-600';
+      case 'report': return 'text-orange-600';
+      default: return 'text-gray-600';
+    }
+  };
+
+  // Get performance color based on score
+  const getPerformanceColor = (score: number) => {
+    if (score >= 90) return 'text-green-600';
+    if (score >= 80) return 'text-blue-600';
+    if (score >= 70) return 'text-yellow-600';
+    return 'text-gray-600';
+  };
+
+  // Get performance badge color
+  const getPerformanceBadgeColor = (score: number) => {
+    if (score >= 90) return 'bg-green-100 text-green-700';
+    if (score >= 80) return 'bg-blue-100 text-blue-700';
+    if (score >= 70) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-gray-100 text-gray-700';
+  };
+
   return (
     <div className="min-h-screen p-6 bg-gray-50">
       <style jsx global>{`
@@ -418,18 +579,15 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         }
         .wave-animation { animation: wave 8s ease-in-out infinite; }
         .glow-effect {
-          box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
           transition: box-shadow 0.3s ease;
-        }
-        .glow-effect:hover {
-          box-shadow: 0 0 25px rgba(99, 102, 241, 0.5);
+          border: 0.5px solid rgba(0, 0, 0, 0.08);
         }
         .card-hover {
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .card-hover:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+          transform: translateY(-2px);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
         }
         .popup {
           position: fixed;
@@ -439,7 +597,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
           border-radius: 8px;
           color: white;
           z-index: 1000;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
           animation: slideIn 0.3s ease-out;
         }
         @keyframes slideIn {
@@ -452,14 +609,19 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         .support-popup {
           background-color: #10b981;
         }
+        @keyframes pulse-gold {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        .pulse-gold { animation: pulse-gold 2s ease-in-out infinite; }
       `}</style>
 
       {/* Popup Messages */}
       {showUnauthorizedPopup && (
         <div className="popup unauthorized-popup">
           <div className="flex items-center">
-            <AlertCircle className="w-5 h-5 mr-2" />
-            <span>Unauthorized access</span>
+            <AlertCircle className="w-4 h-4 mr-2" />
+            <span className="text-sm">Unauthorized access</span>
           </div>
         </div>
       )}
@@ -467,17 +629,18 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
       {showSupportPopup && (
         <div className="popup support-popup">
           <div className="flex items-center">
-            <Phone className="w-5 h-5 mr-2" />
-            <span>Support: 0700594586</span>
+            <Phone className="w-4 h-4 mr-2" />
+            <span className="text-sm">Support: 0700594586</span>
           </div>
         </div>
       )}
 
-      {/* Welcome Section with Town/Area Filter Indicator */}
-      <div className="mb-8 relative">
-        <div className="bg-white rounded-2xl p-6 relative overflow-hidden card-hover glow-effect">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 rounded-full -mr-12 -mt-12"></div>
-          <div className="absolute bottom-0 left-0 w-20 h-20 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-full -ml-10 -mb-10"></div>
+      {/* Welcome Section with Faint Gradient Background */}
+      <div className="mb-8">
+        <div className="rounded-xl p-6 relative overflow-hidden card-hover glow-effect bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full -ml-12 -mb-12"></div>
+          <div className="absolute top-1/2 left-1/2 w-40 h-40 bg-gradient-to-r from-indigo-100/10 to-blue-100/10 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
           
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -488,40 +651,39 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   className="h-20 w-20 object-cover mr-4"
                 />
                 <div>
-                  <h1 className="text-xl font-bold text-gray-800 mb-1">Welcome back<span className="wave-animation">👋</span></h1>
-                  <p className="text-sm text-gray-600 max-w-md">
-                    Your dashboard is ready with the latest updates for{" "}
+                  <h1 className="text-xl font-semibold text-gray-800 mb-1">Welcome back</h1>
+                  <p className="text-xs text-gray-600">
+                    Latest updates for{" "}
                     <span className="font-medium text-indigo-600 flex items-center mt-1">
-                      <MapPin className="w-4 h-4 mr-1" />
+                      <MapPin className="w-3 h-3 mr-1" />
                       {getDisplayName()}
                     </span>
-                   
                   </p>
                 </div>
               </div>
               
-              {/* Compact stats card */}
+              {/* Action buttons */}
               <div className="flex space-x-2">
                 <button 
                   onClick={handleSupportClick}
-                  className="px-4 py-2 bg-white rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  className="px-3 py-2 bg-white/80 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors border border-gray-200/60"
                 >
-                  <HelpCircle className="w-4 h-4 inline mr-2" />
+                  <HelpCircle className="w-3 h-3 inline mr-1" />
                   Support
                 </button>
                 <button 
                   onClick={handleRefresh}
                   disabled={isLoading}
-                  className="px-4 py-2 bg-white rounded-xl text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center"
+                  className="px-3 py-2 bg-white/80 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors border border-gray-200/60 flex items-center"
                 >
-                  <RefreshCw className={`w-4 h-4 inline mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3 h-3 inline mr-1 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
                 <button 
                   onClick={handleSettingsClick}
-                  className="px-4 py-2 bg-indigo-600 rounded-xl text-sm font-medium text-white hover:bg-indigo-700 transition-colors flex items-center"
+                  className="px-3 py-2 bg-indigo-600 rounded-lg text-xs font-medium text-white hover:bg-indigo-700 transition-colors flex items-center shadow-sm"
                 >
-                  <Settings className="w-4 h-4 inline mr-2" />
+                  <Settings className="w-3 h-3 inline mr-1" />
                   Settings
                 </button>
               </div>
@@ -532,7 +694,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
 
       {/* Dashboard Tabs */}
       <div className="mb-6">
-        <div className="flex space-x-4 border-b border-gray-200">
+        <div className="flex space-x-6 border-b border-gray-200">
           <button 
             onClick={() => setActiveTab('overview')}
             className={`pb-3 px-1 font-medium text-sm ${activeTab === 'overview' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
@@ -542,110 +704,254 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         </div>
       </div>
 
-      {/* Debug Info */}
-      
-
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
         </div>
       ) : (
-        <>
-          {/* Stats Grid with Hover Effects */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {/* Employee Card */}
-            <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-indigo-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Total Employees</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.employees}</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Best Performing Employees Board FIRST */}
+          <div className="lg:col-span-2">
+            {/* Best Performing Employees Board */}
+            <div className="bg-white rounded-xl p-5 card-hover glow-effect mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Crown className="w-5 h-5 text-yellow-500 mr-2 pulse-gold" />
+                  <h2 className="text-lg font-semibold text-gray-800">Best Performing Employees</h2>
                 </div>
-                <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-                  <Users className="w-6 h-6 text-indigo-600" />
-                </div>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  {topPerformers.length} top performers
+                </span>
               </div>
+              
+              <div className="space-y-3">
+                {topPerformers.map((employee, index) => (
+                  <div 
+                    key={employee.id}
+                    className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer group relative"
+                  >
+                    {employee.isOverall && (
+                      <div className="absolute -top-2 -left-2">
+                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-normal px-2 py-1 rounded-full flex items-center shadow-lg">
+                          <Trophy className="w-3 h-3 mr-1" />
+                          Overall Best
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center space-x-3">
+                      {/* Rank Badge */}
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        index === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                        index === 1 ? 'bg-gray-100 text-gray-700' : 
+                        index === 2 ? 'bg-orange-100 text-orange-700' : 
+                        'bg-blue-100 text-blue-700'
+                      }`}>
+                        <span className="text-xs font-bold">#{index + 1}</span>
+                      </div>
+                      
+                      {/* Employee Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h3 className="text-sm font-medium text-gray-800 flex items-center">
+                              {employee.name}
+                              {employee.isOverall && (
+                                <Crown className="w-3 h-3 text-yellow-500 ml-1" />
+                              )}
+                            </h3>
+                            <p className="text-xs text-gray-600">{employee.position}</p>
+                          </div>
+                          <div className={`text-xs font-semibold px-2 py-1 rounded-full ${getPerformanceBadgeColor(employee.performance)}`}>
+                            {employee.performance}%
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-500 flex items-center">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {employee.branch}
+                          </span>
+                          <div className="flex items-center space-x-1">
+                            {employee.performance >= 90 && <Star className="w-3 h-3 text-yellow-500 fill-current" />}
+                            {employee.performance >= 95 && <Award className="w-3 h-3 text-purple-500" />}
+                            <ChevronRight className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Performance Bar */}
+                    <div className="mt-2 w-full bg-gray-100 rounded-full h-1">
+                      <div 
+                        className={`h-1 rounded-full ${
+                          employee.performance >= 90 ? 'bg-green-500' : 
+                          employee.performance >= 80 ? 'bg-blue-500' : 
+                          employee.performance >= 70 ? 'bg-yellow-500' : 
+                          'bg-gray-500'
+                        }`}
+                        style={{width: `${employee.performance}%`}}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
               <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>Active</span>
-                  <span>{Math.floor(stats.employees * 0.96)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-indigo-600 h-2 rounded-full" style={{width: '96%'}}></div>
-                </div>
+                <button className="w-full text-xs text-indigo-600 hover:text-indigo-700 font-medium py-2 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center">
+                  <TrendingUp className="w-3 h-3 mr-1" />
+                  View Full Performance Report
+                </button>
               </div>
             </div>
 
-            {/* Leave Requests Card */}
-            <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-purple-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Leave Requests</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.leaveRequests}</h3>
+            {/* Stats Cards - NOW AFTER the performance board */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Employee Card */}
+              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 font-medium">Total Employees</p>
+                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.employees}</h3>
+                  </div>
+                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-                  <CalendarDays className="w-6 h-6 text-purple-600" />
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                    <span>Active</span>
+                    <span>{Math.floor(stats.employees * 0.96)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1">
+                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '96%'}}></div>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>Pending</span>
-                  <span>{Math.ceil(stats.leaveRequests * 0.11)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-purple-600 h-2 rounded-full" style={{width: '89%'}}></div>
-                </div>
-              </div>
-            </div>
 
-            {/* Advances Card */}
-            <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-blue-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Salary Advances</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.salaryAdvances}</h3>
+              {/* Leave Requests Card */}
+              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 font-medium">Leave Requests</p>
+                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.leaveRequests}</h3>
+                  </div>
+                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                    <CalendarDays className="w-4 h-4 text-indigo-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Wallet className="w-6 h-6 text-blue-600" />
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                    <span>Pending</span>
+                    <span>{Math.ceil(stats.leaveRequests * 0.11)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1">
+                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '89%'}}></div>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>Approved</span>
-                  <span>{Math.floor(stats.salaryAdvances * 0.88)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{width: '88%'}}></div>
-                </div>
-              </div>
-            </div>
 
-            {/* Expenses Card */}
-            <div className="bg-white rounded-2xl p-6 card-hover relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-full -mr-4 -mt-4 opacity-20"></div>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm text-gray-500 mb-1">Expenses</p>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-2">{stats.jobApplications}</h3>
+              {/* Advances Card */}
+              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 font-medium">Salary Advances</p>
+                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.salaryAdvances}</h3>
+                  </div>
+                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                    <Wallet className="w-4 h-4 text-indigo-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-                  <NotepadText className="w-6 h-6 text-green-600" />
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                    <span>Approved</span>
+                    <span>{Math.floor(stats.salaryAdvances * 0.88)}</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1">
+                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '88%'}}></div>
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>This cycle</span>
-                  <span>100%</span>
+
+              {/* Expenses Card */}
+              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1 font-medium">Expenses</p>
+                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.jobApplications}</h3>
+                  </div>
+                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                    <NotepadText className="w-4 h-4 text-indigo-600" />
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                  <div className="bg-green-600 h-2 rounded-full w-full"></div>
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <div className="flex justify-between text-xs text-gray-500 mb-2">
+                    <span>This cycle</span>
+                    <span>100%</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-1">
+                    <div className="bg-indigo-500 h-1 rounded-full w-full"></div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </>
+
+          {/* Right Column - News Section */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl p-5 card-hover glow-effect">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-800">Updates & News</h2>
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                  {newsItems.length} items
+                </span>
+              </div>
+              
+              <div className="space-y-4">
+                {newsItems.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${getNewsBgColor(item.type)}`}>
+                        <span className={getNewsTextColor(item.type)}>
+                          {getNewsIcon(item.type)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <h3 className="text-sm font-medium text-gray-800 truncate">
+                            {item.title}
+                          </h3>
+                          <ChevronRight className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                          {item.description}
+                        </p>
+                        <div className="flex items-center justify-between mt-2">
+                          <span className="text-xs text-gray-500">{item.date}</span>
+                          {item.time && (
+                            <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                              {item.time}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <button className="w-full text-xs text-indigo-600 hover:text-indigo-700 font-medium py-2 hover:bg-indigo-50 rounded-lg transition-colors">
+                  View All Updates
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

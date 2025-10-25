@@ -89,7 +89,7 @@ export const PDFViewer = ({ fileName, isPublic = true, onClose }: PDFViewerProps
               href={pdfUrl || '#'} 
               target="_blank" 
               rel="noopener noreferrer"
-              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-sm flex items-center gap-2"
+              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg text-xs flex items-center gap-2"
             >
               <ExternalLink className="w-4 h-4" />
               Open in New Tab
@@ -97,7 +97,7 @@ export const PDFViewer = ({ fileName, isPublic = true, onClose }: PDFViewerProps
             <a 
               href={pdfUrl || '#'} 
               download={fileName}
-              className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-sm flex items-center gap-2"
+              className="px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg text-xs flex items-center gap-2"
             >
               <Download className="w-4 h-4" />
               Download

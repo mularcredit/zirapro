@@ -358,7 +358,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
             <input
               type="text"
               placeholder="Search employees..."
-              className="pl-9 pr-4 py-2 w-full text-sm border border-green-200 rounded-lg focus:border-green-100 focus:outline focus:outline-green-200 focus:outline-2 focus:outline-offset-2 transition-all bg-green-50"
+              className="pl-9 pr-4 py-2 w-full text-xs border border-green-200 rounded-lg focus:border-green-100 focus:outline focus:outline-green-200 focus:outline-2 focus:outline-offset-2 transition-all bg-green-50"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -368,7 +368,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <select
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
+                className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
                 value={filters.Town}
                 onChange={(e) => setFilters({...filters, Town: e.target.value})}
               >
@@ -384,7 +384,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
             
             <div className="relative">
               <select
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
+                className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
                 value={filters["Employee Type"]}
                 onChange={(e) => setFilters({...filters, "Employee Type": e.target.value})}
               >
@@ -400,7 +400,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
             
             <div className="relative">
               <select
-                className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
+                className="appearance-none pl-3 pr-8 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-gray-50"
                 value={filters["Job Group"]}
                 onChange={(e) => setFilters({...filters, "Job Group": e.target.value})}
               >

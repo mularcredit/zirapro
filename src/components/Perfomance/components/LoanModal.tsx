@@ -269,19 +269,19 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
         
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-xs">
               {error}
             </div>
           )}
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Client*</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Client*</label>
             <Select
               options={clientOptions}
               value={selectedClient}
               onChange={(option) => handleSelectChange('client_id', option)}
               styles={selectStyles}
-              className="text-sm"
+              className="text-xs"
               placeholder="Select Client"
               isSearchable
               required
@@ -290,13 +290,13 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Loan Officer*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Loan Officer*</label>
               <Select
                 options={employeeOptions}
                 value={selectedEmployee}
                 onChange={(option) => handleSelectChange('loan_officer', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 placeholder="Select Loan Officer"
                 isSearchable
                 required
@@ -304,13 +304,13 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Branch*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Branch*</label>
               <Select
                 options={branchOptions}
                 value={selectedBranch}
                 onChange={(option) => handleSelectChange('branch_id', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 placeholder="Select Branch"
                 isSearchable
                 required
@@ -320,25 +320,25 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Product Type*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Product Type*</label>
               <Select
                 options={productTypeOptions}
                 value={selectedProductType}
                 onChange={(option) => handleSelectChange('product_type', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 isSearchable={false}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Repayment Frequency*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Repayment Frequency*</label>
               <Select
                 options={repaymentFrequencyOptions}
                 value={selectedRepaymentFrequency}
                 onChange={(option) => handleSelectChange('repayment_frequency', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 isSearchable={false}
               />
             </div>
@@ -346,25 +346,25 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Status*</label>
               <Select
                 options={statusOptions}
                 value={selectedStatus}
                 onChange={(option) => handleSelectChange('status', option)}
                 styles={selectStyles}
-                className="text-sm"
+                className="text-xs"
                 isSearchable={false}
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Amount Disbursed (KSh)*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Amount Disbursed (KSh)*</label>
               <input
                 type="number"
                 name="amount_disbursed"
                 value={formData.amount_disbursed}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 required
                 min="0"
                 step="0.01"
@@ -374,13 +374,13 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Outstanding Balance (KSh)*</label>
               <input
                 type="number"
                 name="outstanding_balance"
                 value={formData.outstanding_balance}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 required
                 min="0"
                 step="0.01"
@@ -388,13 +388,13 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate (%)*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Interest Rate (%)*</label>
               <input
                 type="number"
                 name="interest_rate"
                 value={formData.interest_rate}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 required
                 min="0"
                 max="100"
@@ -405,27 +405,27 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Term (Months)*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Term (Months)*</label>
               <input
                 type="number"
                 name="term_months"
                 value={formData.term_months}
                 onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 required
                 min="1"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Disbursement Date*</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Disbursement Date*</label>
               <div className="relative">
                 <input
                   type="date"
                   name="disbursement_date"
                   value={formData.disbursement_date}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                   required
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -435,28 +435,28 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Maturity Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Maturity Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="maturity_date"
                   value={formData.maturity_date}
                   readOnly
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs bg-gray-100"
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Next Payment Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Next Payment Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="next_payment_date"
                   value={formData.next_payment_date || ''}
                   readOnly
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-100"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs bg-gray-100"
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
@@ -464,27 +464,27 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">PAR Days</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">PAR Days</label>
             <input
               type="number"
               name="par_days"
               value={formData.par_days}
               onChange={handleInputChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
               min="0"
             />
           </div>
           
           {formData.last_payment_date && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Last Payment Date</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Last Payment Date</label>
               <div className="relative">
                 <input
                   type="date"
                   name="last_payment_date"
                   value={formData.last_payment_date || ''}
                   onChange={handleInputChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs"
                 />
                 <CalendarIcon className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
               </div>
@@ -495,14 +495,14 @@ const LoanModal: React.FC<LoanModalProps> = ({ loan, onClose, onSave, clients, e
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
             >
               {isSubmitting ? 'Saving...' : (
                 <>

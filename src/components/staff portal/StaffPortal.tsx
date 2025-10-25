@@ -103,7 +103,7 @@ const SidebarNavItem = ({
 }) => (
   <button
     onClick={onClick}
-    className={`flex items-center justify-between w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+    className={`flex items-center justify-between w-full px-4 py-3 text-xs font-medium rounded-lg transition-colors ${
       active 
         ? 'bg-[#42fcff]/60 text-green-700'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
@@ -150,7 +150,7 @@ const GeolocationWarningModal = ({
           Geolocation Required
         </h3>
         
-        <p className="text-sm text-gray-600 text-center mb-6">
+        <p className="text-xs text-gray-600 text-center mb-6">
           You must enable geolocation to log in and use the staff portal. 
           Your location will be used to verify your attendance and working hours.
         </p>
@@ -158,7 +158,7 @@ const GeolocationWarningModal = ({
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4">
           <div className="flex">
             <div className="ml-3">
-              <p className="text-sm text-red-700">
+              <p className="text-xs text-red-700">
                 <strong>Warning:</strong> If you don't enable geolocation, you will not be considered logged in.
               </p>
             </div>
@@ -168,7 +168,7 @@ const GeolocationWarningModal = ({
         <div className="flex justify-center">
           <button
             onClick={onConfirm}
-            className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-red-600 hover:bg-red-700"
+            className="px-4 py-2 border border-transparent rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-700"
             >
             I Understand, Enable Geolocation
           </button>
@@ -274,7 +274,7 @@ const HeaderStatus = ({
 
   return (
     <div className="flex items-center space-x-4">
-      <div className="flex items-center text-sm">
+      <div className="flex items-center text-xs">
         {geolocationStatus === 'granted' ? (
           <MapPin className="h-4 w-4 text-green-500 mr-1" />
         ) : (
@@ -285,7 +285,7 @@ const HeaderStatus = ({
         </span>
       </div>
       
-      <div className="flex items-center text-sm">
+      <div className="flex items-center text-xs">
         <Clock className="h-4 w-4 text-gray-500 mr-1" />
         {isLoggedIn ? (
           <span className="text-green-600">
@@ -305,7 +305,7 @@ const HeaderStatus = ({
           <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
             <User className="h-4 w-4 text-green-600" />
           </div>
-          <span className="text-sm font-medium text-gray-700">{userName}</span>
+          <span className="text-xs font-medium text-gray-700">{userName}</span>
         </button> */}
       </div>
     </div>
@@ -320,11 +320,11 @@ const ComingSoon = ({ title }: { title: string }) => (
         <PartyPopper className="h-8 w-8 text-gray-500" />
       </div>
       <h2 className="mt-2 text-xl font-medium text-gray-900">{title} Portal</h2>
-      <p className="mt-3 text-sm text-gray-500">
+      <p className="mt-3 text-xs text-gray-500">
         This section is currently under development and will be available soon.
       </p>
       <div className="mt-6">
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
           Coming soon...
         </span>
       </div>
@@ -349,8 +349,8 @@ const PortalCard = ({ icon, title, description, onClick }: {
         {icon}
       </div>
       <div>
-        <h3 className="text-sm font-medium text-gray-900">{title}</h3>
-        <p className="mt-1 text-sm text-gray-500">{description}</p>
+        <h3 className="text-xs font-medium text-gray-900">{title}</h3>
+        <p className="mt-1 text-xs text-gray-500">{description}</p>
       </div>
     </div>
   </motion.div>
@@ -563,7 +563,7 @@ const LeaveApplicationForm = () => {
         <h2 className="text-2xl font-semibold text-gray-800">Leave Application</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">Staff members accrue two leave days each calendar month.</p>
+          <p className="text-xs text-green-600">Staff members accrue two leave days each calendar month.</p>
         </div>
         
         {/* Show warning messages */}
@@ -572,7 +572,7 @@ const LeaveApplicationForm = () => {
             <div className="flex">
               <AlertCircle className="h-5 w-5 text-red-500" />
               <div className="ml-3">
-                <p className="text-sm text-red-700">
+                <p className="text-xs text-red-700">
                   Cannot apply for leave. {existingLeave.Name} already has an active leave application.
                 </p>
               </div>
@@ -585,7 +585,7 @@ const LeaveApplicationForm = () => {
             <div className="flex">
               <AlertCircle className="h-5 w-5 text-blue-500" />
               <div className="ml-3">
-                <p className="text-sm text-blue-700">
+                <p className="text-xs text-blue-700">
                   You have already applied for monthly leave this month. You can still apply for other leave types.
                 </p>
               </div>
@@ -598,32 +598,32 @@ const LeaveApplicationForm = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Employee Number</label>
+              <label className="block text-xs font-medium text-gray-700">Employee Number</label>
               <input
                 type="text"
                 name="Employee Number"
                 value={formData["Employee Number"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <label className="block text-xs font-medium text-gray-700">Full Name</label>
               <input
                 type="text"
                 name="Name"
                 value={formData["Name"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Office Branch</label>
+              <label className="block text-xs font-medium text-gray-700">Office Branch</label>
               <input
                 type="text"
                 name="Office Branch"
                 value={formData["Office Branch"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
@@ -631,12 +631,12 @@ const LeaveApplicationForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Leave Type</label>
+              <label className="block text-xs font-medium text-gray-700">Leave Type</label>
               <select
                 name="Leave Type"
                 value={formData["Leave Type"]}
                 onChange={handleChange}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
                 disabled={userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] !== "month"}
               >  
@@ -652,12 +652,12 @@ const LeaveApplicationForm = () => {
               )}
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Application Type</label>
+              <label className="block text-xs font-medium text-gray-700">Application Type</label>
               <select
                 name="Application Type"
                 value={formData["Application Type"]}
                 onChange={handleChange}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
               >
                 <option value="First Application">First Application</option>
@@ -669,43 +669,43 @@ const LeaveApplicationForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Start Date</label>
+              <label className="block text-xs font-medium text-gray-700">Start Date</label>
               <input
                 type="date"
                 name="Start Date"
                 value={formData["Start Date"]}
                 onChange={handleChange}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
                 min={new Date().toISOString().split('T')[0]}
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">End Date</label>
+              <label className="block text-xs font-medium text-gray-700">End Date</label>
               <input
                 type="date"
                 name="End Date"
                 value={formData["End Date"]}
                 onChange={handleChange}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
                 min={formData["Start Date"] || new Date().toISOString().split('T')[0]}
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Total Days</label>
+              <label className="block text-xs font-medium text-gray-700">Total Days</label>
               <input
                 type="number"
                 name="Days"
                 value={formData["Days"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Leave Duration Type</label>
+            <label className="block text-xs font-medium text-gray-700">Leave Duration Type</label>
             <div className="flex space-x-6 pt-2">
               <label className="inline-flex items-center">
                 <input
@@ -716,7 +716,7 @@ const LeaveApplicationForm = () => {
                   onChange={handleChange}
                   className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                 />
-                <span className="ml-2 text-sm text-gray-700">Full Day</span>
+                <span className="ml-2 text-xs text-gray-700">Full Day</span>
               </label>
               <label className="inline-flex items-center">
                 <input
@@ -727,19 +727,19 @@ const LeaveApplicationForm = () => {
                   onChange={handleChange}
                   className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300"
                 />
-                <span className="ml-2 text-sm text-gray-700">Half Day</span>
+                <span className="ml-2 text-xs text-gray-700">Half Day</span>
               </label>
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Reason</label>
+            <label className="block text-xs font-medium text-gray-700">Reason</label>
             <textarea
               name="Reason"
               rows={4}
               value={formData["Reason"]}
               onChange={handleChange}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Please provide details for your leave request"
               required
               minLength={10}
@@ -750,7 +750,7 @@ const LeaveApplicationForm = () => {
             <button
               type="submit"
               disabled={isSubmitting || existingLeave || (userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] === "month")}
-              className={`w-full bg-green-600 text-white py-3 px-4 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center ${
+              className={`w-full bg-green-600 text-white py-3 px-4 rounded-lg text-xs font-medium hover:bg-green-700 transition-colors flex items-center justify-center ${
                 isSubmitting || existingLeave || (userLeaveTypesThisMonth.includes(formData["Leave Type"]) && formData["Leave Type"] === "month") ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -851,7 +851,7 @@ const LeaveApplicationsList = () => {
             <Calendar className="h-5 w-5 text-gray-500" />
           </div>
           <h3 className="text-lg font-medium text-gray-900">No leave applications</h3>
-          <p className="mt-1 text-sm text-gray-500">You haven't submitted any leave applications yet.</p>
+          <p className="mt-1 text-xs text-gray-500">You haven't submitted any leave applications yet.</p>
         </div>
       </div>
     );
@@ -863,7 +863,7 @@ const LeaveApplicationsList = () => {
         <h2 className="text-2xl font-semibold text-gray-800">My Leave Applications</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">View the status of your leave requests</p>
+          <p className="text-xs text-green-600">View the status of your leave requests</p>
         </div>
       </div>
 
@@ -893,7 +893,7 @@ const LeaveApplicationsList = () => {
               {applications.map((app) => (
                 <tr key={app.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 capitalize">
+                    <div className="text-xs font-medium text-gray-900 capitalize">
                       {app["Leave Type"].replace(/-/g, ' ')}
                     </div>
                     <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
@@ -901,20 +901,20 @@ const LeaveApplicationsList = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-xs text-gray-900">
                       {new Date(app["Start Date"]).toLocaleDateString()}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-xs text-gray-500">
                       to {new Date(app["End Date"]).toLocaleDateString()}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {app["Days"]} day{app["Days"] !== 1 ? 's' : ''}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(app["Status"])}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {new Date(app.time_added).toLocaleDateString()}
                   </td>
                 </tr>
@@ -1167,12 +1167,12 @@ const SalaryAdvanceForm = () => {
             <h2 className="text-2xl font-semibold text-gray-800">Salary Advance History</h2>
             <div className="flex items-center mt-2">
               <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-              <p className="text-sm text-green-600">View your salary advance applications</p>
+              <p className="text-xs text-green-600">View your salary advance applications</p>
             </div>
           </div>
           <button
             onClick={() => setView('form')}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
+            className="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 flex items-center"
           >
             <Wallet className="h-4 w-4 mr-2" />
             New Application
@@ -1186,10 +1186,10 @@ const SalaryAdvanceForm = () => {
                 <Wallet className="h-5 w-5 text-gray-500" />
               </div>
               <h3 className="text-lg font-medium text-gray-900">No applications yet</h3>
-              <p className="mt-1 text-sm text-gray-500">You haven't submitted any salary advance applications.</p>
+              <p className="mt-1 text-xs text-gray-500">You haven't submitted any salary advance applications.</p>
               <button
                 onClick={() => setView('form')}
-                className="mt-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+                className="mt-4 px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700"
               >
                 Apply for Salary Advance
               </button>
@@ -1219,20 +1219,20 @@ const SalaryAdvanceForm = () => {
                   {applications.map((app) => (
                     <tr key={app.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-xs font-medium text-gray-900">
                           Ksh{app["Amount Requested"]}
                         </div>
                         <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
                           {app["Reason for Advance"]}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-900">
                         Ksh{app["Net Salary"]}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                         {new Date(app.time_added).toLocaleDateString()}
                       </td>
                     </tr>
@@ -1252,7 +1252,7 @@ const SalaryAdvanceForm = () => {
         <h2 className="text-2xl font-semibold text-gray-800">Salary Advance Application</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
+          <p className="text-xs text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
         </div>
         {!isAdvancePeriod() && (
           <div className="mt-3 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg">
@@ -1261,7 +1261,7 @@ const SalaryAdvanceForm = () => {
                 <AlertCircle className="h-5 w-5 text-gray-500" />
               </div>
               <div className="ml-3">
-                <p className="text-sm text-gray-700">
+                <p className="text-xs text-gray-700">
                   Note: Salary advance can only be applied between 13th-16th processing is latest 18th of the month
                 </p>
               </div>
@@ -1274,32 +1274,32 @@ const SalaryAdvanceForm = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Employee Number</label>
+              <label className="block text-xs font-medium text-gray-700">Employee Number</label>
               <input
                 type="text"
                 name="Employee Number"
                 value={formData["Employee Number"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <label className="block text-xs font-medium text-gray-700">Full Name</label>
               <input
                 type="text"
                 name="Full Name"
                 value={formData["Full Name"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Office Branch</label>
+              <label className="block text-xs font-medium text-gray-700">Office Branch</label>
               <input
                 type="text"
                 name="Office Branch"
                 value={formData["Office Branch"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
@@ -1307,27 +1307,27 @@ const SalaryAdvanceForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
+              <label className="block text-xs font-medium text-gray-700">Basic Salary</label>
               <input
                 type="text"
                 name="Basic Salary"
                 value={`Ksh${formData["Basic Salary"]}`}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Amount Requested</label>
+              <label className="block text-xs font-medium text-gray-700">Amount Requested</label>
               <div className="relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">Ksh</span>
+                  <span className="text-gray-500 sm:text-xs">Ksh</span>
                 </div>
                 <input
                   type="number"
                   name="Amount Requested"
                   value={formData["Amount Requested"]}
                   onChange={handleChange}
-                  className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-sm border border-gray-300 rounded-lg"
+                  className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg"
                   placeholder="0.00"
                   required
                   min="0"
@@ -1343,25 +1343,25 @@ const SalaryAdvanceForm = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Salary After Deduction</label>
+              <label className="block text-xs font-medium text-gray-700">Salary After Deduction</label>
               <input
                 type="text"
                 name="Net Salary"
                 value={`Ksh${formData["Net Salary"]}`}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Reason for Advance</label>
+            <label className="block text-xs font-medium text-gray-700">Reason for Advance</label>
             <textarea
               name="Reason for Advance"
               rows={4}
               value={formData["Reason for Advance"]}
               onChange={handleChange}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Please explain why you need this salary advance"
               required
               minLength={10}
@@ -1373,7 +1373,7 @@ const SalaryAdvanceForm = () => {
             <button
               type="button"
               onClick={() => setView('list')}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center"
             >
               <FileText className="h-4 w-4 mr-2" />
               View History
@@ -1381,7 +1381,7 @@ const SalaryAdvanceForm = () => {
             <button
               type="submit"
               disabled={isSubmitting || !isAdvancePeriod()}
-              className={`px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${
+              className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${
                 isSubmitting || !isAdvancePeriod() ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -1665,12 +1665,12 @@ const LoanRequestForm = () => {
             <h2 className="text-2xl font-semibold text-gray-800">Loan Applications</h2>
             <div className="flex items-center mt-2">
               <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-              <p className="text-sm text-green-600">View your loan application history</p>
+              <p className="text-xs text-green-600">View your loan application history</p>
             </div>
           </div>
           <button
             onClick={() => setView('form')}
-            className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center"
+            className="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 flex items-center"
           >
             <Banknote className="h-4 w-4 mr-2" />
             New Application
@@ -1684,10 +1684,10 @@ const LoanRequestForm = () => {
                 <Banknote className="h-5 w-5 text-gray-500" />
               </div>
               <h3 className="text-lg font-medium text-gray-900">No loan applications</h3>
-              <p className="mt-1 text-sm text-gray-500">You haven't submitted any loan applications yet.</p>
+              <p className="mt-1 text-xs text-gray-500">You haven't submitted any loan applications yet.</p>
               <button
                 onClick={() => setView('form')}
-                className="mt-4 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700"
+                className="mt-4 px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700"
               >
                 Apply for Loan
               </button>
@@ -1720,23 +1720,23 @@ const LoanRequestForm = () => {
                   {applications.map((app) => (
                     <tr key={app.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-xs font-medium text-gray-900">
                           Ksh{app["Loan Amount"]}
                         </div>
                         <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
                           {app["Reason for Loan"]}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-900">
                         Ksh{app["Monthly Deduction"]}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                         {app["Number of Months"] || 2} month{(app["Number of Months"] || 2) !== 1 ? 's' : ''}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(app.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                         {new Date(app.time_added).toLocaleDateString()}
                       </td>
                     </tr>
@@ -1760,7 +1760,7 @@ const LoanRequestForm = () => {
         <h2 className="text-2xl font-semibold text-gray-800">Loan Request</h2>
         <div className="flex items-center mt-2">
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-sm text-green-600">Submit your request for a staff loan with flexible payment terms</p>
+          <p className="text-xs text-green-600">Submit your request for a staff loan with flexible payment terms</p>
         </div>
       </div>
       
@@ -1768,32 +1768,32 @@ const LoanRequestForm = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Employee Number</label>
+              <label className="block text-xs font-medium text-gray-700">Employee Number</label>
               <input
                 type="text"
                 name="Employee Number"
                 value={formData["Employee Number"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Full Name</label>
+              <label className="block text-xs font-medium text-gray-700">Full Name</label>
               <input
                 type="text"
                 name="Full Name"
                 value={formData["Full Name"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Office Branch</label>
+              <label className="block text-xs font-medium text-gray-700">Office Branch</label>
               <input
                 type="text"
                 name="Office Branch"
                 value={formData["Office Branch"]}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
@@ -1801,27 +1801,27 @@ const LoanRequestForm = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Basic Salary</label>
+              <label className="block text-xs font-medium text-gray-700">Basic Salary</label>
               <input
                 type="text"
                 name="Basic Salary"
                 value={`Ksh${formData["Basic Salary"]}`}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Loan Amount</label>
+              <label className="block text-xs font-medium text-gray-700">Loan Amount</label>
               <div className="relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <span className="text-gray-500 sm:text-sm">Ksh</span>
+                  <span className="text-gray-500 sm:text-xs">Ksh</span>
                 </div>
                 <input
                   type="number"
                   name="Loan Amount"
                   value={formData["Loan Amount"]}
                   onChange={handleChange}
-                  className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-sm border border-gray-300 rounded-lg"
+                  className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg"
                   placeholder="0.00"
                   required
                   min="0"
@@ -1830,12 +1830,12 @@ const LoanRequestForm = () => {
               </div>
             </div>
             <div className="space-y-1">
-              <label className="block text-sm font-medium text-gray-700">Number of Monthly Deductions</label>
+              <label className="block text-xs font-medium text-gray-700">Number of Monthly Deductions</label>
               <select
                 name="Number of Months"
                 value={formData["Number of Months"]}
                 onChange={handleChange}
-                className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
               >
                 <option value={2}>2 Months</option>
@@ -1853,12 +1853,12 @@ const LoanRequestForm = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
-                <label className="block text-sm font-medium text-gray-700">Calculated Monthly Deduction</label>
+                <label className="block text-xs font-medium text-gray-700">Calculated Monthly Deduction</label>
                 <input
                   type="text"
                   name="Monthly Deduction"
                   value={`Ksh${formData["Monthly Deduction"]}`}
-                  className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg bg-gray-100"
+                  className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-100"
                   readOnly
                 />
                 <p className="text-xs text-gray-500">
@@ -1875,21 +1875,21 @@ const LoanRequestForm = () => {
                     onChange={handleChange}
                     className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                   />
-                  <span className="ml-2 text-sm font-medium text-gray-700">Use Custom Monthly Deduction</span>
+                  <span className="ml-2 text-xs font-medium text-gray-700">Use Custom Monthly Deduction</span>
                 </label>
                 
                 {formData["Use Custom Deduction"] && (
                   <div className="space-y-1">
                     <div className="relative rounded-lg shadow-sm">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-gray-500 sm:text-sm">Ksh</span>
+                        <span className="text-gray-500 sm:text-xs">Ksh</span>
                       </div>
                       <input
                         type="number"
                         name="Custom Monthly Deduction"
                         value={formData["Custom Monthly Deduction"]}
                         onChange={handleChange}
-                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-sm border border-gray-300 rounded-lg"
+                        className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg"
                         placeholder="0.00"
                         min="0"
                         step="0.01"
@@ -1904,7 +1904,7 @@ const LoanRequestForm = () => {
             </div>
 
             <div className="bg-white p-3 rounded border">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Final Monthly Deduction</h4>
+              <h4 className="text-xs font-medium text-gray-700 mb-2">Final Monthly Deduction</h4>
               <div className="text-2xl font-bold text-green-600">
                 Ksh{finalMonthlyDeduction || '0.00'}
               </div>
@@ -1919,7 +1919,7 @@ const LoanRequestForm = () => {
                 {formData["Repayment Schedule"].map((date, index) => (
                   <div key={index} className="bg-white p-3 rounded-lg shadow-sm text-center">
                     <div className="text-xs text-gray-500">Payment {index + 1}</div>
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-xs font-medium text-gray-900">
                       {new Date(date).toLocaleDateString()}
                     </div>
                     <div className="text-xs text-green-600">
@@ -1932,13 +1932,13 @@ const LoanRequestForm = () => {
           )}
 
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Reason for Loan</label>
+            <label className="block text-xs font-medium text-gray-700">Reason for Loan</label>
             <textarea
               name="Reason for Loan"
               rows={4}
               value={formData["Reason for Loan"]}
               onChange={handleChange}
-              className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
               placeholder="Please explain why you need this loan"
               required
               minLength={10}
@@ -1949,7 +1949,7 @@ const LoanRequestForm = () => {
             <button
               type="button"
               onClick={() => setView('list')}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center"
+              className="px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center"
             >
               <FileText className="h-4 w-4 mr-2" />
               View History
@@ -1957,7 +1957,7 @@ const LoanRequestForm = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${
+              className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${
                 isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
@@ -2157,7 +2157,7 @@ const LoanRequestForm = () => {
 //         <h2 className="text-2xl font-semibold text-gray-800">Document Management</h2>
 //         <div className="flex items-center mt-2">
 //           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-//           <p className="text-sm text-green-600">Upload and manage your important documents</p>
+//           <p className="text-xs text-green-600">Upload and manage your important documents</p>
 //         </div>
 //       </div>
 
@@ -2178,7 +2178,7 @@ const LoanRequestForm = () => {
 //         <div className="flex">
 //           <AlertCircle className="h-5 w-5 text-blue-500" />
 //           <div className="ml-3">
-//             <p className="text-sm text-blue-700">
+//             <p className="text-xs text-blue-700">
 //               <strong>Document Upload Policy:</strong> Each document type can only be uploaded once. 
 //               If you need to update a document, please delete the existing one first.
 //             </p>
@@ -2190,7 +2190,7 @@ const LoanRequestForm = () => {
 //       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 //         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
 //           <h3 className="text-lg font-medium text-gray-800">Uploaded Documents</h3>
-//           <p className="text-sm text-gray-600">
+//           <p className="text-xs text-gray-600">
 //             {uploadedDocuments.length} document{uploadedDocuments.length !== 1 ? 's' : ''} uploaded
 //           </p>
 //         </div>
@@ -2201,7 +2201,7 @@ const LoanRequestForm = () => {
 //               <FileText className="h-5 w-5 text-gray-500" />
 //             </div>
 //             <h3 className="text-lg font-medium text-gray-900">No documents uploaded</h3>
-//             <p className="mt-1 text-sm text-gray-500">Upload your first document to get started.</p>
+//             <p className="mt-1 text-xs text-gray-500">Upload your first document to get started.</p>
 //           </div>
 //         ) : (
 //           <div className="divide-y divide-gray-200">
@@ -2213,8 +2213,8 @@ const LoanRequestForm = () => {
 //                       <FileText className="h-8 w-8 text-gray-400" />
 //                     </div>
 //                     <div>
-//                       <h4 className="text-sm font-medium text-gray-900">{doc.document_type}</h4>
-//                       <p className="text-sm text-gray-500">{doc.file_name}</p>
+//                       <h4 className="text-xs font-medium text-gray-900">{doc.document_type}</h4>
+//                       <p className="text-xs text-gray-500">{doc.file_name}</p>
 //                       <div className="flex items-center space-x-4 mt-1">
 //                         <span className="text-xs text-gray-500">
 //                           {formatFileSize(doc.file_size)}
@@ -2285,11 +2285,11 @@ const DocumentUploadForm = ({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Document Type</label>
+          <label className="block text-xs font-medium text-gray-700">Document Type</label>
           <select
             value={documentType}
             onChange={(e) => setDocumentType(e.target.value)}
-            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
             required
             disabled={availableTypes.length === 0}
           >
@@ -2304,12 +2304,12 @@ const DocumentUploadForm = ({
         </div>
         
         <div className="space-y-1">
-          <label className="block text-sm font-medium text-gray-700">Choose File</label>
+          <label className="block text-xs font-medium text-gray-700">Choose File</label>
           <input
             ref={fileInputRef}
             type="file"
             onChange={handleFileSelect}
-            className="w-full px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+            className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
             required
           />
@@ -2318,7 +2318,7 @@ const DocumentUploadForm = ({
 
       {selectedFile && (
         <div className="bg-gray-50 p-3 rounded-lg">
-          <p className="text-sm text-gray-700">
+          <p className="text-xs text-gray-700">
             Selected: <strong>{selectedFile.name}</strong> ({Math.round(selectedFile.size / 1024)} KB)
           </p>
         </div>
@@ -2327,7 +2327,7 @@ const DocumentUploadForm = ({
       <button
         type="submit"
         disabled={uploading || !selectedFile || !documentType || availableTypes.length === 0}
-        className={`w-full px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 flex items-center justify-center ${
+        className={`w-full px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center justify-center ${
           uploading || !selectedFile || !documentType || availableTypes.length === 0 ? 'opacity-70 cursor-not-allowed' : ''
         }`}
       >
@@ -2354,7 +2354,7 @@ const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }
   <div className="p-6">
     <div className="mb-8">
       <h2 className="text-2xl font-light text-gray-800 mb-1"></h2>
-      <p className="text-sm text-gray-500"></p>
+      <p className="text-xs text-gray-500"></p>
     </div>
     
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -2778,7 +2778,7 @@ const StaffPortal = () => {
         </div>
         
         <div className="h-full  ">
-          <div className="p-4 space-y-3.5 text-sm">
+          <div className="p-4 space-y-3.5 text-xs">
             <SidebarNavItem 
               icon={<Home className="h-4 w-4" />}
               label="Dashboard"
@@ -3041,7 +3041,7 @@ const StaffPortal = () => {
                 <div className="flex flex-col items-center justify-center h-full text-gray-500">
                   <Bell className="w-12 h-12 mb-4 opacity-50" />
                   <p className="text-lg font-medium">No notifications</p>
-                  <p className="text-sm">You're all caught up!</p>
+                  <p className="text-xs">You're all caught up!</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
@@ -3071,10 +3071,10 @@ const StaffPortal = () => {
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                          <h3 className="text-xs font-medium text-gray-900 truncate">
                             {notification.title}
                           </h3>
-                          <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                          <p className="text-xs text-gray-600 mt-1 line-clamp-2">
                             {notification.message}
                           </p>
                           <p className="text-xs text-gray-500 mt-2">
@@ -3113,7 +3113,7 @@ const StaffPortal = () => {
                     <AlertCircle className="h-5 w-5 text-red-500" />
                   </div>
                   <div className="ml-3">
-                    <p className="text-sm text-red-700">
+                    <p className="text-xs text-red-700">
                       <strong>You are not logged in.</strong> Please enable geolocation to record your attendance.
                     </p>
                   </div>
@@ -3138,7 +3138,11 @@ const StaffPortal = () => {
               {activeTab === 'contract' && <ComingSoon title="Contracts" />}
               {activeTab === 'details' && <Profile/>}
               {activeTab === 'documents' && <DocumentsUploadPage />}
-              {activeTab === 'chat' && <ChatComponent />}
+             {activeTab === 'chat' && (
+  <div className="relative h-screen">
+    <ChatComponent chatUrl="https://zira.zulipchat.com/"/>
+  </div>
+)}
               {activeTab === 'VideoConf' && <VideoConferenceComponent />}
             </motion.div>
           </div>

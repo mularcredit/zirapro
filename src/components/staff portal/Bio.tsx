@@ -586,7 +586,7 @@ const EmployeeBioPage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="text-center">
           <div className="animate-pulse flex flex-col items-center">
@@ -604,7 +604,7 @@ const EmployeeBioPage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-red-100">
           <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -615,7 +615,7 @@ const EmployeeBioPage = () => {
           <GlowButton
             onClick={() => navigate('/employees')}
             icon={ArrowLeft}
-            className="w-full max-w-xs mx-auto text-sm"
+            className="w-full max-w-xs mx-auto text-xs"
           >
             Back to Employee List
           </GlowButton>
@@ -629,7 +629,7 @@ const EmployeeBioPage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-yellow-100">
           <div className="bg-yellow-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -640,7 +640,7 @@ const EmployeeBioPage = () => {
           <GlowButton
             onClick={() => navigate('/employees')}
             icon={ArrowLeft}
-            className="w-full max-w-xs mx-auto text-sm"
+            className="w-full max-w-xs mx-auto text-xs"
           >
             Back to Employee List
           </GlowButton>
@@ -654,12 +654,12 @@ const EmployeeBioPage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="p-4 md:p-6 max-w-6xl mx-auto text-sm"
+      className="p-4 md:p-6 max-w-6xl mx-auto text-xs"
     >
       {/* <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate(`/staff`)}
-          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group text-sm"
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group text-xs"
         >
           <div className="p-1 rounded-full group-hover:bg-gray-100 transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -772,42 +772,42 @@ const EmployeeBioPage = () => {
           <nav className="flex overflow-x-auto">
             <button
               onClick={() => setActiveTab('personal')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'personal' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'personal' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <User className="w-4 h-4 mr-2" />
               Personal
             </button>
             <button
               onClick={() => setActiveTab('employment')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'employment' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'employment' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Briefcase className="w-4 h-4 mr-2" />
               Employment
             </button>
             <button
               onClick={() => setActiveTab('contact')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'contact' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'contact' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Phone className="w-4 h-4 mr-2" />
               Contact
             </button>
             <button
               onClick={() => setActiveTab('financial')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'financial' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'financial' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <CreditCard className="w-4 h-4 mr-2" />
               Financial
             </button>
             <button
               onClick={() => setActiveTab('emergency')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'emergency' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'emergency' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <AlertCircle className="w-4 h-4 mr-2" />
               Emergency
             </button>
             <button
               onClick={() => setActiveTab('dependents')}
-              className={`px-6 py-3 font-medium text-sm flex items-center ${activeTab === 'dependents' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-6 py-3 font-medium text-xs flex items-center ${activeTab === 'dependents' ? 'text-emerald-600 border-b-2 border-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Users className="w-4 h-4 mr-2" />
               Dependents
@@ -874,7 +874,7 @@ const EmployeeBioPage = () => {
                           className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                         >
                           <Upload className="w-4 h-4 mr-2 text-gray-500" />
-                          <span className="text-sm">{previewImage ? 'Change' : 'Upload'}</span>
+                          <span className="text-xs">{previewImage ? 'Change' : 'Upload'}</span>
                         </button>
                         {previewImage && (
                           <button 
@@ -882,7 +882,7 @@ const EmployeeBioPage = () => {
                               setPreviewImage(null);
                               setProfileImage(null);
                             }}
-                            className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-sm text-gray-700"
+                            className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm text-xs text-gray-700"
                           >
                             <X className="w-4 h-4 mr-2" />
                             Remove

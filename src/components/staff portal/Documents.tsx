@@ -657,7 +657,7 @@ const DocumentsManager = () => {
                       {isUploaded && (
                         <div className="flex items-center gap-1 text-green-600">
                           <Check size={16} />
-                          <span className="text-sm">Uploaded</span>
+                          <span className="text-xs">Uploaded</span>
                         </div>
                       )}
                       {status?.status === 'success' && (
@@ -679,7 +679,7 @@ const DocumentsManager = () => {
                     <div className="text-center py-6 bg-green-100 rounded-lg">
                       <CheckCircle size={32} className="mx-auto mb-2 text-green-500" />
                       <p className="text-green-700 font-medium">Document already uploaded</p>
-                      <p className="text-sm text-green-600 mt-1">
+                      <p className="text-xs text-green-600 mt-1">
                         {uploadedDocuments[doc.id]}
                       </p>
                     </div>
@@ -710,7 +710,7 @@ const DocumentsManager = () => {
                             <div className="text-blue-500 mb-2">
                               {getFileIcon(files[doc.id])}
                             </div>
-                            <p className="text-sm font-medium text-gray-700 truncate max-w-full">
+                            <p className="text-xs font-medium text-gray-700 truncate max-w-full">
                               {files[doc.id]!.name}
                             </p>
                             <p className="text-xs text-gray-500 mt-1">
@@ -725,7 +725,7 @@ const DocumentsManager = () => {
                                     e.stopPropagation();
                                     cancelUpload(doc.id);
                                   }}
-                                  className="text-orange-500 hover:text-orange-700 text-sm flex items-center"
+                                  className="text-orange-500 hover:text-orange-700 text-xs flex items-center"
                                 >
                                   <Square size={14} className="mr-1" /> Cancel
                                 </button>
@@ -737,7 +737,7 @@ const DocumentsManager = () => {
                                   removeFile(doc.id);
                                 }}
                                 disabled={isUploading || !!isUploaded}
-                                className="text-red-500 hover:text-red-700 text-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="text-red-500 hover:text-red-700 text-xs flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 <X size={14} className="mr-1" /> Remove
                               </button>
@@ -746,7 +746,7 @@ const DocumentsManager = () => {
                         ) : (
                           <div className={`py-4 ${isUploaded ? 'opacity-50 cursor-not-allowed' : ''}`}>
                             <Upload size={24} className="mx-auto mb-2 text-gray-400" />
-                            <p className="text-sm text-gray-600">
+                            <p className="text-xs text-gray-600">
                               {isUploaded ? 'Document already uploaded' : 'Drag & drop or click to upload'}
                             </p>
                             {!isUploaded && (
@@ -761,7 +761,7 @@ const DocumentsManager = () => {
                       {/* Progress bar for uploading files */}
                       {isUploading && (
                         <div className="mt-3">
-                          <div className="flex justify-between text-sm text-gray-600 mb-1">
+                          <div className="flex justify-between text-xs text-gray-600 mb-1">
                             <span>{status?.message}</span>
                             <span>{progress}%</span>
                           </div>
@@ -777,7 +777,7 @@ const DocumentsManager = () => {
                   )}
 
                   {status?.message && !isUploading && (
-                    <p className={`text-sm mt-2 ${
+                    <p className={`text-xs mt-2 ${
                       status?.status === 'error' ? 'text-red-500' : 
                       status?.status === 'success' ? 'text-green-500' : 
                       status?.status === 'cancelled' ? 'text-orange-500' :
@@ -885,7 +885,7 @@ const DocumentsManager = () => {
                           <h3 className="font-medium text-gray-800 truncate">
                             {doc.label}
                           </h3>
-                          <p className="text-sm text-gray-500 truncate">
+                          <p className="text-xs text-gray-500 truncate">
                             {doc.name}
                           </p>
                         </div>
@@ -898,11 +898,11 @@ const DocumentsManager = () => {
                     </div>
 
                     <div className="space-y-2 mb-4">
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
                         <Calendar size={14} />
                         <span>{doc.uploadDate}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
                         <File size={14} />
                         <span>{doc.formattedSize}</span>
                       </div>
@@ -911,14 +911,14 @@ const DocumentsManager = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleView(doc)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
                       >
                         <Eye size={14} />
                         View
                       </button>
                       <button
                         onClick={() => handleDownload(doc)}
-                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
+                        className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs bg-green-50 text-green-600 rounded-lg hover:bg-green-100"
                       >
                         <Download size={14} />
                         Download
@@ -926,7 +926,7 @@ const DocumentsManager = () => {
                       <button
                         onClick={() => handleDelete(doc)}
                         disabled={deleting[doc.name]}
-                        className="flex items-center justify-center px-3 py-2 text-sm bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
+                        className="flex items-center justify-center px-3 py-2 text-xs bg-red-50 text-red-600 rounded-lg hover:bg-red-100 disabled:opacity-50"
                       >
                         {deleting[doc.name] ? (
                           <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
@@ -958,7 +958,7 @@ const DocumentsManager = () => {
             <div className="flex items-center justify-between p-4 border-b">
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedDoc.label}</h3>
-                <p className="text-sm text-gray-600">{selectedDoc.name}</p>
+                <p className="text-xs text-gray-600">{selectedDoc.name}</p>
               </div>
               <button
                 onClick={closeModal}

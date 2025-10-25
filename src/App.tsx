@@ -41,6 +41,10 @@ import React from 'react';
 import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
 import MFAVerification from './pages/MFAverification';
 import LoanTargetsCalculator from './components/Perfomance/LoanTargetsCalculator';
+import { MicrofinanceTodoList } from './components/Task Manager/TaskManager';
+import { SMSCenter } from './components/SMS/Sms';
+import { ChatArea } from './components/chat/ChatArea';
+import { ChatLayout } from './components/chat/ChatLayout';
 
 interface User {
   email: string;
@@ -662,7 +666,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
            <Route path="/mfa" element={<MFAVerification/>} />
           <Route path="/update-password" element={<UpdatePasswordPage/>} />
-          
+           <Route path="/teams" element={<ChatLayout/>} />
           <Route 
             path="/staff" 
             element={session ? <StaffPortalLanding /> : <Login onLoginSuccess={handleLoginSuccess} />} 
@@ -728,6 +732,9 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
             
                               
                                <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                               <Route path="/teams" element={<ChatLayout/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 

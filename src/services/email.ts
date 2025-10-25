@@ -23,6 +23,7 @@ export const sendScheduleEmail = async (to: string, data: {
         <p><strong>Type:</strong> ${data.type}</p>
         <p><strong>Details:</strong> ${data.details}</p>
         <p>Best regards,<br/>Your Company</p>
+        <p>Follow this link to do the interview https://recruit-11b6.onrender.com  </p>
       `
     });
     return true;

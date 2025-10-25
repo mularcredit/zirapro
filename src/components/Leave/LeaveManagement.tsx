@@ -273,63 +273,63 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm text-gray-500">Employee Name</p>
+              <p className="text-xs text-gray-500">Employee Name</p>
               <p className="font-medium">{application.Name}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Employee Number</p>
+              <p className="text-xs text-gray-500">Employee Number</p>
               <p className="font-medium">{application["Employee Number"]}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Office Branch</p>
+              <p className="text-xs text-gray-500">Office Branch</p>
               <p className="font-medium">{application["Office Branch"] || 'N/A'}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Leave Type</p>
+              <p className="text-xs text-gray-500">Leave Type</p>
               <p className="font-medium">{application["Leave Type"]}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Start Date</p>
+              <p className="text-xs text-gray-500">Start Date</p>
               <p className="font-medium">{formatDate(application["Start Date"])}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">End Date</p>
+              <p className="text-xs text-gray-500">End Date</p>
               <p className="font-medium">{formatDate(application["End Date"])}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Days</p>
+              <p className="text-xs text-gray-500">Days</p>
               <p className="font-medium">{application.Days}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Type</p>
+              <p className="text-xs text-gray-500">Type</p>
               <p className="font-medium">{application.Type}</p>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Status</p>
+              <p className="text-xs text-gray-500">Status</p>
               <div className="font-medium">
                 <StatusBadge status={application.Status} />
               </div>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Recommendation Status</p>
+              <p className="text-xs text-gray-500">Recommendation Status</p>
               <div className="font-medium">
                 <RecStatusBadge recstatus={application.recstatus} />
               </div>
             </div>
             <div>
-              <p className="text-sm text-gray-500">Applied On</p>
+              <p className="text-xs text-gray-500">Applied On</p>
               <p className="font-medium">{formatDate(application.time_added)}</p>
             </div>
           </div>
           
           <div>
-            <p className="text-sm text-gray-500">Reason</p>
+            <p className="text-xs text-gray-500">Reason</p>
             <p className="font-medium whitespace-pre-line">{application.Reason}</p>
           </div>
 
           {application.recommendation_notes && (
             <div>
-              <p className="text-sm text-gray-500">Recommendation Notes</p>
+              <p className="text-xs text-gray-500">Recommendation Notes</p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="font-medium whitespace-pre-line text-blue-800">{application.recommendation_notes}</p>
               </div>
@@ -340,7 +340,7 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
         <div className="flex justify-end gap-2 pt-6">
           <button 
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs"
           >
             Close
           </button>
@@ -464,13 +464,13 @@ const StatusUpdateModal = ({
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               {getNotesLabel()}
             </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-500"
               rows={4}
               placeholder={getNotesPlaceholder()}
             />
@@ -480,14 +480,14 @@ const StatusUpdateModal = ({
         <div className="flex justify-end gap-2 pt-6">
           <button 
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs"
             disabled={isUpdating}
           >
             Cancel
           </button>
           <button 
             onClick={handleSubmit}
-            className={`px-4 py-2 ${getButtonColor()} text-white rounded-lg text-sm flex items-center gap-2`}
+            className={`px-4 py-2 ${getButtonColor()} text-white rounded-lg text-xs flex items-center gap-2`}
             disabled={isUpdating}
           >
             {isUpdating ? (
@@ -525,11 +525,11 @@ const Pagination = ({
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-gray-200">
       <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-600">Items per page:</span>
+        <span className="text-xs text-gray-600">Items per page:</span>
         <select
           value={itemsPerPage}
           onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
-          className="bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-1"
+          className="bg-gray-50 border border-gray-300 text-gray-700 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 p-1"
         >
           <option value={5}>5</option>
           <option value={10}>10</option>
@@ -542,7 +542,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage === 1}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 border border-gray-300 rounded-md text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Previous
         </button>
@@ -555,7 +555,7 @@ const Pagination = ({
             <button
               key={number}
               onClick={() => onPageChange(number)}
-              className={`px-3 py-1 border rounded-md text-sm font-medium ${currentPage === number ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
+              className={`px-3 py-1 border rounded-md text-xs font-medium ${currentPage === number ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300'}`}
             >
               {number}
             </button>
@@ -565,7 +565,7 @@ const Pagination = ({
         <button
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage === totalPages}
-          className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-3 py-1 border border-gray-300 rounded-md text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Next
         </button>
@@ -1208,9 +1208,9 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">Leave Management System</h1>
-            <p className="text-gray-600 text-sm">Manage employee leave applications, balances, and settings</p>
+            <p className="text-gray-600 text-xs">Manage employee leave applications, balances, and settings</p>
             <div className="flex items-center mt-2">
-              <span className="text-sm text-gray-600 mr-2">Viewing:</span>
+              <span className="text-xs text-gray-600 mr-2">Viewing:</span>
               <span className="font-medium text-indigo-600 flex items-center">
                 <MapPin className="w-4 h-4 mr-1" />
                 {getDisplayName(currentTown, isArea)}
@@ -1220,7 +1220,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
             <button 
               onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium border border-gray-300"
+              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300"
             >
               <RefreshCw className="w-4 h-4" />
               Refresh
@@ -1314,31 +1314,31 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
           <nav className="flex -mb-px">
             <button
               onClick={() => setActiveTab('applications')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'applications' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-xs ${activeTab === 'applications' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Leave Applications
             </button>
             <button
               onClick={() => setActiveTab('balances')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'balances' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-xs ${activeTab === 'balances' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Leave Balances
             </button>
             <button
               onClick={() => setActiveTab('types')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'types' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-xs ${activeTab === 'types' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Leave Types
             </button>
             <button
               onClick={() => setActiveTab('holidays')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'holidays' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-xs ${activeTab === 'holidays' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Holidays
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${activeTab === 'settings' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+              className={`py-4 px-6 text-center border-b-2 font-medium text-xs ${activeTab === 'settings' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
             >
               Settings
             </button>
@@ -1353,7 +1353,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Leave Applications</h2>
-                <p className="text-gray-600 text-sm">{leaveApplications.length} applications found</p>
+                <p className="text-gray-600 text-xs">{leaveApplications.length} applications found</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-300">
@@ -1501,7 +1501,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               <AlertCircle className="w-5 h-5" />
               <div>
                 <p className="font-medium">Error</p>
-                <p className="text-sm">{error}</p>
+                <p className="text-xs">{error}</p>
               </div>
               <button 
                 onClick={() => setError(null)}

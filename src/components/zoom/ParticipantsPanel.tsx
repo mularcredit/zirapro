@@ -40,13 +40,13 @@ export const ParticipantsPanel: React.FC<ParticipantsPanelProps> = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <div className="bg-blue-600 rounded-full w-8 h-8 flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">
+                  <span className="text-white text-xs font-bold">
                     {participant.displayName.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div>
                   <div className="flex items-center space-x-2">
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-white text-xs font-medium">
                       {participant.displayName}
                     </span>
                     {participant.isHost && (

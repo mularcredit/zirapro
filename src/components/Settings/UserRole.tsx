@@ -305,7 +305,7 @@ const RoleToggle = ({
           {roleInfo.icon}
         </div>
         <div>
-          <h4 className="font-medium text-gray-900 text-sm">{roleInfo.label}</h4>
+          <h4 className="font-medium text-gray-900 text-xs">{roleInfo.label}</h4>
           <p className="text-xs text-gray-500">{roleInfo.description}</p>
         </div>
       </div>
@@ -544,7 +544,7 @@ export default function UserRolesSettings() {
         <div className="bg-white rounded-xl border border-gray-200 p-8 max-w-md text-center">
           <Shield className="w-10 h-10 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Admin Access Required</h2>
-          <p className="text-gray-600 mb-4 text-sm">
+          <p className="text-gray-600 mb-4 text-xs">
             This feature requires admin privileges. Please check your environment configuration.
           </p>
           <p className="text-xs text-gray-500">
@@ -698,7 +698,7 @@ export default function UserRolesSettings() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">User Roles & Permissions</h1>
-            <p className="text-gray-600 text-sm">Manage user access and permissions across your organization</p>
+            <p className="text-gray-600 text-xs">Manage user access and permissions across your organization</p>
           </div>
           
           <button
@@ -718,7 +718,7 @@ export default function UserRolesSettings() {
                 <X className="h-5 w-5 text-red-500" />
               </div>
               <div className="ml-3">
-                <p className="text-sm text-red-700">{error}</p>
+                <p className="text-xs text-red-700">{error}</p>
               </div>
             </div>
           </div>
@@ -855,7 +855,7 @@ export default function UserRolesSettings() {
                 ))
               ) : (
                 <div className="col-span-full bg-white rounded-xl border border-gray-200 p-8 text-center">
-                  <p className="text-gray-500 text-sm">No users found matching your criteria</p>
+                  <p className="text-gray-500 text-xs">No users found matching your criteria</p>
                 </div>
               )}
             </div>

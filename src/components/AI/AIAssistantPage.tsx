@@ -258,14 +258,20 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
         >
           <div>
             <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl text-blue-600 border border-blue-200">
-                <Bot className="w-8 h-8" />
+              <div className="p-3  rounded-xl text-blue-600 border border-blue-200">
+                <img
+  src="/avatars.png"
+  alt="Avatar"
+  className="w-10 h-10 object-cover rounded-full"
+/>
+
+
               </div>
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+              <span className="text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                 HR AI Assistant
               </span>
             </h1>
-            <p className="text-gray-600 mt-2 max-w-lg">
+            <p className="text-gray-600 mt-2 max-w-lg text-xs">
               AI-powered workforce analytics and insights for{" "}
               <span className="font-medium text-blue-600 flex items-center mt-1">
                 <MapPin className="w-4 h-4 mr-1" />
@@ -279,7 +285,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
             className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-full px-4 py-2"
           >
             <Sparkles className="w-5 h-5 text-blue-500" />
-            <span className="text-sm font-medium text-blue-700">AI Assistant</span>
+            <span className="text-xs font-medium text-blue-700">AI Assistant</span>
           </motion.div>
         </motion.header>
 
@@ -301,11 +307,11 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
               <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                 <Users className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-gray-700">Total Employees</h3>
+              <h6 className="font-medium text-gray-700">Total Employees</h6>
             </div>
             <p className="text-4xl font-bold text-gray-900">
               {filteredEmployees.length}
-              <span className="text-sm font-normal ml-2 text-gray-500">
+              <span className="text-xs font-normal ml-2 text-gray-500">
                 {getTownContext()}
               </span>
             </p>
@@ -319,11 +325,11 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
               <div className="p-2 bg-green-100 rounded-lg text-green-600">
                 <Activity className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-gray-700">Active Employees</h3>
+              <h6 className="font-medium text-gray-700">Active Employees</h6>
             </div>
             <p className="text-4xl font-bold text-gray-900">
               {activeEmployees}
-              <span className="text-sm font-normal ml-2 text-gray-500">active</span>
+              <span className="text-xs font-normal ml-2 text-gray-500">active</span>
             </p>
           </motion.div>
 
@@ -335,11 +341,11 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
               <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
                 <BarChart2 className="w-6 h-6" />
               </div>
-              <h3 className="font-medium text-gray-700">Avg. Tenure</h3>
+              <h6 className="font-medium text-gray-700">Avg. Tenure</h6>
             </div>
             <p className="text-4xl font-bold text-gray-900">
               {avgTenure ? avgTenure.toFixed(1) : '--'}
-              <span className="text-sm font-normal ml-2 text-gray-500">years</span>
+              <span className="text-xs font-normal ml-2 text-gray-500">years</span>
             </p>
           </motion.div>
         </motion.div>
@@ -376,14 +382,19 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
                           </div>
                         ) : (
                           <div className="p-1.5 bg-blue-500/20 rounded-full">
-                            <Cpu className="w-4 h-4 text-blue-600" />
+                           <img
+  src="/avatars.png"
+  alt="Avatar"
+  className="w-10 h-10 object-cover rounded-full"
+/>
+
                           </div>
                         )}
-                        <span className="text-sm font-medium">
+                        <span className="text-xs font-medium">
                           {msg.role === 'user' ? 'You' : 'HR Assistant'}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap text-sm/relaxed">{msg.content}</p>
+                      <p className="whitespace-pre-wrap text-xs/relaxed">{msg.content}</p>
                     </div>
                   </motion.div>
                 ))}
@@ -399,7 +410,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
                       <div className="p-1.5 bg-blue-500/20 rounded-full">
                         <Cpu className="w-4 h-4 text-blue-600" />
                       </div>
-                      <span className="text-sm font-medium">HR Assistant</span>
+                      <span className="text-xs font-medium">HR Assistant</span>
                     </div>
                     <div className="mt-3 flex space-x-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
@@ -418,7 +429,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
               <motion.div 
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mb-4 bg-red-100 text-red-700 p-3 rounded-lg text-sm border border-red-200"
+                className="mb-4 bg-red-100 text-red-700 p-3 rounded-lg text-xs border border-red-200"
               >
                 {error}
               </motion.div>
@@ -428,7 +439,7 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                className="flex-1 bg-white border border-gray-300 rounded-xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 text-sm"
+                className="flex-1 bg-white border border-gray-300 rounded-xl px-5 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-800 placeholder-gray-400 text-xs"
                 placeholder="Ask about your HR data (e.g. 'Show turnover trends')"
                 disabled={loading}
               />

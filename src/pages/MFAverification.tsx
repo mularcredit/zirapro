@@ -313,17 +313,17 @@ export default function MFAVerification() {
           <h2 className="mt-4 text-center text-3xl font-bold text-gray-900">
             Verify Your Identity
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+          <p className="mt-2 text-center text-xs text-gray-600">
             Enter the 6-digit verification code sent to
           </p>
-          <p className="text-center text-sm font-medium text-green-600">
+          <p className="text-center text-xs font-medium text-green-600">
             {email}
           </p>
           
           {isLocked && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-center">
-              <p className="text-sm font-medium">Account temporarily locked</p>
-              <p className="text-sm">Please try again in {formatTimeRemaining()}</p>
+              <p className="text-xs font-medium">Account temporarily locked</p>
+              <p className="text-xs">Please try again in {formatTimeRemaining()}</p>
             </div>
           )}
           
@@ -355,7 +355,7 @@ export default function MFAVerification() {
               <button
                 type="submit"
                 disabled={loading || isLocked || codes.some(code => code === '')}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-gradient-to-r from-green-600 to-cyan-600 hover:from-green-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-xs font-medium text-white bg-gradient-to-r from-green-600 to-cyan-600 hover:from-green-700 hover:to-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 {loading ? (
                   <span className="flex items-center">
@@ -375,7 +375,7 @@ export default function MFAVerification() {
               <button
                 type="button"
                 onClick={handleBackToLogin}
-                className="text-sm text-green-600 hover:text-green-500 font-medium flex items-center transition-colors duration-200"
+                className="text-xs text-green-600 hover:text-green-500 font-medium flex items-center transition-colors duration-200"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -387,7 +387,7 @@ export default function MFAVerification() {
                 type="button"
                 onClick={handleResendCode}
                 disabled={resendLoading || isLocked || countdown > 0}
-                className="text-sm text-green-600 hover:text-green-500 font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+                className="text-xs text-green-600 hover:text-green-500 font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
               >
                 {resendLoading ? 'Sending...' : countdown > 0 ? `Resend in ${countdown}s` : 'Resend Code'}
               </button>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Download, Printer, Share2, X, ArrowLeft, ArrowRight, Shield, Award, Building2 } from 'lucide-react';
-import { GlowButton } from '../UI/GlowButton';
+import  GlowButton  from '../UI/GlowButton';
 
 interface PayslipModalProps {
   record: any;
@@ -557,7 +557,7 @@ const PayslipModal: React.FC<PayslipModalProps> = ({ record, onClose, onPrevious
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Employee Payslip</h2>
-              <p className="text-blue-200 text-sm">{record.employee_name} • {record.pay_period}</p>
+              <p className="text-blue-200 text-xs">{record.employee_name} • {record.pay_period}</p>
             </div>
           </div>
           <div className="flex gap-2">

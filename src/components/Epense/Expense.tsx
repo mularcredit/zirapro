@@ -993,7 +993,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Expense Management</h1>
-              <p className="text-sm text-gray-600 mt-1 flex items-center">
+              <p className="text-xs text-gray-600 mt-1 flex items-center">
                 Track expenses across branches, departments, rent, and petty cash
                 <span className="flex items-center ml-4 text-indigo-600 font-medium">
                   <MapPin className="w-4 h-4 mr-1" />
@@ -1012,7 +1012,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setShowAddForm(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors text-sm font-medium"
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg transition-colors text-xs font-medium"
               >
                 <Plus className="w-4 h-4" />
                 <span>New Expense</span>
@@ -1028,7 +1028,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total</p>
+                <p className="text-xs font-medium text-gray-600">Total</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.total)}</p>
                 <p className="text-xs text-gray-500 mt-1">{summaryStats.count} expenses</p>
               </div>
@@ -1039,7 +1039,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Rent & Utilities</p>
+                <p className="text-xs font-medium text-gray-600">Rent & Utilities</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.rent)}</p>
               </div>
               <div className="w-2 h-2 bg-cyan-500 rounded-full"></div>
@@ -1049,7 +1049,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Petty Cash</p>
+                <p className="text-xs font-medium text-gray-600">Petty Cash</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pettyCash)}</p>
               </div>
               <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
@@ -1059,7 +1059,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Travel</p>
+                <p className="text-xs font-medium text-gray-600">Travel</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.employee)}</p>
               </div>
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
@@ -1069,7 +1069,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-xs font-medium text-gray-600">Pending</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.pending)}</p>
                 <p className="text-xs text-gray-500 mt-1">{summaryStats.pendingCount} items</p>
               </div>
@@ -1080,7 +1080,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Recommended</p>
+                <p className="text-xs font-medium text-gray-600">Recommended</p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">{formatCurrency(summaryStats.recommended)}</p>
                 <p className="text-xs text-gray-500 mt-1">{summaryStats.recommendedCount} items</p>
               </div>
@@ -1101,14 +1101,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                     placeholder="Search expenses, employees..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full sm:w-80 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                    className="pl-10 pr-4 py-2 w-full sm:w-80 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                   />
                 </div>
 
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                 >
                   <option value="all">All Status</option>
                   <option value="pending">Pending</option>
@@ -1120,7 +1120,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                 <select
                   value={expenseTypeFilter}
                   onChange={(e) => setExpenseTypeFilter(e.target.value)}
-                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                  className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                 >
                   <option value="all">All Types</option>
                   {EXPENSE_TYPES.map(type => (
@@ -1133,7 +1133,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-md transition-colors text-sm ${
+                    className={`p-1.5 rounded-md transition-colors text-xs ${
                       viewMode === 'list' 
                         ? 'bg-white shadow-sm text-gray-900' 
                         : 'text-gray-500 hover:text-gray-700'
@@ -1143,7 +1143,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </button>
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-md transition-colors text-sm ${
+                    className={`p-1.5 rounded-md transition-colors text-xs ${
                       viewMode === 'grid' 
                         ? 'bg-white shadow-sm text-gray-900' 
                         : 'text-gray-500 hover:text-gray-700'
@@ -1160,7 +1160,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
               <select
                 value={branchFilter}
                 onChange={(e) => setBranchFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
               >
                 <option value="all">All Branches</option>
                 {branches.map(branch => (
@@ -1171,7 +1171,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
               <select
                 value={departmentFilter}
                 onChange={(e) => setDepartmentFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
               >
                 <option value="all">All Departments</option>
                 {departments.map(department => (
@@ -1182,7 +1182,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
               >
                 <option value="all">All Categories</option>
                 {EXPENSE_CATEGORIES.map(category => (
@@ -1198,7 +1198,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-medium text-gray-900">
               {filteredExpenses.length} expenses
-              <span className="text-sm font-normal text-gray-500 ml-2">
+              <span className="text-xs font-normal text-gray-500 ml-2">
                 in {getDisplayName()}
               </span>
             </h2>
@@ -1248,7 +1248,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-gray-600 line-clamp-2 mb-3">
+                            <p className="text-xs text-gray-600 line-clamp-2 mb-3">
                               {expense.description}
                             </p>
                             {/* Enhanced Details */}
@@ -1444,27 +1444,27 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
               <form onSubmit={handleAddExpense} className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Title
                     </label>
                     <input
                       type="text"
                       value={newExpense.title}
                       onChange={(e) => setNewExpense({...newExpense, title: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       placeholder="Expense title"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Expense Type
                     </label>
                     <select
                       value={newExpense.expenseType}
                       onChange={(e) => setNewExpense({...newExpense, expenseType: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       required
                     >
                       <option value="">Select type</option>
@@ -1477,13 +1477,13 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Category
                     </label>
                     <select
                       value={newExpense.category}
                       onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       required
                     >
                       <option value="">Select category</option>
@@ -1496,14 +1496,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Amount (KES)
                     </label>
                     <input
                       type="number"
                       value={newExpense.amount}
                       onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       placeholder="0.00"
                       required
                       min="0"
@@ -1512,13 +1512,13 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Branch
                     </label>
                     <select
                       value={newExpense.branch}
                       onChange={(e) => setNewExpense({...newExpense, branch: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       required
                     >
                       <option value="">Select branch</option>
@@ -1531,13 +1531,13 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Department
                     </label>
                     <select
                       value={newExpense.department}
                       onChange={(e) => setNewExpense({...newExpense, department: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       required
                     >
                       <option value="">Select department</option>
@@ -1550,41 +1550,41 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Date
                     </label>
                     <input
                       type="date"
                       value={newExpense.date}
                       onChange={(e) => setNewExpense({...newExpense, date: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Employee ID
                     </label>
                     <input
                       type="text"
                       value={newExpense.employeeId}
                       onChange={(e) => setNewExpense({...newExpense, employeeId: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       placeholder=""
                       required
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-2">
                       Employee Full Name
                     </label>
                     <input
                       type="text"
                       value={newExpense.employeeFullName}
                       onChange={(e) => setNewExpense({...newExpense, employeeFullName: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs"
                       placeholder=""
                       required
                     />
@@ -1592,33 +1592,33 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
                     Description
                   </label>
                   <textarea
                     value={newExpense.description}
                     onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
                     rows={4}
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs resize-none"
                     placeholder="Expense description"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
                     Receipt (Optional)
                   </label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 mb-2">
+                    <p className="text-xs text-gray-600 mb-2">
                       {newExpense.receiptFile 
                         ? `Selected: ${newExpense.receiptFile.name}` 
                         : 'Upload receipt'
                       }
                     </p>
                     <label className="cursor-pointer">
-                      <span className="text-sm font-medium text-gray-900 hover:text-gray-700 transition-colors px-3 py-1.5 bg-gray-100 rounded-md">
+                      <span className="text-xs font-medium text-gray-900 hover:text-gray-700 transition-colors px-3 py-1.5 bg-gray-100 rounded-md">
                         Choose file
                       </span>
                       <input
@@ -1635,14 +1635,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={uploading}
-                    className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center space-x-2"
+                    className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-lg transition-colors text-xs font-medium flex items-center space-x-2"
                   >
                     {uploading && <Loader className="w-4 h-4 animate-spin" />}
                     <span>{uploading ? 'Submitting...' : 'Submit Expense'}</span>
@@ -1677,7 +1677,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   <div className="p-6 space-y-4">
                     <div>
                       <h3 className="text-base font-medium text-gray-900 mb-2">{approvalExpense.title}</h3>
-                      <p className="text-sm text-gray-600 mb-4">{formatCurrency(approvalExpense.amount)}</p>
+                      <p className="text-xs text-gray-600 mb-4">{formatCurrency(approvalExpense.amount)}</p>
                       {approvalExpense.recommendationReason && (
                         <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg mb-4">
                           <p className="text-xs font-medium text-blue-800 mb-1">Existing Recommendation</p>
@@ -1688,14 +1688,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
       
                     {approvalAction === 'reject' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-2">
                           Rejection Reason
                         </label>
                         <textarea
                           value={rejectionReason}
                           onChange={(e) => setRejectionReason(e.target.value)}
                           rows={3}
-                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
+                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs resize-none"
                           placeholder="Please provide a reason for rejection..."
                           required
                         />
@@ -1704,14 +1704,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
 
                     {approvalAction === 'recommend' && (
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-2">
                           Recommendation Reason
                         </label>
                         <textarea
                           value={recommendationReason}
                           onChange={(e) => setRecommendationReason(e.target.value)}
                           rows={3}
-                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-sm resize-none"
+                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent text-xs resize-none"
                           placeholder="Please provide your reason for recommending this expense..."
                           required
                         />
@@ -1724,7 +1724,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                     <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                       <button
                         onClick={() => setShowApprovalModal(false)}
-                        className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                        className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
                       >
                         Cancel
                       </button>
@@ -1734,7 +1734,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                           (approvalAction === 'reject' && !rejectionReason.trim()) ||
                           (approvalAction === 'recommend' && !recommendationReason.trim())
                         }
-                        className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium flex items-center space-x-2 ${
+                        className={`px-4 py-2 rounded-lg transition-colors text-xs font-medium flex items-center space-x-2 ${
                           approvalAction === 'approve'
                             ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white'
                             : approvalAction === 'recommend'
@@ -1772,23 +1772,23 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
             <div className="p-6 space-y-4">
               <div>
                 <h3 className="text-base font-medium text-gray-900 mb-2">{receiptUploadExpense.title}</h3>
-                <p className="text-sm text-gray-600 mb-4">{formatCurrency(receiptUploadExpense.amount)}</p>
+                <p className="text-xs text-gray-600 mb-4">{formatCurrency(receiptUploadExpense.amount)}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-gray-700 mb-2">
                   Receipt File
                 </label>
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                   <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-2">
+                  <p className="text-xs text-gray-600 mb-2">
                     {receiptFile 
                       ? `Selected: ${receiptFile.name}` 
                       : 'Upload receipt as proof of expense'
                     }
                   </p>
                   <label className="cursor-pointer">
-                    <span className="text-sm font-medium text-gray-900 hover:text-gray-700 transition-colors px-3 py-1.5 bg-gray-100 rounded-md">
+                    <span className="text-xs font-medium text-gray-900 hover:text-gray-700 transition-colors px-3 py-1.5 bg-gray-100 rounded-md">
                       Choose file
                     </span>
                     <input
@@ -1804,14 +1804,14 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
               <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setShowReceiptUpload(false)}
-                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-xs font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleReceiptUpload}
                   disabled={uploading || !receiptFile}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors text-sm font-medium flex items-center space-x-2"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors text-xs font-medium flex items-center space-x-2"
                 >
                   {uploading && <Loader className="w-4 h-4 animate-spin" />}
                   <span>{uploading ? 'Uploading...' : 'Upload Receipt'}</span>
@@ -1841,10 +1841,10 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                   <div className="p-6 space-y-4">
                     <div>
                       <h3 className="text-base font-medium text-gray-900 mb-2">{selectedExpense.title}</h3>
-                      <p className="text-sm text-gray-600">{selectedExpense.description}</p>
+                      <p className="text-xs text-gray-600">{selectedExpense.description}</p>
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="grid grid-cols-2 gap-4 text-xs">
                       <div>
                         <p className="font-medium text-gray-700">Amount</p>
                         <p className="text-gray-900">{formatCurrency(selectedExpense.amount)}</p>
@@ -1900,7 +1900,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
                           href={selectedExpense.receipt}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+                          className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1"
                         >
                           <Eye className="w-4 h-4" />
                           <span>View Receipt</span>
@@ -1910,10 +1910,10 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
 
                     {selectedExpense.recommendationReason && (
                       <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                        <p className="text-sm font-medium text-blue-800 mb-1">Recommendation</p>
-                        <p className="text-sm text-blue-700 mb-2">{selectedExpense.recommendationReason}</p>
+                        <p className="text-xs font-medium text-blue-800 mb-1">Recommendation</p>
+                        <p className="text-xs text-blue-700 mb-2">{selectedExpense.recommendationReason}</p>
                         {selectedExpense.recommendedBy && selectedExpense.recommendedDate && (
-                          <p className="text-sm text-blue-600">
+                          <p className="text-xs text-blue-600">
                             Recommended on{' '}
                             {new Date(selectedExpense.recommendedDate).toLocaleDateString('en-GB')}
                           </p>
@@ -1923,7 +1923,7 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
       
                     {selectedExpense.status === 'approved' && selectedExpense.approvedBy && (
                       <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
-                        <p className="text-sm text-emerald-800">
+                        <p className="text-xs text-emerald-800">
                           Approved by <strong>{selectedExpense.approvedBy}</strong> on{' '}
                           {selectedExpense.approvedDate && new Date(selectedExpense.approvedDate).toLocaleDateString('en-GB')}
                         </p>
@@ -1932,8 +1932,8 @@ const ExpenseModule: React.FC<TownProps> = ({ selectedTown, onTownChange, select
       
                     {selectedExpense.status === 'rejected' && selectedExpense.rejectionReason && (
                       <div className="p-3 bg-red-50 border border-red-100 rounded-lg">
-                        <p className="text-sm font-medium text-red-800 mb-1">Rejection Reason</p>
-                        <p className="text-sm text-red-700">{selectedExpense.rejectionReason}</p>
+                        <p className="text-xs font-medium text-red-800 mb-1">Rejection Reason</p>
+                        <p className="text-xs text-red-700">{selectedExpense.rejectionReason}</p>
                       </div>
                     )}
                   </div>

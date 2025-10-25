@@ -198,7 +198,7 @@ const ViewEmployeePage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="text-center">
           <div className="animate-pulse flex flex-col items-center">
@@ -216,7 +216,7 @@ const ViewEmployeePage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-green-100">
           <div className="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -227,7 +227,7 @@ const ViewEmployeePage = () => {
           <GlowButton
             onClick={() => navigate('/employees')}
             icon={ArrowLeft}
-            className="w-full max-w-xs mx-auto text-sm"
+            className="w-full max-w-xs mx-auto text-xs"
           >
             Back to Employee List
           </GlowButton>
@@ -241,7 +241,7 @@ const ViewEmployeePage = () => {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-sm"
+        className="p-6 max-w-6xl mx-auto flex justify-center items-center min-h-[60vh] text-xs"
       >
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md w-full text-center border border-red-100">
           <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -252,7 +252,7 @@ const ViewEmployeePage = () => {
           <GlowButton
             onClick={() => navigate('/employees')}
             icon={ArrowLeft}
-            className="w-full max-w-xs mx-auto text-sm"
+            className="w-full max-w-xs mx-auto text-xs"
           >
             Back to Employee List
           </GlowButton>
@@ -266,12 +266,12 @@ const ViewEmployeePage = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="p-4 md:p-6 max-w-6xl mx-auto text-sm"
+      className="p-4 md:p-6 max-w-6xl mx-auto text-xs"
     >
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate('/employees')}
-          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group text-sm"
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group text-xs"
         >
           <div className="p-1 rounded-full group-hover:bg-gray-100 transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -371,7 +371,7 @@ const ViewEmployeePage = () => {
               ) : (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Termination Date</label>
+                    <label className="block text-xs font-medium text-gray-700">Termination Date</label>
                     <input
                       type="date"
                       value={terminationDate}
@@ -381,7 +381,7 @@ const ViewEmployeePage = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Termination Reason</label>
+                    <label className="block text-xs font-medium text-gray-700">Termination Reason</label>
                     <select
                       value={terminationReason}
                       onChange={(e) => setTerminationReason(e.target.value)}
@@ -399,7 +399,7 @@ const ViewEmployeePage = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Exit Interview Notes</label>
+                    <label className="block text-xs font-medium text-gray-700">Exit Interview Notes</label>
                     <textarea
                       rows={4}
                       value={exitInterview}
@@ -525,7 +525,7 @@ const ViewEmployeePage = () => {
                   <span>Termination Letter Preview</span>
                 </h3>
                 
-                <div className="bg-white p-4 rounded border border-gray-200 text-sm whitespace-pre-line h-64 overflow-y-auto">
+                <div className="bg-white p-4 rounded border border-gray-200 text-xs whitespace-pre-line h-64 overflow-y-auto">
                   {generateTerminationLetter()}
                 </div>
                 
@@ -560,7 +560,7 @@ const ViewEmployeePage = () => {
                   ? 'Reverse Termination?' 
                   : 'Confirm Employee Termination'}
               </h3>
-              <div className="mt-2 text-sm text-gray-500">
+              <div className="mt-2 text-xs text-gray-500">
                 {employee['Termination Date'] 
                   ? 'Are you sure you want to reverse this termination and reinstate the employee?'
                   : `You are about to terminate ${employee['First Name']} ${employee['Last Name']}. This action cannot be undone.`}
@@ -569,14 +569,14 @@ const ViewEmployeePage = () => {
             <div className="mt-5 sm:mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:text-sm"
+                className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 sm:text-xs"
                 onClick={() => setShowConfirm(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm"
+                className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-xs"
                 onClick={employee['Termination Date'] ? handleReverseTermination : handleTerminateEmployee}
                 disabled={isTerminating}
               >

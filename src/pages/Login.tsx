@@ -67,6 +67,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   // Admin emails that should skip branch auto-detection
   const ADMIN_EMAILS = [
     'admin@mularcredit.co.ke',
+    'checker@mularcredit.com',
     'hr@mularcredit.co.ke',
     'it@mularcredit.co.ke',
     'olivia.hr@mularcredit.com',
@@ -394,23 +395,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <img src="/solo.png" alt="Company Logo" className="h-16" />
         </div>
         
-        <div className="max-w-md text-white relative z-10">
-          <div className="mb-8">
-            <h1 className="text-4xl font-semibold mb-2">Zira<span className="font-light">HR</span></h1>
-            <p className="text-lime-300 font-bold">Smiles Start Here</p>
-          </div>
-          
-          <div className="space-y-4">
-            {['Streamline your HR processes', 'Manage employees efficiently', 'Automate payroll and benefits'].map((item) => (
-              <div key={item} className="flex items-center">
-                <svg className="w-6 h-6 mr-3 text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <span>{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        
       </div>
 
       {/* Right side - Login Form */}
@@ -418,22 +403,22 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="w-full max-w-md">
           <div className="text-center mb-8 lg:hidden">
             <img src="/logo.png" alt="Company Logo" className="h-16 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-green-700 mb-2">ZiraHr</h1>
-            <p className="text-gray-600 italic">smiles start here</p>
+            <h1 className="text-3xl font-bold text-green-700 mb-2"></h1>
+            <p className="text-gray-600 italic"></p>
           </div>
 
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-gray-900">
               {isSignUp ? 'Request Staff Account' : 'Welcome back'}
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-xs text-gray-600">
               {isSignUp ? 'Submit your details for account approval' : 'Sign in with your credentials'}
             </p>
           </div>
 
           <form className="space-y-6" onSubmit={isSignUp ? handleStaffSignUp : handleLogin}>
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="email" className="block text-xs font-medium text-gray-700">
                 Email address
               </label>
               <div className="relative">
@@ -458,14 +443,14 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 )}
               </div>
               {emailExists && isSignUp && (
-                <p className="mt-1 text-sm text-red-600">This email is already registered or has a pending request</p>
+                <p className="mt-1 text-xs text-red-600">This email is already registered or has a pending request</p>
               )}
             </div>
 
             {/* Only show password field for login, not signup */}
             {!isSignUp && (
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="password" className="block text-xs font-medium text-gray-700">
                   Password
                 </label>
                 <input
@@ -485,7 +470,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             {/* Show branch selection for both login and signup, except for admin emails */}
             {!isAdminEmail(email) && (
               <div className="relative z-20">
-                <label htmlFor="branch" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="branch" className="block text-xs font-medium text-gray-700">
                   Branch Office
                   {isBranchAutoPopulated && (
                     <span className="ml-2 text-xs text-green-600">(Auto-detected from your email)</span>
@@ -507,7 +492,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                     id="branch"
                     name="branch"
                     options={branchOptions}
-                    className="mt-1 text-sm"
+                    className="mt-1 text-xs"
                     classNamePrefix="select"
                     placeholder="Select or type to search..."
                     isSearchable
@@ -562,7 +547,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               <button
                 type="submit"
                 disabled={loading || isFetchingBranches || (isSignUp && emailExists)}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-xs font-medium text-white ${
                   loading || isFetchingBranches || (isSignUp && emailExists) 
                     ? 'bg-green-400 cursor-not-allowed' 
                     : 'bg-green-600 hover:bg-green-700'
@@ -583,7 +568,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
             </div>
           </form>
 
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-6 text-center text-xs text-gray-600">
             <p>
               {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
               <button

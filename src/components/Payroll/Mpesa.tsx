@@ -52,16 +52,16 @@ const MpesaSinglePaymentModal = ({
         </h3>
         
         <div className="mb-4 p-3 bg-gray-50 rounded-md">
-          <p className="text-sm text-gray-600 mb-2">
+          <p className="text-xs text-gray-600 mb-2">
             You are about to send an M-PESA payment to:
           </p>
           <div className="space-y-1">
             <p className="font-medium">{employee.employee_name}</p>
-            <p className="text-sm text-gray-600">ID: {employee.employee_id}</p>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-600">ID: {employee.employee_id}</p>
+            <p className="text-xs text-gray-600">
               Phone: {employee.phoneNumber || 'No phone number available'}
             </p>
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-gray-600">
               Amount: KSh {employee.net_pay?.toLocaleString()}
             </p>
           </div>
@@ -70,14 +70,14 @@ const MpesaSinglePaymentModal = ({
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
             disabled={isProcessing}
           >
             Cancel
           </button>
           <button
             onClick={handlePayment}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
             disabled={isProcessing}
           >
             {isProcessing ? (
@@ -185,7 +185,7 @@ const MpesaBulkPaymentModal = ({
         </h3>
         
         <div className="mb-4 p-3 bg-gray-50 rounded-md">
-          <p className="text-sm text-gray-600">
+          <p className="text-xs text-gray-600">
             You are about to process M-PESA B2C payments for {getSelectedStaffCount()} selected staff members.
           </p>
           
@@ -205,7 +205,7 @@ const MpesaBulkPaymentModal = ({
           </div>
           
           <div className="mt-3 border-t pt-3">
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs">
               <span className="font-medium">Total Amount:</span>
               <span className="font-bold text-green-700">
                 KSh {calculateTotalAmount().toLocaleString()}
@@ -222,13 +222,13 @@ const MpesaBulkPaymentModal = ({
             placeholder="Search employees..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
           />
         </div>
         
         <div className="mb-4 max-h-60 overflow-y-auto">
-          <p className="text-sm font-medium mb-2">Staff to be paid:</p>
-          <ul className="text-sm divide-y divide-gray-200">
+          <p className="text-xs font-medium mb-2">Staff to be paid:</p>
+          <ul className="text-xs divide-y divide-gray-200">
             {filteredEmployees.map(emp => (
               <li key={emp.employee_id} className="py-2 flex items-center justify-between">
                 <div className="flex items-center">
@@ -262,14 +262,14 @@ const MpesaBulkPaymentModal = ({
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
             disabled={isProcessing}
           >
             Cancel
           </button>
           <button
             onClick={handleBulkPayment}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
             disabled={isProcessing || getSelectedStaffCount() === 0}
           >
             {isProcessing ? (
@@ -405,14 +405,14 @@ const MpesaPaymentComponent = ({ payrollRecords }) => {
           <div key={employee.employee_id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
             <div>
               <p className="font-medium">{employee.employee_name}</p>
-              <p className="text-sm text-gray-600">{employee.employee_id}</p>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs text-gray-600">{employee.employee_id}</p>
+              <p className="text-xs text-gray-600">
                 KSh {employee.net_pay?.toLocaleString()}
               </p>
             </div>
             <button
               onClick={() => handleSinglePaymentClick(employee)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
             >
               <Smartphone size={16} />
               M-PESA (Single)
@@ -426,7 +426,7 @@ const MpesaPaymentComponent = ({ payrollRecords }) => {
         <div className="mt-4">
           <button
             onClick={() => setShowBulkModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium w-full justify-center"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-xs font-medium w-full justify-center"
           >
             <Users size={16} />
             M-PESA Bulk Pay ({payrollRecords.length} employees)

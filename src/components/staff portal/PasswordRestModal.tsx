@@ -148,7 +148,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
               </div>
               <div>
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900">Change Password</h3>
-                <p className="text-xs sm:text-sm text-gray-500">Update your account password</p>
+                <p className="text-xs sm:text-xs text-gray-500">Update your account password</p>
               </div>
             </div>
             <button
@@ -163,7 +163,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
           <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Current Password */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-medium text-gray-700">
                 Current Password
               </label>
               <div className="relative">
@@ -172,7 +172,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
                   name="currentPassword"
                   value={formData.currentPassword}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-sm sm:text-base ${
+                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-xs sm:text-base ${
                     errors.currentPassword 
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                       : 'border-gray-300 focus:ring-green-500 focus:border-green-500'
@@ -189,7 +189,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
                 </button>
               </div>
               {errors.currentPassword && (
-                <p className="text-xs sm:text-sm text-red-600 flex items-center">
+                <p className="text-xs sm:text-xs text-red-600 flex items-center">
                   <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                   <span>{errors.currentPassword}</span>
                 </p>
@@ -198,7 +198,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
 
             {/* New Password */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-medium text-gray-700">
                 New Password
               </label>
               <div className="relative">
@@ -207,7 +207,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
                   name="newPassword"
                   value={formData.newPassword}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-sm sm:text-base ${
+                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-xs sm:text-base ${
                     errors.newPassword 
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                       : isPasswordStrong
@@ -253,7 +253,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
               )}
               
               {errors.newPassword && (
-                <p className="text-xs sm:text-sm text-red-600 flex items-center">
+                <p className="text-xs sm:text-xs text-red-600 flex items-center">
                   <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                   <span>{errors.newPassword}</span>
                 </p>
@@ -262,7 +262,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-medium text-gray-700">
                 Confirm New Password
               </label>
               <div className="relative">
@@ -271,7 +271,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-sm sm:text-base ${
+                  className={`w-full px-3 py-2 sm:px-4 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 transition-colors text-xs sm:text-base ${
                     errors.confirmPassword 
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                       : formData.confirmPassword && formData.newPassword === formData.confirmPassword
@@ -291,14 +291,14 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
               </div>
               
               {formData.confirmPassword && formData.newPassword === formData.confirmPassword && (
-                <p className="text-xs sm:text-sm text-green-600 flex items-center">
+                <p className="text-xs sm:text-xs text-green-600 flex items-center">
                   <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                   <span>Passwords match</span>
                 </p>
               )}
               
               {errors.confirmPassword && (
-                <p className="text-xs sm:text-sm text-red-600 flex items-center">
+                <p className="text-xs sm:text-xs text-red-600 flex items-center">
                   <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                   <span>{errors.confirmPassword}</span>
                 </p>
@@ -312,7 +312,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
                   <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-xs sm:text-sm text-blue-700">
+                  <p className="text-xs sm:text-xs text-blue-700">
                     <strong>Security Notice:</strong> Choose a strong password that you haven't used before. 
                     You'll need to sign in again after changing your password.
                   </p>
@@ -325,7 +325,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full sm:flex-1 px-4 py-2 sm:py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="w-full sm:flex-1 px-4 py-2 sm:py-3 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                 disabled={isSubmitting}
               >
                 Cancel
@@ -333,7 +333,7 @@ const PasswordResetModal: React.FC<PasswordResetModalProps> = ({ isOpen, onClose
               <button
                 type="submit"
                 disabled={isSubmitting || !isPasswordStrong || formData.newPassword !== formData.confirmPassword}
-                className={`w-full sm:flex-1 px-4 py-2 sm:py-3 border border-transparent rounded-lg text-sm font-medium text-white transition-colors flex items-center justify-center ${
+                className={`w-full sm:flex-1 px-4 py-2 sm:py-3 border border-transparent rounded-lg text-xs font-medium text-white transition-colors flex items-center justify-center ${
                   isSubmitting || !isPasswordStrong || formData.newPassword !== formData.confirmPassword
                     ? 'bg-gray-400 cursor-not-allowed' 
                     : 'bg-green-600 hover:bg-green-700'
