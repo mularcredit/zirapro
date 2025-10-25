@@ -1,7 +1,7 @@
 // ChatComponent.tsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from '@lukeed/uuid';
 
 interface Message {
   id: string;
