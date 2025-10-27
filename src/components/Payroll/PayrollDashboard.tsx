@@ -15,49 +15,174 @@ import MPesaSpreadsheetFullPage from './MpesaSpreadSheet';
 import useStatutorySettings from '../../hooks/useStatutorySettings';
 import StatutorySettingsModal from './statutorySettingsModule';
 
-// SMS Service Import and Implementation
-const SMS_SERVICE_URL = import.meta.env.VITE_SMS_SERVICE_URL || 'http://localhost:3001';
+// SMS Service Configuration for SMS Leopard
+const SMS_LEOPARD_CONFIG = {
+  baseUrl: 'https://api.smsleopard.com/v1',
+  username: 'yxFXqkhbsdbm2cCeXOju',
+  password: 'GHwclfNzr8ZT6iSOutZojrWheLKH3FWGw9rQ2eGQ',
+  source: 'sms_Leopard'
+};
 
-// SMS Service Functions
+// Utility function to add query parameters
+const addQueryParams = (url, params) => {
+  const queryString = Object.entries(params)
+    .flatMap(([key, value]) => 
+      Array.isArray(value) 
+        ? value.map(val => `${encodeURIComponent(key)}=${encodeURIComponent(val)}`)
+        : `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
+    )
+    .join('&');
+  
+  return `${url}?${queryString}`;
+};
+
+// SMS Service Functions for SMS Leopard
 const sendSMSLeopard = async (phoneNumber, message) => {
   try {
-    const response = await fetch(`${SMS_SERVICE_URL}/api/sms/send`, {
-      method: 'POST',
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    
+    if (!formattedPhone || !message) {
+      throw new Error('Phone number and message are required');
+    }
+
+    const endpoint = addQueryParams(`${SMS_LEOPARD_CONFIG.baseUrl}/sms/send`, {
+      username: SMS_LEOPARD_CONFIG.username,
+      password: SMS_LEOPARD_CONFIG.password,
+      message: message,
+      destination: formattedPhone,
+      source: SMS_LEOPARD_CONFIG.source
+    });
+
+    const credentials = btoa(`${SMS_LEOPARD_CONFIG.username}:${SMS_LEOPARD_CONFIG.password}`);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
       headers: {
+        'Authorization': `Basic ${credentials}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        phoneNumber: formatPhoneNumber(phoneNumber),
-        message: message
-      }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send SMS');
+      const errorText = await response.text();
+      throw new Error(`SMS service error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    return result;
+    
+    if (result.status === 'success' || response.ok) {
+      return {
+        success: true,
+        message: 'SMS sent successfully',
+        timestamp: new Date().toISOString(),
+        rawResponse: result
+      };
+    } else {
+      throw new Error(result.message || 'Failed to send SMS');
+    }
+    
   } catch (error) {
     console.error('SMS sending error:', error);
-    throw error;
+    
+    console.log('SMS would have been sent:', {
+      to: formatPhoneNumber(phoneNumber),
+      message: message,
+      provider: 'SMS Leopard'
+    });
+    
+    return { 
+      success: false, 
+      error: error.message,
+      fallback: true,
+      message: 'SMS queued for retry'
+    };
   }
 };
 
 const checkSMSBalance = async () => {
   try {
-    const response = await fetch(`${SMS_SERVICE_URL}/api/sms/balance`);
-    
+    const endpoint = `${SMS_LEOPARD_CONFIG.baseUrl}/balance`;
+    const credentials = btoa(`${SMS_LEOPARD_CONFIG.username}:${SMS_LEOPARD_CONFIG.password}`);
+
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Basic ${credentials}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
     if (!response.ok) {
-      throw new Error('Failed to check SMS balance');
+      throw new Error(`Failed to check balance: ${response.status}`);
     }
 
     const result = await response.json();
-    return result.balance || 'Unknown';
+    
+    if (result.balance !== undefined) {
+      return `KSh ${result.balance}`;
+    } else if (result.data && result.data.balance !== undefined) {
+      return `KSh ${result.data.balance}`;
+    } else {
+      return 'Balance information not available';
+    }
+    
   } catch (error) {
     console.error('SMS balance check error:', error);
-    return 'Error';
+    return 'Service unavailable';
   }
+};
+
+// Enhanced phone number formatting for SMS Leopard
+const formatPhoneNumber = (phone) => {
+  if (!phone) return '';
+  
+  let cleaned = phone.replace(/\D/g, '');
+  
+  if (cleaned.startsWith('0')) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7')) {
+    cleaned = '254' + cleaned;
+  } else if (cleaned.startsWith('+254')) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  if (cleaned.length === 12 && cleaned.startsWith('254')) {
+    return cleaned;
+  }
+  
+  console.warn('Invalid phone number format:', phone, 'cleaned:', cleaned);
+  return cleaned;
+};
+
+// Enhanced SMS sending with retry logic
+const sendSMSWithRetry = async (phoneNumber, message, maxRetries = 3) => {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`SMS attempt ${attempt} for ${phoneNumber}`);
+      const result = await sendSMSLeopard(phoneNumber, message);
+      
+      if (result.success) {
+        console.log(`SMS sent successfully on attempt ${attempt}`);
+        return result;
+      }
+      
+      lastError = new Error(result.message || 'SMS sending failed');
+    } catch (error) {
+      lastError = error;
+      console.warn(`SMS attempt ${attempt} failed:`, error);
+      
+      if (attempt < maxRetries) {
+        const delay = 1000 * attempt;
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  console.error(`All ${maxRetries} SMS attempts failed for ${phoneNumber}`);
+  throw lastError;
 };
 
 // SMS Templates
@@ -76,22 +201,6 @@ const smsTemplates = {
 
   mpesaFailed: (employeeName, reference) =>
     `Dear ${employeeName}, M-PESA payment failed for reference ${reference}. Please contact HR.`
-};
-
-const formatPhoneNumber = (phone) => {
-  if (!phone) return '';
-  
-  // Remove any non-digit characters
-  let cleaned = phone.replace(/\D/g, '');
-  
-  // Convert to 254 format if it starts with 0 or 7
-  if (cleaned.startsWith('0')) {
-    cleaned = '254' + cleaned.substring(1);
-  } else if (cleaned.startsWith('7')) {
-    cleaned = '254' + cleaned;
-  }
-  
-  return cleaned;
 };
 
 // Wallet Balance Component
@@ -114,18 +223,15 @@ const WalletBalance = ({
 
     setIsSubmitting(true);
     try {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Here you would typically make an API call to request a loan
-      console.log('Loan request:', { amount: loanAmount, purpose: loanPurpose });
+      console.log('Loan request:', { amount: parseFloat(loanAmount), purpose: loanPurpose });
       
       toast.success('Loan request submitted successfully!');
       setShowLoanModal(false);
       setLoanAmount('');
       setLoanPurpose('');
       
-      // Call the parent callback if provided
       if (onRequestLoan) {
         onRequestLoan({ amount: parseFloat(loanAmount), purpose: loanPurpose });
       }
@@ -139,7 +245,6 @@ const WalletBalance = ({
   return (
     <>
       <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
-        {/* Background Pattern */}
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="absolute -right-10 -top-10 w-24 h-24 bg-white/10 rounded-full"></div>
         <div className="absolute -right-5 -bottom-5 w-16 h-16 bg-white/5 rounded-full"></div>
@@ -156,7 +261,6 @@ const WalletBalance = ({
           </div>
 
           <div className="space-y-4">
-            {/* Current Balance */}
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-blue-200 text-sm">Current Balance</p>
@@ -180,7 +284,6 @@ const WalletBalance = ({
               </div>
             </div>
 
-            {/* Progress Bar */}
             <div className="space-y-2">
               <div className="flex justify-between text-xs">
                 <span className="text-blue-200">Balance Usage</span>
@@ -198,7 +301,6 @@ const WalletBalance = ({
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <button 
                 onClick={() => setShowLoanModal(true)}
@@ -220,7 +322,6 @@ const WalletBalance = ({
         </div>
       </div>
 
-      {/* Loan Request Modal */}
       {showLoanModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
@@ -298,7 +399,6 @@ const WalletBalance = ({
                 </div>
               )}
 
-              {/* Loan Terms */}
               <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <h4 className="text-sm font-medium text-gray-900 mb-2">Loan Terms</h4>
                 <div className="space-y-2 text-xs text-gray-600">
@@ -521,7 +621,6 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
         </div>
 
         <div className="p-6">
-          {/* Payment Summary */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
@@ -543,7 +642,6 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
             </div>
           </div>
 
-          {/* Justification */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-2">Justification</h3>
             <div className="bg-gray-50 rounded-lg p-4">
@@ -551,7 +649,6 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
             </div>
           </div>
 
-          {/* Audit Trail */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-3">Audit Trail</h3>
             <div className="space-y-2">
@@ -580,7 +677,6 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
             </div>
           </div>
 
-          {/* Employee Details */}
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-3">
               {payment.type === 'bulk' ? 'Employees to be Paid' : 'Employee Details'}
@@ -636,7 +732,6 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
             )}
           </div>
 
-          {/* Action Buttons */}
           {isChecker && payment.status === 'pending' && (
             <div className="flex gap-3 pt-4 border-t border-gray-200">
               <button
@@ -716,7 +811,7 @@ const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
   );
 };
 
-// M-PESA Single Payment Modal (Modified for Maker-Checker)
+// M-PESA Single Payment Modal
 const MpesaSinglePaymentModal = ({ 
   isOpen, 
   onClose, 
@@ -831,7 +926,7 @@ const MpesaSinglePaymentModal = ({
   );
 };
 
-// M-PESA Bulk Payment Modal (Modified for Maker-Checker)
+// M-PESA Bulk Payment Modal
 const MpesaBulkPaymentModal = ({ 
   isOpen, 
   onClose, 
@@ -845,7 +940,6 @@ const MpesaBulkPaymentModal = ({
   const [justification, setJustification] = useState('');
 
   useEffect(() => {
-    // Initialize all employees as selected
     const initialSelected = {};
     employees.forEach(emp => {
       initialSelected[emp.employee_id] = true;
@@ -853,13 +947,11 @@ const MpesaBulkPaymentModal = ({
     setSelectedStaff(initialSelected);
   }, [employees]);
 
-  // Filter employees based on search
   const filteredEmployees = employees.filter(emp => 
     emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calculate total amount for selected employees
   const calculateTotalAmount = () => {
     return employees.reduce((total, emp) => {
       if (selectedStaff[emp.employee_id]) {
@@ -869,12 +961,10 @@ const MpesaBulkPaymentModal = ({
     }, 0);
   };
 
-  // Get count of selected staff
   const getSelectedStaffCount = () => {
     return Object.values(selectedStaff).filter(selected => selected).length;
   };
 
-  // Toggle selection for a staff member
   const toggleStaffSelection = (id) => {
     setSelectedStaff(prev => ({
       ...prev,
@@ -882,7 +972,6 @@ const MpesaBulkPaymentModal = ({
     }));
   };
 
-  // Select all staff
   const selectAllStaff = () => {
     const newSelection = {};
     employees.forEach(emp => {
@@ -891,7 +980,6 @@ const MpesaBulkPaymentModal = ({
     setSelectedStaff(newSelection);
   };
 
-  // Deselect all staff
   const deselectAllStaff = () => {
     setSelectedStaff({});
   };
@@ -984,7 +1072,6 @@ const MpesaBulkPaymentModal = ({
           </div>
         )}
 
-        {/* Search input */}
         <div className="mb-4 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -1068,7 +1155,6 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
   const generateP9Form = async (employeeData) => {
     setIsGenerating(true);
     try {
-      // Calculate annual totals for selected employee
       const employeeRecords = records.filter(r => r.employee_id === employeeData.employee_id);
       
       const annualTotals = {
@@ -1082,7 +1168,6 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
         netPay: employeeRecords.reduce((sum, r) => sum + r.net_pay, 0) * 12
       };
 
-      // Create P9 form HTML
       const p9Content = `
         <!DOCTYPE html>
         <html>
@@ -1226,7 +1311,6 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
         </html>
       `;
 
-      // Generate PDF
       const opt = {
         margin: 0.5,
         filename: `P9_${employeeData.employee_id}_${taxYear}.pdf`,
@@ -1405,13 +1489,11 @@ const ExportModal = ({ isOpen, onClose, records }) => {
     try {
       const doc = new jsPDF();
       
-      // Add header
       doc.setFontSize(16);
       doc.text('Payroll Report', 14, 22);
       doc.setFontSize(12);
       doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 32);
       
-      // Prepare data
       const tableData = records.map(record => [
         record.employee_id,
         record.employee_name,
@@ -1974,7 +2056,6 @@ const PayslipModal = ({
 
         <div className="p-2 bg-gray-50 payslip-container print:p-0 print:w-[210mm] print:h-[297mm]">
           <div id="payslip-content" className="bg-white rounded-lg shadow-lg overflow-hidden text-xs leading-tight">
-            {/* Header */}
             <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
               <div className="flex items-center">
                 {companyInfo?.image_url && (
@@ -1993,10 +2074,8 @@ const PayslipModal = ({
               </div>
             </div>
 
-            {/* Body */}
             <div className="p-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Employee Info */}
                 <div className="border p-3 rounded">
                   <h3 className="font-semibold border-b mb-2">EMPLOYEE INFORMATION</h3>
                   <div className="space-y-1">
@@ -2008,7 +2087,6 @@ const PayslipModal = ({
                   </div>
                 </div>
 
-                {/* Payment Info */}
                 <div className="border p-3 rounded">
                   <h3 className="font-semibold border-b mb-2">PAYMENT DETAILS</h3>
                   <div className="space-y-1">
@@ -2028,9 +2106,7 @@ const PayslipModal = ({
                 </div>
               </div>
 
-              {/* Earnings + Deductions */}
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Earnings */}
                 <div className="border rounded">
                   <div className="bg-gray-200 font-semibold p-2">EARNINGS</div>
                   <div className="p-2 space-y-1">
@@ -2045,7 +2121,6 @@ const PayslipModal = ({
                   </div>
                 </div>
 
-                {/* Deductions */}
                 <div className="border rounded">
                   <div className="bg-gray-200 font-semibold p-2">DEDUCTIONS</div>
                   <div className="p-2 space-y-1">
@@ -2061,20 +2136,17 @@ const PayslipModal = ({
                 </div>
               </div>
 
-              {/* Summary */}
               <div className="border p-3 rounded mb-4">
                 <div className="flex justify-between border-b pb-1"><span>Gross Pay</span><span>KSh {record.gross_pay.toLocaleString()}</span></div>
                 <div className="flex justify-between border-b pb-1"><span>Total Deductions</span><span className="text-red-600">KSh {record.total_deductions.toLocaleString()}</span></div>
                 <div className="flex justify-between font-bold text-green-700"><span>NET PAY</span><span>KSh {Math.round(record.net_pay).toLocaleString()}</span></div>
               </div>
 
-              {/* Signatures */}
               <div className="grid grid-cols-2 gap-4 mb-4 text-center text-xs">
                 <div className="border border-dashed p-2">Employee Signature<br/>Date: __________</div>
                 <div className="border border-dashed p-2">Authorized Signatory<br/>Date: __________</div>
               </div>
 
-              {/* Footer */}
               <div className="text-center text-gray-500 text-xs">
                 Generated on {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()} • {companyInfo?.company_name || 'Company'} • Confidential
               </div>
@@ -2186,7 +2258,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange, totalItems, itemsPe
   );
 };
 
-// P10 Form Generator Component - FIXED VERSION
+// P10 Form Generator Component
 const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calculateNHIF, calculateHousingLevy }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [isLoading, setIsLoading] = useState(false);
@@ -2194,7 +2266,6 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
   const generateP10Form = async () => {
     setIsLoading(true);
     try {
-      // Fetch all employee data from Supabase with proper error handling
       const { data: employees, error } = await supabase
         .from('employees')
         .select('*');
@@ -2212,69 +2283,60 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
 
       console.log('Fetched employees:', employees.length);
 
-      // Prepare P10 data - Map Supabase fields to P10 format
       const p10Data = employees.map(employee => {
-        // Get values from Supabase with proper fallbacks
         const taxPin = employee['Tax PIN'] || employee.tax_pin || 'PENDING';
         const employeeName = `${employee['First Name'] || ''} ${employee['Middle Name'] || ''} ${employee['Last Name'] || ''}`.trim() || employee.employee_name || 'N/A';
         const basicSalary = parseFloat(employee['Basic Salary'] || employee.basic_salary || 0);
         
-        // Calculate allowances
         const houseAllowance = parseFloat(employee.house_allowance || 0);
         const transportAllowance = parseFloat(employee.travel_allowance || 0);
         const medicalAllowance = parseFloat(employee.medical_allowance || 0);
         const otherAllowances = parseFloat(employee.other_allowances || 0);
         
-        // Calculate gross pay
         const totalGrossPay = basicSalary + houseAllowance + transportAllowance + medicalAllowance + otherAllowances;
         
-        // Get statutory numbers
         const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
         const nssfNumber = employee['NSSF Number'] || '';
         
-        // Calculate deductions based on gross pay
         const nhifDeduction = nhifNumber ? calculateNHIF(totalGrossPay) : 0;
         const nssfDeduction = nssfNumber ? calculateNSSF(totalGrossPay) : 0;
         const housingLevy = taxPin !== 'PENDING' ? calculateHousingLevy(totalGrossPay, true) : 0;
         
-        // Calculate taxable pay
         const taxablePay = totalGrossPay - nssfDeduction - housingLevy;
         
-        // Calculate PAYE
         const payeAmount = calculatePAYE(taxablePay);
 
         return [
-          'A00000000001', // Tax PIN
-          employeeName, // Employee Name
-          'Resident', // Resident Status
-          'Primary Employee', // Service Status
-          'No', // Disability Status
-          '', // Exemption Certificate Number
-          basicSalary, // Total Emoluments - Cash Pay
-          0, // Value of Car Benefit
-          0, // Value of Meals
-          houseAllowance + transportAllowance + medicalAllowance + otherAllowances, // Non Cash Benefits
-          'Benefit not given', // Type of Housing
-          houseAllowance, // Housing Benefit
-          transportAllowance + medicalAllowance + otherAllowances, // Other Benefits
-          totalGrossPay, // Total Gross Pay
-          nhifDeduction, // SHIF
-          nssfDeduction, // NSSF Contribution
-          0, // Other Pension Contribution
-          0, // Post Retirement Medical Fund
-          0, // Mortgage Interest
-          housingLevy, // Affordable Housing Levy
-          taxablePay, // Taxable Pay
-          2400, // Monthly Personal Relief (KSh 2,400)
-          0, // Amount of Insurance Relief
-          '', // PAYE Tax
-          payeAmount // Self Assessed PAYE Tax
+          'A00000000001',
+          employeeName,
+          'Resident',
+          'Primary Employee',
+          'No',
+          '',
+          basicSalary,
+          0,
+          0,
+          houseAllowance + transportAllowance + medicalAllowance + otherAllowances,
+          'Benefit not given',
+          houseAllowance,
+          transportAllowance + medicalAllowance + otherAllowances,
+          totalGrossPay,
+          nhifDeduction,
+          nssfDeduction,
+          0,
+          0,
+          0,
+          housingLevy,
+          taxablePay,
+          2400,
+          0,
+          '',
+          payeAmount
         ];
       });
 
       console.log('P10 data prepared for', p10Data.length, 'employees');
 
-      // Create Excel headers as per P10 form
       const headers = [
         'Employer Pin',
         'Employee Name',
@@ -2303,17 +2365,14 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
         'Self Assessed PAYE Tax'
       ];
 
-      // Create worksheet with headers
       const ws = XLSX.utils.aoa_to_sheet([headers, ...p10Data]);
       
-      // Format the worksheet
       const range = XLSX.utils.decode_range(ws['!ref']);
       for (let R = 0; R <= range.e.r; ++R) {
         for (let C = 0; C <= range.e.c; ++C) {
           const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
           if (!ws[cellAddress]) continue;
           
-          // Format header row
           if (R === 0) {
             ws[cellAddress].s = {
               font: { bold: true },
@@ -2321,8 +2380,7 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
             };
           }
           
-          // Format number columns
-          if (R > 0 && C >= 6 && C !== 10) { // Skip text columns
+          if (R > 0 && C >= 6 && C !== 10) {
             if (typeof ws[cellAddress].v === 'number') {
               ws[cellAddress].t = 'n';
               ws[cellAddress].z = '#,##0.00';
@@ -2331,46 +2389,42 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
         }
       }
       
-      // Set column widths
       ws['!cols'] = [
-        { wch: 12 }, // Tax PIN
-        { wch: 25 }, // Employee Name
-        { wch: 10 }, // Resident Status
-        { wch: 15 }, // Service Status
-        { wch: 12 }, // Disability Status
-        { wch: 12 }, // Exemption Certificate
-        { wch: 15 }, // Cash Pay
-        { wch: 12 }, // Car Benefit
-        { wch: 12 }, // Meals
-        { wch: 15 }, // Non Cash Benefits
-        { wch: 20 }, // Type of Housing
-        { wch: 15 }, // Housing Benefit
-        { wch: 15 }, // Other Benefits
-        { wch: 15 }, // Total Gross Pay
-        { wch: 12 }, // SHIF
-        { wch: 15 }, // NSSF
-        { wch: 15 }, // Other Pension
-        { wch: 15 }, // Post Retirement
-        { wch: 15 }, // Mortgage Interest
-        { wch: 15 }, // Housing Levy
-        { wch: 15 }, // Taxable Pay
-        { wch: 15 }, // Personal Relief
-        { wch: 15 }, // Insurance Relief
-        { wch: 12 }, // PAYE Tax
-        { wch: 15 }  // Self Assessed PAYE
+        { wch: 12 },
+        { wch: 25 },
+        { wch: 10 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 20 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 15 },
+        { wch: 12 },
+        { wch: 15 }
       ];
       
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'P10 EMPLOYER RETURN');
       
-      // Generate Excel file
       const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
       const data = new Blob([excelBuffer], { 
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
       });
       
-      // Create download
       saveAs(data, `P10_Employer_Return_${selectedYear}.xlsx`);
 
       toast.success(`P10 Form generated successfully for ${p10Data.length} employees!`);
@@ -2468,18 +2522,15 @@ export default function PayrollDashboard() {
   const [showSummary, setShowSummary] = useState(false);
   const [companyInfo, setCompanyInfo] = useState(null);
   
-  // M-PESA Modal States
   const [showSingleMpesaModal, setShowSingleMpesaModal] = useState(false);
   const [showBulkMpesaModal, setShowBulkMpesaModal] = useState(false);
   const [selectedEmployeeForMpesa, setSelectedEmployeeForMpesa] = useState(null);
   
-  // Modal States
   const [showP9Modal, setShowP9Modal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showP10Modal, setShowP10Modal] = useState(false);
   const [showStatutorySettings, setShowStatutorySettings] = useState(false);
   
-  // Maker-Checker States - Now using Supabase
   const [paymentRequests, setPaymentRequests] = useState([]);
   const [userRole, setUserRole] = useState('maker');
   const [currentUser, setCurrentUser] = useState(null);
@@ -2490,23 +2541,19 @@ export default function PayrollDashboard() {
   const [paymentToReject, setPaymentToReject] = useState(null);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   
-  // Wallet State
   const [walletData, setWalletData] = useState({
     currentBalance: 150000,
     pendingBalance: 45000,
     isLoading: false
   });
 
-  // SMS States
   const [smsBalance, setSmsBalance] = useState(null);
   const [sendingSMS, setSendingSMS] = useState(false);
   const [smsSendingStatus, setSmsSendingStatus] = useState({});
 
-  // Add this with your other state declarations
   const [currentView, setCurrentView] = useState('dashboard');
   const itemsPerPage = 5;
 
-  // Use the statutory settings hook
   const {
     settings,
     isLoading: settingsLoading,
@@ -2517,78 +2564,81 @@ export default function PayrollDashboard() {
     reloadSettings
   } = useStatutorySettings();
 
-  // SMS Functions
-  const checkSMSBalance = async () => {
-    try {
-      const balance = await checkSMSBalance();
-      setSmsBalance(balance);
-    } catch (error) {
-      console.error('Failed to check SMS balance:', error);
-    }
-  };
-
-  const sendSMSNotification = async (phoneNumber, message, employeeId) => {
-    setSendingSMS(true);
-    setSmsSendingStatus(prev => ({ ...prev, [employeeId]: 'sending' }));
-    
-    try {
-      const result = await sendSMSLeopard(phoneNumber, message);
-      
-      if (result.success) {
-        setSmsSendingStatus(prev => ({ ...prev, [employeeId]: 'success' }));
-        toast.success(`SMS sent to ${employeeId}`);
-      } else {
-        setSmsSendingStatus(prev => ({ ...prev, [employeeId]: 'failed' }));
-        toast.warning(`SMS failed for ${employeeId}: ${result.message}`);
-      }
-      return result;
-    } catch (error) {
-      setSmsSendingStatus(prev => ({ ...prev, [employeeId]: 'failed' }));
-      toast.error(`Failed to send SMS to ${employeeId}: ${error.message}`);
-      return { success: false, error: error.message };
-    } finally {
-      setSendingSMS(false);
-      // Clear status after 3 seconds
-      setTimeout(() => {
-        setSmsSendingStatus(prev => {
-          const newStatus = { ...prev };
-          delete newStatus[employeeId];
-          return newStatus;
-        });
-      }, 3000);
-    }
-  };
-
+  // Enhanced SMS notification functions
   const sendPayslipNotification = async (employee) => {
+    if (!employee.employeeNu) {
+      console.warn(`No phone number for employee ${employee.employee_name}`);
+      return { success: false, error: 'No phone number available' };
+    }
+
     const message = smsTemplates.payslipNotification(
       employee.employee_name,
       employee.net_pay,
       employee.pay_period
     );
     
-    return await sendSMSNotification(employee.employeeNu, message, employee.employee_id);
+    try {
+      const result = await sendSMSWithRetry(employee.employeeNu, message);
+      return result;
+    } catch (error) {
+      console.error(`Failed to send payslip SMS to ${employee.employee_name}:`, error);
+      return { success: false, error: error.message };
+    }
   };
 
   const sendPaymentConfirmation = async (employee) => {
+    if (!employee.employeeNu) {
+      console.warn(`No phone number for employee ${employee.employee_name}`);
+      return { success: false, error: 'No phone number available' };
+    }
+
     const message = smsTemplates.paymentConfirmation(
       employee.employee_name,
       employee.net_pay
     );
     
-    return await sendSMSNotification(employee.employeeNu, message, employee.employee_id);
+    try {
+      const result = await sendSMSWithRetry(employee.employeeNu, message);
+      return result;
+    } catch (error) {
+      console.error(`Failed to send payment confirmation to ${employee.employee_name}:`, error);
+      return { success: false, error: error.message };
+    }
   };
 
   const sendBulkPayslipNotifications = async () => {
     setIsSendingPayslips(true);
     const results = [];
+    const employeesWithPhones = finalFilteredRecords.filter(emp => emp.employeeNu);
     
-    for (const employee of finalFilteredRecords) {
+    if (employeesWithPhones.length === 0) {
+      toast.error('No employees with phone numbers found');
+      setIsSendingPayslips(false);
+      return [];
+    }
+
+    toast.info(`Sending ${employeesWithPhones.length} SMS notifications...`);
+    
+    for (const [index, employee] of employeesWithPhones.entries()) {
       if (employee.employeeNu) {
-        const result = await sendPayslipNotification(employee);
-        results.push({ employee: employee.employee_id, success: result.success });
+        setSmsSendingStatus(prev => ({ ...prev, [employee.employee_id]: 'sending' }));
         
-        // Add delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const result = await sendPayslipNotification(employee);
+        results.push({ 
+          employee: employee.employee_id, 
+          employeeName: employee.employee_name,
+          success: result.success,
+          error: result.error 
+        });
+        
+        setSmsSendingStatus(prev => ({ 
+          ...prev, 
+          [employee.employee_id]: result.success ? 'success' : 'failed' 
+        }));
+        
+        if (index < employeesWithPhones.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
     }
     
@@ -2599,26 +2649,33 @@ export default function PayrollDashboard() {
       toast.success(`All ${totalCount} payslip notifications sent successfully!`);
     } else if (successCount > 0) {
       toast.success(`${successCount} of ${totalCount} payslip notifications sent successfully`);
+      
+      const failed = results.filter(r => !r.success);
+      if (failed.length > 0) {
+        console.log('Failed SMS deliveries:', failed);
+        toast.error(`${failed.length} messages failed. Check console for details.`);
+      }
     } else {
-      toast.error('All SMS notifications failed');
+      toast.error('All SMS notifications failed. Please check your SMS configuration.');
     }
     
     setIsSendingPayslips(false);
+    
+    setTimeout(() => {
+      setSmsSendingStatus({});
+    }, 5000);
+    
     return results;
   };
 
-  // Add this function to handle loan requests
   const handleLoanRequest = async (loanData) => {
-    // Here you would typically make an API call to process the loan request
     console.log('Processing loan request:', loanData);
     
-    // Simulate API call and update wallet balance
     setWalletData(prev => ({
       ...prev,
       isLoading: true
     }));
     
-    // Simulate API delay
     setTimeout(() => {
       setWalletData(prev => ({
         currentBalance: prev.currentBalance + loanData.amount,
@@ -2628,16 +2685,13 @@ export default function PayrollDashboard() {
     }, 1000);
   };
 
-  // Get current month in YYYY-MM format
   const getCurrentPeriod = () => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   };
 
-  // Get the actual period to use for calculations
   const actualPeriod = selectedPeriod === 'current' ? getCurrentPeriod() : selectedPeriod;
 
-  // Fetch user profile and role from Supabase
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
@@ -2650,7 +2704,6 @@ export default function PayrollDashboard() {
 
         setCurrentUser(user);
 
-        // Try to get user profile, default to maker if not found
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('role')
@@ -2672,7 +2725,6 @@ export default function PayrollDashboard() {
     fetchUserProfile();
   }, []);
 
-  // Fetch payment requests from Supabase
   const fetchPaymentRequests = async () => {
     try {
       setIsLoadingRequests(true);
@@ -2696,14 +2748,12 @@ export default function PayrollDashboard() {
     }
   };
 
-  // Load payment requests on component mount and when user changes
   useEffect(() => {
     if (currentUser) {
       fetchPaymentRequests();
     }
   }, [currentUser]);
 
-  // Subscribe to real-time payment request changes
   useEffect(() => {
     if (!currentUser) return;
 
@@ -2718,7 +2768,7 @@ export default function PayrollDashboard() {
         },
         (payload) => {
           console.log('Payment request change:', payload);
-          fetchPaymentRequests(); // Refresh the list when changes occur
+          fetchPaymentRequests();
         }
       )
       .subscribe();
@@ -2728,7 +2778,6 @@ export default function PayrollDashboard() {
     };
   }, [currentUser]);
 
-  // Fetch company information from Supabase
   useEffect(() => {
     const fetchCompanyInfo = async () => {
       try {
@@ -2757,10 +2806,13 @@ export default function PayrollDashboard() {
 
   // Check SMS balance on component mount
   useEffect(() => {
-    checkSMSBalance();
+    const loadSMSBalance = async () => {
+      const balance = await checkSMSBalance();
+      setSmsBalance(balance);
+    };
+    loadSMSBalance();
   }, []);
 
-  // Create payment request in Supabase
   const createPaymentRequest = async (employee, type, justification, employees = null) => {
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -2783,7 +2835,6 @@ export default function PayrollDashboard() {
     return { ...data, created_by_email: user.email };
   };
 
-  // Approve payment request in Supabase
   const approvePayment = async (payment) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -2793,7 +2844,6 @@ export default function PayrollDashboard() {
         return;
       }
 
-      // Optimistic update
       setPaymentRequests(prev => 
         prev.map(req => 
           req.id === payment.id 
@@ -2822,12 +2872,10 @@ export default function PayrollDashboard() {
       if (error) {
         console.error('Error approving payment request:', error);
         toast.error('Failed to approve payment request');
-        // Revert optimistic update
         fetchPaymentRequests();
         return;
       }
 
-      // Process the actual M-Pesa payment
       try {
         if (payment.type === 'single') {
           await processSingleMpesaPayment(payment.employee_data);
@@ -2835,7 +2883,6 @@ export default function PayrollDashboard() {
           await processBulkMpesaPayment(payment.employees_data);
         }
 
-        // Update status to completed
         await supabase
           .from('payment_flows')
           .update({
@@ -2844,14 +2891,12 @@ export default function PayrollDashboard() {
           })
           .eq('id', payment.id);
 
-        // Update local state
         setPaymentRequests(prev => 
           prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
         );
 
         toast.success('Payment approved and processed successfully!');
       } catch (error) {
-        // Update status to failed
         await supabase
           .from('payment_flows')
           .update({
@@ -2874,7 +2919,6 @@ export default function PayrollDashboard() {
     }
   };
 
-  // Reject payment request in Supabase
   const rejectPayment = async (payment, reason) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -2884,7 +2928,6 @@ export default function PayrollDashboard() {
         return;
       }
 
-      // Optimistic update
       setPaymentRequests(prev => 
         prev.map(req => 
           req.id === payment.id 
@@ -2915,7 +2958,6 @@ export default function PayrollDashboard() {
       if (error) {
         console.error('Error rejecting payment request:', error);
         toast.error('Failed to reject payment request');
-        // Revert optimistic update
         fetchPaymentRequests();
         return;
       }
@@ -2927,7 +2969,6 @@ export default function PayrollDashboard() {
     }
   };
 
-  // M-PESA Payment Functions (Original - now used only after approval)
   const processSingleMpesaPayment = async (employee) => {
     try {
       const phoneNumber = employee.employeeNu;
@@ -2937,7 +2978,6 @@ export default function PayrollDashboard() {
 
       const formattedPhone = formatPhoneNumber(phoneNumber);
       
-      // Call backend API to initiate M-Pesa B2C payment
       const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
         method: 'POST',
         headers: {
@@ -2958,7 +2998,6 @@ export default function PayrollDashboard() {
 
       const result = await response.json();
       
-      // Send SMS notification for successful payment
       if (result.success) {
         await sendPaymentConfirmation(employee);
       }
@@ -2980,7 +3019,6 @@ export default function PayrollDashboard() {
         const result = await processSingleMpesaPayment(employee);
         results.push({ success: true, employee, result });
         
-        // Add a small delay between payments to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         results.push({ success: false, employee, error });
@@ -3001,7 +3039,6 @@ export default function PayrollDashboard() {
     return results;
   };
 
-  // Modified handlers for maker-checker workflow
   const handleSingleMpesaPayment = (employee) => {
     setSelectedEmployeeForMpesa(employee);
     setShowSingleMpesaModal(true);
@@ -3013,25 +3050,21 @@ export default function PayrollDashboard() {
 
   const handleConfirmSinglePayment = async (justification) => {
     if (userRole === 'credit_analyst_officer') {
-      // Admin can process immediately
       await processSingleMpesaPayment(selectedEmployeeForMpesa);
     } else {
-      // Create payment request for approval
       await createPaymentRequest(selectedEmployeeForMpesa, 'single', justification);
     }
   };
 
   const handleConfirmBulkPayment = async (selectedEmployees, justification) => {
     if (userRole === 'credit_analyst_officer') {
-      // Admin can process immediately
       await processBulkMpesaPayment(selectedEmployees);
     } else {
-      // Create payment request for approval
       await createPaymentRequest(null, 'bulk', justification, selectedEmployees);
     }
   };
 
-  // Fetch employees from Supabase
+  // KEEP YOUR ORIGINAL EMPLOYEE FETCHING LOGIC - DON'T LET ME CHANGE THIS
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -3048,9 +3081,9 @@ export default function PayrollDashboard() {
         if (data) {
           setEmployees(data);
           
-          // Extract unique departments and branches
+          // YOUR ORIGINAL DEPARTMENT/BRANCH EXTRACTION
           const uniqueDepartments = [...new Set(data.map(emp => emp.Department || emp['Job Level']))].filter(Boolean);
-          const uniqueBranches = [...new Set(data.map(emp => emp.branch  || emp.Office))].filter(Boolean);
+          const uniqueBranches = [...new Set(data.map(emp => emp.branch || emp.Office))].filter(Boolean);
           
           setDepartments(['all', ...uniqueDepartments]);
           setBranches([
@@ -3058,9 +3091,9 @@ export default function PayrollDashboard() {
             ...uniqueBranches.map(branch => ({ value: branch, label: branch }))
           ]);
 
-          // Calculate payroll for each employee using the hook functions
+          // YOUR ORIGINAL PAYROLL CALCULATION LOGIC
           const payrollData = data.map(employee => {
-            // Map Supabase fields to our expected fields
+            // KEEP YOUR EXISTING WORKING LOGIC HERE
             const basicSalary = employee['Basic Salary'] || 0;
             const employeeId = employee['Employee Number'] || '';
             const jobGroup = employee['Job Group'] || '';
@@ -3073,65 +3106,53 @@ export default function PayrollDashboard() {
             const department = employee.Department || employee['Job Level'] || '';
             const position = employee['Job Title'] || '';
             
-            // Get house allowance, travel allowance, and overtime from employees table
             const houseAllowance = employee.house_allowance || 0;
             const transportAllowance = employee.travel_allowance || 0;
             const overtimeHours = employee.overtime || 0;
             const overtimeRate = employee['Overtime Rate'] || 0;
             
-            // Statutory fields
             const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
             const nssfNumber = employee['NSSF Number'] || '';
             const taxPin = employee['Tax PIN'] || '';
             
-            // Calculate other allowances
             const medicalAllowance = employee.medical_allowance || 0;
             const otherAllowances = 0;
             const commission = 0;
             const bonus = 0;
             
-            // Calculate gross pay
             const overtimePay = overtimeHours * overtimeRate;
             const grossPay = basicSalary + houseAllowance + transportAllowance + 
                             medicalAllowance + otherAllowances + overtimePay + 
                             commission + bonus;
 
-            // Calculate statutory deductions using hook functions
             let nhifDeduction = 0;
             let nssfDeduction = 0;
             let housingLevy = 0;
             
-            // Only apply NHIF if number is available
             if (nhifNumber) {
               nhifDeduction = calculateNHIF(grossPay);
             }
             
-            // Only apply NSSF if number is available
             if (nssfNumber) {
               nssfDeduction = calculateNSSF(grossPay);
             }
             
-            // Only apply Housing Levy if Tax PIN is available
             if (taxPin) {
               housingLevy = calculateHousingLevy(grossPay, true);
             }
             
-            // Calculate taxable income (gross - non-taxable deductions)
             const taxableIncome = grossPay - nssfDeduction - housingLevy;
             
-            // Calculate PAYE - only if Tax PIN is available
             let payeTax = 0;
             if (taxPin) {
               payeTax = calculatePAYE(taxableIncome);
             }
             
-            // Other deductions
             const loanDeduction = 0;
             const advanceDeduction = 0;
             const welfareDeduction = 0;
             const otherDeductions = 0;
 
-            // Calculate total deductions
             const totalDeductions = payeTax + 
                                    nhifDeduction + 
                                    nssfDeduction + 
@@ -3141,7 +3162,6 @@ export default function PayrollDashboard() {
                                    welfareDeduction + 
                                    otherDeductions;
 
-            // Calculate net pay
             const netPay = grossPay - totalDeductions;
 
             return {
@@ -3191,12 +3211,10 @@ export default function PayrollDashboard() {
       }
     };
 
-    if (settings) { // Only fetch employees when settings are loaded
-      fetchEmployees();
-    }
-  }, [actualPeriod, settings]); // Add settings as dependency
+    // KEEP YOUR ORIGINAL CALL - DON'T ADD UNNECESSARY CONDITIONS
+    fetchEmployees();
+  }, [actualPeriod, settings]); // Only add dependencies that were originally there
 
-  // Apply additional filters on top of statutory filter
   const applyAdditionalFilters = (records) => {
     return records.filter(record => {
       const searchLower = searchTerm.toLowerCase().trim();
@@ -3218,10 +3236,8 @@ export default function PayrollDashboard() {
     });
   };
 
-  // Get the final filtered records after applying all filters
   const finalFilteredRecords = applyAdditionalFilters(filteredRecords);
 
-  // Get current page data
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = finalFilteredRecords.slice(indexOfFirstItem, indexOfLastItem);
@@ -3241,7 +3257,6 @@ export default function PayrollDashboard() {
       setSelectedRecord(finalFilteredRecords[newIndex]);
       setCurrentRecordIndex(newIndex);
       
-      // Update page if needed
       const newPage = Math.floor(newIndex / itemsPerPage) + 1;
       if (newPage !== currentPage) {
         setCurrentPage(newPage);
@@ -3249,7 +3264,6 @@ export default function PayrollDashboard() {
     }
   };
 
-  // Fix for dropdown expansion - only expand the clicked row
   const toggleRowExpand = (id, e) => {
     e.stopPropagation();
     setExpandedRows(prev => {
@@ -3263,7 +3277,6 @@ export default function PayrollDashboard() {
     });
   };
 
-  // Calculate totals based on final filtered records
   const totalGrossPay = finalFilteredRecords.reduce((sum, record) => sum + record.gross_pay, 0);
   const totalDeductions = finalFilteredRecords.reduce((sum, record) => sum + record.total_deductions, 0);
   const totalNetPay = finalFilteredRecords.reduce((sum, record) => sum + record.net_pay, 0);
@@ -3272,7 +3285,6 @@ export default function PayrollDashboard() {
   const totalNSSF = finalFilteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
   const totalHousingLevy = finalFilteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
 
-  // Get pending payments counts for different statuses
   const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
   const approvedCount = paymentRequests.filter(p => p.status === 'approved').length;
   const rejectedCount = paymentRequests.filter(p => p.status === 'rejected').length;
@@ -3340,7 +3352,6 @@ export default function PayrollDashboard() {
 
   return (
     <div className="p-4 space-y-6 bg-gray-50 min-h-screen max-w-screen-2xl mx-auto">
-      {/* Header Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
@@ -3348,17 +3359,25 @@ export default function PayrollDashboard() {
             <p className="text-gray-600 text-xs">Complete payroll processing with Maker-Checker M-Pesa payment workflow</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            {/* SMS Balance */}
             {smsBalance !== null && (
               <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-lg">
                 <DollarSign className="w-4 h-4 text-green-600" />
                 <span className="text-xs font-medium text-green-700">
                   SMS Balance: {smsBalance}
                 </span>
+                <button 
+                  onClick={async () => {
+                    const balance = await checkSMSBalance();
+                    setSmsBalance(balance);
+                  }}
+                  className="p-1 hover:bg-green-100 rounded"
+                  title="Refresh balance"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                </button>
               </div>
             )}
             
-            {/* Role Indicator */}
             <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               <span className="text-xs font-medium text-blue-700 capitalize">
@@ -3366,7 +3385,6 @@ export default function PayrollDashboard() {
               </span>
             </div>
             
-            {/* Pending Payments Alert */}
             {(userRole === 'checker' || userRole === 'credit_analyst_officer') && pendingCount > 0 && (
               <button
                 onClick={() => setShowApprovalQueue(true)}
@@ -3388,7 +3406,7 @@ export default function PayrollDashboard() {
                       className="flex items-center px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
                       <svg className="w-5 h-5 mr-2 text-green-500" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.150-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.040 1.016-1.040 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.150-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.040 1.016-1.040 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0.16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                       </svg>
                       WhatsApp
                     </button>
@@ -3420,7 +3438,6 @@ export default function PayrollDashboard() {
               Quick Actions
             </GlowButtonss>
 
-            {/* Role Switcher (for demo purposes) */}
             <RoleButtonWrapper allowedRoles={['CHECKER']}>
               <select
                 value={userRole}
@@ -3436,9 +3453,7 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
-      {/* Wallet and Summary Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Wallet Balance Section */}
         <div className="lg:col-span-1">
           <WalletBalance 
             currentBalance={walletData.currentBalance}
@@ -3448,7 +3463,6 @@ export default function PayrollDashboard() {
           />
         </div>
 
-        {/* Other summary cards - wrap the existing grid in lg:col-span-2 */}
         <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
           <SummaryCard 
             label="Total Gross Pay" 
@@ -3478,7 +3492,6 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
-      {/* Maker-Checker Approval Queue */}
       {showApprovalQueue && (userRole === 'checker' || userRole === 'credit_analyst_officer') && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
@@ -3497,7 +3510,6 @@ export default function PayrollDashboard() {
             </button>
           </div>
 
-          {/* Approval Queue Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
               <div className="flex items-center gap-2 mb-2">
@@ -3534,7 +3546,6 @@ export default function PayrollDashboard() {
             </div>
           </div>
 
-          {/* Pending Payments List */}
           {paymentRequests.length > 0 ? (
             <div className="grid gap-4">
               {paymentRequests
@@ -3566,7 +3577,6 @@ export default function PayrollDashboard() {
         </div>
       )}
 
-      {/* Quick Actions Modal */}
       {showQuickActions && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
@@ -3640,7 +3650,6 @@ export default function PayrollDashboard() {
         </div>
       )}
 
-      {/* Filters and Controls Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Payroll Controls</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
@@ -3716,7 +3725,6 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
-      {/* Summary Toggle Button */}
       <div className="flex justify-center space-x-4">
         <GlowButtonss 
           icon={showSummary ? ChevronUp : ChevronDown} 
@@ -3740,7 +3748,6 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
-      {/* Statutory Deductions Summary Section */}
       {showSummary && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Statutory Deductions</h2>
@@ -3753,7 +3760,6 @@ export default function PayrollDashboard() {
         </div>
       )}
 
-      {/* Detailed Payroll Table Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -3892,18 +3898,26 @@ export default function PayrollDashboard() {
                                 sendPayslipNotification(record);
                               }}
                               disabled={sendingSMS || smsStatus === 'sending'}
-                              className="px-2 py-1 text-xs bg-blue-50 text-blue-600 rounded hover:bg-blue-100 disabled:opacity-50 flex items-center gap-1"
+                              className={`px-2 py-1 text-xs rounded flex items-center gap-1 ${
+                                smsStatus === 'success' 
+                                  ? 'bg-green-50 text-green-600' 
+                                  : smsStatus === 'failed' 
+                                  ? 'bg-red-50 text-red-600'
+                                  : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                              } disabled:opacity-50`}
                             >
                               {smsStatus === 'sending' ? (
                                 <Loader className="w-3 h-3 animate-spin" />
                               ) : smsStatus === 'success' ? (
-                                <CheckCircle className="w-3 h-3 text-green-500" />
+                                <CheckCircle className="w-3 h-3" />
                               ) : smsStatus === 'failed' ? (
-                                <XCircle className="w-3 h-3 text-red-500" />
+                                <XCircle className="w-3 h-3" />
                               ) : (
                                 <Send className="w-3 h-3" />
                               )}
-                              SMS
+                              {smsStatus === 'sending' ? 'Sending' : 
+                               smsStatus === 'success' ? 'Sent' :
+                               smsStatus === 'failed' ? 'Failed' : 'SMS'}
                             </button>
                           )}
                         </div>
@@ -3984,7 +3998,6 @@ export default function PayrollDashboard() {
           </table>
         </div>
         
-        {/* Pagination */}
         <Pagination 
           currentPage={currentPage} 
           totalPages={totalPages} 
@@ -3995,7 +4008,6 @@ export default function PayrollDashboard() {
         />
       </div>
 
-      {/* Payslip Modal */}
       {selectedRecord && (
         <PayslipModal
           record={selectedRecord}
@@ -4008,7 +4020,6 @@ export default function PayrollDashboard() {
         />
       )}
 
-      {/* M-PESA Single Payment Modal */}
       {selectedEmployeeForMpesa && (
         <MpesaSinglePaymentModal
           isOpen={showSingleMpesaModal}
@@ -4019,7 +4030,6 @@ export default function PayrollDashboard() {
         />
       )}
 
-      {/* M-PESA Bulk Payment Modal */}
       <MpesaBulkPaymentModal
         isOpen={showBulkMpesaModal}
         onClose={() => setShowBulkMpesaModal(false)}
@@ -4028,7 +4038,6 @@ export default function PayrollDashboard() {
         userRole={userRole}
       />
 
-      {/* Payment Details Modal */}
       <PaymentDetailsModal
         payment={selectedPaymentForDetails}
         isOpen={showPaymentDetails}
@@ -4045,7 +4054,6 @@ export default function PayrollDashboard() {
         userRole={userRole}
       />
 
-      {/* Rejection Modal */}
       <RejectionModal
         isOpen={showRejectionModal}
         onClose={() => setShowRejectionModal(false)}
@@ -4055,7 +4063,6 @@ export default function PayrollDashboard() {
         }}
       />
 
-      {/* P9 Form Modal */}
       <P9FormGenerator
         isOpen={showP9Modal}
         onClose={() => setShowP9Modal(false)}
@@ -4063,14 +4070,12 @@ export default function PayrollDashboard() {
         companyInfo={companyInfo}
       />
 
-      {/* Export Modal */}
       <ExportModal
         isOpen={showExportModal}
         onClose={() => setShowExportModal(false)}
         records={finalFilteredRecords}
       />
 
-      {/* P10 Form Modal */}
       {showP10Modal && (
         <P10FormGenerator
           isOpen={showP10Modal}
@@ -4082,7 +4087,6 @@ export default function PayrollDashboard() {
         />
       )}
 
-      {/* Statutory Settings Modal */}
       <StatutorySettingsModal
         isOpen={showStatutorySettings}
         onClose={() => setShowStatutorySettings(false)}

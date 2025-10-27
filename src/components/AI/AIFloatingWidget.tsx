@@ -7,6 +7,7 @@ const ChatFloater = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCurvedText, setShowCurvedText] = useState(true);
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -16,6 +17,16 @@ const ChatFloater = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Hide curved text after 5 seconds
+  useEffect(() => {
+    if (showCurvedText && !isOpen) {
+      const timer = setTimeout(() => {
+        setShowCurvedText(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showCurvedText, isOpen]);
 
   const systemPrompt = `You are a Loan Portfolio Performance Planner. For each branch in the user's query, calculate loan targets and financial metrics using these exact rules and formulas. Always classify branch age, compute all metrics, and present results in a clear, visually appealing format. If data is missing (e.g., previous OLB or borrowers), ask the user to clarify and do not guess.
 
@@ -177,11 +188,58 @@ const ChatFloater = () => {
 
   return (
     <div className="font-sans">
-      {/* Floating Action Button - Smaller and Faint */}
+      {/* Floating Action Button with Curved Text */}
       {!isOpen && (
         <div className="fixed bottom-6 right-6 z-50">
+          {/* Curved Text Container */}
+          {showCurvedText && (
+            <div className="absolute -top-16 -right-4 transform rotate-12 animate-bounce">
+              <div className="relative">
+                {/* Curved Text SVG */}
+                <svg 
+                  width="120" 
+                  height="60" 
+                  viewBox="0 0 120 60"
+                  className="filter drop-shadow-lg"
+                >
+                  <defs>
+                    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#8b5cf6" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    id="curve"
+                    d="M 20 50 A 40 40 0 1 1 100 50"
+                    fill="transparent"
+                  />
+                  <text
+                    width="120"
+                    className="text-xs font-semibold"
+                  >
+                    <textPath
+                      href="#curve"
+                      startOffset="50%"
+                      textAnchor="middle"
+                      fill="url(#textGradient)"
+                    >
+                      ✨ am here to help!
+                    </textPath>
+                  </text>
+                </svg>
+                
+                {/* Speech bubble tail */}
+                
+              </div>
+            </div>
+          )}
+
           <button
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              setIsOpen(true);
+              setShowCurvedText(false);
+            }}
+            onMouseEnter={() => setShowCurvedText(true)}
             className="group relative bg-blue-600/30 backdrop-blur-sm hover:bg-white/40 text-gray-600 p-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-105 border border-gray-300/50"
           >
             <img
@@ -193,15 +251,12 @@ const ChatFloater = () => {
             {/* Subtle pulse animation */}
             <div className="absolute inset-0 rounded-full bg-white/40 animate-pulse opacity-50 -z-10"></div>
             
-            {/* Notification badge */}
-            <div className="absolute -top-1 -right-1 bg-blue-500/70 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              <MessageCircleMore size={12} />
-            </div>
+           
           </button>
         </div>
       )}
 
-      {/* Chat Window - UNCHANGED */}
+      {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 z-50 w-96 h-[500px] bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-gray-200/50 flex flex-col overflow-hidden transition-all duration-500">
           {/* Header */}
@@ -295,7 +350,11 @@ const ChatFloater = () => {
                   }`}>
                     {msg.role === "user" ? 
                       <User size={14} className="text-white" /> : 
-                      <Bot size={14} className="text-gray-600" />
+                      <img
+                  src="/avatars.png"
+                  alt="Avatar"
+                  className="w-10 h-10 object-cover rounded-full"
+                />
                     }
                   </div>
                   
@@ -330,7 +389,11 @@ const ChatFloater = () => {
               <div className="flex justify-start animate-in slide-in-from-bottom-2">
                 <div className="flex items-start space-x-2 max-w-[85%]">
                   <div className="w-7 h-7 rounded-full bg-gradient-to-r from-gray-200 to-gray-300 flex items-center justify-center flex-shrink-0">
-                    <Bot size={14} className="text-gray-600" />
+                    <img
+                  src="/avatars.png"
+                  alt="Avatar"
+                  className="w-10 h-10 object-cover rounded-full"
+                />
                   </div>
                   <div className="bg-white border border-gray-200 px-4 py-3 rounded-2xl shadow-sm">
                     <div className="flex space-x-1">

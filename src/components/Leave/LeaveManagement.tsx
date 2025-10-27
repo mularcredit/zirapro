@@ -261,7 +261,7 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Leave Application Details</h3>
+          <h3 className="text-lg font-base text-gray-900">Leave Application Details</h3>
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
@@ -451,7 +451,7 @@ const StatusUpdateModal = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-lg font-base text-gray-900">
             {getModalTitle()}
           </h3>
           <button 
@@ -1241,7 +1241,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Pending Applications</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Pending Applications</p>
               <p className="text-gray-900 text-xl font-bold">{pendingApplications}</p>
             </div>
           </div>
@@ -1253,7 +1253,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Approved Applications</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Approved Applications</p>
               <p className="text-gray-900 text-xl font-bold">{approvedApplications}</p>
             </div>
           </div>
@@ -1265,7 +1265,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Recommended</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Recommended</p>
               <p className="text-gray-900 text-xl font-bold">{recommendedApplications}</p>
             </div>
           </div>
@@ -1277,7 +1277,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Not Recommended</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Not Recommended</p>
               <p className="text-gray-900 text-xl font-bold">{notRecommendedApplications}</p>
             </div>
           </div>
@@ -1289,7 +1289,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Used</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Leave Days Used</p>
               <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysUsed}</p>
             </div>
           </div>
@@ -1301,7 +1301,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
               </div>
             </div>
             <div className="space-y-1">
-              <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">Leave Days Remaining</p>
+              <p className="text-gray-600 text-xs font-base  tracking-wide">Leave Days Remaining</p>
               <p className="text-gray-900 text-xl font-bold">{totalLeaveDaysRemaining}</p>
             </div>
           </div>
@@ -1352,7 +1352,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
           <div className="p-4 md:p-6 border-b border-gray-200">
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Leave Applications</h2>
+                <h2 className="text-lg font-base text-gray-900">Leave Applications</h2>
                 <p className="text-gray-600 text-xs">{leaveApplications.length} applications found</p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -1372,15 +1372,15 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Employee</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Leave Type</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Dates</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Days</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Office Branch</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Status</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Recommendation</th>
-                  <th className="text-left py-3 px-4 text-gray-700 font-semibold">Applied On</th>
-                  <th className="text-center py-3 px-4 text-gray-700 font-semibold">Actions</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Employee</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Leave Type</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Dates</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Days</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Office Branch</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Status</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Recommendation</th>
+                  <th className="text-left py-3 px-4 text-gray-700 font-base">Applied On</th>
+                  <th className="text-center py-3 px-4 text-gray-700 font-base">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1391,7 +1391,7 @@ export default function LeaveManagementSystem({ selectedTown, onTownChange, sele
                     <tr key={application.id} className="border-b border-gray-300 hover:bg-gray-50">
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          <p className="text-gray-900 font-semibold">{application.Name}</p>
+                          <p className="text-gray-900 font-base">{application.Name}</p>
                           <p className="text-gray-500 text-xs">{application["Employee Number"]}</p>
                         </div>
                       </td>

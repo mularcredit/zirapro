@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Calendar,
@@ -24,7 +24,9 @@ import {
   Wallet,
   Blocks,
   MessageSquareMore,
-  Slack
+  Slack,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -36,7 +38,8 @@ const menuItems = [
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'task-manager', label: 'Task Manager', icon: Blocks, path: '/tasks' },
   { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
-  { id: 'teams', label: 'teams', icon: Slack, path: '/teams' },
+   { id: 'advanced', label: 'advance', icon: Wallet, path: '/salaryadmin' },
+  { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
   { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },
@@ -57,23 +60,38 @@ export default function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [darkMode, setDarkMode] = useState(true);
+  const [activeGlow, setActiveGlow] = useState('');
+
+  // Active item glow effect
+  useEffect(() => {
+    const activeItem = menuItems.find(item => currentPath === item.path);
+    if (activeItem) {
+      setActiveGlow(activeItem.id);
+      const timer = setTimeout(() => setActiveGlow(''), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPath]);
 
   return (
     <div className="relative">
-      {/* Floating Container with Curved Edges - Reduced Width - Shadow Removed */}
+      {/* Enhanced Floating Container */}
       <motion.div
-        className={`min-h-[95vh]  text-gray-900 flex-shrink-0 relative z-20 font-poppins mx-4 my-4 ${
+        className={`min-h-[95vh] text-gray-900 flex-shrink-0 relative z-20 font-poppins mx-4 my-4 ${
           isCollapsed ? 'w-16' : 'w-64'
         }`}
         style={{
           background: darkMode 
-            ? 'linear-gradient(135deg, #00ddff41 20%, #00fc4c33 80%, #ffffffff 100%)'
-            : 'linear-gradient(135deg, #d2f9dcff 20%, #b6a6ffff 50%, #85ffa7ff 100%)',
-          // Shadow removed from here
+            ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.25) 0%, rgba(0, 252, 76, 0.2) 50%, rgba(255, 255, 255, 0.1) 100%)'
+            : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
           fontFamily: "'Poppins', sans-serif",
-          borderRadius: '24px',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(54, 54, 54, 0.2)'
+          borderRadius: '28px',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          boxShadow: `
+            0 8px 32px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2),
+            inset 0 -1px 0 rgba(0, 0, 0, 0.1)
+          `,
         }}
         initial={{ width: 64 }}
         animate={{ 
@@ -83,16 +101,17 @@ export default function Sidebar() {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Toggle Button - Reduced Size */}
+        {/* Enhanced Toggle Button */}
         <motion.button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="absolute -right-2 top-24 z-30 bg-white p-1 rounded-full shadow-md border border-green-200"
+          className="absolute -right-3 top-24 z-30 bg-white/90 p-2 rounded-full shadow-lg border border-green-300/50 backdrop-blur-sm"
           whileHover={{ 
-            scale: 1.05, 
-            boxShadow: "0 0 10px rgba(72, 187, 120, 0.4)",
-            y: -1
+            scale: 1.1, 
+            boxShadow: "0 0 20px rgba(72, 187, 120, 0.6)",
+            y: -1,
+            rotate: isCollapsed ? 180 : -180
           }}
-          whileTap={{ scale: 0.85 }}
+          whileTap={{ scale: 0.9 }}
           style={{ 
             color: darkMode ? '#0d3b29' : '#0d966c'
           }}
@@ -104,95 +123,208 @@ export default function Sidebar() {
           )}
         </motion.button>
 
-        <div className="px-3 pb-6 pt-6 h-full flex flex-col">
-          {/* Logo Section - Removed shadow and effects */}
+        <div className="px-4 pb-6 pt-6 h-full flex flex-col">
+          {/* Fixed Logo Section - Background only when expanded */}
           <motion.div 
-            className="flex items-center mb-8 px-2 py-3 rounded-xl bg-white/5  border border-white/10"
+            className={`flex items-center mb-8 rounded-2xl transition-all duration-300 ${
+              isCollapsed && !isHovered 
+                ? 'p-0 justify-center bg-transparent border-none' 
+                : 'px-3 py-4 justify-start bg-white/10 backdrop-blur-sm border border-white/20'
+            }`}
             animate={{ 
               justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start' 
             }}
+            whileHover={{ 
+              scale: (isCollapsed && !isHovered) ? 1 : 1.02,
+              backgroundColor: (isCollapsed && !isHovered) ? 'transparent' : 'rgba(255, 255, 255, 0.15)'
+            }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
           >
+            {/* Logo Container - Always centered within its space */}
             <motion.div 
-              className="w-8 h-8 flex-shrink-0 rounded-xl bg-blue-400 flex items-center justify-center"
-              whileHover={{ rotate: 5, scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              className="flex items-center justify-center"
+              animate={{
+                width: isCollapsed && !isHovered ? '100%' : 'auto',
+              }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
             >
-              <img src={solo} alt="Logo" className="w-8 h-8 filter brightness-110" />
+              <motion.div 
+                className="flex-shrink-0 rounded-2xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg w-10 h-10"
+                whileHover={{ 
+                  rotate: [0, -5, 5, 0],
+                  scale: 1.1,
+                  transition: { duration: 0.5 }
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <motion.img 
+                  src={solo} 
+                  alt="Logo" 
+                  className="w-6 h-6 filter brightness-110 drop-shadow-sm"
+                  whileHover={{ rotate: 360 }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                />
+              </motion.div>
+              
+              {/* Text Section - Only appears when expanded */}
+              <AnimatePresence mode="wait">
+                {(isHovered || !isCollapsed) && ( 
+                  <motion.div
+                    className="ml-3"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                  >
+                    <motion.h1 
+                      className="text-lg font-bold text-gray-900 tracking-tight"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      Zira<span className="font-light">Hr</span>
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="ml-1 inline-block"
+                      >
+                      </motion.span>
+                    </motion.h1>
+                    <motion.p 
+                      className="text-gray-900 text-xs font-medium mt-1"
+                      style={{ fontFamily: "'Poppins', sans-serif" }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      Smiles Start Here
+                    </motion.p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
-            <AnimatePresence>
-              {(isHovered || !isCollapsed) && ( 
-                <motion.div
-                  className="ml-3"
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <h1 className="text-lg font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                    Zira<span className="font-light">Hr</span>
-                  </h1>
-                  <p className="text-gray-900 text-xs font-medium" style={{ fontFamily: "'Poppins', sans-serif" }}>Smiles Start Here</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
 
-          {/* Navigation - Original font size */}
-          <nav className="space-y-1.5 flex-1">
+          {/* Enhanced Navigation - Cleaner active states when collapsed */}
+          <nav className="space-y-2 flex-1">
             {menuItems.map((item) => {
               const isActive = currentPath === item.path;
+              const hasGlow = activeGlow === item.id;
+              const isCollapsedState = isCollapsed && !isHovered;
               
-              // Create the button component
               const ButtonComponent = (
                 <motion.button
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center px-0.5 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden group ${
+                  className={`flex items-center rounded-2xl transition-all duration-300 relative overflow-hidden group ${
+                    isCollapsedState ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
+                  } ${
                     isActive
-                      ? 'bg-orange/30 text-gray-900 '
-                      : 'text-gray-900 hover:text-gray-900 hover:bg-white/10'
+                      ? isCollapsedState 
+                        ? 'bg-white/20 shadow-md' 
+                        : 'bg-white/30 text-gray-900 shadow-lg'
+                      : 'text-gray-900 hover:text-gray-900 hover:bg-white/15'
                   }`}
+                  style={{ 
+                    fontFamily: "'Poppins', sans-serif",
+                    height: '44px'
+                  }}
                   whileHover={{ 
-                    scale: 1.02,
+                    scale: isCollapsedState ? 1.05 : 1.02,
+                    x: isCollapsedState ? 0 : 4,
                     transition: { duration: 0.2 }
                   }}
                   whileTap={{ scale: 0.98 }}
-                  style={{ fontFamily: "'Poppins', sans-serif" }}
                 >
-                  <div className="flex items-center">
-                    <motion.div 
-                      className={`relative p-2 rounded-lg ${isActive ? 'bg-white/20 ml-1' : 'group-hover:bg-white/15 ml-1'}`}
-                      whileHover={{ rotate: 5 }}
-                    >
-                      <item.icon
-                        className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-gray-900' : 'text-gray-900 group-hover:text-gray-900'}`}
-                      />
-                    </motion.div>
-                    <AnimatePresence>
-                      {(isHovered || !isCollapsed) && (
-                        <motion.span
-                          className="ml-3 text-xs font-medium whitespace-nowrap"
-                          initial={{ opacity: 0, x: -10 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          transition={{ duration: 0.2 }}
-                          style={{ fontFamily: "'Poppins', sans-serif" }}
-                        >
-                          {item.label}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                  {/* Active Glow Effect - Only show when expanded */}
+                  {hasGlow && !isCollapsedState && (
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-2xl"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.5 }}
+                    />
+                  )}
+
+                  <div className={`flex items-center ${isCollapsedState ? 'justify-center' : 'justify-between w-full'}`}>
+                    <div className="flex items-center">
+                      <motion.div 
+                        className={`relative rounded-xl ${
+                          isCollapsedState ? 'p-2.5' : 'p-2'
+                        } ${
+                          isActive 
+                            ? 'bg-white/25 shadow-md' 
+                            : 'bg-white/10 group-hover:bg-white/20'
+                        }`}
+                        whileHover={{ 
+                          rotate: isCollapsedState ? 0 : 5,
+                          scale: 1.1
+                        }}
+                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                      >
+                        <item.icon
+                          className={`flex-shrink-0 w-4 h-4 ${
+                            isActive 
+                              ? 'text-gray-900 drop-shadow-sm' 
+                              : 'text-gray-900 group-hover:text-gray-900'
+                          }`}
+                        />
+                      </motion.div>
+                      <AnimatePresence>
+                        {(isHovered || !isCollapsed) && (
+                          <motion.span
+                            className="ml-3 text-xs font-medium whitespace-nowrap"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ fontFamily: "'Poppins', sans-serif" }}
+                          >
+                            {item.label}
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Badge - Only show when expanded */}
+                    {(isHovered || !isCollapsed) && item.badge && (
+                      <motion.span
+                        className={`px-1.5 py-0.5 rounded-full text-xs font-bold`}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        style={{
+                          backgroundColor: 
+                            item.badge === 'NEW' ? '#ef4444' : 
+                            item.badge === '↑' ? '#22c55e' : 
+                            '#3b82f6',
+                          color: 'white'
+                        }}
+                      >
+                        {item.badge}
+                      </motion.span>
+                    )}
                   </div>
                   
+                  {/* Enhanced Hover Effect */}
                   {!isActive && (
                     <motion.div 
-                      className="absolute inset-0 bg-gradient-to-r from-transparent to-white/5 opacity-0 group-hover:opacity-100"
-                      transition={{ duration: 0.3 }}
+                      className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100"
+                      transition={{ duration: 0.4 }}
+                    />
+                  )}
+
+                  {/* Active Indicator - Only show when expanded */}
+                  {isActive && !isCollapsedState && (
+                    <motion.div
+                      className="absolute right-2 w-1 h-6 bg-gradient-to-b from-orange-400 to-red-500 rounded-full"
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500 }}
                     />
                   )}
                 </motion.button>
               );
 
-              // If item has required roles, wrap it with RoleButtonWrapper
               if (item.allowedRoles) {
                 return (
                   <RoleButtonWrapper 
@@ -205,7 +337,6 @@ export default function Sidebar() {
                 );
               }
 
-              // Otherwise, return the button directly
               return (
                 <div key={item.id}>
                   {ButtonComponent}
@@ -214,41 +345,111 @@ export default function Sidebar() {
             })}
           </nav>
 
-          {/* Bottom spacer */}
-          <div className="flex-1"></div>
-
-          {/* Theme Toggle - Original styling */}
-          
-
-          {/* User/Settings Area - Simple styling */}
-          <motion.div 
-            className="px-2 py-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10"
-            animate={{
-              justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start'
-            }}
-          >
-            <div className="flex items-center">
-              {/* Simple user icon */}
-              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                <UserPlus className="w-4 h-4 text-gray-900" />
-              </div>
+          {/* Enhanced Bottom Section */}
+          <div className="space-y-3 mt-8">
+            {/* Theme Toggle */}
+            <motion.button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`flex items-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all duration-300 group ${
+                isCollapsed && !isHovered ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
+              }`}
+              style={{ height: '44px' }}
+              whileHover={{ scale: isCollapsed && !isHovered ? 1.05 : 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <motion.div
+                className={`rounded-xl bg-white/15 ${
+                  isCollapsed && !isHovered ? 'p-2.5' : 'p-2'
+                }`}
+                whileHover={{ rotate: isCollapsed && !isHovered ? 0 : 180 }}
+                transition={{ duration: 0.5 }}
+              >
+                {darkMode ? (
+                  <Sun className="w-4 h-4 text-yellow-500" />
+                ) : (
+                  <Moon className="w-4 h-4 text-blue-500" />
+                )}
+              </motion.div>
               <AnimatePresence>
                 {(isHovered || !isCollapsed) && (
-                  <motion.div
-                    className="ml-3"
+                  <motion.span
+                    className="ml-3 text-xs font-medium text-gray-900"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
                   >
-                    <p className="text-xs text-gray-900" style={{ fontFamily: "'Poppins', sans-serif" }}>
-                      Welcome!
-                    </p>
-                  </motion.div>
+                    {darkMode ? 'Light Mode' : 'Dark Mode'}
+                  </motion.span>
                 )}
               </AnimatePresence>
-            </div>
-          </motion.div>
+            </motion.button>
+
+            {/* Enhanced User Area */}
+            <motion.div 
+              className={`rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 ${
+                isCollapsed && !isHovered ? 'p-3 justify-center' : 'px-3 py-4 justify-start'
+              }`}
+              animate={{
+                justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start'
+              }}
+              whileHover={{ 
+                scale: 1.02,
+                backgroundColor: 'rgba(255, 255, 255, 0.15)'
+              }}
+            >
+              <div className="flex items-center">
+                <motion.div 
+                  className={`flex-shrink-0 rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center shadow-lg ${
+                    isCollapsed && !isHovered ? 'w-8 h-8' : 'w-10 h-10'
+                  }`}
+                  whileHover={{ 
+                    scale: 1.1,
+                    rotate: [0, -5, 5, 0]
+                  }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <UserPlus className={`text-white ${isCollapsed && !isHovered ? 'w-4 h-4' : 'w-5 h-5'}`} />
+                </motion.div>
+                <AnimatePresence>
+                  {(isHovered || !isCollapsed) && (
+                    <motion.div
+                      className="ml-3"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -10 }}
+                    >
+                      <p className="text-xs font-bold text-gray-900" style={{ fontFamily: "'Poppins', sans-serif" }}>
+                        Welcome Back!
+                      </p>
+                      <motion.p 
+                        className="text-xs text-gray-900 mt-1"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                      >
+                        Ready to create smiles? 😊
+                      </motion.p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </motion.div>
+          </div>
         </div>
+
+        {/* Subtle Background Animation */}
+        <motion.div
+          className="absolute inset-0 rounded-3xl bg-gradient-to-br from-transparent via-white/5 to-transparent pointer-events-none"
+          animate={{
+            background: [
+              'linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent)',
+              'linear-gradient(135deg, transparent, rgba(255,255,255,0.05), transparent)',
+              'linear-gradient(225deg, transparent, rgba(255,255,255,0.1), transparent)',
+              'linear-gradient(315deg, transparent, rgba(255,255,255,0.05), transparent)',
+            ]
+          }}
+          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        />
       </motion.div>
     </div>
   );

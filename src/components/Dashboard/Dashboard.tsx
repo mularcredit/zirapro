@@ -3,6 +3,7 @@ import { Users, CalendarDays, Wallet, NotepadText, Phone, AlertCircle, Settings,
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase"
 import { TownProps } from '../../types/supabase';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface AreaTownMapping {
   [area: string]: string[];
@@ -51,6 +52,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
   const [townsInArea, setTownsInArea] = useState<string[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
+  const [darkMode, setDarkMode] = useState(true);
   
   const navigate = useNavigate();
 
@@ -103,38 +105,38 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
     const mockTopPerformers: TopPerformer[] = [
       {
         id: 1,
-        name: "Sarah Johnson",
-        position: "Sales Manager",
-        branch: "Nairobi Central",
+        name: "Sarah Wanjiku",
+        position: "Relationship Officer",
+        branch: "Nairobi",
         performance: 98,
         isOverall: true
       },
       {
         id: 2,
-        name: "Michael Chen",
-        position: "Operations Lead",
-        branch: "Mombasa Branch",
+        name: "Michael Wanyama",
+        position: "Relationship Officer",
+        branch: "Mombasa",
         performance: 95
       },
       {
         id: 3,
         name: "Grace Wanjiku",
-        position: "Customer Service",
-        branch: "Kisumu Office",
+        position: "Relationship Officer",
+        branch: "Kisumu",
         performance: 92
       },
       {
         id: 4,
         name: "David Omondi",
-        position: "IT Specialist",
-        branch: "Nairobi West",
+        position: "Relationship Officer",
+        branch: "Nairobi",
         performance: 90
       },
       {
         id: 5,
-        name: "Emily Atieno",
-        position: "Marketing Head",
-        branch: "Eldoret Branch",
+        name: "Emily Chebet",
+        position: "Relationship Officer",
+        branch: "Eldoret",
         performance: 88
       }
     ];
@@ -568,7 +570,12 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
   };
 
   return (
-    <div className="min-h-screen p-6 bg-gray-50">
+    <div className="min-h-screen p-6" style={{
+      background: darkMode 
+        ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.08) 0%, rgba(0, 252, 76, 0.05) 50%, rgba(255, 255, 255, 0.02) 100%)'
+        : 'linear-gradient(135deg, #f0f9ff 0%, #f0fff4 50%, #faf5ff 100%)',
+      fontFamily: "'Geist', sans-serif"
+    }}>
       <style jsx global>{`
         @keyframes wave {
           0% { transform: rotate(0deg); }
@@ -580,14 +587,13 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         .wave-animation { animation: wave 8s ease-in-out infinite; }
         .glow-effect {
           transition: box-shadow 0.3s ease;
-          border: 0.5px solid rgba(0, 0, 0, 0.08);
+          border: 1px solid rgba(255, 255, 255, 0.3);
         }
         .card-hover {
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
         .card-hover:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
         }
         .popup {
           position: fixed;
@@ -635,26 +641,32 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         </div>
       )}
 
-      {/* Welcome Section with Faint Gradient Background */}
+      {/* Welcome Section - Current Design Preserved */}
       <div className="mb-8">
-        <div className="rounded-xl p-6 relative overflow-hidden card-hover glow-effect bg-gradient-to-br from-indigo-50/80 via-white to-blue-50/60">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full -mr-16 -mt-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full -ml-12 -mb-12"></div>
-          <div className="absolute top-1/2 left-1/2 w-40 h-40 bg-gradient-to-r from-indigo-100/10 to-blue-100/10 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+        <motion.div 
+          className="rounded-2xl p-6 relative overflow-hidden card-hover glow-effect"
+          style={{
+            background: darkMode 
+              ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
+              : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
+            backdropFilter: 'blur(20px)',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+          }}
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full -mr-16 -mt-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-br from-green-200/20 to-blue-200/20 rounded-full -ml-12 -mb-12"></div>
           
           <div className="relative z-10">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
               <div className="mb-4 md:mb-0 flex items-center">
-                <img
-                  src="/vector.png" 
-                  alt="Decorative illustration"
-                  className="h-20 w-20 object-cover mr-4"
-                />
+                <img src="/leaf3.png" className="w-20 h-25" alt="" />
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-800 mb-1">Welcome back</h1>
-                  <p className="text-xs text-gray-600">
+                  <h1 className="text-xl font-bold text-gray-900 mb-1 tracking-tight">Welcome back</h1>
+                  <p className="text-xs text-gray-900 font-medium">
                     Latest updates for{" "}
-                    <span className="font-medium text-indigo-600 flex items-center mt-1">
+                    <span className="font-semibold text-gray-900 flex items-center mt-1">
                       <MapPin className="w-3 h-3 mr-1" />
                       {getDisplayName()}
                     </span>
@@ -662,294 +674,388 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                 </div>
               </div>
               
-              {/* Action buttons */}
+              {/* Action buttons - All functionality preserved */}
               <div className="flex space-x-2">
-                <button 
+                <motion.button 
                   onClick={handleSupportClick}
-                  className="px-3 py-2 bg-white/80 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors border border-gray-200/60"
+                  className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-300 backdrop-blur-sm border border-white/20"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: darkMode ? '#1f2937' : '#1f2937'
+                  }}
+                  whileHover={{ scale: 1.05, background: 'rgba(255, 255, 255, 0.25)' }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   <HelpCircle className="w-3 h-3 inline mr-1" />
                   Support
-                </button>
-                <button 
+                </motion.button>
+                <motion.button 
                   onClick={handleRefresh}
                   disabled={isLoading}
-                  className="px-3 py-2 bg-white/80 backdrop-blur-sm rounded-lg text-xs font-medium text-gray-600 hover:bg-white transition-colors border border-gray-200/60 flex items-center"
+                  className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-300 backdrop-blur-sm border border-white/20 flex items-center"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: darkMode ? '#1f2937' : '#1f2937'
+                  }}
+                  whileHover={{ scale: 1.05, background: 'rgba(255, 255, 255, 0.25)' }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   <RefreshCw className={`w-3 h-3 inline mr-1 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
-                </button>
-                <button 
+                </motion.button>
+                <motion.button 
                   onClick={handleSettingsClick}
-                  className="px-3 py-2 bg-indigo-600 rounded-lg text-xs font-medium text-white hover:bg-indigo-700 transition-colors flex items-center shadow-sm"
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-white transition-all duration-300 flex items-center shadow-lg"
+                  style={{
+                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)'
+                  }}
+                  whileHover={{ scale: 1.05, boxShadow: '0 0 20px rgba(59, 130, 246, 0.4)' }}
+                  whileTap={{ scale: 0.95 }}
                 >
                   <Settings className="w-3 h-3 inline mr-1" />
                   Settings
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
 
       {/* Dashboard Tabs */}
       <div className="mb-6">
-        <div className="flex space-x-6 border-b border-gray-200">
-          <button 
+        <div className="flex space-x-6">
+          <motion.button 
             onClick={() => setActiveTab('overview')}
-            className={`pb-3 px-1 font-medium text-sm ${activeTab === 'overview' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`pb-3 px-1 font-medium text-sm relative ${
+              activeTab === 'overview' ? 'text-gray-900' : 'text-gray-600 hover:text-gray-800'
+            }`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
             Overview
-          </button>
+            {activeTab === 'overview' && (
+              <motion.div 
+                className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                layoutId="activeTab"
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              />
+            )}
+          </motion.button>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+          <motion.div 
+            className="rounded-full w-12 h-12 border-2 border-blue-500 border-t-transparent"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Best Performing Employees Board FIRST */}
+          {/* Left Column - Best Performing Employees Board */}
           <div className="lg:col-span-2">
             {/* Best Performing Employees Board */}
-            <div className="bg-white rounded-xl p-5 card-hover glow-effect mb-6">
-              <div className="flex items-center justify-between mb-4">
+            <motion.div 
+              className="rounded-2xl p-6 card-hover glow-effect mb-6"
+              style={{
+                background: darkMode 
+                  ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
+                  : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+              }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center">
-                  <Crown className="w-5 h-5 text-yellow-500 mr-2 pulse-gold" />
-                  <h2 className="text-lg font-semibold text-gray-800">Best Performing Employees</h2>
+                  <motion.div 
+                    className="w-8 h-8 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center shadow-lg mr-3"
+                    whileHover={{ rotate: 5, scale: 1.1 }}
+                  >
+                    <Crown className="w-4 h-4 text-white" />
+                  </motion.div>
+                  <h2 className="text-lg font-bold text-gray-900 tracking-tight">Best Performing Employees</h2>
                 </div>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                <span className="text-xs text-gray-900 bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm font-medium">
                   {topPerformers.length} top performers
                 </span>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {topPerformers.map((employee, index) => (
-                  <div 
+                  <motion.div 
                     key={employee.id}
-                    className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer group relative"
+                    className="p-4 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}
+                    whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
+                    transition={{ duration: 0.2 }}
                   >
                     {employee.isOverall && (
-                      <div className="absolute -top-2 -left-2">
-                        <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-normal px-2 py-1 rounded-full flex items-center shadow-lg">
-                          <Trophy className="w-3 h-3 mr-1" />
-                          Overall Best
-                        </div>
-                      </div>
+                      <motion.div 
+                        className="absolute -top-2 -left-2"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500 }}
+                      >
+                        {/* Overall Best badge commented out as in your design */}
+                      </motion.div>
                     )}
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-4">
                       {/* Rank Badge */}
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        index === 0 ? 'bg-yellow-100 text-yellow-700' : 
-                        index === 1 ? 'bg-gray-100 text-gray-700' : 
-                        index === 2 ? 'bg-orange-100 text-orange-700' : 
-                        'bg-blue-100 text-blue-700'
-                      }`}>
-                        <span className="text-xs font-bold">#{index + 1}</span>
-                      </div>
+                      <motion.div 
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+                          index === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' : 
+                          index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-600 text-white' : 
+                          index === 2 ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white' : 
+                          'bg-gradient-to-br from-blue-400 to-purple-500 text-white'
+                        }`}
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                      >
+                        <span className="text-sm font-bold">#{index + 1}</span>
+                      </motion.div>
                       
                       {/* Employee Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mb-2">
                           <div>
-                            <h3 className="text-sm font-medium text-gray-800 flex items-center">
+                            <h3 className="text-sm font-bold text-gray-900 flex items-center">
                               {employee.name}
                               {employee.isOverall && (
                                 <Crown className="w-3 h-3 text-yellow-500 ml-1" />
                               )}
                             </h3>
-                            <p className="text-xs text-gray-600">{employee.position}</p>
+                            <p className="text-xs text-gray-900 font-medium">{employee.position}</p>
                           </div>
-                          <div className={`text-xs font-semibold px-2 py-1 rounded-full ${getPerformanceBadgeColor(employee.performance)}`}>
+                          <motion.div 
+                            className={`text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm ${getPerformanceBadgeColor(employee.performance)}`}
+                            whileHover={{ scale: 1.05 }}
+                          >
                             {employee.performance}%
-                          </div>
+                          </motion.div>
                         </div>
                         
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-500 flex items-center">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-900 font-medium flex items-center">
                             <MapPin className="w-3 h-3 mr-1" />
                             {employee.branch}
                           </span>
                           <div className="flex items-center space-x-1">
                             {employee.performance >= 90 && <Star className="w-3 h-3 text-yellow-500 fill-current" />}
                             {employee.performance >= 95 && <Award className="w-3 h-3 text-purple-500" />}
-                            <ChevronRight className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ChevronRight className="w-3 h-3 text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                         </div>
                       </div>
                     </div>
                     
                     {/* Performance Bar */}
-                    <div className="mt-2 w-full bg-gray-100 rounded-full h-1">
-                      <div 
-                        className={`h-1 rounded-full ${
-                          employee.performance >= 90 ? 'bg-green-500' : 
-                          employee.performance >= 80 ? 'bg-blue-500' : 
-                          employee.performance >= 70 ? 'bg-yellow-500' : 
-                          'bg-gray-500'
+                    <div className="mt-3 w-full bg-white/20 rounded-full h-1.5 backdrop-blur-sm">
+                      <motion.div 
+                        className={`h-1.5 rounded-full ${
+                          employee.performance >= 90 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 
+                          employee.performance >= 80 ? 'bg-gradient-to-r from-blue-500 to-purple-500' : 
+                          employee.performance >= 70 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' : 
+                          'bg-gradient-to-r from-gray-500 to-gray-600'
                         }`}
-                        style={{width: `${employee.performance}%`}}
-                      ></div>
+                        initial={{ width: 0 }}
+                        animate={{ width: `${employee.performance}%` }}
+                        transition={{ duration: 1, delay: index * 0.1 }}
+                      />
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
               
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <button className="w-full text-xs text-indigo-600 hover:text-indigo-700 font-medium py-2 hover:bg-indigo-50 rounded-lg transition-colors flex items-center justify-center">
-                  <TrendingUp className="w-3 h-3 mr-1" />
+              <div className="mt-6 pt-4 border-t border-white/20">
+                <motion.button 
+                  className="w-full text-xs text-gray-900 hover:text-gray-800 font-bold py-3 rounded-xl transition-all duration-300 flex items-center justify-center backdrop-blur-sm"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                  whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <TrendingUp className="w-3 h-3 mr-2" />
                   View Full Performance Report
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Stats Cards - NOW AFTER the performance board */}
+            {/* Stats Cards - All real data from Supabase */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Employee Card */}
-              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1 font-medium">Total Employees</p>
-                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.employees}</h3>
+              {[
+                { 
+                  key: 'employees', 
+                  label: 'Total Employees', 
+                  value: stats.employees, 
+                  icon: Users,
+                  color: 'from-blue-500 to-purple-500',
+                  progress: 96
+                },
+                { 
+                  key: 'leaveRequests', 
+                  label: 'Leave Requests', 
+                  value: stats.leaveRequests, 
+                  icon: CalendarDays,
+                  color: 'from-green-500 to-emerald-500',
+                  progress: 89
+                },
+                { 
+                  key: 'salaryAdvances', 
+                  label: 'Salary Advances', 
+                  value: stats.salaryAdvances, 
+                  icon: Wallet,
+                  color: 'from-orange-500 to-red-500',
+                  progress: 88
+                },
+                { 
+                  key: 'jobApplications', 
+                  label: 'Expenses', 
+                  value: stats.jobApplications, 
+                  icon: NotepadText,
+                  color: 'from-indigo-500 to-blue-500',
+                  progress: 100
+                }
+              ].map((stat, index) => (
+                <motion.div 
+                  key={stat.key}
+                  className="rounded-2xl p-5 card-hover glow-effect"
+                  style={{
+                    background: darkMode 
+                      ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
+                      : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+                  }}
+                  whileHover={{ y: -2 }}
+                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <p className="text-xs text-gray-900 font-medium mb-2">{stat.label}</p>
+                      <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
+                    </div>
+                    <motion.div 
+                      className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg`}
+                      whileHover={{ rotate: 5, scale: 1.1 }}
+                    >
+                      <stat.icon className="w-5 h-5 text-white" />
+                    </motion.div>
                   </div>
-                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                    <Users className="w-4 h-4 text-indigo-600" />
+                  
+                  <div className="mt-4 pt-4 border-t border-white/20">
+                    <div className="flex justify-between text-xs text-gray-900 font-medium mb-2">
+                      <span>Progress</span>
+                      <span>{stat.progress}%</span>
+                    </div>
+                    <div className="w-full bg-white/20 rounded-full h-1.5 backdrop-blur-sm">
+                      <motion.div 
+                        className={`h-1.5 rounded-full bg-gradient-to-r ${stat.color}`}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${stat.progress}%` }}
+                        transition={{ duration: 1, delay: index * 0.2 }}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex justify-between text-xs text-gray-500 mb-2">
-                    <span>Active</span>
-                    <span>{Math.floor(stats.employees * 0.96)}</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1">
-                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '96%'}}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Leave Requests Card */}
-              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1 font-medium">Leave Requests</p>
-                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.leaveRequests}</h3>
-                  </div>
-                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                    <CalendarDays className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex justify-between text-xs text-gray-500 mb-2">
-                    <span>Pending</span>
-                    <span>{Math.ceil(stats.leaveRequests * 0.11)}</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1">
-                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '89%'}}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Advances Card */}
-              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1 font-medium">Salary Advances</p>
-                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.salaryAdvances}</h3>
-                  </div>
-                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                    <Wallet className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex justify-between text-xs text-gray-500 mb-2">
-                    <span>Approved</span>
-                    <span>{Math.floor(stats.salaryAdvances * 0.88)}</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1">
-                    <div className="bg-indigo-500 h-1 rounded-full" style={{width: '88%'}}></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Expenses Card */}
-              <div className="bg-white rounded-xl p-5 card-hover glow-effect">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1 font-medium">Expenses</p>
-                    <h3 className="text-2xl font-semibold text-gray-800 mb-3">{stats.jobApplications}</h3>
-                  </div>
-                  <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
-                    <NotepadText className="w-4 h-4 text-indigo-600" />
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <div className="flex justify-between text-xs text-gray-500 mb-2">
-                    <span>This cycle</span>
-                    <span>100%</span>
-                  </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1">
-                    <div className="bg-indigo-500 h-1 rounded-full w-full"></div>
-                  </div>
-                </div>
-              </div>
+                </motion.div>
+              ))}
             </div>
           </div>
 
           {/* Right Column - News Section */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl p-5 card-hover glow-effect">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Updates & News</h2>
-                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+            <motion.div 
+              className="rounded-2xl p-6 card-hover glow-effect"
+              style={{
+                background: darkMode 
+                  ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
+                  : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+              }}
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.3 }}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold text-gray-900 tracking-tight">Updates & News</h2>
+                <span className="text-xs text-gray-900 bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm font-medium">
                   {newsItems.length} items
                 </span>
               </div>
               
               <div className="space-y-4">
-                {newsItems.map((item) => (
-                  <div 
+                {newsItems.map((item, index) => (
+                  <motion.div 
                     key={item.id}
-                    className="p-3 rounded-lg border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer group"
+                    className="p-4 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.15)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }}
+                    whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
+                    transition={{ duration: 0.2, delay: index * 0.05 }}
                   >
                     <div className="flex items-start space-x-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${getNewsBgColor(item.type)}`}>
+                      <motion.div 
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${getNewsBgColor(item.type)}`}
+                        whileHover={{ rotate: 5, scale: 1.1 }}
+                      >
                         <span className={getNewsTextColor(item.type)}>
                           {getNewsIcon(item.type)}
                         </span>
-                      </div>
+                      </motion.div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <h3 className="text-sm font-medium text-gray-800 truncate">
+                        <div className="flex items-start justify-between mb-1">
+                          <h3 className="text-sm font-bold text-gray-900 truncate">
                             {item.title}
                           </h3>
-                          <ChevronRight className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+                          <ChevronRight className="w-3 h-3 text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
                         </div>
-                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                        <p className="text-xs text-gray-900 font-medium line-clamp-2 mb-2">
                           {item.description}
                         </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-gray-500">{item.date}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-900 font-medium">{item.date}</span>
                           {item.time && (
-                            <span className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
+                            <span className="text-xs text-gray-900 bg-white/20 px-2 py-1 rounded-full font-medium backdrop-blur-sm">
                               {item.time}
                             </span>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
               
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <button className="w-full text-xs text-indigo-600 hover:text-indigo-700 font-medium py-2 hover:bg-indigo-50 rounded-lg transition-colors">
+              <div className="mt-6 pt-4 border-t border-white/20">
+                <motion.button 
+                  className="w-full text-xs text-gray-900 hover:text-gray-800 font-bold py-3 rounded-xl transition-all duration-300 backdrop-blur-sm"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                  whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
+                  whileTap={{ scale: 0.98 }}
+                >
                   View All Updates
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
       )}

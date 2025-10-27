@@ -1289,7 +1289,7 @@ export function MicrofinanceTodoList() {
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
         <div>
-          <h1 className="text-xl font-semi-bold text-slate-900">Task Management</h1>
+         
           
         </div>
         

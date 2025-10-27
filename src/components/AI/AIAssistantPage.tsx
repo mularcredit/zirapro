@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { queryDeepSeek } from '../../services/deepseek'
 import { supabase } from '../../lib/supabase'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,6 +13,37 @@ interface BranchAreaMapping {
   [branch: string]: string;
 }
 
+// Add this function to format AI responses with beautiful styling
+const formatAIResponse = (content: string) => {
+  // Convert markdown-like syntax to beautiful HTML
+  return content
+    // Headers
+    .replace(/^### (.*$)/gim, '<h3 class="text-lg font-bold text-gray-800 mt-4 mb-2">$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2 class="text-xl font-bold text-gray-900 mt-6 mb-3 border-b pb-2">$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1 class="text-2xl font-bold text-gray-900 mt-6 mb-4">$1</h1>')
+    
+    // Bold and Italic
+    .replace(/\*\*(.*?)\*\*/gim, '<strong class="font-semibold text-gray-900">$1</strong>')
+    .replace(/\*(.*?)\*/gim, '<em class="italic text-gray-700">$1</em>')
+    
+    // Lists
+    .replace(/^\* (.*$)/gim, '<li class="flex items-start mb-1"><span class="text-blue-500 mr-2 mt-1">•</span><span>$1</span></li>')
+    .replace(/^- (.*$)/gim, '<li class="flex items-start mb-1"><span class="text-blue-500 mr-2 mt-1">-</span><span>$1</span></li>')
+    .replace(/(<li.*?<\/li>)/gims, '<ul class="space-y-2 my-3">$1</ul>')
+    
+    // Code blocks
+    .replace(/`(.*?)`/gim, '<code class="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-mono border">$1</code>')
+    
+    // Line breaks
+    .replace(/\n/g, '<br>')
+    
+    // Sections with cards
+    .replace(/\[card\](.*?)\[\/card\]/gims, '<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 my-3">$1</div>')
+    
+    // Highlights
+    .replace(/\[highlight\](.*?)\[\/highlight\]/gims, '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 my-2">$1</div>');
+};
+
 export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
   const [message, setMessage] = useState('')
   const [conversation, setConversation] = useState<Array<{role: string, content: string, id: string}>>([])
@@ -26,6 +57,24 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
   const [isArea, setIsArea] = useState<boolean>(false);
   const [townsInArea, setTownsInArea] = useState<string[]>([]);
   const [currentTown, setCurrentTown] = useState<string>(selectedTown || '');
+
+  // Auto-scroll ref
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom function
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  // Scroll to bottom when conversation updates or loading state changes
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversation, loading]);
 
   // Load area-town mapping and set current town
   useEffect(() => {
@@ -185,15 +234,46 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
     setConversation(prev => [...prev, userMessage])
     
     try {
-      // Add town context to the AI query using filtered data
-      const townContext = getTownContext();
+      // Calculate real data statistics for AI context
+      const realDataStats = calculateRealDataStats(filteredEmployees);
+
+      const enhancedContext = `
+        DATABASE SCHEMA: employees table with columns as previously described.
+
+        ACTUAL DATA ANALYSIS CONTEXT:
+        - Total employees: ${filteredEmployees.length}
+        - Location: ${getTownContext()}
+        
+        REAL DATA STATISTICS:
+        ${realDataStats}
+
+        ANALYTICAL CAPABILITIES:
+        - You have access to ${filteredEmployees.length} actual employee records
+        - Analyze real distributions by Gender, Job Title, Branch, Town, etc.
+        - Calculate actual salary statistics using Basic Salary field
+        - Perform geographic analysis using actual Town and Branch data
+        - Analyze employment types and demographics from real data
+        
+        RESPONSE GUIDELINES:
+        - Analyze the ACTUAL ${filteredEmployees.length} employee records
+        - Provide specific counts, percentages, and insights from real data
+        - Reference actual data fields and values from the schema
+        - Be factual and data-driven using the real employee data
+        - If data is missing for certain fields, note that in your analysis
+
+        RESPONSE FORMATTING GUIDELINES:
+        - Use **bold** for key metrics and important numbers
+        - Use *italic* for emphasis and insights
+        - Use ### Headers for sections
+        - Use * Bullet points for lists
+        - Use \`code\` for specific data points or technical terms
+        - Structure responses with clear sections
+        - Start with key insights, then provide details
+        - Use [highlight]...[/highlight] for important takeaways
+        - Use [card]...[/card] for summary sections
+      `;
       
-      const context = [
-        `${townContext}Current employee count: ${filteredEmployees.length}`,
-        ...conversation.map(c => c.content)
-      ].join('\n')
-      
-      const result = await queryDeepSeek(message, context)
+      const result = await queryDeepSeek(message, enhancedContext)
       
       setConversation(prev => [
         ...prev,
@@ -211,6 +291,51 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
       setLoading(false)
     }
   }
+
+  // Helper function to calculate real data statistics
+  const calculateRealDataStats = (employees: any[]) => {
+    if (employees.length === 0) return 'No employee data available for analysis.';
+    
+    // Gender distribution
+    const genderCounts = employees.reduce((acc, emp) => {
+      const gender = emp.Gender || 'Unknown';
+      acc[gender] = (acc[gender] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Job Title distribution (top 5)
+    const jobTitleCounts = employees.reduce((acc, emp) => {
+      const title = emp['Job Title'] || 'Unknown';
+      acc[title] = (acc[title] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    const topJobTitles = Object.entries(jobTitleCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5);
+    
+    // Branch distribution
+    const branchCounts = employees.reduce((acc, emp) => {
+      const branch = emp.Branch || 'Unknown';
+      acc[branch] = (acc[branch] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    // Salary statistics (if available)
+    const salaries = employees.map(emp => emp['Basic Salary']).filter(Boolean);
+    const salaryStats = salaries.length > 0 ? {
+      min: Math.min(...salaries),
+      max: Math.max(...salaries),
+      avg: salaries.reduce((a, b) => a + b, 0) / salaries.length
+    } : null;
+    
+    return `
+      - Gender Distribution: ${Object.entries(genderCounts).map(([gender, count]) => `${gender}: ${count}`).join(', ')}
+      - Top Job Titles: ${topJobTitles.map(([title, count]) => `${title}: ${count}`).join(', ')}
+      - Branch Distribution: ${Object.entries(branchCounts).map(([branch, count]) => `${branch}: ${count}`).join(', ')}
+      ${salaryStats ? `- Salary Range: KES ${salaryStats.min.toLocaleString()} - KES ${salaryStats.max.toLocaleString()} (Avg: KES ${Math.round(salaryStats.avg).toLocaleString()})` : ''}
+      - Employee Types: ${[...new Set(employees.map(emp => emp['Employee Type']).filter(Boolean))].join(', ')}
+    `;
+  };
 
   // Helper function to get town context
   const getTownContext = () => {
@@ -260,12 +385,10 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
             <h1 className="text-4xl font-bold text-gray-800 flex items-center gap-4">
               <div className="p-3  rounded-xl text-blue-600 border border-blue-200">
                 <img
-  src="/avatars.png"
-  alt="Avatar"
-  className="w-10 h-10 object-cover rounded-full"
-/>
-
-
+                  src="/avatars.png"
+                  alt="Avatar"
+                  className="w-10 h-10 object-cover rounded-full"
+                />
               </div>
               <span className="text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
                 HR AI Assistant
@@ -288,9 +411,6 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
             <span className="text-xs font-medium text-blue-700">AI Assistant</span>
           </motion.div>
         </motion.header>
-
-        {/* Debug Info - Remove in production */}
-        
 
         {/* HR Summary Cards */}
         <motion.div 
@@ -358,7 +478,10 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
           className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-lg"
         >
           {/* Messages */}
-          <div className="h-[500px] overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          <div 
+            ref={scrollRef}
+            className="h-[500px] overflow-y-auto p-6 space-y-6 custom-scrollbar"
+          >
             <AnimatePresence>
               {conversation
                 .filter(m => m.role !== 'system')
@@ -382,19 +505,26 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
                           </div>
                         ) : (
                           <div className="p-1.5 bg-blue-500/20 rounded-full">
-                           <img
-  src="/avatars.png"
-  alt="Avatar"
-  className="w-10 h-10 object-cover rounded-full"
-/>
-
+                            <img
+                              src="/avatars.png"
+                              alt="Avatar"
+                              className="w-10 h-10 object-cover rounded-full"
+                            />
                           </div>
                         )}
                         <span className="text-xs font-medium">
                           {msg.role === 'user' ? 'You' : 'HR Assistant'}
                         </span>
                       </div>
-                      <p className="whitespace-pre-wrap text-xs/relaxed">{msg.content}</p>
+                      {/* Updated message content with beautiful formatting */}
+                      {msg.role === 'user' ? (
+                        <p className="whitespace-pre-wrap text-xs/relaxed">{msg.content}</p>
+                      ) : (
+                        <div 
+                          className="whitespace-pre-wrap text-xs/relaxed ai-response-content"
+                          dangerouslySetInnerHTML={{ __html: formatAIResponse(msg.content) }}
+                        />
+                      )}
                     </div>
                   </motion.div>
                 ))}
@@ -408,7 +538,11 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
                   <div className="bg-gray-100 text-gray-800 rounded-2xl rounded-bl-none p-5 max-w-[80%] border border-gray-200">
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-blue-500/20 rounded-full">
-                        <Cpu className="w-4 h-4 text-blue-600" />
+                       <img
+                  src="/avatars.png"
+                  alt="Avatar"
+                  className="w-10 h-10 object-cover rounded-full"
+                />
                       </div>
                       <span className="text-xs font-medium">HR Assistant</span>
                     </div>
@@ -473,6 +607,71 @@ export const AIAssistantPage = ({ selectedTown, onTownChange }: TownProps) => {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: rgba(0, 0, 0, 0.2);
+        }
+
+        /* Beautiful AI Response Styling */
+        .ai-response-content h1 {
+          font-size: 1.5rem;
+          font-weight: bold;
+          color: #1f2937;
+          margin-top: 1.5rem;
+          margin-bottom: 1rem;
+        }
+        
+        .ai-response-content h2 {
+          font-size: 1.25rem;
+          font-weight: bold;
+          color: #111827;
+          margin-top: 1.5rem;
+          margin-bottom: 0.75rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .ai-response-content h3 {
+          font-size: 1.125rem;
+          font-weight: bold;
+          color: #374151;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        
+        .ai-response-content ul {
+          margin: 0.75rem 0;
+          padding-left: 1rem;
+          space-y: 0.5rem;
+        }
+        
+        .ai-response-content li {
+          display: flex;
+          align-items: flex-start;
+          margin-bottom: 0.25rem;
+        }
+        
+        .ai-response-content strong {
+          font-weight: 600;
+          color: #111827;
+        }
+        
+        .ai-response-content em {
+          font-style: italic;
+          color: #374151;
+        }
+        
+        .ai-response-content code {
+          background-color: #f3f4f6;
+          color: #1f2937;
+          padding: 0.25rem 0.5rem;
+          border-radius: 0.375rem;
+          font-size: 0.75rem;
+          font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+          border: 1px solid #e5e7eb;
+        }
+        
+        .ai-response-content br {
+          margin-bottom: 0.5rem;
+          display: block;
+          content: "";
         }
       `}</style>
     </div>
