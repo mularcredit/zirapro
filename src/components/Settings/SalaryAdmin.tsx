@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, CheckSquare, Square } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const SalaryAdvanceAdmin = () => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -15,6 +15,10 @@ const SalaryAdvanceAdmin = () => {
   const [isProcessingBulkPayment, setIsProcessingBulkPayment] = useState(false);
   const [employeeMobileNumbers, setEmployeeMobileNumbers] = useState<Record<string, string>>({});
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({}); // Track selected staff for payment
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(6);
 
   useEffect(() => {
     fetchApplications();
@@ -365,6 +369,15 @@ const SalaryAdvanceAdmin = () => {
     return matchesSearch;
   });
 
+  // Pagination calculations
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredApplications.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredApplications.length / itemsPerPage);
+
+  // Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+
   const approvedApplications = getApprovedApplications();
 
   return (
@@ -405,155 +418,226 @@ const SalaryAdvanceAdmin = () => {
           No salary advance requests found.
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mobile Number
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Branch
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Reason
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notes
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredApplications.map((app) => (
-                <tr key={app.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
-                    <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                    {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                    {app["Office Branch"]}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {editingId === app.id ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          value={editedAmount}
-                          onChange={(e) => setEditedAmount(e.target.value)}
-                          className="w-24 p-1 border rounded text-xs"
-                        />
-                        <button 
-                          onClick={() => handleAmountSave(app.id)}
-                          className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                        >
-                          Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingId(null)}
-                          className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div 
-                        className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
-                        onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
-                      >
-                        {formatKES(Number(app["Amount Requested"]))}
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
-                    {app["Reason for Advance"]}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getStatusIcon(app["status"])}
-                      <span className="ml-2 text-xs text-gray-500 capitalize">
-                        {app["status"] || 'Pending'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap relative">
-                    <div className="flex items-center">
-                      <button 
-                        onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
-                        className="flex items-center text-xs text-gray-500 hover:text-gray-700"
-                      >
-                        Notes <ChevronDown className="h-4 w-4 ml-1" />
-                      </button>
-                    </div>
-                    {showNotesDropdown === app.id && (
-                      <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
-                        <textarea
-                          value={notes[app.id] || ''}
-                          onChange={(e) => handleNoteChange(app.id, e.target.value)}
-                          placeholder="Add admin notes..."
-                          className="w-full p-2 border rounded text-xs mb-2"
-                          rows={3}
-                        />
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => setShowNotesDropdown(null)}
-                            className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => saveNotes(app.id)}
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Mobile Number
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Branch
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Reason
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Notes
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentItems.map((app) => (
+                  <tr key={app.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
+                      <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      {app["Office Branch"]}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {editingId === app.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editedAmount}
+                            onChange={(e) => setEditedAmount(e.target.value)}
+                            className="w-24 p-1 border rounded text-xs"
+                          />
+                          <button 
+                            onClick={() => handleAmountSave(app.id)}
                             className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
                           >
                             Save
                           </button>
+                          <button 
+                            onClick={() => setEditingId(null)}
+                            className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                          >
+                            Cancel
+                          </button>
                         </div>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                    {new Date(app.time_added).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
-                    {(!app["status"] || app["status"].toLowerCase() === 'pending') && (
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleApprove(app.id)}
-                          className="text-green-600 hover:text-green-900"
+                      ) : (
+                        <div 
+                          className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
+                          onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
                         >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleReject(app.id)}
-                          className="text-red-600 hover:text-red-900"
+                          {formatKES(Number(app["Amount Requested"]))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
+                      {app["Reason for Advance"]}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {getStatusIcon(app["status"])}
+                        <span className="ml-2 text-xs text-gray-500 capitalize">
+                          {app["status"] || 'Pending'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap relative">
+                      <div className="flex items-center">
+                        <button 
+                          onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
+                          className="flex items-center text-xs text-gray-500 hover:text-gray-700"
                         >
-                          Reject
+                          Notes <ChevronDown className="h-4 w-4 ml-1" />
                         </button>
                       </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      {showNotesDropdown === app.id && (
+                        <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
+                          <textarea
+                            value={notes[app.id] || ''}
+                            onChange={(e) => handleNoteChange(app.id, e.target.value)}
+                            placeholder="Add admin notes..."
+                            className="w-full p-2 border rounded text-xs mb-2"
+                            rows={3}
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => setShowNotesDropdown(null)}
+                              className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => saveNotes(app.id)}
+                              className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      {new Date(app.time_added).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
+                      {(!app["status"] || app["status"].toLowerCase() === 'pending') && (
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleApprove(app.id)}
+                            className="text-green-600 hover:text-green-900"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleReject(app.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-4 py-2 ml-3 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs text-gray-700">
+                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                    <span className="font-medium">
+                      {Math.min(indexOfLastItem, filteredApplications.length)}
+                    </span>{' '}
+                    of <span className="font-medium">{filteredApplications.length}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Page numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => paginate(page)}
+                        className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
+                          currentPage === page
+                            ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        } border`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Bulk Payment Confirmation Modal */}

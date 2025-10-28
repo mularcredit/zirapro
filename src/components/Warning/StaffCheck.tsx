@@ -138,23 +138,10 @@ export default function WarningModule() {
     try {
       console.log('Fetching employees...');
       
-      // First, let's check the actual table structure
-      const { data: tableInfo, error: infoError } = await supabase
-        .from('employees')
-        .select('*')
-        .limit(1);
-      
-      if (infoError) {
-        console.error('Error checking table structure:', infoError);
-      } else if (tableInfo && tableInfo.length > 0) {
-        console.log('Table structure sample:', Object.keys(tableInfo[0]));
-      }
-      
-      // Try a simpler query first to see what columns exist
       const { data, error } = await supabase
         .from('employees')
         .select('*')
-        .order('Employee Number', { ascending: true });
+        .order('"Employee Number"', { ascending: true });
 
       if (error) {
         console.error('Error fetching employees:', error);
@@ -164,22 +151,32 @@ export default function WarningModule() {
       
       console.log('Raw employee data:', data);
       
-      // Format employee data with proper fallbacks
+      // Format employee data using the actual table column names
       const formattedEmployees = (data || []).map(emp => {
-        // Handle different possible column name formats
-        const employeeNumber = emp.employee_number || emp['Employee Number'] || emp.employeeNumber || emp.id;
-        const firstName = emp.first_name || emp['First Name'] || emp.firstName || 'Unknown';
-        const lastName = emp.last_name || emp['Last Name'] || emp.lastName || '';
-        const email = emp.email || emp['Work Email'] || emp.work_email || emp.workEmail || '';
-        const department = emp.department || emp.Department || emp.job_title || emp['Job Title'] || 'N/A';
-        const town = emp.town || emp.Town || emp.city || emp.City || '';
+        const employeeNumber = emp['Employee Number'];
+        const firstName = emp['First Name'] || '';
+        const lastName = emp['Last Name'] || '';
+        const middleName = emp['Middle Name'] || '';
+        const email = emp['Work Email'] || '';
+        const department = emp['Job Title'] || emp['Department'] || 'N/A';
+        const town = emp['Town'] || emp['City'] || '';
+        
+        // Construct full name with proper handling of middle name
+        let fullName = firstName;
+        if (middleName) {
+          fullName += ` ${middleName}`;
+        }
+        if (lastName) {
+          fullName += ` ${lastName}`;
+        }
         
         return {
           ...emp,
           employeeNumber,
-          fullName: `${firstName} ${lastName}`.trim(),
+          fullName: fullName.trim() || 'Unknown Employee',
           firstName,
           lastName,
+          middleName,
           email,
           department,
           town
@@ -196,14 +193,70 @@ export default function WarningModule() {
 
   const fetchWarnings = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: warningsData, error: warningsError } = await supabase
         .from("warnings")
         .select("*")
         .order("issued_at", { ascending: false });
 
-      if (error) throw error;
+      if (warningsError) throw warningsError;
 
-      setWarnings(data || []);
+      // Get all unique employee numbers from warnings
+      const employeeNumbers = [...new Set(warningsData.map(w => w.employee_id))].filter(Boolean);
+      
+      // Fetch employee data for these employee numbers
+      let employeesData = [];
+      if (employeeNumbers.length > 0) {
+        const { data: empData, error: empError } = await supabase
+          .from('employees')
+          .select('*')
+          .in('"Employee Number"', employeeNumbers);
+        
+        if (empError) {
+          console.error('Error fetching employee details:', empError);
+        } else {
+          employeesData = empData || [];
+        }
+      }
+
+      // Combine warnings with employee data
+      const formattedWarnings = (warningsData || []).map(warning => {
+        const employee = employeesData.find(emp => emp['Employee Number'] === warning.employee_id);
+        
+        let fullName = 'Unknown Employee';
+        let email = 'No email';
+        let department = 'No department';
+        
+        if (employee) {
+          const firstName = employee['First Name'] || '';
+          const middleName = employee['Middle Name'] || '';
+          const lastName = employee['Last Name'] || '';
+          
+          // Construct full name
+          fullName = firstName;
+          if (middleName) {
+            fullName += ` ${middleName}`;
+          }
+          if (lastName) {
+            fullName += ` ${lastName}`;
+          }
+          fullName = fullName.trim() || 'Unknown Employee';
+          
+          email = employee['Work Email'] || 'No email';
+          department = employee['Job Title'] || employee['Department'] || 'No department';
+        }
+        
+        return {
+          ...warning,
+          employeeData: {
+            fullName,
+            email,
+            department,
+            employeeNumber: warning.employee_id
+          }
+        };
+      });
+
+      setWarnings(formattedWarnings);
     } catch (error) {
       console.error("Error fetching warnings:", error);
       toast.error("Failed to load warnings");
@@ -459,6 +512,8 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
     setEditingTemplate(null);
     setAiSpecificities('');
     setAiAutoGenerated(false);
+    setEmployeeSearchTerm('');
+    setShowEmployeeDropdown(false);
   };
 
   const getSeverityColor = (severity) => {
@@ -472,9 +527,9 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
 
   // Filter warnings based on search term
   const filteredWarnings = warnings.filter(warning => {
-    const searchLower =  warningSearchTerm.toLowerCase();
-    const employeeName = warning.employees?.fullName || '';
-    const employeeEmail = warning.employees?.email || '';
+    const searchLower = warningSearchTerm.toLowerCase();
+    const employeeName = warning.employeeData?.fullName || '';
+    const employeeEmail = warning.employeeData?.email || '';
     
     return (
       employeeName.toLowerCase().includes(searchLower) ||
@@ -566,7 +621,6 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-3">
-            
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Warning Module</h1>
               <p className="text-gray-600">Issue formal warnings to employees</p>
@@ -633,7 +687,7 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
                   placeholder="Search warnings..."
                   value={warningSearchTerm}
                   onChange={(e) => {
-                   setWarningSearchTerm(e.target.value);
+                    setWarningSearchTerm(e.target.value);
                     setCurrentPage(1); // Reset to first page when searching
                   }}
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
@@ -691,42 +745,41 @@ Make sure to incorporate the severity level (${severity}) and be specific about 
                     type="text"
                     placeholder="Search employee by name, department or ID..."
                     value={employeeSearchTerm}
-                    onChange={(e) =>{ setEmployeeSearchTerm(e.target.value);
-                       setShowEmployeeDropdown(true);
+                    onChange={(e) => { 
+                      setEmployeeSearchTerm(e.target.value);
+                      setShowEmployeeDropdown(true);
                     }}
-                    
+                    onFocus={() => setShowEmployeeDropdown(true)}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none transition-all"
                   />
 
                   {showEmployeeDropdown && employeeSearchTerm && (
-  <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-    {employees
-      .filter((emp) => {
-        const search = employeeSearchTerm.toLowerCase();
-        return (
-          emp.fullName.toLowerCase().includes(search) ||
-          emp.department.toLowerCase().includes(search) ||
-          emp.employeeNumber.toString().toLowerCase().includes(search)
-        );
-      })
-      .map((emp) => (
-        <li
-  key={emp.employeeNumber}
-  onClick={() => {
-    const displayValue = `${emp.fullName} - ${emp.department} (ID: ${emp.employeeNumber})`;
-    setSelectedEmployee(emp.employeeNumber);
-    setEmployeeSearchTerm(displayValue); // 👈 populate input with full display text
-    setShowEmployeeDropdown(false);
-  }}
-  className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
->
-  {emp.fullName} - {emp.department} (ID: {emp.employeeNumber})
-</li>
-
-      ))}
-  </ul>
-)}
-
+                    <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      {employees
+                        .filter((emp) => {
+                          const search = employeeSearchTerm.toLowerCase();
+                          return (
+                            emp.fullName.toLowerCase().includes(search) ||
+                            emp.department.toLowerCase().includes(search) ||
+                            emp.employeeNumber.toString().toLowerCase().includes(search)
+                          );
+                        })
+                        .map((emp) => (
+                          <li
+                            key={emp.employeeNumber}
+                            onClick={() => {
+                              const displayValue = `${emp.fullName} - ${emp.department} (ID: ${emp.employeeNumber})`;
+                              setSelectedEmployee(emp.employeeNumber);
+                              setEmployeeSearchTerm(displayValue);
+                              setShowEmployeeDropdown(false);
+                            }}
+                            className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-xs"
+                          >
+                            {emp.fullName} - {emp.department} (ID: {emp.employeeNumber})
+                          </li>
+                        ))}
+                    </ul>
+                  )}
                 </div>
 
                 <div>
@@ -1032,37 +1085,43 @@ The AI will automatically determine the warning type and generate a professional
                   <div key={warning.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <div className="flex items-center space-x-3">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            
+                        <div className="flex items-center space-x-3 mb-2">
+                          <h3 className="text-xs font-semibold text-gray-900">
+                            {warning.employeeData?.fullName || 'Unknown Employee'}
                           </h3>
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSeverityColor(warning.severity)}`}>
                             {warning.severity}
                           </span>
                         </div>
                         
-                        <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-600">
+                        <div className="flex flex-wrap items-center gap-4 mb-2 text-xs text-gray-600">
                           <div className="flex items-center">
-                            {/* <Mail className="w-4 h-4 mr-1" />
-                            {employees?.email || 'No email'} */}
+                            <Mail className="w-3 h-3 mr-1" />
+                            {warning.employeeData?.email || 'No email'}
                           </div>
                           <div className="flex items-center">
-                            {/* <Building className="w-4 h-4 mr-1" />
-                            {warning.employees?.department || 'No department'} */}
+                            <Building className="w-3 h-3 mr-1" />
+                            {warning.employeeData?.department || 'No department'}
                           </div>
                           <div className="flex items-center">
-                            <BadgeAlert className="w-4 h-4 mr-1" />
+                            <BadgeAlert className="w-3 h-3 mr-1" />
                             ID: {warning.employee_id}
                           </div>
                         </div>
                         
-                        <p className="text-gray-800 mt-3">{warning.message}</p>
+                        <p className="text-xs text-gray-800 mb-2 leading-relaxed">{warning.message}</p>
                         
-                        <div className="flex items-center text-xs text-gray-500 mt-3">
-                          <Calendar className="w-4 h-4 mr-1" />
-                          {new Date(warning.issued_at).toLocaleDateString()}
+                        <div className="flex items-center text-xs text-gray-500">
+                          <Calendar className="w-3 h-3 mr-1" />
+                          {new Date(warning.issued_at).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                           <span className="mx-2">•</span>
-                          <FileText className="w-4 h-4 mr-1" />
+                          <FileText className="w-3 h-3 mr-1" />
                           {warning.type}
                         </div>
                       </div>
@@ -1082,7 +1141,7 @@ The AI will automatically determine the warning type and generate a professional
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
                       >
                         <ChevronLeft className="w-4 h-4" />
                       </button>
@@ -1092,7 +1151,7 @@ The AI will automatically determine the warning type and generate a professional
                           key={index}
                           onClick={() => typeof page === 'number' ? handlePageChange(page) : null}
                           disabled={page === '...'}
-                          className={`min-w-[2.5rem] px-2 py-1 rounded-md border transition-colors ${
+                          className={`min-w-[2.5rem] px-2 py-1 rounded-md border transition-colors text-xs ${
                             currentPage === page
                               ? 'border-red-600 bg-red-600 text-white'
                               : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
@@ -1105,7 +1164,7 @@ The AI will automatically determine the warning type and generate a professional
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs"
                       >
                         <ChevronRight className="w-4 h-4" />
                       </button>

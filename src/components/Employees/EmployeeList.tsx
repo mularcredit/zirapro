@@ -670,7 +670,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-green-500/30">
+                <div className="w-12 h-12 bg-gradient-to-r from-green-400 to-green-600 rounded-full flex items-center justify-center text-white font-semi-bold text-lg shadow-lg shadow-green-500/30">
                   {getInitials(employee['First Name'], employee['Middle Name'], employee['Last Name'])}
                 </div>
                 <div>

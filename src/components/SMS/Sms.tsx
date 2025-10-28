@@ -5,7 +5,7 @@ import {
   Building, User, Phone, Mail, Download, Clock,
   Calendar, Users, UserCheck, FileEdit, Trash2,
   Plus, X, ChevronDown, ChevronUp, Bell, Search,
-  Loader, Shield, Smartphone, RefreshCw
+  Loader, Shield, Smartphone, RefreshCw, Save
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
@@ -55,6 +55,15 @@ type ScheduledSMS = {
   status: 'scheduled' | 'sent' | 'cancelled';
 };
 
+type BulkUpload = {
+  id: string;
+  filename: string;
+  totalRecipients: number;
+  processed: number;
+  status: 'processing' | 'completed' | 'failed';
+  uploadedAt: string;
+};
+
 // SMS Service Configuration
 const SMS_LEOPARD_CONFIG = {
   baseUrl: 'https://api.smsleopard.com/v1',
@@ -63,48 +72,58 @@ const SMS_LEOPARD_CONFIG = {
   source: 'sms_Leopard'
 };
 
-// CORRECTED Phone Number Formatting for SMS Leopard
+// Phone Number Formatting for SMS Leopard
 const formatPhoneNumberForSMS = (phone: string): string => {
   if (!phone) return '';
   
-  // Remove all non-digit characters
   let cleaned = phone.replace(/\D/g, '');
   
-  console.log('Original phone:', phone, 'Cleaned:', cleaned);
-  
-  // Convert to SMS Leopard format (254XXXXXXXXX without +)
   if (cleaned.startsWith('0') && cleaned.length === 10) {
-    // Local format: 0716431987 -> 254716431987
     cleaned = '254' + cleaned.substring(1);
   } else if (cleaned.startsWith('7') && cleaned.length === 9) {
-    // Missing prefix: 716431987 -> 254716431987
     cleaned = '254' + cleaned;
   } else if (cleaned.startsWith('254') && cleaned.length === 12) {
-    // Already correct: 254716431987
     // Keep as is
   } else if (cleaned.startsWith('+254') && cleaned.length === 13) {
-    // International format: +254716431987 -> 254716431987
     cleaned = cleaned.substring(1);
   }
   
-  // Final validation - must be exactly 12 digits starting with 254
   if (cleaned.length === 12 && cleaned.startsWith('254')) {
-    console.log('Valid formatted number:', cleaned);
     return cleaned;
   }
   
-  console.warn('Invalid phone number format after processing:', phone, '->', cleaned);
   return '';
 };
 
-// Utility function to add query parameters
-const addQueryParams = (url: string, params: Record<string, any>) => {
-  const queryString = Object.entries(params)
-    .filter(([_, value]) => value !== undefined && value !== null)
-    .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-    .join('&');
+// Function to replace template variables with ACTUAL employee data
+const replaceTemplateVariables = (template: string, employee: Employee, additionalData?: any): string => {
+  let message = template;
   
-  return `${url}?${queryString}`;
+  // Replace with ACTUAL employee data
+  message = message.replace(/{name}/gi, employee.employee_name || 'Employee');
+  message = message.replace(/{employee_id}/gi, employee.employee_id || '');
+  message = message.replace(/{department}/gi, employee.department || '');
+  message = message.replace(/{position}/gi, employee.position || '');
+  message = message.replace(/{phone}/gi, employee.phone_number || '');
+  
+  // Replace company variable
+  message = message.replace(/{company}/gi, 'ZiraHR');
+  
+  // Replace current date variables
+  const now = new Date();
+  message = message.replace(/{date}/gi, now.toLocaleDateString());
+  message = message.replace(/{month}/gi, now.toLocaleDateString('en-US', { month: 'long' }));
+  message = message.replace(/{year}/gi, now.getFullYear().toString());
+  
+  // Replace additional data variables
+  if (additionalData) {
+    Object.keys(additionalData).forEach(key => {
+      const placeholder = new RegExp(`{${key}}`, 'gi');
+      message = message.replace(placeholder, additionalData[key] || '');
+    });
+  }
+  
+  return message;
 };
 
 // SMS Service Functions
@@ -120,16 +139,7 @@ const sendSMSLeopard = async (phoneNumber: string, message: string): Promise<any
       throw new Error('Message cannot be empty');
     }
 
-    const endpoint = addQueryParams(`${SMS_LEOPARD_CONFIG.baseUrl}/sms/send`, {
-      username: SMS_LEOPARD_CONFIG.username,
-      password: SMS_LEOPARD_CONFIG.password,
-      message: message.trim(),
-      destination: formattedPhone, // Use properly formatted number
-      source: SMS_LEOPARD_CONFIG.source
-    });
-
-    console.log('SMS API Endpoint (hidden credentials):', 
-      endpoint.replace(SMS_LEOPARD_CONFIG.password, '***'));
+    const endpoint = `${SMS_LEOPARD_CONFIG.baseUrl}/sms/send?username=${SMS_LEOPARD_CONFIG.username}&password=${SMS_LEOPARD_CONFIG.password}&message=${encodeURIComponent(message.trim())}&destination=${formattedPhone}&source=${SMS_LEOPARD_CONFIG.source}`;
 
     const credentials = btoa(`${SMS_LEOPARD_CONFIG.username}:${SMS_LEOPARD_CONFIG.password}`);
 
@@ -142,7 +152,6 @@ const sendSMSLeopard = async (phoneNumber: string, message: string): Promise<any
     });
 
     const responseText = await response.text();
-    console.log('SMS API Response:', responseText);
 
     let result;
     try {
@@ -155,7 +164,6 @@ const sendSMSLeopard = async (phoneNumber: string, message: string): Promise<any
       throw new Error(`SMS service error: ${response.status} - ${responseText}`);
     }
 
-    // Check for success based on SMS Leopard response structure
     if (result.status === 'success' || result.success === true) {
       return {
         success: true,
@@ -217,29 +225,84 @@ const sendSMSWithRetry = async (phoneNumber: string, message: string, maxRetries
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`SMS attempt ${attempt} for ${phoneNumber}`);
       const result = await sendSMSLeopard(phoneNumber, message);
       
       if (result.success) {
-        console.log(`SMS sent successfully on attempt ${attempt}`);
         return result;
       }
       
       lastError = new Error(result.error || 'SMS sending failed');
     } catch (error) {
       lastError = error;
-      console.warn(`SMS attempt ${attempt} failed:`, error);
       
       if (attempt < maxRetries) {
         const delay = 1000 * attempt;
-        console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
   }
   
-  console.error(`All ${maxRetries} SMS attempts failed for ${phoneNumber}`);
   throw lastError;
+};
+
+// SMS Packages Data
+const smsPackages: SMSPackage[] = [
+  {
+    id: 'basic',
+    name: 'Basic Package',
+    smsCount: 100000,
+    cost: 50000,
+    costPerSMS: 0.5,
+  },
+  {
+    id: 'standard',
+    name: 'Standard Package',
+    smsCount: 250000,
+    cost: 100000,
+    costPerSMS: 0.4,
+    popular: true,
+  },
+  {
+    id: 'premium',
+    name: 'Premium Package',
+    smsCount: 666666,
+    cost: 200000,
+    costPerSMS: 0.3,
+  },
+  {
+    id: 'enterprise',
+    name: 'Enterprise Package',
+    smsCount: 1500000,
+    cost: 300000,
+    costPerSMS: 0.2,
+  },
+];
+
+// Function to parse CSV file
+const parseCSV = (file: File): Promise<{phone_number: string, message: string}[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const lines = content.split('\n').filter(line => line.trim());
+        const results = [];
+        
+        for (let i = 1; i < lines.length; i++) {
+          const [phone_number, message] = lines[i].split(',').map(field => field.trim());
+          if (phone_number && message) {
+            results.push({ phone_number, message });
+          }
+        }
+        
+        resolve(results);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
 };
 
 // Main SMS Center Component
@@ -267,6 +330,14 @@ export function SMSCenter() {
   });
   const [isSending, setIsSending] = useState(false);
   const [sendingProgress, setSendingProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
+  const [selectedPackage, setSelectedPackage] = useState<string>('standard');
+  const [showPackageModal, setShowPackageModal] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [bulkUploads, setBulkUploads] = useState<BulkUpload[]>([]);
+  const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({name: '', category: 'Business', content: ''});
+  const [additionalVariables, setAdditionalVariables] = useState<Record<string, string>>({});
+  const [showAdditionalVariablesModal, setShowAdditionalVariablesModal] = useState(false);
 
   // Templates
   const kenyaHolidayTemplates: SMSTemplate[] = [
@@ -274,7 +345,14 @@ export function SMSCenter() {
       id: 'new_year',
       name: 'New Year Greetings',
       category: 'Holiday',
-      content: 'Dear {name}, Wishing you a prosperous New Year 2024! May this year bring you success and happiness. From {company}',
+      content: 'Dear {name}, Wishing you a prosperous New Year {year}! May this year bring you success and happiness. From {company}',
+      variables: ['name', 'year', 'company']
+    },
+    {
+      id: 'christmas',
+      name: 'Christmas Wishes',
+      category: 'Holiday',
+      content: 'Dear {name}, Merry Christmas! May this festive season bring joy and prosperity to you and your family. From {company}',
       variables: ['name', 'company']
     }
   ];
@@ -288,6 +366,27 @@ export function SMSCenter() {
       variables: ['name', 'period', 'amount']
     },
     {
+      id: 'meeting',
+      name: 'Meeting Reminder',
+      category: 'Business',
+      content: 'Hello {name}, reminder: {meeting_title} on {date} at {time}. Venue: {venue}',
+      variables: ['name', 'meeting_title', 'date', 'time', 'venue']
+    },
+    {
+      id: 'birthday',
+      name: 'Birthday Wishes',
+      category: 'Business',
+      content: 'Happy Birthday {name}! Wishing you a wonderful year ahead filled with success and happiness. From {company}',
+      variables: ['name', 'company']
+    },
+    {
+      id: 'welcome',
+      name: 'Welcome Message',
+      category: 'Business',
+      content: 'Welcome {name} to {company}! We are excited to have you in the {department} department.',
+      variables: ['name', 'company', 'department']
+    },
+    {
       id: 'test',
       name: 'Simple Test',
       category: 'Business',
@@ -295,6 +394,19 @@ export function SMSCenter() {
       variables: []
     }
   ];
+
+  // Function to extract variables from message
+  const extractVariablesFromMessage = (text: string): string[] => {
+    const variableRegex = /{(\w+)}/g;
+    const matches = text.match(variableRegex);
+    return matches ? matches.map(match => match.slice(1, -1)) : [];
+  };
+
+  // Check if template needs additional variables beyond employee data
+  const getAdditionalVariablesNeeded = (template: SMSTemplate): string[] => {
+    const employeeVariables = ['name', 'employee_id', 'department', 'position', 'phone', 'company', 'date', 'month', 'year'];
+    return template.variables.filter(variable => !employeeVariables.includes(variable));
+  };
 
   const fetchEmployees = async () => {
     try {
@@ -345,13 +457,10 @@ export function SMSCenter() {
           .filter((emp): emp is Employee => {
             if (!emp) return false;
             const phone = emp.phone_number;
-            // Check if it's a valid Kenyan number after formatting
             const hasValidPhone = phone && phone.length === 12 && phone.startsWith('254');
             return hasValidPhone;
           });
 
-        console.log(`Loaded ${formattedEmployees.length} employees with valid phone numbers`);
-        console.log('Sample employees:', formattedEmployees.slice(0, 3));
         setEmployees(formattedEmployees);
         setFilteredEmployees(formattedEmployees);
       }
@@ -431,15 +540,74 @@ export function SMSCenter() {
     }
   };
 
+  // Template selection with ACTUAL employee data preview
   const handleTemplateSelect = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
     if (template) {
       setSelectedTemplate(templateId);
-      setMessage(template.content);
-      setCharacterCount(template.content.length);
+      
+      // Show preview with ACTUAL selected employee data
+      if (selectedEmployees.length > 0) {
+        const firstEmployee = employees.find(emp => emp.id === selectedEmployees[0]);
+        if (firstEmployee) {
+          const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables);
+          setMessage(previewMessage);
+          setCharacterCount(previewMessage.length);
+        }
+      } else {
+        setMessage(template.content);
+        setCharacterCount(template.content.length);
+      }
+      
+      // Check if we need additional variables
+      const additionalVarsNeeded = getAdditionalVariablesNeeded(template);
+      if (additionalVarsNeeded.length > 0) {
+        const initialVariables: Record<string, string> = {};
+        additionalVarsNeeded.forEach(variable => {
+          initialVariables[variable] = additionalVariables[variable] || '';
+        });
+        setAdditionalVariables(initialVariables);
+        setShowAdditionalVariablesModal(true);
+      }
     }
   };
 
+  // Save current message as template
+  const saveCurrentAsTemplate = () => {
+    if (!message.trim()) {
+      toast.error('Please enter a message first');
+      return;
+    }
+
+    const variables = extractVariablesFromMessage(message);
+    const newTemplateData = {
+      id: `template_${Date.now()}`,
+      name: `Custom Template ${templates.length + 1}`,
+      category: 'Custom',
+      content: message,
+      variables: variables
+    };
+
+    setTemplates(prev => [...prev, newTemplateData]);
+    toast.success('Template saved successfully!');
+  };
+
+  // Apply template with additional variables
+  const applyTemplateWithAdditionalVariables = () => {
+    if (selectedEmployees.length > 0 && selectedTemplate) {
+      const template = templates.find(t => t.id === selectedTemplate);
+      const firstEmployee = employees.find(emp => emp.id === selectedEmployees[0]);
+      if (template && firstEmployee) {
+        const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables);
+        setMessage(previewMessage);
+        setCharacterCount(previewMessage.length);
+      }
+    }
+    setShowAdditionalVariablesModal(false);
+    toast.success('Additional variables saved!');
+  };
+
+  // SMS sending function with PROPER employee data replacement
   const handleSendSMS = async (immediate = true) => {
     if (!message.trim()) {
       toast.error('Please enter a message');
@@ -453,12 +621,6 @@ export function SMSCenter() {
 
     const selectedEmployeeData = employees.filter(emp => selectedEmployees.includes(emp.id));
     
-    console.log('Sending SMS to:', selectedEmployeeData.map(emp => ({
-      name: emp.employee_name,
-      phone: emp.phone_number,
-      formatted: formatPhoneNumberForSMS(emp.phone_number)
-    })));
-    
     setIsSending(true);
     setSendingProgress({ current: 0, total: selectedEmployeeData.length });
 
@@ -466,60 +628,45 @@ export function SMSCenter() {
       if (immediate) {
         let successCount = 0;
         let failCount = 0;
-        const results = [];
 
         for (let i = 0; i < selectedEmployeeData.length; i++) {
           const employee = selectedEmployeeData[i];
           setSendingProgress({ current: i + 1, total: selectedEmployeeData.length });
           
           try {
-            console.log(`Sending to ${employee.employee_name}: ${employee.phone_number}`);
+            // Create PERSONALIZED message for EACH employee
+            let personalizedMessage = message;
             
-            const result = await sendSMSWithRetry(employee.phone_number, message);
-            results.push({
-              employee: employee.employee_name,
-              phone: employee.phone_number,
-              success: result.success,
-              error: result.error
-            });
+            // If using a template, replace variables with ACTUAL employee data
+            if (selectedTemplate) {
+              personalizedMessage = replaceTemplateVariables(message, employee, additionalVariables);
+            }
+            
+            const result = await sendSMSWithRetry(employee.phone_number, personalizedMessage);
             
             if (result.success) {
               successCount++;
-              console.log(`✓ Success: ${employee.employee_name}`);
             } else {
               failCount++;
-              console.error(`✗ Failed: ${employee.employee_name} - ${result.error}`);
             }
           } catch (error) {
             failCount++;
-            console.error(`✗ Error: ${employee.employee_name} - ${error}`);
-            results.push({
-              employee: employee.employee_name,
-              phone: employee.phone_number,
-              success: false,
-              error: (error as Error).message
-            });
           }
 
-          // Add delay between messages to avoid rate limiting
           if (i < selectedEmployeeData.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
-
-        console.log('SMS sending results:', results);
         
         if (successCount > 0) {
           toast.success(`SMS sent to ${successCount} employees`);
         }
         if (failCount > 0) {
-          toast.error(`Failed to send to ${failCount} employees. Check console for details.`);
+          toast.error(`Failed to send to ${failCount} employees`);
         }
 
-        // Refresh balance
         await loadSMSStats();
       } else {
-        // Schedule logic (unchanged)
         if (!scheduleDate || !scheduleTime) {
           toast.error('Please select schedule date and time');
           return;
@@ -541,6 +688,8 @@ export function SMSCenter() {
       setMessage('');
       setSelectedEmployees([]);
       setCharacterCount(0);
+      setSelectedTemplate('');
+      setAdditionalVariables({});
       
     } catch (error) {
       console.error('SMS sending process failed:', error);
@@ -553,24 +702,14 @@ export function SMSCenter() {
 
   const testSMS = async () => {
     try {
-      // Test with a known working number
-      const testNumbers = [
-        '254716431987',  // Already correct
-        '0716431987',    // Local format
-        '716431987',     // Missing prefix
-        '+254716431987'  // International format
-      ];
+      const testNumbers = ['254716431987', '0716431987'];
       
       let success = false;
       
       for (const testPhone of testNumbers) {
         const formatted = formatPhoneNumberForSMS(testPhone);
-        console.log(`Testing: ${testPhone} -> ${formatted}`);
         
-        if (!formatted) {
-          console.log(`Skipping ${testPhone} - invalid format`);
-          continue;
-        }
+        if (!formatted) continue;
         
         const result = await sendSMSWithRetry(formatted, 'Test SMS from ZiraHR SMS Center - Please ignore');
         
@@ -578,19 +717,15 @@ export function SMSCenter() {
           toast.success(`Test SMS sent successfully to ${formatted}!`);
           success = true;
           break;
-        } else {
-          console.log(`Failed with ${testPhone}:`, result.error);
         }
         
-        // Wait before next test
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
       if (!success) {
-        toast.error('All test SMS attempts failed. Check console for details.');
+        toast.error('All test SMS attempts failed.');
       }
       
-      // Refresh balance after test
       await loadSMSStats();
       
     } catch (error) {
@@ -598,30 +733,176 @@ export function SMSCenter() {
     }
   };
 
-  // Rest of the component JSX remains the same as previous version...
-  // [Include all the JSX from the previous version here]
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        setUploadedFile(file);
+        
+        const uploadRecord: BulkUpload = {
+          id: Date.now().toString(),
+          filename: file.name,
+          totalRecipients: 0,
+          processed: 0,
+          status: 'processing',
+          uploadedAt: new Date().toISOString()
+        };
+        
+        setBulkUploads(prev => [uploadRecord, ...prev]);
+        toast.success('CSV file uploaded successfully.');
+      } else {
+        toast.error('Please upload a CSV file');
+      }
+    }
+  };
+
+  const processBulkUpload = async () => {
+    if (!uploadedFile) {
+      toast.error('Please upload a CSV file first');
+      return;
+    }
+
+    try {
+      const records = await parseCSV(uploadedFile);
+      if (records.length === 0) {
+        toast.error('No valid records found in CSV file');
+        return;
+      }
+
+      setIsSending(true);
+      setSendingProgress({ current: 0, total: records.length });
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i];
+        setSendingProgress({ current: i + 1, total: records.length });
+
+        try {
+          const formattedPhone = formatPhoneNumberForSMS(record.phone_number);
+          if (formattedPhone) {
+            const result = await sendSMSWithRetry(formattedPhone, record.message);
+            if (result.success) {
+              successCount++;
+            } else {
+              failCount++;
+            }
+          } else {
+            failCount++;
+          }
+        } catch (error) {
+          failCount++;
+        }
+
+        setBulkUploads(prev => prev.map(upload => 
+          upload.filename === uploadedFile.name 
+            ? { ...upload, processed: i + 1, totalRecipients: records.length }
+            : upload
+        ));
+
+        if (i < records.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+
+      setBulkUploads(prev => prev.map(upload => 
+        upload.filename === uploadedFile.name 
+          ? { ...upload, status: 'completed' }
+          : upload
+      ));
+
+      if (successCount > 0) {
+        toast.success(`Bulk SMS completed: ${successCount} sent, ${failCount} failed`);
+      } else {
+        toast.error('Bulk SMS failed for all recipients');
+      }
+
+      await loadSMSStats();
+
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      toast.error('Failed to process bulk upload');
+      
+      setBulkUploads(prev => prev.map(upload => 
+        upload.filename === uploadedFile.name 
+          ? { ...upload, status: 'failed' }
+          : upload
+      ));
+    } finally {
+      setIsSending(false);
+      setSendingProgress({ current: 0, total: 0 });
+    }
+  };
+
+  const handleBuyPackage = (pkg: SMSPackage) => {
+    setSelectedPackage(pkg.id);
+    setShowPackageModal(true);
+  };
+
+  const cancelScheduledSMS = (id: string) => {
+    setScheduledMessages(prev => 
+      prev.map(msg => 
+        msg.id === id ? { ...msg, status: 'cancelled' } : msg
+      )
+    );
+    toast.success('Scheduled SMS cancelled');
+  };
+
+  const deleteTemplate = (id: string) => {
+    setTemplates(prev => prev.filter(t => t.id !== id));
+    toast.success('Template deleted');
+  };
+
+  // Create new template
+  const createNewTemplate = () => {
+    if (!newTemplate.name.trim() || !newTemplate.content.trim()) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const variables = extractVariablesFromMessage(newTemplate.content);
+    const template: SMSTemplate = {
+      id: `template_${Date.now()}`,
+      name: newTemplate.name,
+      category: newTemplate.category,
+      content: newTemplate.content,
+      variables: variables
+    };
+
+    setTemplates(prev => [...prev, template]);
+    setNewTemplate({ name: '', category: 'Business', content: '' });
+    setShowNewTemplateModal(false);
+    toast.success('Template created successfully!');
+  };
 
   return (
     <div className="space-y-6">
-      {/* Header and Stats JSX from previous version */}
       <div className="flex justify-between items-center">
         <div>
-          
+          <h1 className="text-2xl font-bold text-slate-900">SMS Center</h1>
           <p className="text-slate-600 text-xs">Manage and send SMS messages to employees</p>
         </div>
         <div className="flex items-center gap-4">
           <button
+            onClick={testSMS}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700"
+          >
+            <Smartphone className="w-4 h-4" />
+            <span className="text-xs">Test SMS</span>
+          </button>
+          <button
             onClick={loadSMSStats}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-700"
           >
-          
+            <RefreshCw className="w-4 h-4" />
             <span className="text-xs">Refresh Balance</span>
           </button>
           <div className="bg-white rounded-xl border border-slate-200 p-2">
             <div className="flex items-center gap-3">
-        
+              <CreditCard className="w-4 h-4 text-green-500" />
               <div>
-               
+                <p className="text-xs text-slate-600">SMS Balance</p>
                 <p className="text-xs text-green-500">{smsStats.balance}</p>
               </div>
             </div>
@@ -630,14 +911,13 @@ export function SMSCenter() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Stats cards JSX from previous version */}
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-600 mb-1">Sent This Month</p>
               <p className="text-xl font-base text-slate-900">{smsStats.sentThisMonth.toLocaleString()}</p>
             </div>
-            
+            <Send className="w-5 h-5 text-blue-500" />
           </div>
         </div>
         
@@ -647,7 +927,7 @@ export function SMSCenter() {
               <p className="text-xs text-slate-600 mb-1">Remaining SMS</p>
               <p className="text-xl font-base text-slate-900">{smsStats.remaining.toLocaleString()}</p>
             </div>
-            
+            <Package className="w-5 h-5 text-green-500" />
           </div>
         </div>
         
@@ -657,7 +937,7 @@ export function SMSCenter() {
               <p className="text-xs text-slate-600 mb-1">Delivery Rate</p>
               <p className="text-xl font-base text-slate-900">{smsStats.deliveryRate}%</p>
             </div>
-            
+            <CheckCircle className="w-5 h-5 text-green-500" />
           </div>
         </div>
         
@@ -667,7 +947,7 @@ export function SMSCenter() {
               <p className="text-xs text-slate-600 mb-1">Failed SMS</p>
               <p className="text-xl font-base text-slate-900">{smsStats.failed}</p>
             </div>
-            
+            <AlertCircle className="w-5 h-5 text-red-500" />
           </div>
         </div>
       </div>
@@ -676,12 +956,12 @@ export function SMSCenter() {
         <div className="border-b border-slate-200">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
             {[
-              { id: 'compose', name: 'Compose SMS' },
-              { id: 'templates', name: 'Templates' },
-              { id: 'scheduled', name: 'Scheduled'},
-              { id: 'bulk', name: 'Bulk SMS' },
+              { id: 'compose', name: 'Compose SMS', icon: MessageSquare },
+              { id: 'templates', name: 'Templates', icon: FileText },
+              { id: 'scheduled', name: 'Scheduled', icon: Clock },
+              { id: 'bulk', name: 'Bulk SMS', icon: Users },
             ].map((tab) => {
-              
+              const IconComponent = tab.icon;
               return (
                 <button
                   key={tab.id}
@@ -692,7 +972,7 @@ export function SMSCenter() {
                       : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
                   }`}
                 >
-                  
+                  <IconComponent className="w-4 h-4" />
                   {tab.name}
                 </button>
               );
@@ -703,8 +983,6 @@ export function SMSCenter() {
         <div className="p-6">
           {activeTab === 'compose' && (
             <div className="space-y-6">
-              
-
               <div className="bg-white rounded-xl border border-slate-200 p-6">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">Sender ID</h3>
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -726,9 +1004,18 @@ export function SMSCenter() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
                   <div className="bg-white rounded-xl border border-slate-200 p-6">
-                    <label className="block text-xs font-medium text-slate-700 mb-3">
-                      Compose Message
-                    </label>
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="block text-xs font-medium text-slate-700">
+                        Compose Message
+                      </label>
+                      <button
+                        onClick={saveCurrentAsTemplate}
+                        className="flex items-center gap-1 px-3 py-1 bg-slate-100 text-slate-700 rounded text-xs hover:bg-slate-200"
+                      >
+                        <Save className="w-3 h-3" />
+                        Save as Template
+                      </button>
+                    </div>
                     <div className="relative">
                       <textarea
                         value={message}
@@ -761,11 +1048,30 @@ export function SMSCenter() {
                         <option value="">Select a template...</option>
                         {templates.map(template => (
                           <option key={template.id} value={template.id}>
-                            {template.name} ({template.category})
+                            {template.name} ({template.category}) - {template.variables.length} variables
                           </option>
                         ))}
                       </select>
                     </div>
+
+                    {selectedTemplate && (
+                      <div className="mt-4 p-3 bg-slate-50 rounded-lg">
+                        <p className="text-xs font-medium text-slate-700 mb-2">Template Variables:</p>
+                        <div className="flex flex-wrap gap-1">
+                          {templates.find(t => t.id === selectedTemplate)?.variables.map(variable => (
+                            <span key={variable} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                              {variable}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-xs text-slate-600 mt-2">
+                          Variables like <strong>name</strong>, <strong>department</strong> will be automatically filled from employee data.
+                          {getAdditionalVariablesNeeded(templates.find(t => t.id === selectedTemplate)!).length > 0 && (
+                            <span className="text-orange-600"> Some variables need additional input.</span>
+                          )}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -869,7 +1175,7 @@ export function SMSCenter() {
                         ></div>
                       </div>
                       <p className="text-xs text-blue-600 mt-2">
-                        Sending messages with 1 second delay...
+                        Sending personalized messages to each employee...
                       </p>
                     </div>
                   )}
@@ -927,8 +1233,411 @@ export function SMSCenter() {
               </div>
             </div>
           )}
+
+          {activeTab === 'templates' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-slate-900">SMS Templates</h3>
+                <button 
+                  onClick={() => setShowNewTemplateModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium"
+                >
+                  <Plus className="w-4 h-4" />
+                  New Template
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {templates.map(template => (
+                  <div key={template.id} className="bg-white border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="text-sm font-medium text-slate-900">{template.name}</h4>
+                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs mt-1">
+                          {template.category}
+                        </span>
+                      </div>
+                      <div className="flex gap-1">
+                        <button className="p-1 hover:bg-slate-100 rounded">
+                          <FileEdit className="w-4 h-4 text-slate-600" />
+                        </button>
+                        <button 
+                          onClick={() => deleteTemplate(template.id)}
+                          className="p-1 hover:bg-slate-100 rounded"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 mb-3 line-clamp-3">{template.content}</p>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {template.variables.map(variable => (
+                        <span key={variable} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                          {variable}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-slate-500">
+                        {template.variables.length} variables
+                      </span>
+                      <button 
+                        onClick={() => handleTemplateSelect(template.id)}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        Use Template
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'scheduled' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-slate-900">Scheduled Messages</h3>
+              
+              {scheduledMessages.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                  <p className="text-slate-500 text-sm">No scheduled messages</p>
+                  <p className="text-slate-400 text-xs mt-1">Schedule your first SMS from the Compose tab</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {scheduledMessages.map(sms => (
+                    <div key={sms.id} className="bg-white border border-slate-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              sms.status === 'scheduled' 
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : sms.status === 'sent'
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {sms.status.charAt(0).toUpperCase() + sms.status.slice(1)}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {sms.scheduledDate} at {sms.scheduledTime}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-700 mb-2">{sms.message}</p>
+                          <p className="text-xs text-slate-500">
+                            To: {sms.recipients.join(', ')}
+                          </p>
+                        </div>
+                        {sms.status === 'scheduled' && (
+                          <button
+                            onClick={() => cancelScheduledSMS(sms.id)}
+                            className="text-xs text-red-600 hover:text-red-700 font-medium"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'bulk' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Bulk SMS Upload</h3>
+                  
+                  <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
+                    <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
+                    <p className="text-sm text-slate-600 mb-2">Upload CSV file with phone numbers</p>
+                    <p className="text-xs text-slate-500 mb-4">
+                      Format: phone_number,message (one per line)
+                    </p>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                      id="csv-upload"
+                    />
+                    <label
+                      htmlFor="csv-upload"
+                      className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium cursor-pointer hover:bg-blue-700"
+                    >
+                      Choose CSV File
+                    </label>
+                    {uploadedFile && (
+                      <p className="text-xs text-green-600 mt-3">
+                        ✓ {uploadedFile.name} uploaded
+                      </p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={processBulkUpload}
+                    disabled={!uploadedFile || isSending}
+                    className="w-full py-3 bg-green-600 text-white rounded-lg text-xs font-medium disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSending ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    {isSending ? 'Processing...' : 'Process Bulk Upload'}
+                  </button>
+
+                  {bulkUploads.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium text-slate-900 mb-3">Upload History</h4>
+                      <div className="space-y-2">
+                        {bulkUploads.map(upload => (
+                          <div key={upload.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+                            <div>
+                              <p className="text-xs font-medium text-slate-900">{upload.filename}</p>
+                              <p className="text-xs text-slate-500">
+                                {upload.processed}/{upload.totalRecipients} recipients
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              upload.status === 'completed' 
+                                ? 'bg-green-100 text-green-800'
+                                : upload.status === 'processing'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {upload.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-900">SMS Packages</h3>
+                  
+                  <div className="space-y-3">
+                    {smsPackages.map(pkg => (
+                      <div
+                        key={pkg.id}
+                        className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${
+                          selectedPackage === pkg.id
+                            ? 'border-blue-500 ring-2 ring-blue-100'
+                            : 'border-slate-200 hover:border-slate-300'
+                        } ${pkg.popular ? 'relative' : ''}`}
+                        onClick={() => setSelectedPackage(pkg.id)}
+                      >
+                        {pkg.popular && (
+                          <span className="absolute -top-2 left-4 bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium">
+                            POPULAR
+                          </span>
+                        )}
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="text-sm font-medium text-slate-900">{pkg.name}</h4>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-slate-900">KSh {pkg.cost.toLocaleString()}</p>
+                            <p className="text-xs text-slate-500">KSh {pkg.costPerSMS} per SMS</p>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 mb-3">
+                          {pkg.smsCount.toLocaleString()} SMS
+                        </p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleBuyPackage(pkg);
+                          }}
+                          className="w-full py-2 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+                        >
+                          Buy Package
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Additional Variables Modal */}
+      {showAdditionalVariablesModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Additional Information Needed</h3>
+              <button
+                onClick={() => setShowAdditionalVariablesModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600">
+                The selected template requires some additional information that will be used for all recipients:
+              </p>
+              
+              {Object.keys(additionalVariables).map(variable => (
+                <div key={variable}>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    {variable.charAt(0).toUpperCase() + variable.slice(1)}
+                  </label>
+                  <input
+                    type="text"
+                    value={additionalVariables[variable]}
+                    onChange={(e) => setAdditionalVariables(prev => ({
+                      ...prev,
+                      [variable]: e.target.value
+                    }))}
+                    className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder={`Enter ${variable}`}
+                  />
+                </div>
+              ))}
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowAdditionalVariablesModal(false)}
+                  className="flex-1 py-2 border border-slate-300 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={applyTemplateWithAdditionalVariables}
+                  className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Template Modal */}
+      {showNewTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Create New Template</h3>
+              <button
+                onClick={() => setShowNewTemplateModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Template Name
+                </label>
+                <input
+                  type="text"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate(prev => ({...prev, name: e.target.value}))}
+                  className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Enter template name"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Category
+                </label>
+                <select
+                  value={newTemplate.category}
+                  onChange={(e) => setNewTemplate(prev => ({...prev, category: e.target.value}))}
+                  className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Business">Business</option>
+                  <option value="Holiday">Holiday</option>
+                  <option value="Custom">Custom</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Template Content
+                </label>
+                <textarea
+                  value={newTemplate.content}
+                  onChange={(e) => setNewTemplate(prev => ({...prev, content: e.target.value}))}
+                  rows={4}
+                  className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  placeholder="Enter template content (use {variable} for dynamic fields)"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Use {'{variable}'} for dynamic fields. Employee data: {'{name}'}, {'{department}'}, {'{position}'}, {'{phone}'}
+                </p>
+              </div>
+              
+              <button
+                onClick={createNewTemplate}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+              >
+                Create Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPackageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-slate-900">Purchase SMS Package</h3>
+              <button
+                onClick={() => setShowPackageModal(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-slate-50 rounded-lg p-4">
+                <h4 className="font-medium text-slate-900 text-sm">
+                  {smsPackages.find(p => p.id === selectedPackage)?.name}
+                </h4>
+                <p className="text-slate-600 text-sm mt-1">
+                  {smsPackages.find(p => p.id === selectedPackage)?.smsCount.toLocaleString()} SMS
+                </p>
+                <p className="text-lg font-bold text-slate-900 mt-2">
+                  KSh {smsPackages.find(p => p.id === selectedPackage)?.cost.toLocaleString()}
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">
+                    Payment Method
+                  </label>
+                  <select className="w-full border border-slate-300 rounded-lg p-2 text-xs">
+                    <option>MPESA</option>
+                    <option>Credit Card</option>
+                    <option>Bank Transfer</option>
+                  </select>
+                </div>
+
+                <button className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                  Complete Purchase
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
