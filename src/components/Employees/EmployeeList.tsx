@@ -642,7 +642,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
           
           {/* Buttons - moved to a new row on smaller screens */}
           <div className="flex space-x-2 h-[42px] md:col-span-5 lg:col-span-1">
-             <RoleButtonWrapper allowedRoles={['ADMIN','HR']}>
+             <RoleButtonWrapper allowedRoles={['ADMIN']}>
             <GlowButton 
               variant="primary" 
               icon={Edit3Icon} 
