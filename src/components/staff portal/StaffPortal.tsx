@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+
 import { IoMailOutline } from 'react-icons/io5';
 import { 
   FileText, 
@@ -2844,11 +2845,11 @@ const StaffPortal = () => {
               {expandedMenu === 'communication' && (
                 <div className="ml-4 mt-1 space-y-1">
                   <SidebarNavItem 
-                    icon={<ChevronRight className="h-3 w-3" />}
-                    label="Chat"
-                    active={activeTab === 'chat'}
-                    onClick={() => setActiveTab('chat')}
-                  />
+  icon={<ChevronRight className="h-3 w-3" />}
+  label="Chat"
+  active={activeTab === 'chat'}
+  onClick={() => window.location.href = "/teams"}
+/>
                   <SidebarNavItem 
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Video Conference"

@@ -22,80 +22,8 @@ import {
 import toast from 'react-hot-toast';
 import html2pdf from 'html2pdf.js';
 
-// EXACT SAME calculation functions as useStatutorySettings hook
-const statutoryCalculations = {
-  calculatePAYE: (taxableIncome, settings) => {
-    if (!settings || !taxableIncome || taxableIncome <= 0) return 0;
-    
-    let tax = 0;
-    let remainingIncome = taxableIncome;
-
-    for (let i = 0; i < settings.payeBrackets.length; i++) {
-      const bracket = settings.payeBrackets[i];
-      const prevBracket = i > 0 ? settings.payeBrackets[i - 1] : { threshold: 0 };
-      
-      if (remainingIncome > 0) {
-        const bracketAmount = i === 0 
-          ? Math.min(remainingIncome, bracket.threshold)
-          : Math.min(remainingIncome, bracket.threshold - prevBracket.threshold);
-        
-        tax += bracketAmount * bracket.rate;
-        remainingIncome -= bracketAmount;
-      }
-    }
-
-    tax = Math.max(0, tax - (settings.personalRelief || 0));
-    return Number(tax.toFixed(2));
-  },
-
-  calculateNSSF: (grossSalary, settings) => {
-    if (!settings || !grossSalary || grossSalary <= 0) return 0;
-
-    const tier1 = Math.min(grossSalary, settings.nssfLowerLimit || 0) * (settings.nssfRate || 0);
-    let tier2 = 0;
-
-    if (grossSalary > (settings.nssfLowerLimit || 0)) {
-      const tier2Salary = Math.min(
-        grossSalary - (settings.nssfLowerLimit || 0), 
-        (settings.nssfUpperLimit || 0) - (settings.nssfLowerLimit || 0)
-      );
-      tier2 = tier2Salary * (settings.nssfRate || 0);
-    }
-
-    const total = Math.min(tier1 + tier2, settings.nssfMaximum || 0);
-    return Number(total.toFixed(2));
-  },
-
-  calculateNHIF: (grossPay, settings) => {
-    if (!settings || !grossPay || grossPay <= 0) return 0;
-
-    // Handle both old and new NHIF structures - EXACT SAME as your hook
-    if (settings.nhifRate) {
-      // New flat rate system
-      const nhif = grossPay * settings.nhifRate;
-      return Number(nhif.toFixed(2));
-    } else if (settings.nhifRates && Array.isArray(settings.nhifRates)) {
-      // Old tiered system (backward compatibility)
-      for (const rate of settings.nhifRates) {
-        if (grossPay <= rate.threshold) {
-          return rate.amount;
-        }
-      }
-      return settings.nhifDefault || 0;
-    }
-    
-    return 0;
-  },
-
-  calculateHousingLevy: (grossSalary, hasTaxPIN, settings) => {
-    if (!settings || !grossSalary || grossSalary <= 0 || !hasTaxPIN) return 0;
-    const levy = grossSalary * (settings.housingLevyRate || 0);
-    return Number(levy.toFixed(2));
-  }
-};
-
-// EXACT SAME default settings as your hook
-const getDefaultSettings = () => ({
+// HARDCODED STATUTORY SETTINGS - No database dependency
+const statutorySettings = {
   payeBrackets: [
     { threshold: 24000, rate: 0.10 },
     { threshold: 32333, rate: 0.25 },
@@ -108,14 +36,72 @@ const getDefaultSettings = () => ({
   nssfUpperLimit: 72000,
   nssfRate: 0.06,
   nssfMaximum: 4320,
-  nhifRate: 0.0275, // Flat rate system
+  nhifRate: 0.0275, // Flat rate system - 2.75%
   housingLevyRate: 0.015,
-  currency: 'KSh',
-  effectiveDate: new Date().toISOString().split('T')[0]
-});
+  currency: 'KSh'
+};
+
+// HARDCODED calculation functions
+const statutoryCalculations = {
+  calculatePAYE: (taxableIncome) => {
+    if (!taxableIncome || taxableIncome <= 0) return 0;
+    
+    let tax = 0;
+    let remainingIncome = taxableIncome;
+
+    for (let i = 0; i < statutorySettings.payeBrackets.length; i++) {
+      const bracket = statutorySettings.payeBrackets[i];
+      const prevBracket = i > 0 ? statutorySettings.payeBrackets[i - 1] : { threshold: 0 };
+      
+      if (remainingIncome > 0) {
+        const bracketAmount = i === 0 
+          ? Math.min(remainingIncome, bracket.threshold)
+          : Math.min(remainingIncome, bracket.threshold - prevBracket.threshold);
+        
+        tax += bracketAmount * bracket.rate;
+        remainingIncome -= bracketAmount;
+      }
+    }
+
+    tax = Math.max(0, tax - statutorySettings.personalRelief);
+    return Number(tax.toFixed(2));
+  },
+
+  calculateNSSF: (grossSalary) => {
+    if (!grossSalary || grossSalary <= 0) return 0;
+
+    const tier1 = Math.min(grossSalary, statutorySettings.nssfLowerLimit) * statutorySettings.nssfRate;
+    let tier2 = 0;
+
+    if (grossSalary > statutorySettings.nssfLowerLimit) {
+      const tier2Salary = Math.min(
+        grossSalary - statutorySettings.nssfLowerLimit, 
+        statutorySettings.nssfUpperLimit - statutorySettings.nssfLowerLimit
+      );
+      tier2 = tier2Salary * statutorySettings.nssfRate;
+    }
+
+    const total = Math.min(tier1 + tier2, statutorySettings.nssfMaximum);
+    return Number(total.toFixed(2));
+  },
+
+  calculateNHIF: (grossPay) => {
+    if (!grossPay || grossPay <= 0) return 0;
+
+    // HARDCODED FLAT RATE - 2.75%
+    const nhif = grossPay * statutorySettings.nhifRate;
+    return Number(nhif.toFixed(2));
+  },
+
+  calculateHousingLevy: (grossSalary, hasTaxPIN) => {
+    if (!grossSalary || grossSalary <= 0 || !hasTaxPIN) return 0;
+    const levy = grossSalary * statutorySettings.housingLevyRate;
+    return Number(levy.toFixed(2));
+  }
+};
 
 // EXACT SAME calculation logic as payroll dashboard
-const calculatePayrollValues = (employee, settings, overrideStatutoryChecks = true) => {
+const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
   const basicSalary = parseFloat(employee["Basic Salary"] || employee.basic_salary || 0);
   const houseAllowance = parseFloat(employee["House Allowance"] || employee.house_allowance || 0);
   const transportAllowance = parseFloat(employee["Transport Allowance"] || employee.transport_allowance || 0);
@@ -151,15 +137,15 @@ const calculatePayrollValues = (employee, settings, overrideStatutoryChecks = tr
   let housingLevy = 0;
   
   if (overrideStatutoryChecks || nhifNumber) {
-    nhifDeduction = statutoryCalculations.calculateNHIF(taxableGross, settings);
+    nhifDeduction = statutoryCalculations.calculateNHIF(taxableGross);
   }
   
   if (overrideStatutoryChecks || nssfNumber) {
-    nssfDeduction = statutoryCalculations.calculateNSSF(taxableGross, settings);
+    nssfDeduction = statutoryCalculations.calculateNSSF(taxableGross);
   }
   
   if (overrideStatutoryChecks || taxPin) {
-    housingLevy = statutoryCalculations.calculateHousingLevy(taxableGross, true, settings);
+    housingLevy = statutoryCalculations.calculateHousingLevy(taxableGross, true);
   }
   
   // EXACT SAME: Calculate taxable income for PAYE AFTER deducting NSSF and Housing Levy
@@ -169,9 +155,9 @@ const calculatePayrollValues = (employee, settings, overrideStatutoryChecks = tr
   let taxRelief = 0;
   
   if (overrideStatutoryChecks || taxPin) {
-    payeTax = statutoryCalculations.calculatePAYE(taxableIncomeForPAYE, settings);
-    taxRelief = Math.min(payeTax, settings.personalRelief || 2400); // EXACT SAME: Tax relief logic
-    payeTax = payeTax - taxRelief; // EXACT SAME: Apply tax relief
+    payeTax = statutoryCalculations.calculatePAYE(taxableIncomeForPAYE);
+    taxRelief = Math.min(payeTax, statutorySettings.personalRelief);
+    payeTax = payeTax - taxRelief;
   }
 
   // EXACT SAME: Voluntary deductions set to 0
@@ -221,7 +207,7 @@ const calculatePayrollValues = (employee, settings, overrideStatutoryChecks = tr
   };
 };
 
-// Summary Card Component (EXACT SAME as payroll dashboard)
+// Summary Card Component
 const SummaryCard = ({
   label,
   value,
@@ -254,7 +240,7 @@ const SummaryCard = ({
   );
 };
 
-// Statutory Card Component (EXACT SAME as payroll dashboard)
+// Statutory Card Component
 const StatutoryCard = ({
   label,
   value,
@@ -288,7 +274,7 @@ const StatutoryCard = ({
   );
 };
 
-// Glow Button Component (EXACT SAME as payroll dashboard)
+// Glow Button Component
 const GlowButton = ({ 
   children, 
   variant = 'primary', 
@@ -321,17 +307,15 @@ const GlowButton = ({
   );
 };
 
-// PayslipModal Component with EXACT SAME calculations
+// PayslipModal Component
 const PayslipModal = ({
   record,
   onClose,
   onPrevious,
   onNext,
-  companyInfo,
-  statutorySettings
+  companyInfo
 }) => {
-  // Use EXACT SAME calculation function with actual settings
-  const calculated = calculatePayrollValues(record, statutorySettings, true);
+  const calculated = calculatePayrollValues(record, true);
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -661,7 +645,6 @@ const PayslipModal = ({
 
         <div className="p-2 bg-gray-50 payslip-container print:p-0 print:w-[210mm] print:h-[297mm]">
           <div id="payslip-content" className="bg-white rounded-lg shadow-lg overflow-hidden text-xs leading-tight">
-            {/* Header - EXACT SAME as payroll dashboard */}
             <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
               <div className="flex items-center">
                 {companyInfo?.image_url && (
@@ -681,7 +664,6 @@ const PayslipModal = ({
               </div>
             </div>
 
-            {/* Body - EXACT SAME structure as payroll dashboard */}
             <div className="p-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="border p-3 rounded">
@@ -740,7 +722,7 @@ const PayslipModal = ({
                     <div className="flex justify-between"><span>Advance</span><span>KSh {calculated.advanceDeduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Welfare</span><span>KSh {calculated.welfareDeduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Other</span><span>KSh {calculated.otherDeductions.toLocaleString()}</span></div>
-                    <div className="flex justify-between text-green-600"><span>Tax Relief:</span><span>KSh -{calculated.taxRelief.toLocaleString()}</span></div>
+                    <div className="flex justify-between text-green-600"><span>Tax Relief:</span><span>KSh -2400</span></div>
                   </div>
                 </div>
               </div>
@@ -793,32 +775,42 @@ const PayslipViewer = () => {
   const [companyInfo, setCompanyInfo] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [showSummary, setShowSummary] = useState(false);
-  const [statutorySettings, setStatutorySettings] = useState(getDefaultSettings());
 
   useEffect(() => {
     fetchPayslips();
     fetchCompanyInfo();
-    fetchStatutorySettings();
   }, []);
 
-  const fetchPayslips = async () => {
-    try {
-      setIsLoading(true);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) return;
+ const fetchPayslips = async () => {
+  try {
+    setIsLoading(true);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.email) return;
 
-      const { data: employeeData } = await supabase
-        .from('employees')
-        .select('"Employee Number"')
-        .eq('"Work Email"', user.email)
-        .single();
+    const { data: employeeData } = await supabase
+      .from('employees')
+      .select('"Employee Number"')
+      .eq('"Work Email"', user.email)
+      .single();
 
-      if (!employeeData) return;
+    if (!employeeData) return;
 
-      let data = [];
-      let error = null;
+    // GET DATA FROM THE CURRENT VIEW INSTEAD OF TABLES
+    let data = [];
+    let error = null;
 
+    // Try to get data from the current view first
+    const { data: currentData, error: currentError } = await supabase
+      .from('payroll_records_current')  // Changed to the view name
+      .select('*')
+      .eq('"Employee ID"', employeeData["Employee Number"])
+      .order('"Pay Period"', { ascending: false });
+
+    if (!currentError && currentData) {
+      data = currentData;
+    } else {
+      // Fallback to payroll_records table if view doesn't exist
       const { data: recordsData, error: recordsError } = await supabase
         .from('payroll_records')
         .select('*')
@@ -828,6 +820,7 @@ const PayslipViewer = () => {
       if (!recordsError && recordsData) {
         data = recordsData;
       } else {
+        // Final fallback to payroll_data table
         const { data: payrollData, error: payrollError } = await supabase
           .from('payroll_data')
           .select('*')
@@ -837,20 +830,21 @@ const PayslipViewer = () => {
         if (!payrollError && payrollData) {
           data = payrollData;
         } else {
-          error = recordsError || payrollError;
+          error = currentError || recordsError || payrollError;
         }
       }
-
-      if (error) throw error;
-
-      setPayslips(data || []);
-    } catch (error) {
-      console.error('Error fetching payslips:', error);
-      toast.error('Failed to load payslips');
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    if (error) throw error;
+
+    setPayslips(data || []);
+  } catch (error) {
+    console.error('Error fetching payslips:', error);
+    toast.error('Failed to load payslips');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const fetchCompanyInfo = async () => {
     try {
@@ -871,26 +865,6 @@ const PayslipViewer = () => {
       }
     } catch (err) {
       console.error('Error:', err);
-    }
-  };
-
-  const fetchStatutorySettings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('statutory_settings')
-        .select('settings')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-
-      if (data && !error) {
-        setStatutorySettings(data.settings);
-      } else {
-        setStatutorySettings(getDefaultSettings());
-      }
-    } catch (error) {
-      console.error('Error loading statutory settings:', error);
-      setStatutorySettings(getDefaultSettings());
     }
   };
 
@@ -923,10 +897,10 @@ const PayslipViewer = () => {
     });
   };
 
-  // Calculate summary totals using EXACT SAME logic
+  // Calculate summary totals
   const calculateSummaryTotals = () => {
     const totals = filteredPayslips.reduce((acc, payslip) => {
-      const calculated = calculatePayrollValues(payslip, statutorySettings, true);
+      const calculated = calculatePayrollValues(payslip, true);
       return {
         totalGrossPay: acc.totalGrossPay + calculated.grossPay,
         totalDeductions: acc.totalDeductions + calculated.totalDeductions,
@@ -981,7 +955,7 @@ const PayslipViewer = () => {
 
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      {/* Header - Matching payroll dashboard style */}
+      {/* Header */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
@@ -1000,7 +974,19 @@ const PayslipViewer = () => {
         </div>
       </div>
 
-      {/* Summary Cards - EXACT SAME as payroll dashboard */}
+      {/* System Info */}
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-xs">
+        <div className="flex items-center gap-2 mb-2">
+          <Calculator className="w-4 h-4 text-green-600" />
+          <span className="font-semibold text-green-800">Current System: HARDCODED FLAT RATE</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-green-700">
+          <div><strong>NHIF Rate:</strong> 2.75%</div>
+          <div><strong>SHIF Calculation:</strong> Taxable Gross × 2.75%</div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
       {showSummary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <SummaryCard 
@@ -1031,20 +1017,20 @@ const PayslipViewer = () => {
         </div>
       )}
 
-      {/* Statutory Summary - EXACT SAME as payroll dashboard */}
+      {/* Statutory Summary */}
       {showSummary && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Statutory Deductions Summary</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatutoryCard label="Total PAYE Tax" value={summaryTotals.totalPAYE} icon={FileText} color="red" rate="Progressive rates" />
             <StatutoryCard label="Total NSSF" value={summaryTotals.totalNSSF} icon={Calculator} color="blue" rate="6% (Tiered)" />
-            <StatutoryCard label="Total SHIF" value={summaryTotals.totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
+            <StatutoryCard label="Total SHIF" value={summaryTotals.totalNHIF} icon={TrendingUp} color="purple" rate="2.75%" />
             <StatutoryCard label="Housing Levy" value={summaryTotals.totalHousingLevy} icon={DollarSign} color="yellow" rate="1.5%" />
           </div>
         </div>
       )}
 
-      {/* Filters - Matching payroll dashboard style */}
+      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="space-y-1">
@@ -1086,7 +1072,7 @@ const PayslipViewer = () => {
         </div>
       </div>
 
-      {/* Payslips Table - EXACT SAME structure as payroll dashboard */}
+      {/* Payslips Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1124,7 +1110,7 @@ const PayslipViewer = () => {
               ) : (
                 filteredPayslips.map((payslip, index) => {
                   const isExpanded = expandedRows.has(payslip.id);
-                  const calculated = calculatePayrollValues(payslip, statutorySettings, true);
+                  const calculated = calculatePayrollValues(payslip, true);
                   
                   return (
                     <React.Fragment key={payslip.id}>
@@ -1277,7 +1263,6 @@ const PayslipViewer = () => {
           onNext={currentPayslipIndex !== null && currentPayslipIndex < filteredPayslips.length - 1 ? 
             () => handleNavigatePayslip('next') : undefined}
           companyInfo={companyInfo}
-          statutorySettings={statutorySettings}
         />
       )}
     </div>
