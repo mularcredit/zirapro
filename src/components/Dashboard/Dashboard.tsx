@@ -17,7 +17,7 @@ interface NewsItem {
   id: number;
   type: 'birthday' | 'conference' | 'training' | 'payslip' | 'report';
   title: string;
-  description: string;
+  description?: string;
   date: string;
   time?: string;
   participants?: string;
@@ -53,52 +53,118 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
   const [darkMode, setDarkMode] = useState(true);
+  const [isNewsLoading, setIsNewsLoading] = useState(true);
   
   const navigate = useNavigate();
 
-  // Mock news data - replace with actual API calls
-  useEffect(() => {
-    const mockNews: NewsItem[] = [
-      {
+  // Fetch birthday news from employees table
+  const fetchBirthdayNews = async () => {
+    setIsNewsLoading(true);
+    try {
+      // Get current date and date for the next 7 days
+      const today = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(today.getDate() + 7);
+      
+      // Format dates for comparison (MM-DD format to ignore year)
+      const formatDateForComparison = (date: Date) => {
+        return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      };
+
+      const todayFormatted = formatDateForComparison(today);
+      const nextWeekFormatted = formatDateForComparison(nextWeek);
+
+      // Fetch all employees with their date of birth
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('"First Name", "Last Name", "Date of Birth", Town, Branch');
+
+      if (error) {
+        console.error('Error fetching employees for birthdays:', error);
+        return;
+      }
+
+      // Filter employees with birthdays in the next 7 days
+      const upcomingBirthdays = employees?.filter(employee => {
+        if (!employee['Date of Birth']) return false;
+        
+        try {
+          const birthDate = new Date(employee['Date of Birth']);
+          const birthMonthDay = formatDateForComparison(birthDate);
+          
+          // Check if birthday is between today and next week
+          return birthMonthDay >= todayFormatted && birthMonthDay <= nextWeekFormatted;
+        } catch (e) {
+          console.error('Invalid date format:', employee['Date of Birth']);
+          return false;
+        }
+      }) || [];
+
+      // Create birthday news item
+      const birthdayNewsItem: NewsItem = {
         id: 1,
         type: 'birthday',
         title: 'Upcoming Birthdays',
-        description: 'John Doe, Sarah Smith, and 3 others have birthdays this week',
+        description: upcomingBirthdays.length > 0 
+          ? `${upcomingBirthdays.slice(0, 3).map(emp => `${emp['First Name']} ${emp['Last Name']}`).join(', ')}${upcomingBirthdays.length > 3 ? ` and ${upcomingBirthdays.length - 3} others` : ''} have birthdays this week`
+          : 'No upcoming birthdays this week',
         date: 'This week'
-      },
-      {
-        id: 2,
-        type: 'conference',
-        title: 'Quarterly Review Meeting',
-        description: 'All managers required to attend the virtual conference',
-        date: 'Tomorrow',
-        time: '10:00 AM'
-      },
-      {
-        id: 3,
-        type: 'training',
-        title: 'New Safety Training',
-        description: 'Mandatory training session for all employees',
-        date: 'Next Monday',
-        time: '2:00 PM'
-      },
-      {
-        id: 4,
-        type: 'payslip',
-        title: 'Payslips Available',
-        description: 'March payroll processed and available for download',
-        date: 'Available now'
-      },
-      {
-        id: 5,
-        type: 'report',
-        title: 'Performance Reports',
-        description: 'Q1 performance reports are ready for review',
-        date: 'New'
-      }
-    ];
-    setNewsItems(mockNews);
+      };
+
+      // Other static news items
+      const otherNewsItems: NewsItem[] = [
+        {
+          id: 2,
+          type: 'conference',
+          title: 'Quarterly Review Meeting',
+          description: 'All managers required to attend the virtual conference',
+          date: 'Tomorrow',
+          time: '10:00 AM'
+        },
+        {
+          id: 3,
+          type: 'training',
+          title: 'New Safety Training',
+          description: 'Mandatory training session for all employees',
+          date: 'Next Monday',
+          time: '2:00 PM'
+        },
+        {
+          id: 4,
+          type: 'payslip',
+          title: 'Payslips Available',
+          description: 'March payroll processed and available for download',
+          date: 'Available now'
+        },
+        {
+          id: 5,
+          type: 'report',
+          title: 'Performance Reports',
+          description: 'Q1 performance reports are ready for review',
+          date: 'New'
+        }
+      ];
+
+      setNewsItems([birthdayNewsItem, ...otherNewsItems]);
+
+    } catch (error) {
+      console.error('Error in fetchBirthdayNews:', error);
+    } finally {
+      setIsNewsLoading(false);
+    }
+  };
+
+  // Load news when component mounts
+  useEffect(() => {
+    fetchBirthdayNews();
   }, []);
+
+  // Reload news when town changes
+  useEffect(() => {
+    if (currentTown) {
+      fetchBirthdayNews();
+    }
+  }, [currentTown]);
 
   // Mock top performers data - replace with actual API calls
   useEffect(() => {
@@ -503,6 +569,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
 
   const handleRefresh = () => {
     fetchDashboardData();
+    fetchBirthdayNews();
   };
 
   // Get town/area display name
@@ -995,52 +1062,64 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                 </span>
               </div>
               
-              <div className="space-y-4">
-                {newsItems.map((item, index) => (
+              {isNewsLoading ? (
+                <div className="flex justify-center items-center h-32">
                   <motion.div 
-                    key={item.id}
-                    className="p-4 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden"
-                    style={{
-                      background: 'rgba(255, 255, 255, 0.15)',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)'
-                    }}
-                    whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
-                    transition={{ duration: 0.2, delay: index * 0.05 }}
-                  >
-                    <div className="flex items-start space-x-3">
-                      <motion.div 
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${getNewsBgColor(item.type)}`}
-                        whileHover={{ rotate: 5, scale: 1.1 }}
-                      >
-                        <span className={getNewsTextColor(item.type)}>
-                          {getNewsIcon(item.type)}
-                        </span>
-                      </motion.div>
-                      
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-1">
-                          <h3 className="text-sm font-bold text-gray-900 truncate">
-                            {item.title}
-                          </h3>
-                          <ChevronRight className="w-3 h-3 text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
-                        </div>
-                        <p className="text-xs text-gray-900 font-medium line-clamp-2 mb-2">
-                          {item.description}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-900 font-medium">{item.date}</span>
-                          {item.time && (
-                            <span className="text-xs text-gray-900 bg-white/20 px-2 py-1 rounded-full font-medium backdrop-blur-sm">
-                              {item.time}
-                            </span>
+                    className="rounded-full w-6 h-6 border-2 border-blue-500 border-t-transparent"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {newsItems.map((item, index) => (
+                    <motion.div 
+                      key={item.id}
+                      className="p-4 rounded-xl transition-all duration-300 cursor-pointer group relative overflow-hidden"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                      }}
+                      whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                    >
+                      <div className="flex items-start space-x-3">
+                        <motion.div 
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg ${getNewsBgColor(item.type)}`}
+                          whileHover={{ rotate: 5, scale: 1.1 }}
+                        >
+                          <span className={getNewsTextColor(item.type)}>
+                            {getNewsIcon(item.type)}
+                          </span>
+                        </motion.div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between mb-1">
+                            <h3 className="text-sm font-bold text-gray-900 truncate">
+                              {item.title}
+                            </h3>
+                            <ChevronRight className="w-3 h-3 text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-gray-900 font-medium line-clamp-2 mb-2">
+                              {item.description}
+                            </p>
                           )}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-gray-900 font-medium">{item.date}</span>
+                            {item.time && (
+                              <span className="text-xs text-gray-900 bg-white/20 px-2 py-1 rounded-full font-medium backdrop-blur-sm">
+                                {item.time}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
               
               <div className="mt-6 pt-4 border-t border-white/20">
                 <motion.button 
