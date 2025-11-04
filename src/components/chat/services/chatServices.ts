@@ -1,296 +1,497 @@
-import { supabase } from '../../../lib/supabase'
+// services/chatServices.ts
+import { supabase } from "../../../lib/supabase";
+import { databaseService } from "./databaseService";
+import type { Channel, Message, User, Employee, DirectMessage } from "../types/types";
+import { AvatarService } from './avatar';
 
-export const chatService = {
-  // Get channels for current user
-  async getUserChannels(userId: string) {
-    const { data, error } = await supabase
-      .from('channel_members')
-      .select(`
-        channel:channels (*)
-      `)
-      .eq('user_id', userId)
+class ChatService {
+  private isInitialized = false;
+
+  async initialize() {
+    if (this.isInitialized) return;
+    
+    try {
+      await databaseService.initializeDatabase();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Failed to initialize database:', error);
+    }
+  }
+
+  async getEmployees(): Promise<Employee[]> {
+    try {
+      console.log("📊 Fetching employees from database...");
+      
+      const { data, error } = await supabase
+        .from('employees')
+        .select('*')
+        .order('First Name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching employees:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.warn('No employees found in database');
+        return [];
+      }
+
+      const employees: Employee[] = data.map(emp => {
+        const firstName = emp["First Name"] || '';
+        const lastName = emp["Last Name"] || '';
+        const fullName = `${firstName} ${lastName}`.trim();
+        const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
+        
+        const avatarSeed = emp["Employee Number"] || emp["Work Email"] || fullName || `employee-${Math.random()}`;
+        
+        const profileImage = emp["Profile Image"] || 
+          AvatarService.generateAvatar(avatarSeed, 'adventurer');
+
+        return {
+          id: emp["Employee Number"] || emp["Employee Id"]?.toString() || `emp-${Math.random()}`,
+          employeeNumber: emp["Employee Number"] || '',
+          firstName: firstName,
+          middleName: emp["Middle Name"],
+          lastName: lastName,
+          fullName: fullName,
+          workEmail: emp["Work Email"] || '',
+          personalEmail: emp["Personal Email"],
+          mobileNumber: emp["Mobile Number"] || emp["Personal Mobile"],
+          workMobile: emp["Work Mobile"],
+          jobTitle: emp["Job Title"] || emp["Job Group"] || 'Employee',
+          jobGroup: emp["Job Group"],
+          department: emp["Office"] || emp["Branch"] || 'General',
+          entity: emp["Entity"] || 'Company',
+          branch: emp["Branch"],
+          manager: emp["Manager"],
+          profileImage: profileImage,
+          status: this.getEmployeeStatus(emp),
+          initials: initials || 'E',
+          startDate: emp["Start Date"]
+        };
+      });
+
+      console.log(`✅ Successfully loaded ${employees.length} employees`);
+      return employees;
+
+    } catch (error) {
+      console.error('❌ Error in getEmployees:', error);
+      throw error;
+    }
+  }
+
+  private getEmployeeStatus(emp: any): 'online' | 'away' | 'offline' {
+    const workStatus = emp["Employee Type"] || emp["Status"];
+    if (workStatus === 'Active' || workStatus === 'Full-time') return 'online';
+    if (workStatus === 'Part-time' || workStatus === 'Away') return 'away';
+    return 'offline';
+  }
+
+  async getUserChannels(userId: string): Promise<(Channel | DirectMessage)[]> {
+    try {
+      console.log("📡 Fetching channels for user:", userId);
+      
+      const regularChannels = await this.getRegularChannels(userId);
+      const allChannels = [...regularChannels];
+      
+      console.log(`✅ Loaded ${allChannels.length} channels`);
+      return allChannels;
+
+    } catch (error) {
+      console.error('❌ Error fetching user channels:', error);
+      return this.getDefaultChannels();
+    }
+  }
+
+  private async getRegularChannels(userId: string): Promise<Channel[]> {
+    const { data: userData } = await supabase.auth.getUser();
+    const userEmail = userData.user?.email;
+    
+    const { data: employeeData } = await supabase
+      .from('employees')
+      .select('"Job Title"')
+      .eq('Work Email', userEmail)
+      .single();
+    
+    const userJobTitle = employeeData?.["Job Title"];
+
+    let query = supabase
+      .from('channels')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (userJobTitle) {
+      query = query.or(`is_private.eq.false,job_title.eq.${userJobTitle}`);
+    } else {
+      query = query.eq('is_private', false);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
-      console.error('Error getting user channels:', error)
-      throw error
+      console.error('❌ Error fetching channels:', error);
+      throw error;
     }
-    return data?.map(item => item.channel) || []
-  },
 
-  // Create a new channel
-  async createChannel(name: string, createdBy: string, isPrivate: boolean = false) {
-    // First create the channel
-    const { data: channel, error: channelError } = await supabase
-      .from('channels')
-      .insert([
-        {
-          name,
+    if (!data || data.length === 0) {
+      return await this.createDefaultChannels();
+    }
+    
+    const channels: Channel[] = data.map(channel => ({
+      id: channel.id,
+      name: channel.name,
+      type: 'channel',
+      description: channel.description || `Channel for ${channel.name}`,
+      isPrivate: channel.is_private || false,
+      memberCount: channel.member_count || 1,
+      unread_count: channel.unread_count || 0,
+      createdBy: channel.created_by || userId,
+      createdAt: channel.created_at || new Date().toISOString()
+    }));
+
+    return channels;
+  }
+
+  private getDefaultChannels(): Channel[] {
+    return [
+      {
+        id: 'general',
+        name: 'general',
+        type: 'channel',
+        description: 'Company-wide announcements and chat',
+        isPrivate: false,
+        memberCount: 1,
+        unread_count: 0,
+        createdBy: 'system',
+        createdAt: new Date().toISOString()
+      }
+    ];
+  }
+
+  private async createDefaultChannels(): Promise<Channel[]> {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const currentUserId = userData.user?.id;
+      
+      if (!currentUserId) {
+        return this.getDefaultChannels();
+      }
+
+      const defaultChannels = [
+        { name: 'general', description: 'Company-wide announcements and chat', is_private: false },
+        { name: 'engineering', description: 'Engineering team discussions', is_private: false, job_title: 'Software Engineer' },
+        { name: 'design', description: 'Design team collaboration', is_private: false, job_title: 'Designer' },
+        { name: 'product', description: 'Product management discussions', is_private: false, job_title: 'Product Manager' }
+      ];
+
+      const channels: Channel[] = [];
+
+      for (const channelData of defaultChannels) {
+        const channel = await this.createChannel(
+          channelData.name, 
+          currentUserId,
+          channelData.is_private, 
+          channelData.job_title
+        );
+        if (channel) {
+          channels.push(channel);
+        }
+      }
+
+      return channels;
+    } catch (error) {
+      console.error('Error creating default channels:', error);
+      return this.getDefaultChannels();
+    }
+  }
+
+  async getChannelMessages(channelId: string): Promise<Message[]> {
+    try {
+      console.log("📨 Fetching messages for:", channelId);
+
+      // For DM channels, return welcome message
+      if (channelId.startsWith('dm-')) {
+        return this.getWelcomeMessage(channelId);
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('channel_id', channelId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('❌ Error fetching messages:', error);
+        return this.getWelcomeMessage(channelId);
+      }
+
+      if (!data || data.length === 0) {
+        return this.getWelcomeMessage(channelId);
+      }
+
+      const messages: Message[] = data.map(msg => ({
+        id: msg.id,
+        content: msg.content,
+        author: {
+          id: msg.author_id,
+          name: msg.author_name || 'Unknown User',
+          avatar: msg.author_avatar || '',
+          initials: msg.author_initials || 'UU',
+          email: '',
+          status: 'online',
+          town: msg.author_town || 'Unknown'
+        },
+        timestamp: msg.created_at,
+        reactions: msg.reactions || []
+      }));
+
+      return messages;
+
+    } catch (error) {
+      console.error('❌ Error fetching messages:', error);
+      return this.getWelcomeMessage(channelId);
+    }
+  }
+
+  private getWelcomeMessage(channelId: string): Message[] {
+    return [
+      {
+        id: 'welcome-' + channelId,
+        content: `Welcome to the channel! This is the beginning of the conversation. 👋`,
+        author: {
+          id: 'system',
+          name: 'ZiraTeams',
+          avatar: '',
+          initials: 'ZT',
+          email: 'system@zirateams.com',
+          status: 'online'
+        },
+        timestamp: new Date().toISOString(),
+        reactions: []
+      }
+    ];
+  }
+
+  async sendMessage(channelId: string, userId: string, content: string): Promise<Message | null> {
+    try {
+      console.log("💬 Sending message to channel:", channelId);
+      
+      // For DM channels, create mock message
+      if (channelId.startsWith('dm-')) {
+        console.log('💬 DM message - creating local message');
+        
+        const { data: userData } = await supabase.auth.getUser();
+        const userEmail = userData.user?.email;
+        
+        const { data: employeeData } = await supabase
+          .from('employees')
+          .select('"First Name", "Last Name", "Profile Image"')
+          .eq('Work Email', userEmail)
+          .single();
+
+        const firstName = employeeData?.["First Name"] || '';
+        const lastName = employeeData?.["Last Name"] || '';
+        const fullName = `${firstName} ${lastName}`.trim() || userData.user?.user_metadata?.name || 'User';
+        const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
+
+        const mockMessage: Message = {
+          id: `dm-msg-${Date.now()}`,
+          content: content,
+          author: {
+            id: userId,
+            name: fullName,
+            avatar: employeeData?.["Profile Image"] || '',
+            initials: initials,
+            email: userEmail || '',
+            status: 'online',
+            town: 'Unknown'
+          },
+          timestamp: new Date().toISOString(),
+          reactions: []
+        };
+
+        console.log('✅ DM message created (local)');
+        return mockMessage;
+      }
+      
+      // Regular channel message
+      const { data: userData } = await supabase.auth.getUser();
+      const userEmail = userData.user?.email;
+
+      const { data: employeeData } = await supabase
+        .from('employees')
+        .select('"First Name", "Last Name", "Profile Image", "Town", "City", "Branch", "Employee Number"')
+        .eq('Work Email', userEmail)
+        .single();
+
+      const firstName = employeeData?.["First Name"] || '';
+      const lastName = employeeData?.["Last Name"] || '';
+      const fullName = `${firstName} ${lastName}`.trim() || userData.user?.user_metadata?.name || 'User';
+      const initials = `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
+      const town = employeeData?.["Town"] || employeeData?.["City"] || employeeData?.["Branch"] || 'Unknown';
+
+      let userAvatar = employeeData?.["Profile Image"] || '';
+      if (!userAvatar) {
+        const avatarSeed = employeeData?.["Employee Number"] || userEmail || fullName || userId;
+        userAvatar = AvatarService.generateAvatar(avatarSeed, 'adventurer');
+      }
+
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          channel_id: channelId,
+          topic: 'general',
+          author_id: userId,
+          content: content,
+          extension: 'text',
+          created_at: new Date().toISOString(),
+          author_name: fullName,
+          author_initials: initials,
+          author_town: town,
+          author_avatar: userAvatar
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error sending message:', error);
+        return this.createMockMessage(userId, fullName, initials, content, town, userAvatar);
+      }
+
+      const newMessage: Message = {
+        id: data.id,
+        content: data.content,
+        author: {
+          id: userId,
+          name: fullName,
+          avatar: userAvatar,
+          initials: initials,
+          email: userEmail,
+          status: 'online',
+          town: town
+        },
+        timestamp: data.created_at,
+        reactions: []
+      };
+
+      console.log("✅ Message sent successfully:", newMessage.id);
+      return newMessage;
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const { data: userData } = await supabase.auth.getUser();
+      const userName = userData.user?.user_metadata?.name || 'User';
+      
+      return this.createMockMessage(userId, userName, 'U', content, 'Unknown', '');
+    }
+  }
+
+  private createMockMessage(
+    userId: string, 
+    userName: string, 
+    initials: string, 
+    content: string, 
+    town?: string, 
+    avatar?: string
+  ): Message {
+    return {
+      id: `mock-${Date.now()}`,
+      content,
+      author: {
+        id: userId,
+        name: userName,
+        avatar: avatar || '',
+        initials: initials,
+        email: '',
+        status: 'online',
+        town: town || 'Unknown'
+      },
+      timestamp: new Date().toISOString(),
+      reactions: []
+    };
+  }
+
+  async createChannel(name: string, userId: string, isPrivate: boolean = false, jobTitle?: string): Promise<Channel> {
+    try {
+      console.log("🆕 Creating channel:", name);
+      
+      const channelId = crypto.randomUUID();
+      
+      const { data, error } = await supabase
+        .from('channels')
+        .insert({
+          id: channelId,
+          name: name,
           type: 'channel',
           is_private: isPrivate,
-          created_by: createdBy,
-          member_count: 1,
-          unread_count: 0
-        }
-      ])
-      .select()
-      .single()
-
-    if (channelError) {
-      console.error('Error creating channel:', channelError)
-      throw channelError
-    }
-
-    // Then add the creator as an admin member
-    const { error: memberError } = await supabase
-      .from('channel_members')
-      .insert([
-        {
-          channel_id: channel.id,
-          user_id: createdBy,
-          role: 'admin',
-          unread_count: 0
-        }
-      ])
-
-    if (memberError) {
-      console.error('Error adding channel member:', memberError)
-      throw memberError
-    }
-
-    return channel
-  },
-
-  // Get messages for a channel - FIXED: No direct auth.users access
-  async getChannelMessages(channelId: string, limit: number = 50) {
-    try {
-      // First get messages
-      const { data: messages, error: messagesError } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .order('created_at', { ascending: true })
-        .limit(limit)
-
-      if (messagesError) {
-        console.error('Error getting messages:', messagesError)
-        throw messagesError
-      }
-
-      if (!messages || messages.length === 0) {
-        return []
-      }
-
-      // Get current user to use as fallback author data
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-
-      // Transform messages with author data
-      const messagesWithAuthors = messages.map((message) => {
-        // For now, use current user as author or create fallback
-        // In a real app, you'd have a profiles table or store user data in messages
-        return {
-          ...message,
-          author: {
-            id: message.author_id,
-            name: currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || 'User',
-            avatar: currentUser?.user_metadata?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${message.author_id}`,
-            initials: currentUser?.user_metadata?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
-            email: currentUser?.email || ''
-          }
-        }
-      })
-
-      return messagesWithAuthors
-    } catch (error) {
-      console.error('Error in getChannelMessages:', error)
-      throw error
-    }
-  },
-
-  // Send a message - FIXED: No direct auth.users access
-  async sendMessage(channelId: string, authorId: string, content: string, replyTo?: string) {
-    try {
-      // Get current user data first
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-      
-      if (!currentUser) {
-        throw new Error('User not authenticated')
-      }
-
-      // Insert the message
-      const { data, error } = await supabase
-        .from('messages')
-        .insert([
-          {
-            channel_id: channelId,
-            author_id: authorId,
-            content,
-            reply_to: replyTo
-          }
-        ])
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Error sending message:', error)
-        throw error
-      }
-
-      // Create the transformed message with author data from current user
-      const transformedMessage = {
-        ...data,
-        author: {
-          id: currentUser.id,
-          name: currentUser.user_metadata?.name || currentUser.email?.split('@')[0] || 'User',
-          avatar: currentUser.user_metadata?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.id}`,
-          initials: currentUser.user_metadata?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
-          email: currentUser.email
-        }
-      }
-
-      // Try to increment unread count for other members
-      try {
-        await supabase.rpc('increment_channel_unread', {
-          channel_id: channelId,
-          exclude_user_id: authorId
+          job_title: jobTitle,
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          member_count: 1
         })
-      } catch (rpcError) {
-        console.warn('Could not increment unread count:', rpcError)
-      }
-
-      return transformedMessage
-    } catch (error) {
-      console.error('Error in sendMessage:', error)
-      throw error
-    }
-  },
-
-  // Mark messages as read
-  async markMessagesAsRead(channelId: string, userId: string) {
-    try {
-      // Get all unread messages for this channel
-      const { data: unreadMessages, error: fetchError } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('channel_id', channelId)
-        .not('author_id', 'eq', userId) // Only messages from others
-        .not('id', 'in', 
-          supabase.from('message_reads')
-            .select('message_id')
-            .eq('user_id', userId)
-        )
-
-      if (fetchError) {
-        console.error('Error fetching unread messages:', fetchError)
-        throw fetchError
-      }
-
-      // Mark each message as read
-      if (unreadMessages && unreadMessages.length > 0) {
-        const readRecords = unreadMessages.map(message => ({
-          message_id: message.id,
-          user_id: userId
-        }))
-
-        const { error: insertError } = await supabase
-          .from('message_reads')
-          .insert(readRecords)
-
-        if (insertError) {
-          console.error('Error marking messages as read:', insertError)
-          throw insertError
-        }
-      }
-
-      // Reset user's unread count for this channel
-      const { error } = await supabase
-        .from('channel_members')
-        .update({ unread_count: 0 })
-        .eq('channel_id', channelId)
-        .eq('user_id', userId)
-
-      if (error) {
-        console.error('Error resetting unread count:', error)
-        throw error
-      }
-    } catch (error) {
-      console.error('Error in markMessagesAsRead:', error)
-      throw error
-    }
-  },
-
-  // Add reaction to message
-  async addReaction(messageId: string, userId: string, emoji: string) {
-    try {
-      const { data, error } = await supabase
-        .from('reactions')
-        .insert([
-          {
-            message_id: messageId,
-            user_id: userId,
-            emoji
-          }
-        ])
         .select()
-        .single()
+        .single();
 
       if (error) {
-        console.error('Error adding reaction:', error)
-        throw error
+        console.error('❌ Database error creating channel:', error);
+        throw error;
       }
-      return data
+
+      console.log("✅ Channel created in DATABASE:", data.id);
+      
+      const newChannel: Channel = {
+        id: data.id,
+        name: data.name,
+        type: 'channel',
+        isPrivate: data.is_private,
+        memberCount: data.member_count,
+        createdBy: data.created_by,
+        createdAt: data.created_at
+      };
+
+      return newChannel;
+
     } catch (error) {
-      console.error('Error in addReaction:', error)
-      throw error
+      console.error('❌ Error creating channel:', error);
+      throw error;
     }
-  },
+  }
 
-  // Get channel members - FIXED: No direct auth.users access
-  async getChannelMembers(channelId: string) {
+  async markMessagesAsRead(channelId: string, userId: string): Promise<void> {
     try {
-      // Get channel members
-      const { data: members, error: membersError } = await supabase
-        .from('channel_members')
-        .select('*')
-        .eq('channel_id', channelId)
-
-      if (membersError) {
-        console.error('Error getting channel members:', membersError)
-        throw membersError
+      if (channelId.startsWith('dm-')) {
+        return;
       }
 
-      if (!members || members.length === 0) {
-        return []
+      console.log(`📖 Marking messages as read for channel ${channelId}`);
+      
+      const { error } = await supabase
+        .from('user_channel_states')
+        .upsert({
+          user_id: userId,
+          channel_id: channelId,
+          last_read_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.warn('Error marking messages as read:', error);
       }
 
-      // Get current user for fallback data
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
-
-      // Transform members with user data
-      const membersWithUsers = members.map((member) => {
-        // For now, use current user data or create fallback
-        // In a real app, you'd have a profiles table
-        return {
-          ...member,
-          user: {
-            id: member.user_id,
-            name: currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || 'User',
-            avatar: currentUser?.user_metadata?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user_id}`,
-            initials: currentUser?.user_metadata?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
-            email: currentUser?.email || ''
-          }
-        }
-      })
-
-      return membersWithUsers
     } catch (error) {
-      console.error('Error in getChannelMembers:', error)
-      throw error
+      console.error('Error marking messages as read:', error);
     }
-  },
+  }
 
-  // Real-time subscriptions - FIXED: No direct auth.users access
-  subscribeToMessages(channelId: string, callback: (message: any) => void) {
+  subscribeToMessages(channelId: string, callback: (message: Message) => void): any {
     try {
+      console.log(`🔔 Setting up real-time subscription for channel: ${channelId}`);
+      
+      // Skip real-time for DM channels
+      if (channelId.startsWith('dm-')) {
+        return null;
+      }
+
       const subscription = supabase
         .channel(`messages:${channelId}`)
         .on(
@@ -302,49 +503,59 @@ export const chatService = {
             filter: `channel_id=eq.${channelId}`
           },
           async (payload) => {
+            console.log('📨 New real-time message:', payload);
+            
             try {
-              // Get current user for author data
-              const { data: { user: currentUser } } = await supabase.auth.getUser()
-              
-              const transformedMessage = {
-                ...payload.new,
-                author: {
-                  id: payload.new.author_id,
-                  name: currentUser?.user_metadata?.name || currentUser?.email?.split('@')[0] || 'User',
-                  avatar: currentUser?.user_metadata?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${payload.new.author_id}`,
-                  initials: currentUser?.user_metadata?.name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U',
-                  email: currentUser?.email || ''
-                }
+              const { data: messageData } = await supabase
+                .from('messages')
+                .select(`*`)
+                .eq('id', payload.new.id)
+                .single();
+
+              if (messageData) {
+                const newMessage: Message = {
+                  id: messageData.id,
+                  content: messageData.content,
+                  author: {
+                    id: messageData.author_id,
+                    name: messageData.author_name || 'Unknown User',
+                    avatar: messageData.author_avatar || '',
+                    initials: messageData.author_initials || 'UU',
+                    email: '',
+                    status: 'online',
+                    town: messageData.author_town || 'Unknown'
+                  },
+                  timestamp: messageData.created_at,
+                  reactions: messageData.reactions || []
+                };
+                
+                callback(newMessage);
               }
-              callback(transformedMessage)
-            } catch (error) {
-              console.error('Error processing real-time message:', error)
-              // Send basic message as fallback
-              callback({
-                ...payload.new,
-                author: {
-                  id: payload.new.author_id,
-                  name: 'User',
-                  avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${payload.new.author_id}`,
-                  initials: 'U',
-                  email: ''
-                }
-              })
+            } catch (fetchError) {
+              console.error('Error fetching message details:', fetchError);
             }
           }
         )
-        .subscribe()
+        .subscribe();
 
-      return subscription
+      return subscription;
+
     } catch (error) {
-      console.error('Error creating subscription:', error)
-      throw error
+      console.error('Error setting up real-time subscription:', error);
+      return null;
     }
-  },
+  }
 
-  unsubscribe(channel: any) {
-    if (channel) {
-      return supabase.removeChannel(channel)
+  unsubscribe(subscription: any): void {
+    try {
+      if (subscription) {
+        supabase.removeChannel(subscription);
+        console.log('🔕 Unsubscribed from real-time updates');
+      }
+    } catch (error) {
+      console.error('Error unsubscribing:', error);
     }
   }
 }
+
+export const chatService = new ChatService();

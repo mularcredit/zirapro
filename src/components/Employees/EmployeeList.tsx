@@ -3,7 +3,8 @@ import {
   Search, Plus, Eye, Edit, Trash2, MapPin, Mail, Phone, 
   ChevronLeft, ChevronRight, X, Filter,BookUser, Download, PrinterIcon, ChevronDown,User, Briefcase, CreditCard, UserRoundX, CircleOff,
   Settings,
-  Edit3Icon
+  Edit3Icon,
+  UserRoundCog
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { TownProps } from '../../types/supabase';
@@ -727,7 +728,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               <GlowButton 
                 variant="danger" 
                 size="sm" 
-                icon={BookUser}
+                icon={UserRoundCog}
                 onClick={() => navigate(`/view-employee/${employee['Employee Number']}`)}
               >
                 Terminate

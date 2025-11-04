@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1, Clock, CheckCircle, XCircle, Eye, AlertTriangle, Settings, RefreshCw, Info } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1, Clock, CheckCircle, XCircle, Eye, AlertTriangle, Settings, RefreshCw, Info, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -264,7 +264,7 @@ const WalletBalance = ({
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-blue-200 text-sm">Current Balance</p>
-                <p className="text-3xl font-bold mt-1">
+                <p className="text-sm font-bold mt-1">
                   {isLoading ? (
                     <div className="animate-pulse bg-white/20 rounded h-8 w-32"></div>
                   ) : (
@@ -274,7 +274,7 @@ const WalletBalance = ({
               </div>
               <div className="text-right">
                 <p className="text-blue-200 text-xs">Pending</p>
-                <p className="text-lg font-semibold">
+                <p className="text-sm font-semibold">
                   {isLoading ? (
                     <div className="animate-pulse bg-white/20 rounded h-5 w-16 ml-auto"></div>
                   ) : (
@@ -404,7 +404,7 @@ const WalletBalance = ({
                 <div className="space-y-2 text-xs text-gray-600">
                   <div className="flex justify-between">
                     <span>Interest Rate:</span>
-                    <span className="font-medium">12% p.a.</span>
+                    <span className="font-medium">15%</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Repayment Period:</span>
@@ -1187,7 +1187,7 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
             .total-row { background-color: #e8f4f8; font-weight: bold; }
             .signature-section { margin-top: 50px; display: flex; justify-content: space-between; }
             .signature-box { width: 200px; text-align: center; }
-            .signature-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 5px; }
+            .signature-line { border-top: 2px solid #000; margin-top: 40px; padding-top: 5px; }
             .form-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
             .info-box { padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; }
           </style>
@@ -1227,7 +1227,7 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
                   <th>Benefits</th>
                   <th>Gross Pay</th>
                   <th>PAYE</th>
-                  <th>NHIF</th>
+                  <th>SHIF</th>
                   <th>NSSF</th>
                   <th>Housing Levy</th>
                   <th>Net Pay</th>
@@ -1272,14 +1272,14 @@ const P9FormGenerator = ({ isOpen, onClose, records, companyInfo }) => {
             <table style="width: 60%;">
               <tr>
                 <td>Total Gross Pay</td>
-                <td class="number" style="font-weight:400;">KSh ${annualTotals.grossPay.toLocaleString()}</td>
+                <td class="number" style="font-weight:500;">KSh ${annualTotals.grossPay.toLocaleString()}</td>
               </tr>
               <tr>
                 <td>Total PAYE Tax</td>
                 <td class="number">KSh ${Math.round(annualTotals.paye).toLocaleString()}</td>
               </tr>
               <tr>
-                <td>Total NHIF</td>
+                <td>Total SHIF</td>
                 <td class="number">KSh ${annualTotals.nhif.toLocaleString()}</td>
               </tr>
               <tr>
@@ -2069,7 +2069,8 @@ const PayslipModal = ({
               <div className="text-right">
                 <h2 className="text-xl font-bold">PAYSLIP</h2>
                 <div className="text-gray-300 text-xs">
-                  {new Date(record.pay_period + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+
                 </div>
               </div>
             </div>
@@ -2082,8 +2083,8 @@ const PayslipModal = ({
                     <div className="flex justify-between"><span>Full Name:</span><span>{record.employee_name}</span></div>
                     <div className="flex justify-between"><span>Employee No:</span><span>{record.employee_id}</span></div>
                     <div className="flex justify-between"><span>Position:</span><span>{record.department}</span></div>
-                    <div className="flex justify-between"><span>Dept:</span><span>{record.position}</span></div>
-                    <div className="flex justify-between"><span>Branch:</span><span>{record.branch}</span></div>
+                    <div className="flex justify-between"><span>Dept:</span><span>Operations</span></div>
+                    <div className="flex justify-between"><span>Region:</span><span>{record.branch}</span></div>
                   </div>
                 </div>
 
@@ -2100,8 +2101,8 @@ const PayslipModal = ({
                     {record.payment_method === 'M-Pesa' && (
                       <div className="flex justify-between"><span>M-Pesa No:</span><span>{record.employeeNu}</span></div>
                     )}
-                    <div className="flex justify-between"><span>M-Pesa No:</span><span>{record.employeeNu}</span></div>
                     <div className="flex justify-between"><span>Job Group:</span><span>{record.jobGroup}</span></div>
+                   
                   </div>
                 </div>
               </div>
@@ -2118,6 +2119,7 @@ const PayslipModal = ({
                     <div className="flex justify-between"><span>Overtime</span><span>KSh {(record.overtime_hours * record.overtime_rate).toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Commission</span><span>KSh {record.commission.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Bonus</span><span>KSh {record.bonus.toLocaleString()}</span></div>
+                    <div className="flex justify-between bg-yellow-50 p-1"><span>Per Diem</span><span>KSh {record.per_diem?.toLocaleString() || '0'}</span></div>
                   </div>
                 </div>
 
@@ -2125,13 +2127,14 @@ const PayslipModal = ({
                   <div className="bg-gray-200 font-semibold p-2">DEDUCTIONS</div>
                   <div className="p-2 space-y-1">
                     <div className="flex justify-between"><span>PAYE</span><span>KSh {Math.round(record.paye_tax).toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>NHIF</span><span>KSh {record.nhif_deduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>SHA</span><span>KSh {record.nhif_deduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>NSSF</span><span>KSh {record.nssf_deduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>AHL</span><span>KSh {record.housing_levy.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Loan</span><span>KSh {record.loan_deduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Advance</span><span>KSh {record.advance_deduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Welfare</span><span>KSh {record.welfare_deduction.toLocaleString()}</span></div>
                     <div className="flex justify-between"><span>Other</span><span>KSh {record.other_deductions.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Tax Relief:</span><span>KSh -2400</span></div>
                   </div>
                 </div>
               </div>
@@ -2139,6 +2142,7 @@ const PayslipModal = ({
               <div className="border p-3 rounded mb-4">
                 <div className="flex justify-between border-b pb-1"><span>Gross Pay</span><span>KSh {record.gross_pay.toLocaleString()}</span></div>
                 <div className="flex justify-between border-b pb-1"><span>Total Deductions</span><span className="text-red-600">KSh {record.total_deductions.toLocaleString()}</span></div>
+                 
                 <div className="flex justify-between font-bold text-green-700"><span>NET PAY</span><span>KSh {Math.round(record.net_pay).toLocaleString()}</span></div>
               </div>
 
@@ -2501,6 +2505,41 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
   );
 };
 
+// Statutory Override Toggle Component
+const StatutoryOverrideToggle = ({ isEnabled, onToggle }) => {
+  return (
+    <div className="flex items-center gap-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onToggle}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+            isEnabled ? 'bg-green-500' : 'bg-gray-300'
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+              isEnabled ? 'translate-x-6' : 'translate-x-1'
+            }`}
+          />
+        </button>
+        {isEnabled ? (
+          <ToggleRight className="w-5 h-5 text-green-600" />
+        ) : (
+          <ToggleLeft className="w-5 h-5 text-gray-500" />
+        )}
+        <span className={`text-sm font-medium ${isEnabled ? 'text-green-700' : 'text-gray-700'}`}> Statutory Override
+        </span>
+      </div>
+      <div className="text-xs text-yellow-700">
+        {isEnabled 
+          ? 'All statutory deductions will be applied regardless of PIN status'
+          : 'Statutory deductions require valid PIN numbers'
+        }
+      </div>
+    </div>
+  );
+};
+
 export default function PayrollDashboard() {
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [selectedDepartment, setSelectedDepartment] = useState('all');
@@ -2552,6 +2591,10 @@ export default function PayrollDashboard() {
   const [smsSendingStatus, setSmsSendingStatus] = useState({});
 
   const [currentView, setCurrentView] = useState('dashboard');
+  
+  // NEW: Statutory override state
+  const [overrideStatutoryChecks, setOverrideStatutoryChecks] = useState(true);
+
   const itemsPerPage = 5;
 
   const {
@@ -3064,7 +3107,7 @@ export default function PayrollDashboard() {
     }
   };
 
-  // KEEP YOUR ORIGINAL EMPLOYEE FETCHING LOGIC - DON'T LET ME CHANGE THIS
+  // UPDATED: Enhanced payroll calculation with statutory override
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -3081,7 +3124,7 @@ export default function PayrollDashboard() {
         if (data) {
           setEmployees(data);
           
-          // YOUR ORIGINAL DEPARTMENT/BRANCH EXTRACTION
+          // Extract departments and branches
           const uniqueDepartments = [...new Set(data.map(emp => emp.Department || emp['Job Level']))].filter(Boolean);
           const uniqueBranches = [...new Set(data.map(emp => emp.branch || emp.Office))].filter(Boolean);
           
@@ -3091,9 +3134,8 @@ export default function PayrollDashboard() {
             ...uniqueBranches.map(branch => ({ value: branch, label: branch }))
           ]);
 
-          // YOUR ORIGINAL PAYROLL CALCULATION LOGIC
+          // Enhanced payroll calculation with statutory override
           const payrollData = data.map(employee => {
-            // KEEP YOUR EXISTING WORKING LOGIC HERE
             const basicSalary = employee['Basic Salary'] || 0;
             const employeeId = employee['Employee Number'] || '';
             const jobGroup = employee['Job Group'] || '';
@@ -3101,7 +3143,7 @@ export default function PayrollDashboard() {
             const employeeNu = employee['Mobile Number'] || '';
             const firstName = employee['First Name'] || '';
             const middleName = employee['Middle Name'] || '';
-            const branch = employee.Office || '';
+            const branch = employee.Office || employee.branch || '';
             const lastName = employee['Last Name'] || '';
             const department = employee.Department || employee['Job Level'] || '';
             const position = employee['Job Title'] || '';
@@ -3114,45 +3156,62 @@ export default function PayrollDashboard() {
             const nhifNumber = employee['NHIF Number'] || employee['SHIF Number'] || '';
             const nssfNumber = employee['NSSF Number'] || '';
             const taxPin = employee['Tax PIN'] || '';
-            
+             
+
             const medicalAllowance = employee.medical_allowance || 0;
             const otherAllowances = 0;
             const commission = 0;
             const bonus = 0;
             
+            // Per diem is PART of basic salary (33%), not extra payment
+            const perDiem = basicSalary * 0.33;
+            
             const overtimePay = overtimeHours * overtimeRate;
+            
+            // Gross pay (basic salary already includes per diem)
             const grossPay = basicSalary + houseAllowance + transportAllowance + 
                             medicalAllowance + otherAllowances + overtimePay + 
                             commission + bonus;
+
+            // Taxable amount EXCLUDES the per diem portion
+            const taxableGross = grossPay - perDiem;
 
             let nhifDeduction = 0;
             let nssfDeduction = 0;
             let housingLevy = 0;
             
-            if (nhifNumber) {
-              nhifDeduction = calculateNHIF(grossPay);
+            // UPDATED: Apply statutory deductions based on override setting
+            if (overrideStatutoryChecks || nhifNumber) {
+              nhifDeduction = calculateNHIF(taxableGross);
             }
             
-            if (nssfNumber) {
-              nssfDeduction = calculateNSSF(grossPay);
+            if (overrideStatutoryChecks || nssfNumber) {
+              nssfDeduction = calculateNSSF(taxableGross);
             }
             
-            if (taxPin) {
-              housingLevy = calculateHousingLevy(grossPay, true);
+            if (overrideStatutoryChecks || taxPin) {
+              housingLevy = calculateHousingLevy(taxableGross, true);
             }
             
-            const taxableIncome = grossPay - nssfDeduction - housingLevy;
+            // Calculate taxable income for PAYE AFTER deducting NSSF and Housing Levy
+            const taxableIncomeForPAYE = taxableGross - nhifDeduction - nssfDeduction - housingLevy; 
             
             let payeTax = 0;
-            if (taxPin) {
-              payeTax = calculatePAYE(taxableIncome);
+            let taxRelief = 0;
+            
+            if (overrideStatutoryChecks || taxPin) {
+              payeTax = calculatePAYE(taxableIncomeForPAYE);
+              taxRelief = Math.min(payeTax, 2400);
+              
             }
             
+            // REMOVED VOLUNTARY DEDUCTIONS - set all to 0
             const loanDeduction = 0;
             const advanceDeduction = 0;
-            const welfareDeduction = 0;
+            const welfareDeduction = 300;
             const otherDeductions = 0;
 
+            // Total deductions now only include statutory (voluntary are 0)
             const totalDeductions = payeTax + 
                                    nhifDeduction + 
                                    nssfDeduction + 
@@ -3163,6 +3222,22 @@ export default function PayrollDashboard() {
                                    otherDeductions;
 
             const netPay = grossPay - totalDeductions;
+            if (basicSalary === 80000) {
+    console.log('🔍 HIDDEN DEDUCTIONS DEBUG:');
+    console.log('Basic Salary:', basicSalary);
+    console.log('Gross Pay:', grossPay);
+    console.log('Per Diem:', perDiem);
+    console.log('Taxable Gross (after per diem):', taxableGross);
+    console.log('NHIF:', nhifDeduction);
+    console.log('NSSF:', nssfDeduction);
+    console.log('Housing Levy:', housingLevy);
+    console.log('Loan Deduction:', loanDeduction);
+    console.log('Advance Deduction:', advanceDeduction);
+    console.log('Welfare Deduction:', welfareDeduction);
+    console.log('Other Deductions:', otherDeductions);
+    console.log('FINAL Taxable for PAYE:', taxableIncomeForPAYE);
+    console.log('CALCULATED PAYE:', payeTax);
+  }
 
             return {
               id: employee.id || '',
@@ -3183,14 +3258,16 @@ export default function PayrollDashboard() {
               overtime_rate: overtimeRate,
               commission: commission,
               bonus: bonus,
+              per_diem: perDiem,
               gross_pay: grossPay,
               paye_tax: payeTax,
               nhif_deduction: nhifDeduction,
               nssf_deduction: nssfDeduction,
               housing_levy: housingLevy,
+              tax_relief: taxRelief,
               loan_deduction: loanDeduction,
               advance_deduction: advanceDeduction,
-              welfare_deduction: welfareDeduction,
+              welfare_deduction: 300,
               other_deductions: otherDeductions,
               total_deductions: totalDeductions,
               net_pay: netPay,
@@ -3211,9 +3288,10 @@ export default function PayrollDashboard() {
       }
     };
 
-    // KEEP YOUR ORIGINAL CALL - DON'T ADD UNNECESSARY CONDITIONS
-    fetchEmployees();
-  }, [actualPeriod, settings]); // Only add dependencies that were originally there
+    if (settings) { // Only fetch when settings are loaded
+      fetchEmployees();
+    }
+  }, [actualPeriod, settings, overrideStatutoryChecks]); // Added overrideStatutoryChecks as dependency
 
   const applyAdditionalFilters = (records) => {
     return records.filter(record => {
@@ -3284,6 +3362,7 @@ export default function PayrollDashboard() {
   const totalNHIF = finalFilteredRecords.reduce((sum, record) => sum + record.nhif_deduction, 0);
   const totalNSSF = finalFilteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
   const totalHousingLevy = finalFilteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
+  const totalPerDiem = finalFilteredRecords.reduce((sum, record) => sum + (record.per_diem || 0), 0);
 
   const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
   const approvedCount = paymentRequests.filter(p => p.status === 'approved').length;
@@ -3326,6 +3405,16 @@ export default function PayrollDashboard() {
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // NEW: Toggle statutory override
+  const toggleStatutoryOverride = () => {
+    setOverrideStatutoryChecks(!overrideStatutoryChecks);
+    toast.success(
+      overrideStatutoryChecks 
+        ? 'Statutory PIN checks enabled' 
+        : 'Statutory override enabled - all deductions will be applied'
+    );
   };
 
   if (currentView === 'mpesa-spreadsheet') {
@@ -3453,6 +3542,12 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
+      {/* NEW: Statutory Override Toggle */}
+      <StatutoryOverrideToggle 
+        isEnabled={overrideStatutoryChecks}
+        onToggle={toggleStatutoryOverride}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1">
           <WalletBalance 
@@ -3463,7 +3558,7 @@ export default function PayrollDashboard() {
           />
         </div>
 
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <SummaryCard 
             label="Total Gross Pay" 
             value={totalGrossPay} 
@@ -3668,7 +3763,7 @@ export default function PayrollDashboard() {
           </div>
 
           <div className="space-y-1">
-            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Branch Location</label>
+            <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Region (Branch)</label>
             <select
               value={selectedBranch}
               onChange={(e) => setSelectedBranch(e.target.value)}
@@ -3754,11 +3849,12 @@ export default function PayrollDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <StatutoryCard label="Total PAYE Tax" value={totalPAYE} icon={FileText} color="red" rate="Progressive rates" />
             <StatutoryCard label="Total NSSF" value={totalNSSF} icon={Calculator} color="blue" rate="6% (Tiered)" />
-            <StatutoryCard label="Total NHIF" value={totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
+            <StatutoryCard label="Total SHIF" value={totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
             <StatutoryCard label="Housing Levy" value={totalHousingLevy} icon={DollarSign} color="yellow" rate="1.5%" />
           </div>
         </div>
       )}
+      
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
@@ -3813,11 +3909,14 @@ export default function PayrollDashboard() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left text-gray-700 font-semibold">Employee</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Region</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Gross Pay</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Per Diem</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">PAYE</th>
-                <th className="px-4 py-3 text-right text-gray-700 font-semibold">NHIF</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">SHIF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">NSSF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">AHL</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Total Deductions</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Net Pay</th>
                 <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-center text-gray-700 font-semibold">Actions</th>
               </tr>
@@ -3846,14 +3945,19 @@ export default function PayrollDashboard() {
                           <div>
                             <p className="font-semibold text-gray-900">{record.employee_name}</p>
                             <p className="text-gray-500 text-xs">{record.employee_id}</p>
-                            <p className="text-gray-500 text-xs">{record.branch}</p>
                             <p className="text-gray-500 text-xs">{record.employeeNu}</p>
                             <p className="text-gray-500 text-xs">{record.department} • {record.position}</p>
                           </div>
                         </div>
                       </td>
+                      <td className="px-4 py-4 text-right text-gray-600">
+                        {record.branch}
+                      </td>
                       <td className="px-4 py-4 text-right font-bold text-green-600">
                         KSh {record.gross_pay.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-bold text-yellow-600">
+                        KSh {record.per_diem?.toLocaleString() || '0'}
                       </td>
                       <td className="px-4 py-4 text-right text-red-600">
                         KSh {Math.round(record.paye_tax).toLocaleString()}
@@ -3866,6 +3970,9 @@ export default function PayrollDashboard() {
                       </td>
                       <td className="px-4 py-4 text-right text-yellow-600">
                         KSh {record.housing_levy.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right font-bold text-red-600">
+                        KSh {record.total_deductions.toLocaleString()}
                       </td>
                       <td className="px-4 py-4 text-right font-bold text-green-700">
                         KSh {Math.round(record.net_pay).toLocaleString()}
@@ -3926,12 +4033,12 @@ export default function PayrollDashboard() {
                     
                     {isExpanded && (
                       <tr className="bg-gray-50">
-                        <td colSpan={8} className="px-4 py-4">
+                        <td colSpan={11} className="px-4 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                             <div className="space-y-2">
                               <h4 className="font-medium text-gray-900">Earnings</h4>
                               <div className="flex justify-between">
-                                <span>Basic Salary:</span>
+                                <span>Total Basic Salary:</span>
                                 <span>KSh {record.basic_salary.toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
@@ -3946,6 +4053,10 @@ export default function PayrollDashboard() {
                                 <span>Overtime:</span>
                                 <span>KSh {(record.overtime_hours * record.overtime_rate).toLocaleString()}</span>
                               </div>
+                              <div className="flex justify-between font-bold bg-yellow-50 p-1">
+                                <span>Per Diem:</span>
+                                <span>KSh {record.per_diem?.toLocaleString() || '0'}</span>
+                              </div>
                             </div>
                             
                             <div className="space-y-2">
@@ -3955,7 +4066,7 @@ export default function PayrollDashboard() {
                                 <span className="text-red-600">KSh {record.paye_tax.toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span>NHIF:</span>
+                                <span>SHIF:</span>
                                 <span className="text-red-600">KSh {record.nhif_deduction.toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
@@ -3965,6 +4076,10 @@ export default function PayrollDashboard() {
                               <div className="flex justify-between">
                                 <span>Housing Levy:</span>
                                 <span className="text-red-600">KSh {record.housing_levy.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between text-green-600">
+                                <span>Tax Relief:</span>
+                                <span>KSh {record.tax_relief?.toLocaleString() || '0'}</span>
                               </div>
                             </div>
                             

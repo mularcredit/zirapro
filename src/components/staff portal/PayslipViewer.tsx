@@ -11,33 +11,343 @@ import {
   Search,
   Filter,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Users,
+  DollarSign,
+  Calculator,
+  Eye,
+  Box,
+  TrendingUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2pdf from 'html2pdf.js';
 
-// PayslipModal Component for Staff Portal
+// EXACT SAME calculation functions as useStatutorySettings hook
+const statutoryCalculations = {
+  calculatePAYE: (taxableIncome, settings) => {
+    if (!settings || !taxableIncome || taxableIncome <= 0) return 0;
+    
+    let tax = 0;
+    let remainingIncome = taxableIncome;
+
+    for (let i = 0; i < settings.payeBrackets.length; i++) {
+      const bracket = settings.payeBrackets[i];
+      const prevBracket = i > 0 ? settings.payeBrackets[i - 1] : { threshold: 0 };
+      
+      if (remainingIncome > 0) {
+        const bracketAmount = i === 0 
+          ? Math.min(remainingIncome, bracket.threshold)
+          : Math.min(remainingIncome, bracket.threshold - prevBracket.threshold);
+        
+        tax += bracketAmount * bracket.rate;
+        remainingIncome -= bracketAmount;
+      }
+    }
+
+    tax = Math.max(0, tax - (settings.personalRelief || 0));
+    return Number(tax.toFixed(2));
+  },
+
+  calculateNSSF: (grossSalary, settings) => {
+    if (!settings || !grossSalary || grossSalary <= 0) return 0;
+
+    const tier1 = Math.min(grossSalary, settings.nssfLowerLimit || 0) * (settings.nssfRate || 0);
+    let tier2 = 0;
+
+    if (grossSalary > (settings.nssfLowerLimit || 0)) {
+      const tier2Salary = Math.min(
+        grossSalary - (settings.nssfLowerLimit || 0), 
+        (settings.nssfUpperLimit || 0) - (settings.nssfLowerLimit || 0)
+      );
+      tier2 = tier2Salary * (settings.nssfRate || 0);
+    }
+
+    const total = Math.min(tier1 + tier2, settings.nssfMaximum || 0);
+    return Number(total.toFixed(2));
+  },
+
+  calculateNHIF: (grossPay, settings) => {
+    if (!settings || !grossPay || grossPay <= 0) return 0;
+
+    // Handle both old and new NHIF structures - EXACT SAME as your hook
+    if (settings.nhifRate) {
+      // New flat rate system
+      const nhif = grossPay * settings.nhifRate;
+      return Number(nhif.toFixed(2));
+    } else if (settings.nhifRates && Array.isArray(settings.nhifRates)) {
+      // Old tiered system (backward compatibility)
+      for (const rate of settings.nhifRates) {
+        if (grossPay <= rate.threshold) {
+          return rate.amount;
+        }
+      }
+      return settings.nhifDefault || 0;
+    }
+    
+    return 0;
+  },
+
+  calculateHousingLevy: (grossSalary, hasTaxPIN, settings) => {
+    if (!settings || !grossSalary || grossSalary <= 0 || !hasTaxPIN) return 0;
+    const levy = grossSalary * (settings.housingLevyRate || 0);
+    return Number(levy.toFixed(2));
+  }
+};
+
+// EXACT SAME default settings as your hook
+const getDefaultSettings = () => ({
+  payeBrackets: [
+    { threshold: 24000, rate: 0.10 },
+    { threshold: 32333, rate: 0.25 },
+    { threshold: 500000, rate: 0.30 },
+    { threshold: 800000, rate: 0.325 },
+    { threshold: 999999999, rate: 0.35 }
+  ],
+  personalRelief: 2400,
+  nssfLowerLimit: 8000,
+  nssfUpperLimit: 72000,
+  nssfRate: 0.06,
+  nssfMaximum: 4320,
+  nhifRate: 0.0275, // Flat rate system
+  housingLevyRate: 0.015,
+  currency: 'KSh',
+  effectiveDate: new Date().toISOString().split('T')[0]
+});
+
+// EXACT SAME calculation logic as payroll dashboard
+const calculatePayrollValues = (employee, settings, overrideStatutoryChecks = true) => {
+  const basicSalary = parseFloat(employee["Basic Salary"] || employee.basic_salary || 0);
+  const houseAllowance = parseFloat(employee["House Allowance"] || employee.house_allowance || 0);
+  const transportAllowance = parseFloat(employee["Transport Allowance"] || employee.transport_allowance || 0);
+  const medicalAllowance = parseFloat(employee["Medical Allowance"] || employee.medical_allowance || 0);
+  const otherAllowances = parseFloat(employee["Other Allowances"] || employee.other_allowances || 0);
+  const overtimeHours = parseFloat(employee["Overtime Hours"] || employee.overtime_hours || 0);
+  const overtimeRate = parseFloat(employee["Overtime Rate"] || employee.overtime_rate || 0);
+  const commission = parseFloat(employee["Commission"] || employee.commission || 0);
+  const bonus = parseFloat(employee["Bonus"] || employee.bonus || 0);
+  
+  // EXACT SAME: Per diem is 33% of basic salary
+  const perDiem = basicSalary * 0.33;
+  
+  // EXACT SAME: Overtime pay
+  const overtimePay = overtimeHours * overtimeRate;
+  
+  // EXACT SAME: Gross pay (basic salary already includes per diem)
+  const grossPay = basicSalary + houseAllowance + transportAllowance + 
+                  medicalAllowance + otherAllowances + overtimePay + 
+                  commission + bonus;
+
+  // Get employee info for statutory checks
+  const nhifNumber = employee["NHIF Number"] || employee.nhif_number || '';
+  const nssfNumber = employee["NSSF Number"] || employee.nssf_number || '';
+  const taxPin = employee["Tax PIN"] || employee.tax_pin || '';
+  
+  // EXACT SAME: Taxable amount EXCLUDES the per diem portion
+  const taxableGross = grossPay - perDiem;
+
+  // EXACT SAME: Statutory deductions with override
+  let nhifDeduction = 0;
+  let nssfDeduction = 0;
+  let housingLevy = 0;
+  
+  if (overrideStatutoryChecks || nhifNumber) {
+    nhifDeduction = statutoryCalculations.calculateNHIF(taxableGross, settings);
+  }
+  
+  if (overrideStatutoryChecks || nssfNumber) {
+    nssfDeduction = statutoryCalculations.calculateNSSF(taxableGross, settings);
+  }
+  
+  if (overrideStatutoryChecks || taxPin) {
+    housingLevy = statutoryCalculations.calculateHousingLevy(taxableGross, true, settings);
+  }
+  
+  // EXACT SAME: Calculate taxable income for PAYE AFTER deducting NSSF and Housing Levy
+  const taxableIncomeForPAYE = taxableGross - nssfDeduction - housingLevy;
+  
+  let payeTax = 0;
+  let taxRelief = 0;
+  
+  if (overrideStatutoryChecks || taxPin) {
+    payeTax = statutoryCalculations.calculatePAYE(taxableIncomeForPAYE, settings);
+    taxRelief = Math.min(payeTax, settings.personalRelief || 2400); // EXACT SAME: Tax relief logic
+    payeTax = payeTax - taxRelief; // EXACT SAME: Apply tax relief
+  }
+
+  // EXACT SAME: Voluntary deductions set to 0
+  const loanDeduction = 0;
+  const advanceDeduction = 0;
+  const welfareDeduction = 300; // Fixed welfare deduction
+  const otherDeductions = 0;
+
+  // EXACT SAME: Total deductions
+  const totalDeductions = payeTax + 
+                         nhifDeduction + 
+                         nssfDeduction + 
+                         housingLevy + 
+                         loanDeduction + 
+                         advanceDeduction + 
+                         welfareDeduction + 
+                         otherDeductions;
+
+  const netPay = grossPay - totalDeductions;
+
+  return {
+    basicSalary,
+    houseAllowance,
+    transportAllowance,
+    medicalAllowance,
+    otherAllowances,
+    overtimeHours,
+    overtimeRate,
+    overtimePay,
+    commission,
+    bonus,
+    perDiem,
+    grossPay,
+    payeTax,
+    nhifDeduction,
+    nssfDeduction,
+    housingLevy,
+    taxRelief,
+    loanDeduction,
+    advanceDeduction,
+    welfareDeduction,
+    otherDeductions,
+    totalDeductions,
+    netPay,
+    taxableGross,
+    taxableIncomeForPAYE
+  };
+};
+
+// Summary Card Component (EXACT SAME as payroll dashboard)
+const SummaryCard = ({
+  label,
+  value,
+  icon: Icon,
+  color,
+  isCount = false,
+}) => {
+  const colorClasses = {
+    emerald: 'bg-emerald-100 text-emerald-600',
+    red: 'bg-red-100 text-red-600',
+    blue: 'bg-blue-100 text-blue-600',
+    purple: 'bg-purple-100 text-purple-600',
+    yellow: 'bg-yellow-100 text-yellow-600'
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+      </div>
+      <div className="space-y-1">
+        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">{label}</p>
+        <p className="text-gray-900 text-lg font-normal">
+          {isCount ? value : `KSh ${value.toLocaleString()}`}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// Statutory Card Component (EXACT SAME as payroll dashboard)
+const StatutoryCard = ({
+  label,
+  value,
+  icon: Icon,
+  color,
+  rate
+}) => {
+  const colorClasses = {
+    red: 'bg-red-100 text-red-600',
+    blue: 'bg-blue-100 text-blue-600',
+    green: 'bg-green-100 text-green-600',
+    yellow: 'bg-yellow-100 text-yellow-600',
+    purple: 'bg-purple-100 text-purple-600'
+  };
+
+  return (
+    <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <div className={`p-2 rounded-md ${colorClasses[color]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <span className="text-xs font-medium text-gray-500 bg-white px-2 py-1 rounded-full">
+          {rate}
+        </span>
+      </div>
+      <div className="space-y-1">
+        <p className="text-gray-600 text-xs font-semibold">{label}</p>
+        <p className="text-gray-900 text-lg font-bold">KSh {Math.round(value).toLocaleString()}</p>
+      </div>
+    </div>
+  );
+};
+
+// Glow Button Component (EXACT SAME as payroll dashboard)
+const GlowButton = ({ 
+  children, 
+  variant = 'primary', 
+  icon: Icon, 
+  size = 'md', 
+  onClick, 
+  disabled = false 
+}) => {
+  const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
+  const sizeClasses = {
+    sm: "px-3 py-1.5 text-xs",
+    md: "px-4 py-2 text-xs",
+    lg: "px-6 py-3 text-base"
+  };
+  const variantClasses = {
+    primary: "bg-green-50 border-green-500 text-green-600 hover:bg-green-100 hover:border-green-600 hover:text-green-700 hover:shadow-[0_0_20px_rgba(34,197,94,0.5)] focus:shadow-[0_0_25px_rgba(34,197,94,0.6)]",
+    secondary: "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300 hover:border-gray-400",
+    danger: "bg-red-50 border-red-500 text-red-600 hover:bg-red-100 hover:border-red-600 hover:text-red-700 hover:shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+  };
+
+  return (
+    <button 
+      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      {Icon && <Icon className="w-4 h-4" />}
+      {children}
+    </button>
+  );
+};
+
+// PayslipModal Component with EXACT SAME calculations
 const PayslipModal = ({
   record,
   onClose,
   onPrevious,
   onNext,
-  companyInfo
+  companyInfo,
+  statutorySettings
 }) => {
+  // Use EXACT SAME calculation function with actual settings
+  const calculated = calculatePayrollValues(record, statutorySettings, true);
+
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(`
         <html>
           <head>
-            <title>Payslip - ${record["Employee Name"]}</title>
+            <title>Payslip - ${record["Employee Name"] || record.employee_name}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
               body { 
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
                 line-height: 1.6; 
                 color: #1f2937; 
-                background: white;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
                 padding: 20px;
               }
               .payslip-container { 
@@ -315,7 +625,7 @@ const PayslipModal = ({
     const element = document.getElementById('payslip-content');
     const opt = {
       margin: 0.5,
-      filename: `payslip_${record["Employee ID"]}_${record["Pay Period"]}.pdf`,
+      filename: `payslip_${record["Employee ID"] || record.employee_id}_${record["Pay Period"] || record.pay_period}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
@@ -328,36 +638,30 @@ const PayslipModal = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-lg w-full max-w-6xl max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-white p-4 border-b border-gray-200 flex justify-between items-center z-10">
-          <h2 className="text-xl font-semibold text-gray-900">Payslip</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Modern Payslip</h2>
           <div className="flex gap-2">
-            <button
+            <GlowButton 
+              variant="secondary" 
+              icon={Download} 
+              size="sm" 
               onClick={handleDownloadPDF}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
             >
-              <Download size={16} />
               Download PDF
-            </button>
-            {/* <button
-              onClick={handlePrint}
-              className="px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-            >
-              <Printer size={16} />
-              Print
-            </button> */}
-            <button
+            </GlowButton>
+            <GlowButton 
+              variant="danger" 
+              icon={X} 
+              size="sm" 
               onClick={onClose}
-              className="px-3 py-2 text-xs font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 flex items-center gap-2"
             >
-              <X size={16} />
               Close
-            </button>
+            </GlowButton>
           </div>
         </div>
 
-        <div className="p-2 bg-gray-50 payslip-container">
+        <div className="p-2 bg-gray-50 payslip-container print:p-0 print:w-[210mm] print:h-[297mm]">
           <div id="payslip-content" className="bg-white rounded-lg shadow-lg overflow-hidden text-xs leading-tight">
-            
-            {/* Header */}
+            {/* Header - EXACT SAME as payroll dashboard */}
             <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
               <div className="flex items-center">
                 {companyInfo?.image_url && (
@@ -371,86 +675,87 @@ const PayslipModal = ({
               <div className="text-right">
                 <h2 className="text-xl font-bold">PAYSLIP</h2>
                 <div className="text-gray-300 text-xs">
-                  {record["Pay Period"] ? new Date(record["Pay Period"] + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
+                  {record["Pay Period"] || record.pay_period ? 
+                    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                 </div>
               </div>
             </div>
 
-            {/* Body */}
+            {/* Body - EXACT SAME structure as payroll dashboard */}
             <div className="p-4">
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Employee Info */}
                 <div className="border p-3 rounded">
                   <h3 className="font-semibold border-b mb-2">EMPLOYEE INFORMATION</h3>
                   <div className="space-y-1">
-                    <div className="flex justify-between"><span>Full Name:</span><span>{record["Employee Name"] || 'N/A'}</span></div>
-                    <div className="flex justify-between"><span>Employee No:</span><span>{record["Employee ID"] || 'N/A'}</span></div>
-                    <div className="flex justify-between"><span>Department:</span><span>{record["Department"] || 'N/A'}</span></div>
-                    <div className="flex justify-between"><span>Position:</span><span>{record["Position"] || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span>Full Name:</span><span>{record["Employee Name"] || record.employee_name || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span>Employee No:</span><span>{record["Employee ID"] || record.employee_id || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span>Position:</span><span>{record["Position"] || record.position || 'N/A'}</span></div>
+                    <div className="flex justify-between"><span>Dept:</span><span>Operations</span></div>
+                    <div className="flex justify-between"><span>Region:</span><span>{record["Branch"] || record.branch || 'N/A'}</span></div>
                   </div>
                 </div>
 
-                {/* Payment Info */}
                 <div className="border p-3 rounded">
                   <h3 className="font-semibold border-b mb-2">PAYMENT DETAILS</h3>
                   <div className="space-y-1">
-                    <div className="flex justify-between"><span>Pay Period:</span><span>{record["Pay Period"] || 'N/A'}</span></div>
-                    <div className="flex justify-between"><span>Gross Pay:</span><span>KSh {parseFloat(record["Gross Pay"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Total Deductions:</span><span>KSh {parseFloat(record["Total Deductions"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Net Pay:</span><span>KSh {parseFloat(record["Net Pay"] || '0').toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Method:</span><span>{record["Payment Method"] || record.payment_method || 'M-Pesa'}</span></div>
+                    {(record["Payment Method"] || record.payment_method) === 'Bank Transfer' && (
+                      <>
+                        <div className="flex justify-between"><span>Bank:</span><span>{record["Bank Name"] || record.bank_name || 'N/A'}</span></div>
+                        <div className="flex justify-between"><span>Account:</span><span>{record["Account Number"] || record.account_number || 'N/A'}</span></div>
+                      </>
+                    )}
+                    {(record["Payment Method"] || record.payment_method) === 'M-Pesa' && (
+                      <div className="flex justify-between"><span>M-Pesa No:</span><span>{record["Phone Number"] || record.employeeNu || 'N/A'}</span></div>
+                    )}
+                    <div className="flex justify-between"><span>Job Group:</span><span>{record["Job Group"] || record.jobGroup || 'N/A'}</span></div>
                   </div>
                 </div>
               </div>
 
-              {/* Earnings + Deductions */}
               <div className="grid grid-cols-2 gap-4 mb-4">
-                {/* Earnings */}
                 <div className="border rounded">
                   <div className="bg-gray-200 font-semibold p-2">EARNINGS</div>
                   <div className="p-2 space-y-1">
-                    <div className="flex justify-between"><span>Basic Salary:</span><span>KSh {parseFloat(record["Basic Salary"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>House Allowance:</span><span>KSh {parseFloat(record["House Allowance"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Transport Allowance:</span><span>KSh {parseFloat(record["Transport Allowance"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Medical Allowance:</span><span>KSh {parseFloat(record["Medical Allowance"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Overtime Pay:</span><span>KSh {parseFloat(record["Overtime Pay"] || '0').toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Basic</span><span>KSh {calculated.basicSalary.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>House</span><span>KSh {calculated.houseAllowance.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Transport</span><span>KSh {calculated.transportAllowance.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Medical</span><span>KSh {calculated.medicalAllowance.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Other</span><span>KSh {calculated.otherAllowances.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Overtime</span><span>KSh {calculated.overtimePay.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Commission</span><span>KSh {calculated.commission.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Bonus</span><span>KSh {calculated.bonus.toLocaleString()}</span></div>
+                    <div className="flex justify-between bg-yellow-50 p-1"><span>Per Diem</span><span>KSh {calculated.perDiem.toLocaleString()}</span></div>
                   </div>
                 </div>
 
-                {/* Deductions */}
                 <div className="border rounded">
                   <div className="bg-gray-200 font-semibold p-2">DEDUCTIONS</div>
                   <div className="p-2 space-y-1">
-                    <div className="flex justify-between"><span>PAYE Tax:</span><span>KSh {parseFloat(record["PAYE Tax"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>NHIF:</span><span>KSh {parseFloat(record["NHIF"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>NSSF:</span><span>KSh {parseFloat(record["NSSF"] || '0').toLocaleString()}</span></div>
-                    <div className="flex justify-between"><span>Housing Levy:</span><span>KSh {parseFloat(record["Housing Levy"] || '0').toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>PAYE</span><span>KSh {Math.round(calculated.payeTax).toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>SHIF</span><span>KSh {calculated.nhifDeduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>NSSF</span><span>KSh {calculated.nssfDeduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>AHL</span><span>KSh {calculated.housingLevy.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Loan</span><span>KSh {calculated.loanDeduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Advance</span><span>KSh {calculated.advanceDeduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Welfare</span><span>KSh {calculated.welfareDeduction.toLocaleString()}</span></div>
+                    <div className="flex justify-between"><span>Other</span><span>KSh {calculated.otherDeductions.toLocaleString()}</span></div>
+                    <div className="flex justify-between text-green-600"><span>Tax Relief:</span><span>KSh -{calculated.taxRelief.toLocaleString()}</span></div>
                   </div>
                 </div>
               </div>
 
-              {/* Summary */}
               <div className="border p-3 rounded mb-4">
-                <div className="flex justify-between border-b pb-1">
-                  <span>Gross Pay</span>
-                  <span>KSh {parseFloat(record["Gross Pay"] || '0').toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between border-b pb-1">
-                  <span>Total Deductions</span>
-                  <span className="text-red-600">KSh {parseFloat(record["Total Deductions"] || '0').toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-bold text-green-700">
-                  <span>NET PAY</span>
-                  <span>KSh {parseFloat(record["Net Pay"] || '0').toLocaleString()}</span>
-                </div>
+                <div className="flex justify-between border-b pb-1"><span>Gross Pay</span><span>KSh {calculated.grossPay.toLocaleString()}</span></div>
+                <div className="flex justify-between border-b pb-1"><span>Total Deductions</span><span className="text-red-600">KSh {calculated.totalDeductions.toLocaleString()}</span></div>
+                <div className="flex justify-between font-bold text-green-700"><span>NET PAY</span><span>KSh {Math.round(calculated.netPay).toLocaleString()}</span></div>
               </div>
 
-              {/* Signatures */}
               <div className="grid grid-cols-2 gap-4 mb-4 text-center text-xs">
                 <div className="border border-dashed p-2">Employee Signature<br/>Date: __________</div>
                 <div className="border border-dashed p-2">Authorized Signatory<br/>Date: __________</div>
               </div>
 
-              {/* Footer */}
               <div className="text-center text-gray-500 text-xs">
                 Generated on {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()} • {companyInfo?.company_name || 'Company'} • Confidential
               </div>
@@ -461,22 +766,14 @@ const PayslipModal = ({
         {(onPrevious || onNext) && (
           <div className="sticky bottom-0 bg-white p-4 border-t border-gray-200 flex justify-between">
             {onPrevious && (
-              <button
-                onClick={onPrevious}
-                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-              >
-                <ArrowLeft size={16} />
+              <GlowButton icon={ArrowLeft} onClick={onPrevious}>
                 Previous
-              </button>
+              </GlowButton>
             )}
             {onNext && (
-              <button
-                onClick={onNext}
-                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 flex items-center gap-2 ml-auto"
-              >
+              <GlowButton icon={ArrowRight} onClick={onNext} className="ml-auto">
                 Next
-                <ArrowRight size={16} />
-              </button>
+              </GlowButton>
             )}
           </div>
         )}
@@ -485,7 +782,7 @@ const PayslipModal = ({
   );
 };
 
-// PayslipViewer Component for Staff Portal
+// Main PayslipViewer Component
 const PayslipViewer = () => {
   const [payslips, setPayslips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -495,21 +792,22 @@ const PayslipViewer = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('all');
   const [companyInfo, setCompanyInfo] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [showSummary, setShowSummary] = useState(false);
+  const [statutorySettings, setStatutorySettings] = useState(getDefaultSettings());
 
   useEffect(() => {
     fetchPayslips();
     fetchCompanyInfo();
+    fetchStatutorySettings();
   }, []);
 
   const fetchPayslips = async () => {
     try {
       setIsLoading(true);
       
-      // Get current user's employee ID from their profile
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) return;
 
-      // Get employee number from user email
       const { data: employeeData } = await supabase
         .from('employees')
         .select('"Employee Number"')
@@ -518,12 +816,30 @@ const PayslipViewer = () => {
 
       if (!employeeData) return;
 
-      // Fetch payslips for this employee
-      const { data, error } = await supabase
+      let data = [];
+      let error = null;
+
+      const { data: recordsData, error: recordsError } = await supabase
         .from('payroll_records')
         .select('*')
         .eq('"Employee ID"', employeeData["Employee Number"])
         .order('"Pay Period"', { ascending: false });
+
+      if (!recordsError && recordsData) {
+        data = recordsData;
+      } else {
+        const { data: payrollData, error: payrollError } = await supabase
+          .from('payroll_data')
+          .select('*')
+          .eq('employee_id', employeeData["Employee Number"])
+          .order('pay_period', { ascending: false });
+
+        if (!payrollError && payrollData) {
+          data = payrollData;
+        } else {
+          error = recordsError || payrollError;
+        }
+      }
 
       if (error) throw error;
 
@@ -558,6 +874,26 @@ const PayslipViewer = () => {
     }
   };
 
+  const fetchStatutorySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('statutory_settings')
+        .select('settings')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        setStatutorySettings(data.settings);
+      } else {
+        setStatutorySettings(getDefaultSettings());
+      }
+    } catch (error) {
+      console.error('Error loading statutory settings:', error);
+      setStatutorySettings(getDefaultSettings());
+    }
+  };
+
   const handleViewPayslip = (payslip, index) => {
     setSelectedPayslip(payslip);
     setCurrentPayslipIndex(index);
@@ -587,24 +923,53 @@ const PayslipViewer = () => {
     });
   };
 
+  // Calculate summary totals using EXACT SAME logic
+  const calculateSummaryTotals = () => {
+    const totals = filteredPayslips.reduce((acc, payslip) => {
+      const calculated = calculatePayrollValues(payslip, statutorySettings, true);
+      return {
+        totalGrossPay: acc.totalGrossPay + calculated.grossPay,
+        totalDeductions: acc.totalDeductions + calculated.totalDeductions,
+        totalNetPay: acc.totalNetPay + calculated.netPay,
+        totalPAYE: acc.totalPAYE + calculated.payeTax,
+        totalNHIF: acc.totalNHIF + calculated.nhifDeduction,
+        totalNSSF: acc.totalNSSF + calculated.nssfDeduction,
+        totalHousingLevy: acc.totalHousingLevy + calculated.housingLevy,
+      };
+    }, {
+      totalGrossPay: 0,
+      totalDeductions: 0,
+      totalNetPay: 0,
+      totalPAYE: 0,
+      totalNHIF: 0,
+      totalNSSF: 0,
+      totalHousingLevy: 0,
+    });
+
+    return totals;
+  };
+
   // Filter payslips based on search and period
   const filteredPayslips = payslips.filter(payslip => {
-    const matchesSearch = !searchTerm.trim() || 
-      (payslip["Employee Name"] || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (payslip["Employee ID"] || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const employeeName = payslip["Employee Name"] || payslip.employee_name || '';
+    const employeeId = payslip["Employee ID"] || payslip.employee_id || '';
+    const payPeriod = payslip["Pay Period"] || payslip.pay_period || '';
     
-    // Fixed the period filtering logic
-    const matchesPeriod = selectedPeriod === 'all' || 
-      (payslip["Pay Period"] && payslip["Pay Period"] === selectedPeriod);
+    const matchesSearch = !searchTerm.trim() || 
+      employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesPeriod = selectedPeriod === 'all' || payPeriod === selectedPeriod;
     
     return matchesSearch && matchesPeriod;
   });
 
-  // Fixed getUniquePeriods function
   const getUniquePeriods = () => {
-    const periods = [...new Set(payslips.map(p => p["Pay Period"]).filter(Boolean))];
-    return periods.sort((a, b) => new Date(b + '-01') - new Date(a + '-01')); // Sort by date descending
+    const periods = [...new Set(payslips.map(p => p["Pay Period"] || p.pay_period).filter(Boolean))];
+    return periods.sort((a, b) => new Date(b + '-01') - new Date(a + '-01'));
   };
+
+  const summaryTotals = calculateSummaryTotals();
 
   if (isLoading) {
     return (
@@ -615,17 +980,72 @@ const PayslipViewer = () => {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-semibold text-gray-800">My Payslips</h2>
-        <div className="flex items-center mt-2">
-          <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-          <p className="text-xs text-green-600">View and download your payslips</p>
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      {/* Header - Matching payroll dashboard style */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">My Payslips</h1>
+            <p className="text-gray-600 text-xs">View and download your payroll payslips</p>
+          </div>
+          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+            <GlowButton 
+              icon={showSummary ? ChevronUp : ChevronDown} 
+              size="sm" 
+              onClick={() => setShowSummary(!showSummary)}
+            >
+              {showSummary ? 'Hide Summary' : 'Show Summary'}
+            </GlowButton>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+      {/* Summary Cards - EXACT SAME as payroll dashboard */}
+      {showSummary && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <SummaryCard 
+            label="Total Gross Pay" 
+            value={summaryTotals.totalGrossPay} 
+            icon={DollarSign} 
+            color="emerald"
+          />
+          <SummaryCard 
+            label="Total Deductions" 
+            value={summaryTotals.totalDeductions} 
+            icon={Box} 
+            color="red"
+          />
+          <SummaryCard 
+            label="Total Net Pay" 
+            value={summaryTotals.totalNetPay} 
+            icon={Calculator} 
+            color="blue"
+          />
+          <SummaryCard 
+            label="Payslip Count" 
+            value={filteredPayslips.length} 
+            icon={Users} 
+            color="purple" 
+            isCount={true}
+          />
+        </div>
+      )}
+
+      {/* Statutory Summary - EXACT SAME as payroll dashboard */}
+      {showSummary && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Statutory Deductions Summary</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatutoryCard label="Total PAYE Tax" value={summaryTotals.totalPAYE} icon={FileText} color="red" rate="Progressive rates" />
+            <StatutoryCard label="Total NSSF" value={summaryTotals.totalNSSF} icon={Calculator} color="blue" rate="6% (Tiered)" />
+            <StatutoryCard label="Total SHIF" value={summaryTotals.totalNHIF} icon={TrendingUp} color="purple" rate="Tiered" />
+            <StatutoryCard label="Housing Levy" value={summaryTotals.totalHousingLevy} icon={DollarSign} color="yellow" rate="1.5%" />
+          </div>
+        </div>
+      )}
+
+      {/* Filters - Matching payroll dashboard style */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div className="space-y-1">
             <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search</label>
@@ -666,35 +1086,50 @@ const PayslipViewer = () => {
         </div>
       </div>
 
-      {/* Payslips Table */}
+      {/* Payslips Table - EXACT SAME structure as payroll dashboard */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 md:p-6 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Payslip History</h2>
+              <p className="text-gray-600 text-xs">{filteredPayslips.length} records found</p>
+            </div>
+          </div>
+        </div>
+        
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 py-3 text-left text-gray-700 font-semibold">Pay Period</th>
+                <th className="sticky left-0 z-10 bg-gray-50 px-4 py-3 text-left text-gray-700 font-semibold">Pay Period</th>
                 <th className="px-4 py-3 text-left text-gray-700 font-semibold">Employee</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Gross Pay</th>
-                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Deductions</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Per Diem</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">PAYE</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">SHIF</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">NSSF</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">AHL</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Total Deductions</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Net Pay</th>
-                <th className="px-4 py-3 text-center text-gray-700 font-semibold">Actions</th>
+                <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-center text-gray-700 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayslips.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
                     No payslips found. {payslips.length === 0 ? 'You have no payslip records yet.' : 'Try adjusting your search filters.'}
                   </td>
                 </tr>
               ) : (
                 filteredPayslips.map((payslip, index) => {
                   const isExpanded = expandedRows.has(payslip.id);
+                  const calculated = calculatePayrollValues(payslip, statutorySettings, true);
                   
                   return (
                     <React.Fragment key={payslip.id}>
-                      <tr className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer">
-                        <td className="px-4 py-4 whitespace-nowrap">
+                      <tr className="border-b border-gray-200 hover:bg-gray-50">
+                        <td className="sticky left-0 z-10 bg-white px-4 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <button 
                               onClick={(e) => toggleRowExpand(payslip.id, e)}
@@ -708,78 +1143,115 @@ const PayslipViewer = () => {
                             </button>
                             <div>
                               <div className="font-medium text-gray-900">
-                                {payslip["Pay Period"] ? new Date(payslip["Pay Period"] + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
+                                {payslip["Pay Period"] || payslip.pay_period ? 
+                                  new Date((payslip["Pay Period"] || payslip.pay_period) + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-4">
                           <div>
-                            <div className="font-medium text-gray-900">{payslip["Employee Name"] || 'N/A'}</div>
-                            <div className="text-gray-500 text-xs">{payslip["Employee ID"] || 'N/A'}</div>
+                            <div className="font-medium text-gray-900">{payslip["Employee Name"] || payslip.employee_name || 'N/A'}</div>
+                            <div className="text-gray-500 text-xs">{payslip["Employee ID"] || payslip.employee_id || 'N/A'}</div>
                           </div>
                         </td>
                         <td className="px-4 py-4 text-right font-bold text-green-600">
-                          KSh {parseFloat(payslip["Gross Pay"] || '0').toLocaleString()}
+                          KSh {calculated.grossPay.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 text-right font-bold text-yellow-600">
+                          KSh {calculated.perDiem.toLocaleString()}
                         </td>
                         <td className="px-4 py-4 text-right text-red-600">
-                          KSh {parseFloat(payslip["Total Deductions"] || '0').toLocaleString()}
+                          KSh {Math.round(calculated.payeTax).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 text-right text-purple-600">
+                          KSh {calculated.nhifDeduction.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 text-right text-blue-600">
+                          KSh {calculated.nssfDeduction.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 text-right text-yellow-600">
+                          KSh {calculated.housingLevy.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-4 text-right font-bold text-red-600">
+                          KSh {calculated.totalDeductions.toLocaleString()}
                         </td>
                         <td className="px-4 py-4 text-right font-bold text-green-700">
-                          KSh {parseFloat(payslip["Net Pay"] || '0').toLocaleString()}
+                          KSh {Math.round(calculated.netPay).toLocaleString()}
                         </td>
-                        <td className="px-4 py-4 text-center">
-                          <button
+                        <td className="sticky right-0 z-10 bg-white px-4 py-4 text-center">
+                          <GlowButton 
+                            variant="primary" 
+                            icon={Eye} 
+                            size="sm" 
                             onClick={() => handleViewPayslip(payslip, index)}
-                            className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 flex items-center gap-1 mx-auto"
                           >
-                            <FileText size={12} />
                             View
-                          </button>
+                          </GlowButton>
                         </td>
                       </tr>
                       
                       {isExpanded && (
                         <tr className="bg-gray-50">
-                          <td colSpan={6} className="px-4 py-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                          <td colSpan={11} className="px-4 py-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                               <div className="space-y-2">
                                 <h4 className="font-medium text-gray-900">Earnings</h4>
                                 <div className="flex justify-between">
                                   <span>Basic Salary:</span>
-                                  <span>KSh {parseFloat(payslip["Basic Salary"] || '0').toLocaleString()}</span>
+                                  <span>KSh {calculated.basicSalary.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>House Allowance:</span>
-                                  <span>KSh {parseFloat(payslip["House Allowance"] || '0').toLocaleString()}</span>
+                                  <span>KSh {calculated.houseAllowance.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Transport Allowance:</span>
-                                  <span>KSh {parseFloat(payslip["Transport Allowance"] || '0').toLocaleString()}</span>
+                                  <span>KSh {calculated.transportAllowance.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Overtime Pay:</span>
-                                  <span>KSh {parseFloat(payslip["Overtime Pay"] || '0').toLocaleString()}</span>
+                                  <span>KSh {calculated.overtimePay.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between font-bold bg-yellow-50 p-1">
+                                  <span>Per Diem:</span>
+                                  <span>KSh {calculated.perDiem.toLocaleString()}</span>
                                 </div>
                               </div>
                               
                               <div className="space-y-2">
-                                <h4 className="font-medium text-gray-900">Deductions</h4>
+                                <h4 className="font-medium text-gray-900">Statutory Deductions</h4>
                                 <div className="flex justify-between">
-                                  <span>PAYE Tax:</span>
-                                  <span className="text-red-600">KSh {parseFloat(payslip["PAYE Tax"] || '0').toLocaleString()}</span>
+                                  <span>PAYE:</span>
+                                  <span className="text-red-600">KSh {Math.round(calculated.payeTax).toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span>NHIF:</span>
-                                  <span className="text-red-600">KSh {parseFloat(payslip["NHIF"] || '0').toLocaleString()}</span>
+                                  <span>SHIF:</span>
+                                  <span className="text-red-600">KSh {calculated.nhifDeduction.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>NSSF:</span>
-                                  <span className="text-red-600">KSh {parseFloat(payslip["NSSF"] || '0').toLocaleString()}</span>
+                                  <span className="text-red-600">KSh {calculated.nssfDeduction.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Housing Levy:</span>
-                                  <span className="text-red-600">KSh {parseFloat(payslip["Housing Levy"] || '0').toLocaleString()}</span>
+                                  <span className="text-red-600">KSh {calculated.housingLevy.toLocaleString()}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <h4 className="font-medium text-gray-900">Tax Relief & Other</h4>
+                                <div className="flex justify-between text-green-600">
+                                  <span>Tax Relief:</span>
+                                  <span>KSh -{calculated.taxRelief.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>Welfare:</span>
+                                  <span className="text-red-600">KSh {300}</span>
+                                </div>
+                                <div className="flex justify-between font-medium">
+                                  <span>Total Deductions:</span>
+                                  <span className="text-red-600">KSh {calculated.totalDeductions.toLocaleString()}</span>
                                 </div>
                               </div>
                             </div>
@@ -805,6 +1277,7 @@ const PayslipViewer = () => {
           onNext={currentPayslipIndex !== null && currentPayslipIndex < filteredPayslips.length - 1 ? 
             () => handleNavigatePayslip('next') : undefined}
           companyInfo={companyInfo}
+          statutorySettings={statutorySettings}
         />
       )}
     </div>

@@ -1,15 +1,18 @@
-import { useState } from "react";
+// components/CreateChannelDialog.tsx
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Switch } from "./ui/switch";
-import { Hash, Lock } from "lucide-react";
+import { Hash, Lock, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { supabase } from "../../lib/supabase";
 
 interface CreateChannelDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onCreateChannel: (name: string, isPrivate: boolean) => void;
+  onCreateChannel: (name: string, isPrivate: boolean, jobTitle?: string) => void;
 }
 
 export function CreateChannelDialog({
@@ -19,8 +22,48 @@ export function CreateChannelDialog({
 }: CreateChannelDialogProps) {
   const [name, setName] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [jobTitle, setJobTitle] = useState("all");
+  const [jobTitles, setJobTitles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingJobTitles, setLoadingJobTitles] = useState(false);
   const [error, setError] = useState("");
+
+  // Fetch job titles from employees table
+  useEffect(() => {
+    const fetchJobTitles = async () => {
+      if (!open) return;
+      
+      setLoadingJobTitles(true);
+      try {
+        const { data, error } = await supabase
+          .from('employees')
+          .select('"Job Title"')
+          .not('"Job Title"', 'is', null)
+          .order('"Job Title"', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching job titles:', error);
+          return;
+        }
+
+        // Extract unique job titles, filter out empty/null values, and sort them
+        const uniqueJobTitles = [...new Set(
+          data
+            .map(emp => emp["Job Title"])
+            .filter(title => title && title.trim() !== "") // Filter out empty strings
+        )] as string[];
+        
+        setJobTitles(uniqueJobTitles);
+        
+      } catch (error) {
+        console.error('Error fetching job titles:', error);
+      } finally {
+        setLoadingJobTitles(false);
+      }
+    };
+
+    fetchJobTitles();
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,10 +76,12 @@ export function CreateChannelDialog({
     setError("");
 
     try {
-      await onCreateChannel(name.trim(), isPrivate);
+      const selectedJobTitle = jobTitle === "all" ? undefined : jobTitle;
+      await onCreateChannel(name.trim(), isPrivate, selectedJobTitle);
       setName("");
       setIsPrivate(false);
-    } catch (err) {
+      setJobTitle("all");
+    } catch (err: any) {
       setError(err.message || "Failed to create channel");
     } finally {
       setLoading(false);
@@ -48,6 +93,7 @@ export function CreateChannelDialog({
       // Reset form when closing
       setName("");
       setIsPrivate(false);
+      setJobTitle("all");
       setError("");
     }
     onOpenChange(newOpen);
@@ -87,6 +133,33 @@ export function CreateChannelDialog({
               />
             </div>
           </div>
+
+          {/* Job Title Selection - Dynamically Populated */}
+          <div className="space-y-2">
+            <Label htmlFor="job-title">Restrict to Job Title (Optional)</Label>
+            <Select 
+              value={jobTitle} 
+              onValueChange={setJobTitle}
+              disabled={loading || loadingJobTitles}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder={
+                  loadingJobTitles ? "Loading job titles..." : "Select job title to restrict access"
+                } />
+              </SelectTrigger>
+              <SelectContent className="bg-white border shadow-lg">
+                <SelectItem value="all">All employees</SelectItem>
+                {jobTitles.map((title) => (
+                  <SelectItem key={title} value={title}>
+                    {title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Only employees with this job title will be able to access the channel
+            </p>
+          </div>
           
           <div className="flex items-center justify-between">
             <Label htmlFor="private-channel" className="flex flex-col space-y-1">
@@ -112,8 +185,18 @@ export function CreateChannelDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!name.trim() || loading}>
-              {loading ? "Creating..." : "Create Channel"}
+            <Button 
+              type="submit" 
+              disabled={!name.trim() || loading || loadingJobTitles}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Channel"
+              )}
             </Button>
           </div>
         </form>

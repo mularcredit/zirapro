@@ -35,6 +35,7 @@ type Employee = {
   phone_number: string;
   department: string;
   position: string;
+  town: string;
   selected?: boolean;
 };
 
@@ -44,6 +45,8 @@ type SMSTemplate = {
   category: string;
   content: string;
   variables: string[];
+  created_at?: string;
+  updated_at?: string;
 };
 
 type ScheduledSMS = {
@@ -62,6 +65,31 @@ type BulkUpload = {
   processed: number;
   status: 'processing' | 'completed' | 'failed';
   uploadedAt: string;
+};
+
+type SMSLog = {
+  id?: string;
+  recipient_phone: string;
+  message: string;
+  status: 'sent' | 'failed';
+  error_message?: string;
+  message_id?: string;
+  sender_id: string;
+  cost?: number;
+  created_at?: string;
+};
+
+type SenderIDConfig = {
+  id?: string;
+  user_id: string;
+  sender_id_type: 'default' | 'custom';
+  custom_sender_id?: string;
+  business_certificate_url?: string;
+  consent_letter_url?: string;
+  provider: 'safaricom' | 'airtel' | 'orange';
+  status: 'pending' | 'approved' | 'rejected';
+  created_at?: string;
+  updated_at?: string;
 };
 
 // SMS Service Configuration
@@ -95,93 +123,246 @@ const formatPhoneNumberForSMS = (phone: string): string => {
   return '';
 };
 
-// Function to replace template variables with ACTUAL employee data
-const replaceTemplateVariables = (template: string, employee: Employee, additionalData?: any): string => {
-  let message = template;
-  
-  // Replace with ACTUAL employee data
-  message = message.replace(/{name}/gi, employee.employee_name || 'Employee');
-  message = message.replace(/{employee_id}/gi, employee.employee_id || '');
-  message = message.replace(/{department}/gi, employee.department || '');
-  message = message.replace(/{position}/gi, employee.position || '');
-  message = message.replace(/{phone}/gi, employee.phone_number || '');
-  
-  // Replace company variable
-  message = message.replace(/{company}/gi, 'ZiraHR');
-  
-  // Replace current date variables
-  const now = new Date();
-  message = message.replace(/{date}/gi, now.toLocaleDateString());
-  message = message.replace(/{month}/gi, now.toLocaleDateString('en-US', { month: 'long' }));
-  message = message.replace(/{year}/gi, now.getFullYear().toString());
-  
-  // Replace additional data variables
-  if (additionalData) {
-    Object.keys(additionalData).forEach(key => {
-      const placeholder = new RegExp(`{${key}}`, 'gi');
-      message = message.replace(placeholder, additionalData[key] || '');
-    });
-  }
-  
-  return message;
-};
-
-// SMS Service Functions
-const sendSMSLeopard = async (phoneNumber: string, message: string): Promise<any> => {
-  try {
-    const formattedPhone = formatPhoneNumberForSMS(phoneNumber);
-    
-    if (!formattedPhone) {
-      throw new Error(`Invalid phone number format: ${phoneNumber}`);
-    }
-
-    if (!message || message.trim().length === 0) {
-      throw new Error('Message cannot be empty');
-    }
-
-    const endpoint = `${SMS_LEOPARD_CONFIG.baseUrl}/sms/send?username=${SMS_LEOPARD_CONFIG.username}&password=${SMS_LEOPARD_CONFIG.password}&message=${encodeURIComponent(message.trim())}&destination=${formattedPhone}&source=${SMS_LEOPARD_CONFIG.source}`;
-
-    const credentials = btoa(`${SMS_LEOPARD_CONFIG.username}:${SMS_LEOPARD_CONFIG.password}`);
-
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Basic ${credentials}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const responseText = await response.text();
-
-    let result;
+// Reusable SMS Service Functions
+export const SMSService = {
+  // Send SMS with comprehensive logging
+  async sendSMS(phoneNumber: string, message: string, senderId: string): Promise<{
+    success: boolean;
+    message?: string;
+    error?: string;
+    messageId?: string;
+    cost?: number;
+  }> {
     try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      throw new Error(`Invalid JSON response: ${responseText}`);
-    }
+      const formattedPhone = formatPhoneNumberForSMS(phoneNumber);
+      
+      if (!formattedPhone) {
+        throw new Error(`Invalid phone number format: ${phoneNumber}`);
+      }
 
-    if (!response.ok) {
-      throw new Error(`SMS service error: ${response.status} - ${responseText}`);
-    }
+      if (!message || message.trim().length === 0) {
+        throw new Error('Message cannot be empty');
+      }
 
-    if (result.status === 'success' || result.success === true) {
-      return {
-        success: true,
-        message: 'SMS sent successfully',
-        timestamp: new Date().toISOString(),
-        rawResponse: result
+      const endpoint = `${SMS_LEOPARD_CONFIG.baseUrl}/sms/send?username=${SMS_LEOPARD_CONFIG.username}&password=${SMS_LEOPARD_CONFIG.password}&message=${encodeURIComponent(message.trim())}&destination=${formattedPhone}&source=${senderId}`;
+
+      const credentials = btoa(`${SMS_LEOPARD_CONFIG.username}:${SMS_LEOPARD_CONFIG.password}`);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const responseText = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error(`Invalid JSON response: ${responseText}`);
+      }
+
+      if (!response.ok) {
+        throw new Error(`SMS service error: ${response.status} - ${responseText}`);
+      }
+
+      if (result.status === 'success' || result.success === true) {
+        return {
+          success: true,
+          message: 'SMS sent successfully',
+          messageId: result.message_id || result.id,
+          cost: result.cost || 0
+        };
+      } else {
+        throw new Error(result.message || result.error || 'Failed to send SMS');
+      }
+      
+    } catch (error) {
+      console.error('SMS sending error:', error);
+      return { 
+        success: false, 
+        error: (error as Error).message
       };
-    } else {
-      throw new Error(result.message || result.error || 'Failed to send SMS');
+    }
+  },
+
+  // Send SMS with retry logic and logging
+  async sendSMSWithRetry(
+    phoneNumber: string, 
+    message: string, 
+    senderId: string, 
+    maxRetries = 2
+  ): Promise<{ success: boolean; error?: string; messageId?: string; cost?: number }> {
+    let lastError: any;
+    let finalResult: any;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const result = await this.sendSMS(phoneNumber, message, senderId);
+      finalResult = result;
+      
+      if (result.success) {
+        return result;
+      }
+      
+      lastError = new Error(result.error || 'SMS sending failed');
+      
+      if (attempt < maxRetries) {
+        const delay = 1000 * attempt;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
     
-  } catch (error) {
-    console.error('SMS sending error:', error);
-    return { 
-      success: false, 
-      error: (error as Error).message,
-      message: 'SMS sending failed'
+    return {
+      success: false,
+      error: lastError?.message || 'SMS sending failed after retries'
     };
+  },
+
+  // Log SMS to database
+  async logSMS(
+    recipientPhone: string,
+    message: string,
+    status: 'sent' | 'failed',
+    senderId: string,
+    errorMessage?: string,
+    messageId?: string,
+    cost?: number
+  ): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('sms_logs')
+        .insert({
+          recipient_phone: recipientPhone,
+          message: message,
+          status: status,
+          error_message: errorMessage,
+          message_id: messageId,
+          sender_id: senderId,
+          cost: cost
+        });
+
+      if (error) {
+        console.error('Failed to log SMS:', error);
+      }
+    } catch (error) {
+      console.error('Error logging SMS:', error);
+    }
+  },
+
+  // Save template to database
+  async saveTemplate(template: Omit<SMSTemplate, 'id'>): Promise<SMSTemplate | null> {
+    try {
+      const { data, error } = await supabase
+        .from('sms_templates')
+        .insert([template])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error saving template:', error);
+      toast.error('Failed to save template');
+      return null;
+    }
+  },
+
+  // Load templates from database
+  async loadTemplates(): Promise<SMSTemplate[]> {
+    try {
+      const { data, error } = await supabase
+        .from('sms_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      return [];
+    }
+  },
+
+  // Delete template from database
+  async deleteTemplate(templateId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('sms_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting template:', error);
+      toast.error('Failed to delete template');
+      return false;
+    }
+  },
+
+  // Get sender ID configuration
+  async getSenderIDConfig(): Promise<SenderIDConfig | null> {
+    try {
+      // In a real app, you'd get the current user ID
+      const userId = 'current-user-id'; // Replace with actual user ID
+      
+      const { data, error } = await supabase
+        .from('sender_id_configs')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "not found"
+      return data;
+    } catch (error) {
+      console.error('Error loading sender ID config:', error);
+      return null;
+    }
+  },
+
+  // Save sender ID configuration
+  async saveSenderIDConfig(config: Omit<SenderIDConfig, 'id' | 'created_at' | 'updated_at'>): Promise<SenderIDConfig | null> {
+    try {
+      const { data, error } = await supabase
+        .from('sender_id_configs')
+        .upsert([config])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error saving sender ID config:', error);
+      toast.error('Failed to save sender ID configuration');
+      return null;
+    }
+  },
+
+  // Upload file and get URL
+  async uploadFile(file: File, bucket: string): Promise<string | null> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      
+      const { error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(fileName);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+      return null;
+    }
   }
 };
 
@@ -219,30 +400,36 @@ const checkSMSBalance = async (): Promise<string> => {
   }
 };
 
-// Retry function
-const sendSMSWithRetry = async (phoneNumber: string, message: string, maxRetries = 2): Promise<any> => {
-  let lastError: any;
+// Function to replace template variables with ACTUAL employee data
+const replaceTemplateVariables = (template: string, employee: Employee, additionalData?: any): string => {
+  let message = template;
   
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await sendSMSLeopard(phoneNumber, message);
-      
-      if (result.success) {
-        return result;
-      }
-      
-      lastError = new Error(result.error || 'SMS sending failed');
-    } catch (error) {
-      lastError = error;
-      
-      if (attempt < maxRetries) {
-        const delay = 1000 * attempt;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
+  // Replace with ACTUAL employee data
+  message = message.replace(/{name}/gi, employee.employee_name || 'Employee');
+  message = message.replace(/{employee_id}/gi, employee.employee_id || '');
+  message = message.replace(/{department}/gi, employee.department || '');
+  message = message.replace(/{position}/gi, employee.position || '');
+  message = message.replace(/{phone}/gi, employee.phone_number || '');
+  message = message.replace(/{town}/gi, employee.town || '');
+  
+  // Replace company variable
+  message = message.replace(/{company}/gi, 'ZiraHR');
+  
+  // Replace current date variables
+  const now = new Date();
+  message = message.replace(/{date}/gi, now.toLocaleDateString());
+  message = message.replace(/{month}/gi, now.toLocaleDateString('en-US', { month: 'long' }));
+  message = message.replace(/{year}/gi, now.getFullYear().toString());
+  
+  // Replace additional data variables
+  if (additionalData) {
+    Object.keys(additionalData).forEach(key => {
+      const placeholder = new RegExp(`{${key}}`, 'gi');
+      message = message.replace(placeholder, additionalData[key] || '');
+    });
   }
   
-  throw lastError;
+  return message;
 };
 
 // SMS Packages Data
@@ -307,7 +494,7 @@ const parseCSV = (file: File): Promise<{phone_number: string, message: string}[]
 
 // Main SMS Center Component
 export function SMSCenter() {
-  const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'scheduled' | 'bulk'>('compose');
+  const [activeTab, setActiveTab] = useState<'compose' | 'templates' | 'scheduled' | 'bulk' | 'sender-id'>('compose');
   const [message, setMessage] = useState('');
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -321,6 +508,7 @@ export function SMSCenter() {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
+  const [selectedTown, setSelectedTown] = useState('all');
   const [smsStats, setSmsStats] = useState<SMSStats>({
     sentThisMonth: 0,
     remaining: 0,
@@ -338,6 +526,17 @@ export function SMSCenter() {
   const [newTemplate, setNewTemplate] = useState({name: '', category: 'Business', content: ''});
   const [additionalVariables, setAdditionalVariables] = useState<Record<string, string>>({});
   const [showAdditionalVariablesModal, setShowAdditionalVariablesModal] = useState(false);
+  
+  // Sender ID State
+  const [senderIdConfig, setSenderIdConfig] = useState<SenderIDConfig>({
+    user_id: 'current-user-id',
+    sender_id_type: 'default',
+    provider: 'safaricom',
+    status: 'pending'
+  });
+  const [businessCertificate, setBusinessCertificate] = useState<File | null>(null);
+  const [consentLetter, setConsentLetter] = useState<File | null>(null);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
   // Templates
   const kenyaHolidayTemplates: SMSTemplate[] = [
@@ -404,7 +603,7 @@ export function SMSCenter() {
 
   // Check if template needs additional variables beyond employee data
   const getAdditionalVariablesNeeded = (template: SMSTemplate): string[] => {
-    const employeeVariables = ['name', 'employee_id', 'department', 'position', 'phone', 'company', 'date', 'month', 'year'];
+    const employeeVariables = ['name', 'employee_id', 'department', 'position', 'phone', 'town', 'company', 'date', 'month', 'year'];
     return template.variables.filter(variable => !employeeVariables.includes(variable));
   };
 
@@ -425,7 +624,8 @@ export function SMSCenter() {
           "Job Group",
           "Job Level",
           "Branch",
-          "Office"
+          "Office",
+          "Town"
         `)
         .order('"First Name"');
 
@@ -443,6 +643,7 @@ export function SMSCenter() {
             const fullName = `${firstName} ${middleName} ${lastName}`.trim().replace(/\s+/g, ' ');
             const department = emp['Job Level'] || emp['Job Group'] || emp['Branch'] || emp['Office'] || 'Unknown';
             const position = emp['Job Title'] || 'Unknown';
+            const town = emp['Town'] || 'Unknown';
             const employeeId = emp['Employee Number'] || `emp-${Math.random().toString(36).substr(2, 9)}`;
             
             return {
@@ -451,7 +652,8 @@ export function SMSCenter() {
               employee_name: fullName,
               phone_number: phone_number,
               department: department,
-              position: position
+              position: position,
+              town: town
             };
           })
           .filter((emp): emp is Employee => {
@@ -489,10 +691,23 @@ export function SMSCenter() {
     }
   };
 
+  const loadTemplates = async () => {
+    const dbTemplates = await SMSService.loadTemplates();
+    setTemplates([...kenyaHolidayTemplates, ...businessTemplates, ...dbTemplates]);
+  };
+
+  const loadSenderIDConfig = async () => {
+    const config = await SMSService.getSenderIDConfig();
+    if (config) {
+      setSenderIdConfig(config);
+    }
+  };
+
   useEffect(() => {
-    setTemplates([...kenyaHolidayTemplates, ...businessTemplates]);
+    loadTemplates();
     fetchEmployees();
     loadSMSStats();
+    loadSenderIDConfig();
     
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -508,7 +723,8 @@ export function SMSCenter() {
       filtered = filtered.filter(emp => 
         emp.employee_name.toLowerCase().includes(searchLower) ||
         emp.employee_id.toLowerCase().includes(searchLower) ||
-        emp.department.toLowerCase().includes(searchLower)
+        emp.department.toLowerCase().includes(searchLower) ||
+        emp.town.toLowerCase().includes(searchLower)
       );
     }
     
@@ -516,12 +732,21 @@ export function SMSCenter() {
       filtered = filtered.filter(emp => emp.department === selectedDepartment);
     }
     
+    if (selectedTown !== 'all') {
+      filtered = filtered.filter(emp => emp.town === selectedTown);
+    }
+    
     setFilteredEmployees(filtered);
-  }, [searchTerm, selectedDepartment, employees]);
+  }, [searchTerm, selectedDepartment, selectedTown, employees]);
 
   const departments = useMemo(() => {
     const depts = [...new Set(employees.map(emp => emp.department))].filter(Boolean);
     return ['all', ...depts];
+  }, [employees]);
+
+  const towns = useMemo(() => {
+    const townsList = [...new Set(employees.map(emp => emp.town))].filter(Boolean);
+    return ['all', ...townsList];
   }, [employees]);
 
   const handleEmployeeSelect = (employeeId: string) => {
@@ -538,6 +763,14 @@ export function SMSCenter() {
     } else {
       setSelectedEmployees(filteredEmployees.map(emp => emp.id));
     }
+  };
+
+  // Get current sender ID
+  const getCurrentSenderId = (): string => {
+    if (senderIdConfig.sender_id_type === 'custom' && senderIdConfig.custom_sender_id) {
+      return senderIdConfig.custom_sender_id;
+    }
+    return SMS_LEOPARD_CONFIG.source;
   };
 
   // Template selection with ACTUAL employee data preview
@@ -573,7 +806,7 @@ export function SMSCenter() {
   };
 
   // Save current message as template
-  const saveCurrentAsTemplate = () => {
+  const saveCurrentAsTemplate = async () => {
     if (!message.trim()) {
       toast.error('Please enter a message first');
       return;
@@ -581,15 +814,17 @@ export function SMSCenter() {
 
     const variables = extractVariablesFromMessage(message);
     const newTemplateData = {
-      id: `template_${Date.now()}`,
       name: `Custom Template ${templates.length + 1}`,
       category: 'Custom',
       content: message,
       variables: variables
     };
 
-    setTemplates(prev => [...prev, newTemplateData]);
-    toast.success('Template saved successfully!');
+    const savedTemplate = await SMSService.saveTemplate(newTemplateData);
+    if (savedTemplate) {
+      setTemplates(prev => [...prev, savedTemplate]);
+      toast.success('Template saved successfully!');
+    }
   };
 
   // Apply template with additional variables
@@ -607,7 +842,7 @@ export function SMSCenter() {
     toast.success('Additional variables saved!');
   };
 
-  // SMS sending function with PROPER employee data replacement
+  // SMS sending function with PROPER employee data replacement and logging
   const handleSendSMS = async (immediate = true) => {
     if (!message.trim()) {
       toast.error('Please enter a message');
@@ -620,6 +855,7 @@ export function SMSCenter() {
     }
 
     const selectedEmployeeData = employees.filter(emp => selectedEmployees.includes(emp.id));
+    const currentSenderId = getCurrentSenderId();
     
     setIsSending(true);
     setSendingProgress({ current: 0, total: selectedEmployeeData.length });
@@ -642,15 +878,45 @@ export function SMSCenter() {
               personalizedMessage = replaceTemplateVariables(message, employee, additionalVariables);
             }
             
-            const result = await sendSMSWithRetry(employee.phone_number, personalizedMessage);
+            const result = await SMSService.sendSMSWithRetry(
+              employee.phone_number, 
+              personalizedMessage, 
+              currentSenderId
+            );
             
             if (result.success) {
               successCount++;
+              // Log successful SMS
+              await SMSService.logSMS(
+                employee.phone_number,
+                personalizedMessage,
+                'sent',
+                currentSenderId,
+                undefined,
+                result.messageId,
+                result.cost
+              );
             } else {
               failCount++;
+              // Log failed SMS
+              await SMSService.logSMS(
+                employee.phone_number,
+                personalizedMessage,
+                'failed',
+                currentSenderId,
+                result.error
+              );
             }
           } catch (error) {
             failCount++;
+            // Log failed SMS
+            await SMSService.logSMS(
+              employee.phone_number,
+              message,
+              'failed',
+              currentSenderId,
+              (error as Error).message
+            );
           }
 
           if (i < selectedEmployeeData.length - 1) {
@@ -703,6 +969,7 @@ export function SMSCenter() {
   const testSMS = async () => {
     try {
       const testNumbers = ['254716431987', '0716431987'];
+      const currentSenderId = getCurrentSenderId();
       
       let success = false;
       
@@ -711,7 +978,11 @@ export function SMSCenter() {
         
         if (!formatted) continue;
         
-        const result = await sendSMSWithRetry(formatted, 'Test SMS from ZiraHR SMS Center - Please ignore');
+        const result = await SMSService.sendSMSWithRetry(
+          formatted, 
+          'Test SMS from ZiraHR SMS Center - Please ignore', 
+          currentSenderId
+        );
         
         if (result.success) {
           toast.success(`Test SMS sent successfully to ${formatted}!`);
@@ -774,6 +1045,7 @@ export function SMSCenter() {
 
       let successCount = 0;
       let failCount = 0;
+      const currentSenderId = getCurrentSenderId();
 
       for (let i = 0; i < records.length; i++) {
         const record = records[i];
@@ -782,17 +1054,45 @@ export function SMSCenter() {
         try {
           const formattedPhone = formatPhoneNumberForSMS(record.phone_number);
           if (formattedPhone) {
-            const result = await sendSMSWithRetry(formattedPhone, record.message);
+            const result = await SMSService.sendSMSWithRetry(
+              formattedPhone, 
+              record.message, 
+              currentSenderId
+            );
+            
             if (result.success) {
               successCount++;
+              await SMSService.logSMS(
+                formattedPhone,
+                record.message,
+                'sent',
+                currentSenderId,
+                undefined,
+                result.messageId,
+                result.cost
+              );
             } else {
               failCount++;
+              await SMSService.logSMS(
+                formattedPhone,
+                record.message,
+                'failed',
+                currentSenderId,
+                result.error
+              );
             }
           } else {
             failCount++;
           }
         } catch (error) {
           failCount++;
+          await SMSService.logSMS(
+            record.phone_number,
+            record.message,
+            'failed',
+            currentSenderId,
+            (error as Error).message
+          );
         }
 
         setBulkUploads(prev => prev.map(upload => 
@@ -849,38 +1149,80 @@ export function SMSCenter() {
     toast.success('Scheduled SMS cancelled');
   };
 
-  const deleteTemplate = (id: string) => {
-    setTemplates(prev => prev.filter(t => t.id !== id));
-    toast.success('Template deleted');
+  const deleteTemplate = async (id: string) => {
+    const success = await SMSService.deleteTemplate(id);
+    if (success) {
+      setTemplates(prev => prev.filter(t => t.id !== id));
+      toast.success('Template deleted');
+    }
   };
 
   // Create new template
-  const createNewTemplate = () => {
+  const createNewTemplate = async () => {
     if (!newTemplate.name.trim() || !newTemplate.content.trim()) {
       toast.error('Please fill in all fields');
       return;
     }
 
     const variables = extractVariablesFromMessage(newTemplate.content);
-    const template: SMSTemplate = {
-      id: `template_${Date.now()}`,
+    const templateData = {
       name: newTemplate.name,
       category: newTemplate.category,
       content: newTemplate.content,
       variables: variables
     };
 
-    setTemplates(prev => [...prev, template]);
-    setNewTemplate({ name: '', category: 'Business', content: '' });
-    setShowNewTemplateModal(false);
-    toast.success('Template created successfully!');
+    const savedTemplate = await SMSService.saveTemplate(templateData);
+    if (savedTemplate) {
+      setTemplates(prev => [...prev, savedTemplate]);
+      setNewTemplate({ name: '', category: 'Business', content: '' });
+      setShowNewTemplateModal(false);
+      toast.success('Template created successfully!');
+    }
+  };
+
+  // Handle sender ID configuration
+  const handleSenderIDConfig = async () => {
+    try {
+      setIsUploadingFiles(true);
+
+      let businessCertificateUrl = senderIdConfig.business_certificate_url;
+      let consentLetterUrl = senderIdConfig.consent_letter_url;
+
+      // Upload files if provided
+      if (businessCertificate) {
+        businessCertificateUrl = await SMSService.uploadFile(businessCertificate, 'business-documents');
+        if (!businessCertificateUrl) return;
+      }
+
+      if (consentLetter) {
+        consentLetterUrl = await SMSService.uploadFile(consentLetter, 'business-documents');
+        if (!consentLetterUrl) return;
+      }
+
+      const configData = {
+        ...senderIdConfig,
+        business_certificate_url: businessCertificateUrl,
+        consent_letter_url: consentLetterUrl,
+        status: 'pending' as const
+      };
+
+      const savedConfig = await SMSService.saveSenderIDConfig(configData);
+      if (savedConfig) {
+        setSenderIdConfig(savedConfig);
+        toast.success('Sender ID configuration saved successfully!');
+      }
+    } catch (error) {
+      console.error('Error saving sender ID config:', error);
+    } finally {
+      setIsUploadingFiles(false);
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">SMS Center</h1>
           <p className="text-slate-600 text-xs">Manage and send SMS messages to employees</p>
         </div>
         <div className="flex items-center gap-4">
@@ -910,44 +1252,33 @@ export function SMSCenter() {
         </div>
       </div>
 
+      {/* Stats Cards without icons */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-600 mb-1">Sent This Month</p>
-              <p className="text-xl font-base text-slate-900">{smsStats.sentThisMonth.toLocaleString()}</p>
-            </div>
-            <Send className="w-5 h-5 text-blue-500" />
+          <div>
+            <p className="text-xs text-slate-600 mb-1">Sent This Month</p>
+            <p className="text-xl font-base text-slate-900">{smsStats.sentThisMonth.toLocaleString()}</p>
           </div>
         </div>
         
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-600 mb-1">Remaining SMS</p>
-              <p className="text-xl font-base text-slate-900">{smsStats.remaining.toLocaleString()}</p>
-            </div>
-            <Package className="w-5 h-5 text-green-500" />
+          <div>
+            <p className="text-xs text-slate-600 mb-1">Remaining SMS</p>
+            <p className="text-xl font-base text-slate-900">{smsStats.remaining.toLocaleString()}</p>
           </div>
         </div>
         
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-600 mb-1">Delivery Rate</p>
-              <p className="text-xl font-base text-slate-900">{smsStats.deliveryRate}%</p>
-            </div>
-            <CheckCircle className="w-5 h-5 text-green-500" />
+          <div>
+            <p className="text-xs text-slate-600 mb-1">Delivery Rate</p>
+            <p className="text-xl font-base text-slate-900">{smsStats.deliveryRate}%</p>
           </div>
         </div>
         
         <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-600 mb-1">Failed SMS</p>
-              <p className="text-xl font-base text-slate-900">{smsStats.failed}</p>
-            </div>
-            <AlertCircle className="w-5 h-5 text-red-500" />
+          <div>
+            <p className="text-xs text-slate-600 mb-1">Failed SMS</p>
+            <p className="text-xl font-base text-slate-900">{smsStats.failed}</p>
           </div>
         </div>
       </div>
@@ -960,6 +1291,7 @@ export function SMSCenter() {
               { id: 'templates', name: 'Templates', icon: FileText },
               { id: 'scheduled', name: 'Scheduled', icon: Clock },
               { id: 'bulk', name: 'Bulk SMS', icon: Users },
+              { id: 'sender-id', name: 'Sender ID', icon: Shield },
             ].map((tab) => {
               const IconComponent = tab.icon;
               return (
@@ -983,23 +1315,7 @@ export function SMSCenter() {
         <div className="p-6">
           {activeTab === 'compose' && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-slate-200 p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Sender ID</h3>
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <Info className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <p className="text-xs font-medium text-blue-800">Using Approved Sender ID</p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        All messages will be sent from: <strong>sms_Leopard</strong>
-                      </p>
-                      <p className="text-xs text-blue-600 mt-1">
-                        Phone numbers are automatically formatted to: 2547XXXXXXXX (12 digits)
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+             
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-4">
@@ -1065,7 +1381,7 @@ export function SMSCenter() {
                           ))}
                         </div>
                         <p className="text-xs text-slate-600 mt-2">
-                          Variables like <strong>name</strong>, <strong>department</strong> will be automatically filled from employee data.
+                          Variables like <strong>name</strong>, <strong>department</strong>, <strong>town</strong> will be automatically filled from employee data.
                           {getAdditionalVariablesNeeded(templates.find(t => t.id === selectedTemplate)!).length > 0 && (
                             <span className="text-orange-600"> Some variables need additional input.</span>
                           )}
@@ -1079,7 +1395,7 @@ export function SMSCenter() {
                   <div className="bg-white rounded-xl border border-slate-200 p-6">
                     <div className="flex justify-between items-center mb-4">
                       <label className="block text-xs font-medium text-slate-700">
-                        Select Recipients ({employees.length} with valid phones)
+                        Select Recipients ({filteredEmployees.length} of {employees.length} with valid phones)
                       </label>
                       <span className="text-xs text-slate-500">
                         {selectedEmployees.length} selected
@@ -1091,24 +1407,38 @@ export function SMSCenter() {
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                         <input
                           type="text"
-                          placeholder="Search employees..."
+                          placeholder="Search employees by name, ID, department, or town..."
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                           className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
                         />
                       </div>
 
-                      <select
-                        value={selectedDepartment}
-                        onChange={(e) => setSelectedDepartment(e.target.value)}
-                        className="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
-                      >
-                        {departments.map(dept => (
-                          <option key={dept} value={dept}>
-                            {dept === 'all' ? 'All Departments' : dept}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="grid grid-cols-2 gap-3">
+                        <select
+                          value={selectedDepartment}
+                          onChange={(e) => setSelectedDepartment(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                        >
+                          {departments.map(dept => (
+                            <option key={dept} value={dept}>
+                              {dept === 'all' ? 'All Departments' : dept}
+                            </option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={selectedTown}
+                          onChange={(e) => setSelectedTown(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                        >
+                          {towns.map(town => (
+                            <option key={town} value={town}>
+                              {town === 'all' ? 'All Towns' : town}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     <div className="border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
@@ -1148,7 +1478,7 @@ export function SMSCenter() {
                                   {employee.employee_name}
                                 </p>
                                 <p className="text-xs text-slate-500 truncate">
-                                  {employee.department} • {employee.phone_number}
+                                  {employee.department} • {employee.town} • {employee.phone_number}
                                 </p>
                               </div>
                             </div>
@@ -1463,6 +1793,208 @@ export function SMSCenter() {
               </div>
             </div>
           )}
+
+          {activeTab === 'sender-id' && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Sender ID Settings</h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-700 mb-2">
+                        Sender ID Type
+                      </label>
+                      <div className="space-y-2">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="senderType"
+                            value="default"
+                            checked={senderIdConfig.sender_id_type === 'default'}
+                            onChange={(e) => setSenderIdConfig(prev => ({
+                              ...prev,
+                              sender_id_type: 'default'
+                            }))}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">Use Default Sender ID (sms_Leopard)</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="senderType"
+                            value="custom"
+                            checked={senderIdConfig.sender_id_type === 'custom'}
+                            onChange={(e) => setSenderIdConfig(prev => ({
+                              ...prev,
+                              sender_id_type: 'custom'
+                            }))}
+                            className="mr-2"
+                          />
+                          <span className="text-sm">Use Custom Sender ID</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {senderIdConfig.sender_id_type === 'custom' && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-1">
+                            Custom Sender ID
+                          </label>
+                          <input
+                            type="text"
+                            value={senderIdConfig.custom_sender_id || ''}
+                            onChange={(e) => setSenderIdConfig(prev => ({
+                              ...prev,
+                              custom_sender_id: e.target.value
+                            }))}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter your custom sender ID (max 11 characters)"
+                            maxLength={11}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-slate-700 mb-2">
+                            Mobile Provider
+                          </label>
+                          <select
+                            value={senderIdConfig.provider}
+                            onChange={(e) => setSenderIdConfig(prev => ({
+                              ...prev,
+                              provider: e.target.value as 'safaricom' | 'airtel' | 'orange'
+                            }))}
+                            className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="safaricom">Safaricom (KSh 10,000)</option>
+                            <option value="airtel">Airtel (KSh 10,000)</option>
+                            <option value="orange">Orange (KSh 10,000)</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                              Business Certificate of Registration
+                            </label>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setBusinessCertificate(e.target.files?.[0] || null)}
+                              className="w-full border border-slate-300 rounded-lg p-2 text-xs"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                              Letter of Consent (Company Letterhead)
+                            </label>
+                            <input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => setConsentLetter(e.target.files?.[0] || null)}
+                              className="w-full border border-slate-300 rounded-lg p-2 text-xs"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <div className="flex items-start gap-3">
+                            <Info className="w-5 h-5 text-yellow-600 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-yellow-800">Custom Sender ID Requirements</p>
+                              <ul className="text-xs text-yellow-700 mt-1 list-disc list-inside space-y-1">
+                                <li>Cost: KSh 10,000 per provider</li>
+                                <li>Approval process takes 3-5 business days</li>
+                                <li>Valid business registration certificate required</li>
+                                <li>Letter of consent on company letterhead required</li>
+                                <li>Sender ID must be 11 characters or less</li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={handleSenderIDConfig}
+                    disabled={isUploadingFiles}
+                    className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isUploadingFiles ? (
+                      <Loader className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {isUploadingFiles ? 'Saving...' : 'Save Configuration'}
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-slate-900">Current Configuration</h3>
+                  
+                  <div className="bg-slate-50 rounded-lg p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-slate-600">Sender ID Type</p>
+                        <p className="text-sm font-medium text-slate-900 capitalize">
+                          {senderIdConfig.sender_id_type}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-xs text-slate-600">Current Sender ID</p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {getCurrentSenderId()}
+                        </p>
+                      </div>
+                      
+                      {senderIdConfig.sender_id_type === 'custom' && (
+                        <>
+                          <div>
+                            <p className="text-xs text-slate-600">Provider</p>
+                            <p className="text-sm font-medium text-slate-900 capitalize">
+                              {senderIdConfig.provider}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-xs text-slate-600">Status</p>
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                              senderIdConfig.status === 'approved' 
+                                ? 'bg-green-100 text-green-800'
+                                : senderIdConfig.status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {senderIdConfig.status}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {senderIdConfig.sender_id_type === 'custom' && senderIdConfig.status === 'pending' && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-blue-800">Pending Approval</p>
+                          <p className="text-xs text-blue-700 mt-1">
+                            Your custom sender ID application is under review. You can continue using the default sender ID in the meantime.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1577,7 +2109,7 @@ export function SMSCenter() {
                   placeholder="Enter template content (use {variable} for dynamic fields)"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  Use {'{variable}'} for dynamic fields. Employee data: {'{name}'}, {'{department}'}, {'{position}'}, {'{phone}'}
+                  Use {'{variable}'} for dynamic fields. Employee data: {'{name}'}, {'{department}'}, {'{position}'}, {'{town}'}, {'{phone}'}
                 </p>
               </div>
               

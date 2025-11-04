@@ -38,7 +38,7 @@ const menuItems = [
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'task-manager', label: 'Task Manager', icon: Blocks, path: '/tasks' },
   { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
-   { id: 'advanced', label: 'advance', icon: Wallet, path: '/salaryadmin' },
+  { id: 'advanced', label: 'Advance Sallary', icon: Wallet, path: '/salaryadmin' },
   { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
   { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
@@ -205,7 +205,7 @@ export default function Sidebar() {
           </motion.div>
 
           {/* Enhanced Navigation - Cleaner active states when collapsed */}
-          <nav className="space-y-2 flex-1">
+          <nav className="space-y-5 flex-1">
             {menuItems.map((item) => {
               const isActive = currentPath === item.path;
               const hasGlow = activeGlow === item.id;

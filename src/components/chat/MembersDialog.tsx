@@ -1,55 +1,61 @@
+// components/MembersDialog.tsx
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Badge } from "./ui/badge";
-import type { Channel } from "../chat/types/types";
+import type { Channel, Employee } from "../chat/types/types";
 
 interface MembersDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   channel: Channel;
+  employees: Employee[]; // Add employees prop
 }
 
-const mockMembers = [
-  { id: "1", name: "Sarah Kim", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah", initials: "SK", status: "online", role: "admin" },
-  { id: "2", name: "Mike Chen", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike", initials: "MC", status: "online", role: "member" },
-  { id: "3", name: "Emma Johnson", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emma", initials: "EJ", status: "away", role: "member" },
-  { id: "4", name: "Alex Rodriguez", avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex", initials: "AR", status: "online", role: "member" },
-];
-
-export function MembersDialog({ open, onOpenChange, channel }: MembersDialogProps) {
+export function MembersDialog({ 
+  open, 
+  onOpenChange, 
+  channel, 
+  employees = [] 
+}: MembersDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            Members - {channel.name} ({mockMembers.length})
-          </DialogTitle>
+          <DialogTitle>Channel Members</DialogTitle>
         </DialogHeader>
-        
-        <div className="space-y-2">
-          {mockMembers.map((member) => (
-            <div key={member.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-muted">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={member.avatar} />
-                    <AvatarFallback>{member.initials}</AvatarFallback>
-                  </Avatar>
-                  <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 border-2 border-white rounded-full ${
-                    member.status === 'online' ? 'bg-green-500' :
-                    member.status === 'away' ? 'bg-yellow-500' :
-                    'bg-gray-400'
-                  }`} />
-                </div>
-                <div>
-                  <div className="font-medium text-sm">{member.name}</div>
+        <div className="space-y-4">
+          <div className="text-sm text-gray-500">
+            {employees.length} members in #{channel.name}
+          </div>
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {employees.map((employee) => (
+              <div key={employee.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={employee.profileImage} />
+                  <AvatarFallback>
+                    {employee.initials}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900">
+                      {employee.fullName}
+                    </span>
+                    <Badge variant="secondary" className="text-xs">
+                      {employee.status}
+                    </Badge>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {employee.jobTitle}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {employee.department}
+                    {employee.town && ` • ${employee.town}`}
+                  </div>
                 </div>
               </div>
-              <Badge variant={member.role === 'admin' ? 'default' : 'outline'}>
-                {member.role}
-              </Badge>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

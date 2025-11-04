@@ -6,7 +6,7 @@ import {
   Edit3, Star, Repeat, Tag, FolderOpen, Link, Paperclip, MessageSquare,
   List, Grid, ChevronLeft, ChevronRight, Eye, EyeOff, Lock, Unlock,
   CreditCard, FileText, Landmark, Wallet, Target, MapPin, BarChart3,
-  Download, Upload, Share2, Copy, Archive, RotateCcw, Search
+  Download, Upload, Share2, Copy, Archive, RotateCcw, Search, Play, Pause, Square
 } from 'lucide-react';
 
 // Simple Auth Hook
@@ -44,6 +44,122 @@ const useAuth = () => {
     loading: loading,
     isAdmin: false,
     isStaff: true
+  };
+};
+
+// Employees Hook
+const useEmployees = () => {
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchEmployees = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('"Employee Number", "First Name", "Middle Name", "Last Name", "Town", "Work Email", "Branch"')
+        .order('"First Name"', { ascending: true });
+
+      if (error) throw error;
+
+      // Format employee data for dropdown
+      const formattedEmployees = (data || []).map(emp => ({
+        id: emp['Employee Number'],
+        name: `${emp['First Name'] || ''} ${emp['Middle Name'] || ''} ${emp['Last Name'] || ''}`.trim(),
+        employeeNumber: emp['Employee Number'],
+        town: emp['Town'],
+        email: emp['Work Email'],
+        branch: emp['Branch']
+      }));
+
+      setEmployees(formattedEmployees);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, [fetchEmployees]);
+
+  return { employees, loading, refetch: fetchEmployees };
+};
+
+// Timer Hook for tracking time spent on tasks
+const useTaskTimer = (todoId: string, initialTimeSpent: number = 0, isCompleted: boolean = false) => {
+  const [timeSpent, setTimeSpent] = useState(initialTimeSpent);
+  const [isRunning, setIsRunning] = useState(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (isRunning && startTime) {
+      interval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsedSeconds = Math.floor((currentTime - startTime) / 1000);
+        setTimeSpent(initialTimeSpent + elapsedSeconds);
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRunning, startTime, initialTimeSpent]);
+
+  const startTimer = () => {
+    if (!isCompleted) {
+      setIsRunning(true);
+      setStartTime(Date.now());
+    }
+  };
+
+  const pauseTimer = () => {
+    setIsRunning(false);
+  };
+
+  const stopTimer = async () => {
+    setIsRunning(false);
+    // Save the time to the database
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ 
+          actual_time_spent: timeSpent,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', todoId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving time:', error);
+    }
+  };
+
+  const resetTimer = () => {
+    setIsRunning(false);
+    setTimeSpent(0);
+    setStartTime(null);
+  };
+
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return {
+    timeSpent,
+    isRunning,
+    formattedTime: formatTime(timeSpent),
+    startTimer,
+    pauseTimer,
+    stopTimer,
+    resetTimer,
+    setTimeSpent
   };
 };
 
@@ -128,6 +244,8 @@ type MicrofinanceTodo = {
   progress: number;
   last_activity_at: string;
   is_private: boolean;
+  timer_started_at?: string;
+  timer_running?: boolean;
 };
 
 type FormData = {
@@ -291,7 +409,7 @@ const MicrofinanceFormInput = ({
   );
 };
 
-const MicrofinanceFormSelect = ({ label, value, onChange, options, icon: Icon, helperText }: any) => (
+const MicrofinanceFormSelect = ({ label, value, onChange, options, icon: Icon, helperText, disabled = false }: any) => (
   <div>
     <label className="block text-xs font-medium text-slate-700 mb-2">{label}</label>
     <div className="relative">
@@ -299,10 +417,13 @@ const MicrofinanceFormSelect = ({ label, value, onChange, options, icon: Icon, h
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full ${Icon ? 'pl-8' : 'px-3'} pr-8 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer text-xs relative z-0`}
+        disabled={disabled}
+        className={`w-full ${Icon ? 'pl-8' : 'px-3'} pr-8 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none cursor-pointer text-xs relative z-0 ${
+          disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
       >
         {options.map((option: any) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
           </option>
         ))}
@@ -312,6 +433,107 @@ const MicrofinanceFormSelect = ({ label, value, onChange, options, icon: Icon, h
     {helperText && <p className="mt-1 text-xs text-slate-500">{helperText}</p>}
   </div>
 );
+
+// Enhanced Employee Select Component
+const EmployeeSelect = ({ label, value, onChange, employees, loading, helperText }: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedEmployee = employees.find((emp: any) => emp.id === value);
+
+  if (loading) {
+    return (
+      <div>
+        <label className="block text-xs font-medium text-slate-700 mb-2">{label}</label>
+        <div className="relative">
+          <div className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-lg text-xs text-slate-500">
+            Loading employees...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <label className="block text-xs font-medium text-slate-700 mb-2">{label}</label>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-xs text-left flex justify-between items-center hover:bg-slate-50"
+        >
+          <span className="truncate">
+            {selectedEmployee 
+              ? `${selectedEmployee.name} (${selectedEmployee.employeeNumber})`
+              : value === 'current-user' 
+                ? 'Assign to me' 
+                : 'Unassigned'
+            }
+          </span>
+          <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+            <div className="p-2 space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('');
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-slate-100 ${
+                  value === '' ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                }`}
+              >
+                <div className="font-medium">Unassigned</div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => {
+                  onChange('current-user');
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-slate-100 ${
+                  value === 'current-user' ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                }`}
+              >
+                <div className="font-medium">Assign to me</div>
+              </button>
+
+              {employees.length > 0 && (
+                <div className="border-t border-slate-200 pt-1 mt-1">
+                  <div className="px-2 py-1 text-xs font-semibold text-slate-500 bg-slate-50 rounded">
+                    Employees ({employees.length})
+                  </div>
+                  {employees.map((emp: any) => (
+                    <button
+                      key={emp.id}
+                      type="button"
+                      onClick={() => {
+                        onChange(emp.id);
+                        setIsOpen(false);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-slate-100 flex flex-col ${
+                        value === emp.id ? 'bg-blue-50 text-blue-700' : 'text-slate-700'
+                      }`}
+                    >
+                      <span className="font-medium truncate">{emp.name}</span>
+                      <span className="text-slate-500 text-xs truncate">
+                        {emp.employeeNumber} • {emp.town} • {emp.email}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      {helperText && <p className="mt-1 text-xs text-slate-500">{helperText}</p>}
+    </div>
+  );
+};
 
 // FIXED TagInput Component
 const TagInput = ({ tags, onChange }: any) => {
@@ -384,9 +606,36 @@ const ProgressBar = ({ progress, size = 'sm' }: { progress: number; size?: 'sm' 
   );
 };
 
+// Timer Display Component
+const TimerDisplay = ({ timeSpent, isRunning }: { timeSpent: number; isRunning: boolean }) => {
+  const formatTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-mono ${
+      isRunning ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-600'
+    }`}>
+      <Clock className="w-3 h-3" />
+      <span>{formatTime(timeSpent)}</span>
+      {isRunning && (
+        <div className="flex items-center gap-0.5">
+          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
+          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Main Component
 export function MicrofinanceTodoList() {
   const { user, userId, loading: authLoading } = useAuth();
+  const { employees, loading: employeesLoading } = useEmployees();
   const [todos, setTodos] = useState<MicrofinanceTodo[]>([]);
   const [filteredTodos, setFilteredTodos] = useState<MicrofinanceTodo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -404,6 +653,17 @@ export function MicrofinanceTodoList() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [dateRangeFilter, setDateRangeFilter] = useState('');
+
+  // Get unique towns and branches from employees for dropdowns
+  const uniqueTowns = useMemo(() => {
+    const towns = employees.map(emp => emp.town).filter(Boolean);
+    return [...new Set(towns)].sort();
+  }, [employees]);
+
+  const uniqueBranches = useMemo(() => {
+    const branches = employees.map(emp => emp.branch).filter(Boolean);
+    return [...new Set(branches)].sort();
+  }, [employees]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTodos.length / MICROFINANCE_CONSTANTS.itemsPerPage);
@@ -435,7 +695,9 @@ export function MicrofinanceTodoList() {
         progress: todo.progress || 0,
         is_private: todo.is_private || false,
         time_estimate: todo.time_estimate || null,
-        actual_time_spent: todo.actual_time_spent || null
+        actual_time_spent: todo.actual_time_spent || null,
+        timer_running: todo.timer_running || false,
+        timer_started_at: todo.timer_started_at || null
       }));
 
       setTodos(enhancedTodos);
@@ -456,13 +718,16 @@ export function MicrofinanceTodoList() {
         return;
       }
 
+      // Handle current-user assignment
+      const assignedTo = formData.assigned_to === 'current-user' ? userId : formData.assigned_to;
+
       const { error } = await supabase.from('todos').insert([{
         user_id: userId,
         title: formData.title,
         description: formData.description,
         priority: formData.priority,
         due_date: formData.due_date || null,
-        assigned_to: formData.assigned_to || null,
+        assigned_to: assignedTo,
         branch: formData.branch,
         department: formData.department,
         county: formData.county,
@@ -476,6 +741,9 @@ export function MicrofinanceTodoList() {
         is_private: formData.is_private,
         completed: false,
         progress: 0,
+        actual_time_spent: 0, // Initialize timer
+        timer_running: true, // Start timer automatically when task is created
+        timer_started_at: new Date().toISOString()
       }]);
 
       if (error) throw error;
@@ -490,10 +758,14 @@ export function MicrofinanceTodoList() {
 
   const handleUpdateTodo = useCallback(async (id: string, formData: FormData) => {
     try {
+      // Handle current-user assignment
+      const assignedTo = formData.assigned_to === 'current-user' ? userId : formData.assigned_to;
+
       const { error } = await supabase
         .from('todos')
         .update({
           ...formData,
+          assigned_to: assignedTo,
           time_estimate: formData.time_estimate ? parseInt(formData.time_estimate) : null,
           updated_at: new Date().toISOString()
         })
@@ -507,7 +779,7 @@ export function MicrofinanceTodoList() {
     } catch (error) {
       console.error('Error updating todo:', error);
     }
-  }, []);
+  }, [userId]);
 
   // Action handlers
   const toggleComplete = useCallback(async (id: string, completed: boolean) => {
@@ -517,7 +789,9 @@ export function MicrofinanceTodoList() {
         .update({ 
           completed: !completed,
           status: completed ? 'not-started' : 'completed',
-          updated_at: new Date().toISOString() 
+          updated_at: new Date().toISOString(),
+          timer_running: completed ? true : false, // Stop timer when completed
+          completed_at: completed ? null : new Date().toISOString()
         })
         .eq('id', id);
       if (error) throw error;
@@ -537,6 +811,76 @@ export function MicrofinanceTodoList() {
       fetchTodos();
     } catch (error) {
       console.error('Error deleting task:', error);
+    }
+  }, []);
+
+  // Close task handler
+  const closeTask = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ 
+          completed: true,
+          status: 'completed',
+          updated_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          timer_running: false // Stop timer when task is closed
+        })
+        .eq('id', id);
+      if (error) throw error;
+      fetchTodos();
+    } catch (error) {
+      console.error('Error closing task:', error);
+    }
+  }, []);
+
+  // Timer control handlers
+  const startTimer = useCallback(async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('todos')
+        .update({ 
+          timer_running: true,
+          timer_started_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+      if (error) throw error;
+      fetchTodos();
+    } catch (error) {
+      console.error('Error starting timer:', error);
+    }
+  }, []);
+
+  const pauseTimer = useCallback(async (id: string) => {
+    try {
+      // First get current task to calculate time spent
+      const { data: task } = await supabase
+        .from('todos')
+        .select('actual_time_spent, timer_started_at')
+        .eq('id', id)
+        .single();
+
+      if (task) {
+        let additionalTime = 0;
+        if (task.timer_started_at) {
+          additionalTime = Math.floor((Date.now() - new Date(task.timer_started_at).getTime()) / 1000);
+        }
+
+        const { error } = await supabase
+          .from('todos')
+          .update({ 
+            timer_running: false,
+            actual_time_spent: (task.actual_time_spent || 0) + additionalTime,
+            timer_started_at: null,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+        if (error) throw error;
+        fetchTodos();
+      }
+    } catch (error) {
+      console.error('Error pausing timer:', error);
     }
   }, []);
 
@@ -600,34 +944,228 @@ export function MicrofinanceTodoList() {
     }
   }, [authLoading]);
 
-  // Loading states
-  if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  // Enhanced Todo Item Component with Timer and Close Button
+  const TodoItem = ({ todo }: { todo: MicrofinanceTodo }) => {
+    const isAssignedToMe = todo.assigned_to === userId;
+    const isCreatedByMe = todo.user_id === userId;
+    
+    // Find assigned employee details
+    const assignedEmployee = employees.find(emp => emp.id === todo.assigned_to);
+    
+    // Ensure tags is always an array
+    const safeTags = Array.isArray(todo.tags) ? todo.tags : [];
 
-  if (!userId) {
+    // Get assigned employee info for display
+    const assignedInfo = assignedEmployee 
+      ? `${assignedEmployee.name} (${assignedEmployee.employeeNumber})`
+      : todo.assigned_to === userId 
+        ? 'Assigned to me' 
+        : 'Unassigned';
+
+    // Calculate time spent considering running timer
+    const calculateTimeSpent = () => {
+      let totalTime = todo.actual_time_spent || 0;
+      if (todo.timer_running && todo.timer_started_at) {
+        const additionalTime = Math.floor((Date.now() - new Date(todo.timer_started_at).getTime()) / 1000);
+        totalTime += additionalTime;
+      }
+      return totalTime;
+    };
+
+    const currentTimeSpent = calculateTimeSpent();
+
+    const formatTime = (seconds: number) => {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    };
+
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-300 p-8 text-center">
-        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
-          <Shield className="w-6 h-6 text-slate-400" />
+      <div className={`bg-white rounded-xl border border-slate-300 p-3 transition-all hover:border-slate-400 hover:shadow-lg ${
+        todo.completed ? 'opacity-60' : ''
+      }`}>
+        
+        {/* Header with Emojis */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-sm" title={`Status: ${todo.status}`}>
+            {getStatusEmoji(todo.status)}
+          </span>
+          <span className="text-sm" title={`Priority: ${todo.priority}`}>
+            {getPriorityEmoji(todo.priority)}
+          </span>
+          <span className="text-sm" title={isAssignedToMe ? "Assigned to me" : "Assignment"}>
+            {getAssignedEmoji(todo.assigned_to, userId)}
+          </span>
+          {todo.important && (
+            <span className="text-sm" title="Important task">
+              {getImportantEmoji(todo.important)}
+            </span>
+          )}
+          {todo.is_private && (
+            <span className="text-sm" title="Private task">
+              {getPrivateEmoji(todo.is_private)}
+            </span>
+          )}
         </div>
-        <h3 className="text-base font-semibold text-slate-900 mb-1">Authentication Required</h3>
-        <p className="text-xs text-slate-500 mb-3">
-          Please log in to access the task management system
-        </p>
-        <button
-          onClick={() => window.location.href = '/login'}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-semibold transition-all text-xs"
-        >
-          Go to Login
-        </button>
+
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex items-start gap-2 flex-1">
+            <button
+              onClick={() => toggleComplete(todo.id, todo.completed)}
+              className={`flex-shrink-0 mt-0.5 transition-all ${
+                todo.completed 
+                  ? 'text-green-500 hover:text-slate-400' 
+                  : 'text-slate-300 hover:text-blue-600'
+              }`}
+            >
+              {todo.completed ? (
+                <Check className="w-3 h-3" strokeWidth={2.5} />
+              ) : (
+                <Circle className="w-3 h-3" strokeWidth={2.5} />
+              )}
+            </button>
+            
+            <div className="flex-1">
+              <h3 className={`text-xs font-medium leading-tight ${todo.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
+                {todo.title}
+              </h3>
+              {todo.description && (
+                <p className="text-xs text-slate-600 mt-1 line-clamp-2">{todo.description}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => { setEditingTodo(todo); setShowForm(true); }}
+              className="text-slate-400 hover:text-blue-500 transition-colors p-1"
+              title="Edit task"
+            >
+              <Edit3 className="w-3 h-3" />
+            </button>
+            {(isCreatedByMe) && (
+              <button
+                onClick={() => deleteTask(todo.id)}
+                className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                title="Delete task"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Timer and Close Button Section */}
+        {!todo.completed && (
+          <div className="flex items-center justify-between mb-2 p-2 bg-slate-50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <TimerDisplay timeSpent={currentTimeSpent} isRunning={todo.timer_running || false} />
+              <div className="flex items-center gap-1">
+                {!todo.timer_running ? (
+                  <button
+                    onClick={() => startTimer(todo.id)}
+                    className="flex items-center gap-1 px-2 py-1 bg-green-500 hover:bg-green-600 text-white rounded text-xs transition-colors"
+                    title="Start timer"
+                  >
+                    <Play className="w-3 h-3" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => pauseTimer(todo.id)}
+                    className="flex items-center gap-1 px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs transition-colors"
+                    title="Pause timer"
+                  >
+                    <Pause className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <button
+              onClick={() => closeTask(todo.id)}
+              className="flex items-center gap-1 px-3 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium transition-colors"
+              title="Close task"
+            >
+              <Check className="w-3 h-3" />
+              Close
+            </button>
+          </div>
+        )}
+
+        {/* Assigned Employee Info */}
+        {todo.assigned_to && (
+          <div className="flex items-center gap-1 text-xs text-slate-600 mb-2">
+            <User className="w-3 h-3" />
+            <span className="truncate" title={assignedInfo}>
+              {assignedInfo}
+            </span>
+          </div>
+        )}
+
+        {/* Progress Bar */}
+        {!todo.completed && todo.progress > 0 && (
+          <div className="mb-2">
+            <div className="flex justify-between text-xs text-slate-600 mb-1">
+              <span>Progress</span>
+              <span>{todo.progress}%</span>
+            </div>
+            <ProgressBar progress={todo.progress} size="sm" />
+          </div>
+        )}
+
+        {/* Tags */}
+        {safeTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {safeTags.map((tag, index) => (
+              <span key={index} className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-1 mb-2">
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${getStatusColor(todo.status)}`}>
+            {getStatusIcon(todo.status)}
+            {todo.status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+          </span>
+
+          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${getPriorityColor(todo.priority)}`}>
+            {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
+          </span>
+
+          {todo.time_estimate && (
+            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-slate-100 text-slate-700 border border-slate-200">
+              <Clock className="w-3 h-3" />
+              {todo.time_estimate}h
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+          <div className="flex items-center gap-3 text-xs text-slate-500">
+            <div className="flex items-center gap-1">
+              <Building className="w-3 h-3" />
+              <span>{todo.branch}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              <span>{todo.county}</span>
+            </div>
+            {todo.due_date && (
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span className={new Date(todo.due_date) < new Date() && !todo.completed ? 'text-red-500 font-medium' : ''}>
+                  {new Date(todo.due_date).toLocaleDateString()}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     );
-  }
+  };
 
   // Enhanced Todo Form Modal
   const TodoFormModal = () => {
@@ -637,9 +1175,9 @@ export function MicrofinanceTodoList() {
       priority: 'medium',
       due_date: '',
       assigned_to: '',
-      branch: 'Nairobi HQ',
+      branch: '',
       department: 'operations',
-      county: 'Nairobi',
+      county: '',
       status: 'not-started',
       important: false,
       category: 'other',
@@ -652,12 +1190,15 @@ export function MicrofinanceTodoList() {
 
     useEffect(() => {
       if (editingTodo) {
+        // Convert assigned_to to 'current-user' if it's the current user
+        const assignedTo = editingTodo.assigned_to === userId ? 'current-user' : editingTodo.assigned_to;
+        
         setFormData({
           title: editingTodo.title,
           description: editingTodo.description || '',
           priority: editingTodo.priority,
           due_date: editingTodo.due_date || '',
-          assigned_to: editingTodo.assigned_to || '',
+          assigned_to: assignedTo || '',
           branch: editingTodo.branch,
           department: editingTodo.department,
           county: editingTodo.county,
@@ -671,7 +1212,7 @@ export function MicrofinanceTodoList() {
           is_private: editingTodo.is_private || false
         });
       }
-    }, [editingTodo]);
+    }, [editingTodo, userId]);
 
     const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
@@ -793,20 +1334,30 @@ export function MicrofinanceTodoList() {
                   </h4>
                   
                   <div className="grid grid-cols-2 gap-3">
+                    {/* Branch dropdown from Town column */}
                     <MicrofinanceFormSelect
                       label="Branch"
                       value={formData.branch}
                       onChange={(value: string) => setFormData(prev => ({ ...prev, branch: value }))}
-                      options={MICROFINANCE_CONSTANTS.branches.map(branch => ({ value: branch, label: branch }))}
+                      options={[
+                        { value: '', label: 'Select Branch' },
+                        ...uniqueTowns.map(town => ({ value: town, label: town }))
+                      ]}
                       icon={Building}
+                      helperText="From Town column"
                     />
 
+                    {/* County dropdown from Branch column */}
                     <MicrofinanceFormSelect
                       label="County"
                       value={formData.county}
                       onChange={(value: string) => setFormData(prev => ({ ...prev, county: value }))}
-                      options={MICROFINANCE_CONSTANTS.counties.map(county => ({ value: county, label: county }))}
+                      options={[
+                        { value: '', label: 'Select County' },
+                        ...uniqueBranches.map(branch => ({ value: branch, label: branch }))
+                      ]}
                       icon={MapPin}
+                      helperText="From Branch column"
                     />
                   </div>
 
@@ -822,16 +1373,14 @@ export function MicrofinanceTodoList() {
                       icon={RadioTower}
                     />
 
-                    <MicrofinanceFormSelect
+                    {/* Enhanced Employee Select */}
+                    <EmployeeSelect
                       label="Assign To"
                       value={formData.assigned_to}
                       onChange={(value: string) => setFormData(prev => ({ ...prev, assigned_to: value }))}
-                      options={[
-                        { value: '', label: 'Unassigned' },
-                        { value: userId, label: 'Assign to me' },
-                        { value: 'team', label: 'Team' }
-                      ]}
-                      icon={User}
+                      employees={employees}
+                      loading={employeesLoading}
+                      helperText="Select employee from database"
                     />
                   </div>
                 </div>
@@ -971,153 +1520,6 @@ export function MicrofinanceTodoList() {
     );
   };
 
-  // Enhanced Todo Item Component with Emojis - FIXED VERSION
-  const TodoItem = ({ todo }: { todo: MicrofinanceTodo }) => {
-    const isAssignedToMe = todo.assigned_to === userId;
-    const isCreatedByMe = todo.user_id === userId;
-    
-    // Ensure tags is always an array
-    const safeTags = Array.isArray(todo.tags) ? todo.tags : [];
-
-    return (
-      <div className={`bg-white rounded-xl border border-slate-300 p-3 transition-all hover:border-slate-400 hover:shadow-lg ${
-        todo.completed ? 'opacity-60' : ''
-      }`}>
-        
-        {/* Header with Emojis */}
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm" title={`Status: ${todo.status}`}>
-            {getStatusEmoji(todo.status)}
-          </span>
-          <span className="text-sm" title={`Priority: ${todo.priority}`}>
-            {getPriorityEmoji(todo.priority)}
-          </span>
-          <span className="text-sm" title={isAssignedToMe ? "Assigned to me" : "Assignment"}>
-            {getAssignedEmoji(todo.assigned_to, userId)}
-          </span>
-          {todo.important && (
-            <span className="text-sm" title="Important task">
-              {getImportantEmoji(todo.important)}
-            </span>
-          )}
-          {todo.is_private && (
-            <span className="text-sm" title="Private task">
-              {getPrivateEmoji(todo.is_private)}
-            </span>
-          )}
-        </div>
-
-        <div className="flex justify-between items-start mb-2">
-          <div className="flex items-start gap-2 flex-1">
-            <button
-              onClick={() => toggleComplete(todo.id, todo.completed)}
-              className={`flex-shrink-0 mt-0.5 transition-all ${
-                todo.completed 
-                  ? 'text-green-500 hover:text-slate-400' 
-                  : 'text-slate-300 hover:text-blue-600'
-              }`}
-            >
-              {todo.completed ? (
-                <Check className="w-3 h-3" strokeWidth={2.5} />
-              ) : (
-                <Circle className="w-3 h-3" strokeWidth={2.5} />
-              )}
-            </button>
-            
-            <div className="flex-1">
-              <h3 className={`text-xs font-medium leading-tight ${todo.completed ? 'line-through text-slate-500' : 'text-slate-900'}`}>
-                {todo.title}
-              </h3>
-              {todo.description && (
-                <p className="text-xs text-slate-600 mt-1 line-clamp-2">{todo.description}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => { setEditingTodo(todo); setShowForm(true); }}
-              className="text-slate-400 hover:text-blue-500 transition-colors p-1"
-              title="Edit task"
-            >
-              <Edit3 className="w-3 h-3" />
-            </button>
-            {(isCreatedByMe) && (
-              <button
-                onClick={() => deleteTask(todo.id)}
-                className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                title="Delete task"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Progress Bar */}
-        {!todo.completed && todo.progress > 0 && (
-          <div className="mb-2">
-            <div className="flex justify-between text-xs text-slate-600 mb-1">
-              <span>Progress</span>
-              <span>{todo.progress}%</span>
-            </div>
-            <ProgressBar progress={todo.progress} size="sm" />
-          </div>
-        )}
-
-        {/* Tags - FIXED: Using safeTags instead of todo.tags */}
-        {safeTags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2">
-            {safeTags.map((tag, index) => (
-              <span key={index} className="inline-flex items-center px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-1 mb-2">
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${getStatusColor(todo.status)}`}>
-            {getStatusIcon(todo.status)}
-            {todo.status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-          </span>
-
-          <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${getPriorityColor(todo.priority)}`}>
-            {todo.priority.charAt(0).toUpperCase() + todo.priority.slice(1)}
-          </span>
-
-          {todo.time_estimate && (
-            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-slate-100 text-slate-700 border border-slate-200">
-              <Clock className="w-3 h-3" />
-              {todo.time_estimate}h
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-          <div className="flex items-center gap-3 text-xs text-slate-500">
-            <div className="flex items-center gap-1">
-              <Building className="w-3 h-3" />
-              <span>{todo.branch}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
-              <span>{todo.county}</span>
-            </div>
-            {todo.due_date && (
-              <div className="flex items-center gap-1">
-                <Calendar className="w-3 h-3" />
-                <span className={new Date(todo.due_date) < new Date() && !todo.completed ? 'text-red-500 font-medium' : ''}>
-                  {new Date(todo.due_date).toLocaleDateString()}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   // Enhanced Search and Filters with text-xs
   const SearchAndFilters = () => (
     <div className="bg-white rounded-xl p-4 mb-4 border border-slate-300 shadow-sm">
@@ -1146,14 +1548,15 @@ export function MicrofinanceTodoList() {
       </div>
       
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+        {/* Branch filter from Town data */}
         <select
           value={branchFilter}
           onChange={(e) => setBranchFilter(e.target.value)}
           className="px-2 py-1.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-xs"
         >
           <option value="">All Branches</option>
-          {MICROFINANCE_CONSTANTS.branches.map(branch => (
-            <option key={branch} value={branch}>{branch}</option>
+          {uniqueTowns.map(town => (
+            <option key={town} value={town}>{town}</option>
           ))}
         </select>
 
@@ -1256,10 +1659,17 @@ export function MicrofinanceTodoList() {
       overdue: todos.filter(t => !t.completed && t.due_date && new Date(t.due_date) < new Date()).length,
       important: todos.filter(t => t.important).length,
       inProgress: todos.filter(t => t.status === 'in-progress').length,
+      totalTime: todos.reduce((acc, todo) => acc + (todo.actual_time_spent || 0), 0)
     }), [todos]);
 
+    const formatTime = (seconds: number) => {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    };
+
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-4">
         <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm">
           <div className="text-lg font-bold text-slate-900">{stats.total}</div>
           <div className="text-xs text-slate-600">Total Tasks</div>
@@ -1280,17 +1690,52 @@ export function MicrofinanceTodoList() {
           <div className="text-lg font-bold text-blue-600">{stats.inProgress}</div>
           <div className="text-xs text-slate-600">In Progress</div>
         </div>
+        <div className="bg-white p-3 rounded-xl border border-slate-300 shadow-sm">
+          <div className="text-lg font-bold text-purple-600">{formatTime(stats.totalTime)}</div>
+          <div className="text-xs text-slate-600">Total Time</div>
+        </div>
       </div>
     );
   };
+
+  // Loading states
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-300 p-8 text-center">
+        <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+          <Shield className="w-6 h-6 text-slate-400" />
+        </div>
+        <h3 className="text-base font-semibold text-slate-900 mb-1">Authentication Required</h3>
+        <p className="text-xs text-slate-500 mb-3">
+          Please log in to access the task management system
+        </p>
+        <button
+          onClick={() => window.location.href = '/login'}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg font-semibold transition-all text-xs"
+        >
+          Go to Login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
         <div>
-         
-          
+          <h1 className="text-2xl font-bold text-slate-900">Task Management</h1>
+          <p className="text-xs text-slate-600 mt-1">
+            Manage microfinance operations and workflows
+          </p>
         </div>
         
         <div className="flex items-center gap-2">

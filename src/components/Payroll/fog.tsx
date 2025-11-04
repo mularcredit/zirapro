@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, AlertCircle, Check, Edit2, Save } from 'lucide-react';
+import { X, Search, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Loader2, AlertCircle, Check, Edit2, Save, Plus, Upload, Download, FileSpreadsheet, Users, CheckCircle, AlertTriangle, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { TownProps } from '../../types/supabase';
+import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 type Employee = {
   "Account Number": string | null
@@ -79,7 +81,25 @@ type Employee = {
   WIBA: string | null
   "Work Email": string | null
   "Work Mobile": string | null
-  id: string // Added for row selection
+  id: string
+};
+
+type UploadOperation = {
+  employee: Partial<Employee>;
+  operation: 'create' | 'update' | 'error';
+  existingData?: Partial<Employee>;
+  changes?: { field: string; oldValue: any; newValue: any }[];
+  error?: string;
+};
+
+type BulkUploadPreview = {
+  operations: UploadOperation[];
+  file: File;
+  summary: {
+    create: number;
+    update: number;
+    error: number;
+  };
 };
 
 const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) => {
@@ -99,46 +119,63 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
   const [selectAll, setSelectAll] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [bulkUpdateField, setBulkUpdateField] = useState<string | null>(null);
-  const [bulkUpdateValue, setBulkUpdateValue] = useState('');
+  const [isAddingNew, setIsAddingNew] = useState(false);
+  const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({
+    "Employee Number": '',
+    "First Name": '',
+    "Last Name": '',
+    "Work Email": '',
+    Town: selectedTown && selectedTown !== 'ADMIN_ALL' ? selectedTown : '',
+    "Job Title": '',
+    "Employee Type": '',
+    "Job Group": '',
+    "Basic Salary": null,
+    "SHIF Number": '',
+    "NSSF Number": '',
+    "NHIF Number": '',
+    "Tax PIN": '',
+    "ID Number": null
+  });
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadResults, setUploadResults] = useState<UploadOperation[]>([]);
+  const [showUploadResults, setShowUploadResults] = useState(false);
+  const [bulkUploadPreview, setBulkUploadPreview] = useState<BulkUploadPreview | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Fetch data from Supabase
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Start building the query
-        let query = supabase.from('employees').select('*');
-        
-        // Apply town filter if selectedTown exists
-        if (selectedTown && selectedTown !== 'ADMIN_ALL') {
-          query = query.eq('Town', selectedTown);
-        }
-        
-        const { data, error } = await query;
-        
-        if (error) throw error;
-        
-        // Add unique id to each employee for row selection
-        const employeesWithId = data?.map(emp => ({
-          ...emp,
-          id: `emp-${emp["Employee Number"] || Math.random().toString(36).substring(2, 9)}`
-        })) || [];
-        
-        setEmployees(employeesWithId);
-        setFilteredEmployees(employeesWithId);
-      } catch (err) {
-        setError('Failed to fetch employee data. Please try again.');
-        console.error('Error fetching employee data:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, [selectedTown]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      let query = supabase.from('employees').select('*');
+      
+      if (selectedTown && selectedTown !== 'ADMIN_ALL') {
+        query = query.eq('Town', selectedTown);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      const employeesWithId = data?.map(emp => ({
+        ...emp,
+        id: emp.id || `emp-${emp["Employee Number"] || Math.random().toString(36).substring(2, 9)}`
+      })) || [];
+      
+      setEmployees(employeesWithId);
+      setFilteredEmployees(employeesWithId);
+    } catch (err) {
+      setError('Failed to fetch employee data. Please try again.');
+      console.error('Error fetching employee data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Apply search and filters
   useEffect(() => {
@@ -147,7 +184,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     if (selectedTown && selectedTown !== 'ADMIN_ALL') {
       result = result.filter(emp => emp.Town === selectedTown);
     }
-    // Apply search
+    
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(emp => 
@@ -170,7 +207,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     }
     
     setFilteredEmployees(result);
-    setCurrentPage(1); // Reset to first page when filters change
+    setCurrentPage(1);
   }, [employees, searchTerm, filters, selectedTown]);
 
   // Handle pagination
@@ -209,27 +246,34 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       "Job Title": employee["Job Title"],
       "Employee Type": employee["Employee Type"],
       "Job Group": employee["Job Group"],
-      "Basic Salary": employee["Basic Salary"]
+      "Basic Salary": employee["Basic Salary"],
+      "SHIF Number": employee["SHIF Number"],
+      "NSSF Number": employee["NSSF Number"],
+      "NHIF Number": employee["NHIF Number"],
+      "Tax PIN": employee["Tax PIN"],
+      "ID Number": employee["ID Number"]
     });
   };
 
-  // Save edited data to Supabase
+  // Save edited data to Supabase - FIXED VERSION
   const saveEditing = async (id: string) => {
     try {
       setLoading(true);
       
-      // Find the original employee to get the Employee Id
       const originalEmployee = employees.find(emp => emp.id === id);
-      if (!originalEmployee) return;
+      if (!originalEmployee) {
+        toast.error('Employee not found');
+        return;
+      }
       
+      // Use the database ID for updating
       const { error } = await supabase
         .from('employees')
         .update(editableData)
-        .eq('Employee Number', originalEmployee["Employee Number"]);
+        .eq('id', originalEmployee.id);
       
       if (error) throw error;
       
-      // Update local state
       setEmployees(prev => 
         prev.map(emp => 
           emp.id === id ? { ...emp, ...editableData } : emp
@@ -237,9 +281,11 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       );
       setEditingId(null);
       setEditableData({});
+      toast.success('Employee updated successfully!');
     } catch (err) {
       setError('Failed to update employee. Please try again.');
       console.error('Error updating employee:', err);
+      toast.error('Failed to update employee');
     } finally {
       setLoading(false);
     }
@@ -251,48 +297,352 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     setEditableData({});
   };
 
-  // Handle bulk update in Supabase
-  const applyBulkUpdate = async () => {
-    if (!bulkUpdateField || !bulkUpdateValue) return;
-    
+  // Start adding new employee
+  const startAddingNew = () => {
+    setIsAddingNew(true);
+    setNewEmployee({
+      "Employee Number": '',
+      "First Name": '',
+      "Last Name": '',
+      "Work Email": '',
+      Town: selectedTown && selectedTown !== 'ADMIN_ALL' ? selectedTown : '',
+      "Job Title": '',
+      "Employee Type": '',
+      "Job Group": '',
+      "Basic Salary": null,
+      "SHIF Number": '',
+      "NSSF Number": '',
+      "NHIF Number": '',
+      "Tax PIN": '',
+      "ID Number": null
+    });
+  };
+
+  // Save new employee
+  const saveNewEmployee = async () => {
     try {
       setLoading(true);
       
-      // Get the Employee Ids of selected rows
-      const employeeIds = employees
-        .filter(emp => selectedRows.includes(emp.id))
-        .map(emp => emp["Employee Number"]);
+      if (!newEmployee["Employee Number"] || !newEmployee["First Name"] || !newEmployee["Last Name"]) {
+        setError('Employee Number, First Name, and Last Name are required.');
+        return;
+      }
       
-      if (employeeIds.length === 0) return;
-      
-      const updateValue = bulkUpdateField === 'Basic Salary' ? parseFloat(bulkUpdateValue) : bulkUpdateValue;
-      
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('employees')
-        .update({ [bulkUpdateField]: updateValue })
-        .in('Employee Number', employeeIds);
+        .insert([newEmployee])
+        .select();
       
       if (error) throw error;
       
-      // Update local state
-      setEmployees(prev => 
-        prev.map(emp => 
-          selectedRows.includes(emp.id) 
-            ? { ...emp, [bulkUpdateField]: updateValue } 
-            : emp
-        )
-      );
-      
-      setBulkUpdateField(null);
-      setBulkUpdateValue('');
-      setSelectedRows([]);
-      setSelectAll(false);
+      if (data && data[0]) {
+        const newEmployeeWithId = {
+          ...data[0],
+          id: data[0].id || `emp-${data[0]["Employee Number"]}`
+        };
+        
+        setEmployees(prev => [...prev, newEmployeeWithId]);
+        setIsAddingNew(false);
+        setNewEmployee({
+          "Employee Number": '',
+          "First Name": '',
+          "Last Name": '',
+          "Work Email": '',
+          Town: '',
+          "Job Title": '',
+          "Employee Type": '',
+          "Job Group": '',
+          "Basic Salary": null,
+          "SHIF Number": '',
+          "NSSF Number": '',
+          "NHIF Number": '',
+          "Tax PIN": '',
+          "ID Number": null
+        });
+        toast.success('Employee added successfully!');
+      }
     } catch (err) {
-      setError('Failed to perform bulk update. Please try again.');
-      console.error('Error in bulk update:', err);
+      setError('Failed to add new employee. Please try again.');
+      console.error('Error adding new employee:', err);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Cancel adding new employee
+  const cancelAddingNew = () => {
+    setIsAddingNew(false);
+    setNewEmployee({
+      "Employee Number": '',
+      "First Name": '',
+      "Last Name": '',
+      "Work Email": '',
+      Town: '',
+      "Job Title": '',
+      "Employee Type": '',
+      "Job Group": '',
+      "Basic Salary": null,
+      "SHIF Number": '',
+      "NSSF Number": '',
+      "NHIF Number": '',
+      "Tax PIN": '',
+      "ID Number": null
+    });
+  };
+
+  // BULK UPLOAD WITH AUTOMATIC UPDATES
+  const handleBulkUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+
+    try {
+      const data = await readExcelFile(file);
+      const previewData = await generateBulkUploadPreview(data);
+      
+      setBulkUploadPreview(previewData);
+      
+      // AUTOMATICALLY EXECUTE THE UPLOAD AFTER PREVIEW
+      await executeBulkUpload();
+      
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      toast.error('Failed to process bulk upload. Please check the file format.');
+    } finally {
+      setIsUploading(false);
+      if (event.target) event.target.value = ''; // Reset file input
+    }
+  };
+
+  const readExcelFile = (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          resolve(jsonData);
+        } catch (error) {
+          reject(error);
+        }
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const generateBulkUploadPreview = async (data: any[]): Promise<BulkUploadPreview> => {
+    const operations: UploadOperation[] = [];
+
+    for (const row of data) {
+      try {
+        // Map Excel columns to database columns
+        const employeeData: Partial<Employee> = {
+          "Employee Number": row['Employee Number'] || row['employee_number'] || row['EmployeeID'],
+          "First Name": row['First Name'] || row['first_name'] || row['FirstName'],
+          "Last Name": row['Last Name'] || row['last_name'] || row['LastName'],
+          "Work Email": row['Work Email'] || row['work_email'] || row['Email'],
+          Town: row['Town'] || row['town'] || row['Office'] || row['office'],
+          "Job Title": row['Job Title'] || row['job_title'] || row['Position'],
+          "Employee Type": row['Employee Type'] || row['employee_type'] || row['Type'],
+          "Job Group": row['Job Group'] || row['job_group'] || row['Grade'],
+          "Basic Salary": parseFloat(row['Basic Salary'] || row['basic_salary'] || row['Salary']) || null,
+          "SHIF Number": row['SHIF Number'] || row['shif_number'] || row['SHIF'],
+          "NSSF Number": row['NSSF Number'] || row['nssf_number'] || row['NSSF'],
+          "NHIF Number": row['NHIF Number'] || row['nhif_number'] || row['NHIF'],
+          "Tax PIN": row['Tax PIN'] || row['tax_pin'] || row['KRA'],
+          "ID Number": parseInt(row['ID Number'] || row['id_number'] || row['NationalID']) || null,
+          "Mobile Number": row['Mobile Number'] || row['mobile_number'] || row['Phone'],
+          "Personal Email": row['Personal Email'] || row['personal_email'],
+          Gender: row['Gender'] || row['gender'],
+          "Marital Status": row['Marital Status'] || row['marital_status'],
+          "Date of Birth": row['Date of Birth'] || row['date_of_birth'] || row['DOB'],
+        };
+
+        // Validate required fields
+        if (!employeeData["Employee Number"] || !employeeData["First Name"] || !employeeData["Last Name"]) {
+          operations.push({
+            employee: employeeData,
+            operation: 'error',
+            error: 'Missing required fields (Employee Number, First Name, Last Name)'
+          });
+          continue;
+        }
+
+        // Check if employee exists
+        const { data: existingEmployee } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('Employee Number', employeeData["Employee Number"])
+          .single();
+
+        if (existingEmployee) {
+          operations.push({
+            employee: employeeData,
+            operation: 'update',
+            existingData: existingEmployee
+          });
+        } else {
+          operations.push({
+            employee: employeeData,
+            operation: 'create'
+          });
+        }
+
+      } catch (error) {
+        console.error('Error processing row:', error);
+        operations.push({
+          employee: row,
+          operation: 'error',
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    const summary = {
+      create: operations.filter(op => op.operation === 'create').length,
+      update: operations.filter(op => op.operation === 'update').length,
+      error: operations.filter(op => op.operation === 'error').length
+    };
+
+    return {
+      operations,
+      file: new File([], 'upload.xlsx'),
+      summary
+    };
+  };
+
+  // AUTOMATIC UPLOAD EXECUTION - NO BUTTON NEEDED
+  const executeBulkUpload = async () => {
+    if (!bulkUploadPreview) return;
+
+    setIsUploading(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    try {
+      for (const operation of bulkUploadPreview.operations) {
+        if (operation.operation === 'error') {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          if (operation.operation === 'update') {
+            const { error } = await supabase
+              .from('employees')
+              .update(operation.employee)
+              .eq('Employee Number', operation.employee["Employee Number"]);
+            
+            if (error) throw error;
+            successCount++;
+          } else if (operation.operation === 'create') {
+            const { error } = await supabase
+              .from('employees')
+              .insert([operation.employee]);
+            
+            if (error) throw error;
+            successCount++;
+          }
+        } catch (error) {
+          errorCount++;
+          console.error('Error processing employee:', operation.employee["Employee Number"], error);
+        }
+      }
+
+      // AUTOMATICALLY CLOSE PREVIEW AND REFRESH DATA
+      setBulkUploadPreview(null);
+      
+      // Refresh the data
+      await fetchData();
+      
+      // Show success message
+      if (errorCount === 0) {
+        toast.success(`Bulk upload completed successfully: ${successCount} records processed`);
+      } else {
+        toast.success(`Bulk upload completed: ${successCount} successful, ${errorCount} errors`);
+      }
+      
+    } catch (error) {
+      console.error('Bulk upload execution error:', error);
+      toast.error('Failed to execute bulk upload.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    const templateData = [
+      {
+        'Employee Number': 'EMP001',
+        'First Name': 'John',
+        'Last Name': 'Doe',
+        'Work Email': 'john.doe@company.com',
+        'Town': 'Nairobi',
+        'Job Title': 'Software Engineer',
+        'Employee Type': 'Permanent',
+        'Job Group': 'JG5',
+        'Basic Salary': '150000',
+        'SHIF Number': 'SHIF001',
+        'NSSF Number': 'NSSF001',
+        'NHIF Number': 'NHIF001',
+        'Tax PIN': 'A001234567B',
+        'ID Number': '12345678',
+        'Mobile Number': '0712345678',
+        'Personal Email': 'john@gmail.com',
+        'Gender': 'Male',
+        'Marital Status': 'Single',
+        'Date of Birth': '1990-01-01'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Template');
+    
+    const colWidths = [
+      { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 10 },
+      { wch: 15 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 },
+      { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
+      { wch: 20 }, { wch: 8 }, { wch: 12 }, { wch: 12 }
+    ];
+    ws['!cols'] = colWidths;
+    
+    XLSX.writeFile(wb, 'employee_bulk_upload_template.xlsx');
+    toast.success('Template downloaded successfully!');
+  };
+
+  const exportToExcel = () => {
+    const exportData = employees.map(emp => ({
+      'Employee Number': emp["Employee Number"],
+      'First Name': emp["First Name"],
+      'Last Name': emp["Last Name"],
+      'Work Email': emp["Work Email"],
+      'Town': emp.Town,
+      'Job Title': emp["Job Title"],
+      'Employee Type': emp["Employee Type"],
+      'Job Group': emp["Job Group"],
+      'Basic Salary': emp["Basic Salary"],
+      'SHIF Number': emp["SHIF Number"],
+      'NSSF Number': emp["NSSF Number"],
+      'NHIF Number': emp["NHIF Number"],
+      'Tax PIN': emp["Tax PIN"],
+      'ID Number': emp["ID Number"],
+      'Mobile Number': emp["Mobile Number"],
+      'Personal Email': emp["Personal Email"],
+      'Gender': emp.Gender,
+      'Marital Status': emp["Marital Status"],
+      'Date of Birth': emp["Date of Birth"]
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Employees');
+    XLSX.writeFile(wb, `employees_export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    toast.success('Data exported successfully!');
   };
 
   // Format currency
@@ -310,6 +660,35 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
   const getUniqueValues = (key: keyof Employee) => {
     const values = employees.map(emp => emp[key]).filter(Boolean) as string[];
     return [...new Set(values)];
+  };
+
+  // SIMPLIFIED UPLOAD MODAL - JUST SHOWS PROGRESS
+  const UploadProgressModal = () => {
+    if (!bulkUploadPreview) return null;
+
+    const { summary } = bulkUploadPreview;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-md w-full">
+          <div className="p-6 border-b border-gray-200">
+            <h3 className="text-lg font-semibold">Processing Bulk Upload</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {summary.create} new employees, {summary.update} updates, {summary.error} errors
+            </p>
+          </div>
+          
+          <div className="p-6">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+              <span className="text-sm text-gray-700">
+                {isUploading ? 'Applying changes to database...' : 'Processing completed'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -341,12 +720,34 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       <div className="flex flex-col items-center justify-center h-64 p-6 bg-gray-50 rounded-lg">
         <AlertCircle className="w-8 h-8 text-gray-400" />
         <p className="mt-4 text-gray-600">No employee data found</p>
+        <div className="flex gap-3 mt-4">
+          <label className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors cursor-pointer">
+            <Upload className="w-4 h-4" />
+            Bulk Upload Excel
+            <input
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              onChange={handleBulkUpload}
+              className="hidden"
+              disabled={isUploading}
+            />
+          </label>
+          <button
+            onClick={startAddingNew}
+            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add New Employee
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+      <UploadProgressModal />
+
       {/* Table Controls */}
       <div className="p-4 border-b border-gray-100 bg-white">
         <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-3">
@@ -364,7 +765,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
             />
           </div>
           
-          {/* Filters */}
+          {/* Filters and Action Buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <select
@@ -421,110 +822,52 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
               <X className="w-3 h-3 mr-1" />
               Clear
             </button>
+
+            {/* Upload/Download Buttons */}
+            <label className="flex items-center gap-2 px-3 py-2 text-xs bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors cursor-pointer">
+              <Upload className="w-3 h-3" />
+              Bulk Upload
+              <input
+                type="file"
+                accept=".xlsx, .xls, .csv"
+                onChange={handleBulkUpload}
+                className="hidden"
+                disabled={isUploading}
+              />
+            </label>
+
+            <button
+              onClick={downloadTemplate}
+              className="flex items-center gap-2 px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              Template
+            </button>
+
+            <button
+              onClick={exportToExcel}
+              className="flex items-center gap-2 px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+            >
+              <FileSpreadsheet className="w-3 h-3" />
+              Export
+            </button>
+
+            <button
+              onClick={startAddingNew}
+              className="px-3 py-2 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add New
+            </button>
           </div>
         </div>
-        
-        {/* Bulk Update Controls */}
-        {selectedRows.length > 0 && (
-          <div className="mt-3 p-3 bg-emerald-50/80 rounded-lg border border-emerald-100 backdrop-blur-sm">
-            <div className="flex flex-col xs:flex-row xs:items-center gap-3">
-              <span className="text-xs font-medium text-emerald-800 whitespace-nowrap">
-                {selectedRows.length} {selectedRows.length === 1 ? 'employee' : 'employees'} selected
-              </span>
-              
-              <div className="flex-1 flex flex-col xs:flex-row gap-2">
-                <select
-                  className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                  value={bulkUpdateField || ''}
-                  onChange={(e) => setBulkUpdateField(e.target.value || null)}
-                >
-                  <option value="">Select field to update</option>
-                  <option value="Town">Office</option>
-                  <option value="Job Title">Job Title</option>
-                  <option value="Employee Type">Employee Type</option>
-                  <option value="Job Group">Job Group</option>
-                  <option value="Basic Salary">Basic Salary</option>
-                </select>
-                
-                {bulkUpdateField && (
-                  <>
-                    {bulkUpdateField === 'Town' ? (
-                      <select
-                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                        value={bulkUpdateValue}
-                        onChange={(e) => setBulkUpdateValue(e.target.value)}
-                      >
-                        <option value="">Select Town</option>
-                        {getUniqueValues('Town').map(branch => (
-                          <option key={branch} value={branch}>{branch}</option>
-                        ))}
-                      </select>
-                    ) : bulkUpdateField === 'Employee Type' ? (
-                      <select
-                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                        value={bulkUpdateValue}
-                        onChange={(e) => setBulkUpdateValue(e.target.value)}
-                      >
-                        <option value="">Select type</option>
-                        {getUniqueValues('Employee Type').map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    ) : bulkUpdateField === 'Job Group' ? (
-                      <select
-                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                        value={bulkUpdateValue}
-                        onChange={(e) => setBulkUpdateValue(e.target.value)}
-                      >
-                        <option value="">Select job group</option>
-                        {getUniqueValues('Job Group').map(group => (
-                          <option key={group} value={group}>{group}</option>
-                        ))}
-                      </select>
-                    ) : bulkUpdateField === 'Basic Salary' ? (
-                      <input
-                        type="number"
-                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter salary amount"
-                        value={bulkUpdateValue}
-                        onChange={(e) => setBulkUpdateValue(e.target.value)}
-                        min="0"
-                        step="1000"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder={`Enter new ${bulkUpdateField}`}
-                        value={bulkUpdateValue}
-                        onChange={(e) => setBulkUpdateValue(e.target.value)}
-                      />
-                    )}
-                  </>
-                )}
-                
-                <button
-                  onClick={applyBulkUpdate}
-                  disabled={!bulkUpdateField || !bulkUpdateValue}
-                  className="px-3 py-2 text-xs bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 disabled:bg-emerald-300 transition-colors flex items-center justify-center whitespace-nowrap"
-                >
-                  <Check className="w-3 h-3 mr-1" />
-                  Apply
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setSelectedRows([]);
-                    setSelectAll(false);
-                    setBulkUpdateField(null);
-                    setBulkUpdateValue('');
-                  }}
-                  className="px-3 py-2 text-xs bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center whitespace-nowrap"
-                >
-                  <X className="w-3 h-3 mr-1" />
-                  Cancel
-                </button>
-              </div>
+
+        {/* Loading indicator for upload */}
+        {isUploading && (
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+              <span className="text-sm text-blue-700">Processing bulk upload... This may take a few moments.</span>
             </div>
           </div>
         )}
@@ -547,6 +890,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                 Employee ID
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ID Number
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Name
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -567,12 +913,188 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Basic Salary
               </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                SHIF Number
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                NSSF Number
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                NHIF Number
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Tax PIN
+              </th>
               <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
+            {/* New Employee Row */}
+            {isAddingNew && (
+              <tr className="bg-blue-50">
+                <td className="px-4 py-3 whitespace-nowrap"></td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Employee Number"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Employee Number": e.target.value})}
+                    placeholder="Employee Number *"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="number"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["ID Number"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "ID Number": parseInt(e.target.value) || null})}
+                    placeholder="ID Number"
+                    min="0"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                      value={newEmployee["First Name"] || ''}
+                      onChange={(e) => setNewEmployee({...newEmployee, "First Name": e.target.value})}
+                      placeholder="First Name *"
+                    />
+                    <input
+                      type="text"
+                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                      value={newEmployee["Last Name"] || ''}
+                      onChange={(e) => setNewEmployee({...newEmployee, "Last Name": e.target.value})}
+                      placeholder="Last Name *"
+                    />
+                  </div>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="email"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Work Email"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Work Email": e.target.value})}
+                    placeholder="Work Email"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <select
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee.Town || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, Town: e.target.value})}
+                  >
+                    <option value="">Select Town</option>
+                    {getUniqueValues('Town').map(branch => (
+                      <option key={branch} value={branch}>{branch}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Job Title"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Job Title": e.target.value})}
+                    placeholder="Job Title"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <select
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Employee Type"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Employee Type": e.target.value})}
+                  >
+                    <option value="">Select Type</option>
+                    {getUniqueValues('Employee Type').map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <select
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Job Group"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Job Group": e.target.value})}
+                  >
+                    <option value="">Select Job Group</option>
+                    {getUniqueValues('Job Group').map(group => (
+                      <option key={group} value={group}>{group}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="number"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Basic Salary"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Basic Salary": parseFloat(e.target.value) || null})}
+                    placeholder="Basic Salary"
+                    min="0"
+                    step="1000"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["SHIF Number"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "SHIF Number": e.target.value})}
+                    placeholder="SHIF Number"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["NSSF Number"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "NSSF Number": e.target.value})}
+                    placeholder="NSSF Number"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["NHIF Number"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "NHIF Number": e.target.value})}
+                    placeholder="NHIF Number"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee["Tax PIN"] || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, "Tax PIN": e.target.value})}
+                    placeholder="Tax PIN"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap text-right text-xs font-medium">
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={saveNewEmployee}
+                      className="text-emerald-600 hover:text-emerald-800 flex items-center transition-colors"
+                    >
+                      <Save className="w-3 h-3 mr-1" />
+                      Save
+                    </button>
+                    <button
+                      onClick={cancelAddingNew}
+                      className="text-gray-600 hover:text-gray-800 flex items-center transition-colors"
+                    >
+                      <X className="w-3 h-3 mr-1" />
+                      Cancel
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )}
+            
+            {/* Existing Employees */}
             {currentItems.length > 0 ? (
               currentItems.map((employee) => (
                 <tr 
@@ -589,6 +1111,20 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
                     {employee["Employee Number"]}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="number"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["ID Number"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "ID Number": parseInt(e.target.value) || null})}
+                        placeholder="ID Number"
+                        min="0"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee["ID Number"]}</div>
+                    )}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {editingId === employee.id ? (
@@ -700,6 +1236,58 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                       </div>
                     )}
                   </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["SHIF Number"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "SHIF Number": e.target.value})}
+                        placeholder="SHIF Number"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee["SHIF Number"]}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["NSSF Number"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "NSSF Number": e.target.value})}
+                        placeholder="NSSF Number"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee["NSSF Number"]}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["NHIF Number"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "NHIF Number": e.target.value})}
+                        placeholder="NHIF Number"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee["NHIF Number"]}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData["Tax PIN"] || ''}
+                        onChange={(e) => setEditableData({...editableData, "Tax PIN": e.target.value})}
+                        placeholder="Tax PIN"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee["Tax PIN"]}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 whitespace-nowrap text-right text-xs font-medium">
                     {editingId === employee.id ? (
                       <div className="flex justify-end space-x-2">
@@ -732,7 +1320,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
               ))
             ) : (
               <tr>
-                <td colSpan={10} className="px-4 py-4 text-center text-xs text-gray-500">
+                <td colSpan={15} className="px-4 py-4 text-center text-xs text-gray-500">
                   No employees found matching your criteria
                 </td>
               </tr>

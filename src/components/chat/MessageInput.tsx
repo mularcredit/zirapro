@@ -1,14 +1,17 @@
-import { useState, useRef } from "react";
+// components/MessageInput.tsx
+import { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, Smile, AtSign, Image, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { EmojiPicker } from "./EmojiPicker";
-import { MentionPicker } from "./MentionPicker";
+import { MentionPopover } from "./EmployeeMention";
+import type { Employee } from "../chat/types/types";
 
 interface MessageInputProps {
   channelName: string;
   onSendMessage: (content: string) => void;
   disabled?: boolean;
+  employees: Employee[];
 }
 
 interface FilePreview {
@@ -16,21 +19,21 @@ interface FilePreview {
   url: string;
 }
 
-export function MessageInput({ channelName, onSendMessage, disabled = false }: MessageInputProps) {
+export function MessageInput({ channelName, onSendMessage, disabled = false, employees = [] }: MessageInputProps) {
   const [message, setMessage] = useState("");
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showMentionPicker, setShowMentionPicker] = useState(false);
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if ((!message.trim() && files.length === 0) || disabled) return;
 
     if (files.length > 0) {
-      // Handle file uploads
       files.forEach(file => {
-        // In real app, upload file and get URL
         console.log('Uploading file:', file.file.name);
       });
     }
@@ -38,7 +41,6 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
     if (message.trim()) {
       onSendMessage(message);
     } else if (files.length > 0) {
-      // Send message with files
       onSendMessage(`Sent ${files.length} file(s)`);
     }
     
@@ -73,9 +75,23 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
     setShowEmojiPicker(false);
   };
 
-  const handleMentionSelect = (user: { id: string; name: string }) => {
-    setMessage(prev => prev + `@${user.name} `);
+  const handleMentionSelect = (employee: Employee) => {
+    setMessage(prev => prev + `@${employee.fullName} `);
     setShowMentionPicker(false);
+  };
+
+  const handleMentionButtonClick = () => {
+     console.log("🟡 @ BUTTON CLICKED");
+  console.log("🟡 Employees in MessageInput:", employees.length);
+  console.log("🟡 Employees data:", employees);
+    if (textareaRef.current) {
+      const rect = textareaRef.current.getBoundingClientRect();
+      setMentionPosition({
+        top: rect.top - 300, // Position above the input
+        left: rect.left + 10
+      });
+    }
+    setShowMentionPicker(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -85,8 +101,22 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
     }
   };
 
+  // Close mention popover when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (showMentionPicker && !(e.target as Element).closest('.mention-popover-container')) {
+        setShowMentionPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMentionPicker]);
+
+  
+
   return (
-    <div className="border-t border-border p-4 bg-card">
+    <div className="border-t border-border p-4 bg-card mention-popover-container">
       {/* File Previews */}
       {files.length > 0 && (
         <div className="flex gap-2 mb-2 flex-wrap">
@@ -121,6 +151,7 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
       <form onSubmit={handleSubmit} className="space-y-2">
         <div className="relative">
           <Textarea
+            ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -166,21 +197,16 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
               </Button>
             </EmojiPicker>
 
-            <MentionPicker
-              onMentionSelect={handleMentionSelect}
-              open={showMentionPicker}
-              onOpenChange={setShowMentionPicker}
+            <Button 
+              type="button" 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              onClick={handleMentionButtonClick}
+              disabled={disabled}
             >
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                disabled={disabled}
-              >
-                <AtSign className="h-4 w-4" />
-              </Button>
-            </MentionPicker>
+              <AtSign className="h-4 w-4" />
+            </Button>
           </div>
           <Button
             type="submit"
@@ -192,6 +218,17 @@ export function MessageInput({ channelName, onSendMessage, disabled = false }: M
           </Button>
         </div>
       </form>
+
+      {/* Mention Popover */}
+      {showMentionPicker && (
+        <MentionPopover
+          employees={employees}
+          query=""
+          position={mentionPosition}
+          onSelect={handleMentionSelect}
+          onClose={() => setShowMentionPicker(false)}
+        />
+      )}
     </div>
   );
 }
