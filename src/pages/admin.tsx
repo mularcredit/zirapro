@@ -353,9 +353,7 @@ export default function StaffSignupRequests() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center space-x-4 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-              <Users className="w-5 h-5 text-white" />
-            </div>
+            
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Staff Signup Requests</h1>
               <p className="text-gray-600">Review and manage pending staff account requests</p>
@@ -380,9 +378,7 @@ export default function StaffSignupRequests() {
                   </p>
                 )}
               </div>
-              <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center">
-                <UserPlus className="w-6 h-6 text-blue-600" />
-              </div>
+             
             </div>
           </div>
 
