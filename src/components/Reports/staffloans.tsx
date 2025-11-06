@@ -6,7 +6,6 @@ import {
   Building, 
   User, 
   ChevronDown,
-  X,
   Loader2,
   Search,
   DollarSign,
@@ -18,7 +17,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Scale,
+  CreditCard,
+  CalendarClock
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
@@ -33,6 +35,8 @@ interface ReportFilters {
   town: string;
   employeeNumber: string;
   employeeName: string;
+  loanType: string;
+  status: string;
 }
 
 interface BaseReportProps extends TownProps {
@@ -42,38 +46,74 @@ interface BaseReportProps extends TownProps {
   renderReportData: (data: any[], filters: ReportFilters) => React.ReactNode;
 }
 
-interface SalaryAdvanceData {
+interface StaffLoanData {
   id: string;
   employee_number: string;
   first_name: string;
   last_name: string;
   town: string;
   branch: string;
+  
+  // Loan Application Details
+  loan_type: 'Emergency' | 'Development' | 'School Fees' | 'Mortgage' | 'Vehicle' | 'Other';
   application_date?: string;
   application_time?: string;
-  amount_applied?: number;
-  amount_disbursed?: number;
-  status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Deducted';
-  mpesa_code?: string;
-  disbursement_date?: string;
-  disbursement_time?: string;
-  repayment_date?: string;
-  repayment_time?: string;
-  repayment_status?: 'Pending' | 'Partial' | 'Completed';
+  loan_amount?: number;
+  approved_amount?: number;
+  interest_rate?: number;
+  repayment_period?: number; // in months
+  purpose?: string;
+  
+  // Approval & Status
+  status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Active' | 'Completed' | 'Written Off';
   approved_by?: string;
   approval_date?: string;
   approval_time?: string;
-  reason?: string;
-  phone_number?: string;
+  
+  // Disbursement Details
+  disbursement_date?: string;
+  disbursement_time?: string;
+  disbursement_method?: 'Bank Transfer' | 'Cheque' | 'MPesa';
   bank_account?: string;
   bank_name?: string;
-  deduction_month?: string;
+  cheque_number?: string;
+  mpesa_code?: string;
+  
+  // Salary Deduction Details
+  monthly_deduction?: number;
+  total_repayable?: number;
+  amount_deducted?: number;
+  amount_remaining?: number;
+  last_deduction_date?: string;
+  next_deduction_date?: string;
+  deduction_status?: 'Active' | 'Completed' | 'Suspended' | 'Written Off';
+  
+  // M-Pesa Transactions
+  mpesa_transactions?: {
+    id: string;
+    transaction_date: string;
+    transaction_time: string;
+    amount: number;
+    mpesa_code: string;
+    phone_number: string;
+    status: 'Completed' | 'Failed' | 'Pending';
+    purpose: string;
+  }[];
+  
+  // Security & Guarantors
+  security_details?: string;
+  guarantor1_name?: string;
+  guarantor1_employee_number?: string;
+  guarantor2_name?: string;
+  guarantor2_employee_number?: string;
+  
+  // Additional Fields
   remarks?: string;
   created_at?: string;
   updated_at?: string;
 }
 
-// Searchable Dropdown Component (unchanged)
+// Searchable Dropdown Component
 interface SearchableDropdownProps {
   options: { value: string; label: string }[];
   value: string;
@@ -169,8 +209,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-// Accounting Status Badge Component - No icons
-const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repayment' }> = ({ status, type }) => {
+// Accounting Status Badge Component for Loans
+const LoanStatusBadge: React.FC<{ status?: string; type: 'loan' | 'deduction' }> = ({ status, type }) => {
   if (!status) {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
@@ -180,7 +220,7 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
   }
 
   const getStatusConfig = () => {
-    if (type === 'status') {
+    if (type === 'loan') {
       switch (status) {
         case 'Pending':
           return { color: 'bg-amber-50 text-amber-700 border-amber-200' };
@@ -190,22 +230,52 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
           return { color: 'bg-red-50 text-red-700 border-red-200' };
         case 'Disbursed':
           return { color: 'bg-green-50 text-green-700 border-green-200' };
-        case 'Deducted':
+        case 'Active':
           return { color: 'bg-purple-50 text-purple-700 border-purple-200' };
+        case 'Completed':
+          return { color: 'bg-gray-50 text-gray-700 border-gray-300' };
+        case 'Written Off':
+          return { color: 'bg-red-50 text-red-700 border-red-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
       }
     } else {
       switch (status) {
-        case 'Pending':
-          return { color: 'bg-amber-50 text-amber-700 border-amber-200' };
-        case 'Partial':
-          return { color: 'bg-orange-50 text-orange-700 border-orange-200' };
-        case 'Completed':
+        case 'Active':
           return { color: 'bg-green-50 text-green-700 border-green-200' };
+        case 'Completed':
+          return { color: 'bg-gray-50 text-gray-700 border-gray-300' };
+        case 'Suspended':
+          return { color: 'bg-orange-50 text-orange-700 border-orange-200' };
+        case 'Written Off':
+          return { color: 'bg-red-50 text-red-700 border-red-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
       }
+    }
+  };
+
+  const config = getStatusConfig();
+
+  return (
+    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium border ${config.color}`}>
+      {status}
+    </span>
+  );
+};
+
+// M-Pesa Transaction Badge
+const MpesaStatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const getStatusConfig = () => {
+    switch (status) {
+      case 'Completed':
+        return { color: 'bg-green-50 text-green-700 border-green-200' };
+      case 'Failed':
+        return { color: 'bg-red-50 text-red-700 border-red-200' };
+      case 'Pending':
+        return { color: 'bg-amber-50 text-amber-700 border-amber-200' };
+      default:
+        return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
     }
   };
 
@@ -246,7 +316,24 @@ const formatAccountingDate = (dateString?: string, timeString?: string) => {
   return timeString ? `${formattedDate} ${formattedTime}` : formattedDate;
 };
 
-// Pagination Component (unchanged)
+// Calculate loan metrics for salary deduction
+const calculateLoanMetrics = (loan: StaffLoanData) => {
+  const deductionsMade = loan.amount_deducted && loan.monthly_deduction 
+    ? Math.floor(loan.amount_deducted / loan.monthly_deduction)
+    : 0;
+  
+  const deductionsRemaining = loan.monthly_deduction && loan.amount_remaining
+    ? Math.ceil(loan.amount_remaining / loan.monthly_deduction)
+    : 0;
+
+  const progress = loan.amount_deducted && loan.total_repayable 
+    ? (loan.amount_deducted / loan.total_repayable) * 100 
+    : 0;
+
+  return { deductionsMade, deductionsRemaining, progress };
+};
+
+// Pagination Component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -367,7 +454,7 @@ const Pagination: React.FC<PaginationProps> = ({
   );
 };
 
-const BaseReport: React.FC<BaseReportProps> = ({
+const StaffLoansReport: React.FC<BaseReportProps> = ({
   reportTitle,
   reportDescription,
   onGenerateReport,
@@ -380,13 +467,15 @@ const BaseReport: React.FC<BaseReportProps> = ({
     endDate: new Date().toISOString().split('T')[0],
     town: selectedTown || '',
     employeeNumber: '',
-    employeeName: ''
+    employeeName: '',
+    loanType: '',
+    status: ''
   });
   
   const [towns, setTowns] = useState<string[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
-  const [reportData, setReportData] = useState<SalaryAdvanceData[]>([]);
+  const [reportData, setReportData] = useState<StaffLoanData[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -395,44 +484,63 @@ const BaseReport: React.FC<BaseReportProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Calculate totals for accounting summary - now grouped by employee
-  const employeeAdvances = reportData.reduce((acc, advance) => {
-    const empId = advance.employee_number;
+  // Calculate totals for accounting summary
+  const totalLoanPortfolio = reportData.reduce((sum, loan) => sum + (loan.approved_amount || 0), 0);
+  const totalAmountDeducted = reportData.reduce((sum, loan) => sum + (loan.amount_deducted || 0), 0);
+  const totalMonthlyDeductions = reportData.reduce((sum, loan) => sum + (loan.monthly_deduction || 0), 0);
+  const activeLoans = reportData.filter(loan => loan.status === 'Active' || loan.status === 'Disbursed').length;
+  const completedLoans = reportData.filter(loan => loan.status === 'Completed').length;
+  const pendingLoans = reportData.filter(loan => loan.status === 'Pending').length;
+
+  // Calculate M-Pesa transaction totals
+  const totalMpesaTransactions = reportData.reduce((sum, loan) => 
+    sum + (loan.mpesa_transactions?.length || 0), 0
+  );
+  const totalMpesaAmount = reportData.reduce((sum, loan) => 
+    sum + (loan.mpesa_transactions?.reduce((mpesaSum, transaction) => 
+      mpesaSum + (transaction.amount || 0), 0) || 0), 0
+  );
+
+  // Group loans by employee
+  const employeeLoans = reportData.reduce((acc, loan) => {
+    const empId = loan.employee_number;
     if (!acc[empId]) {
       acc[empId] = {
-        employee: advance,
-        advances: [],
-        totalApplied: 0,
-        totalDisbursed: 0,
-        advanceCount: 0
+        employee: loan,
+        loans: [],
+        totalLoanAmount: 0,
+        totalApprovedAmount: 0,
+        totalAmountDeducted: 0,
+        totalMonthlyDeductions: 0,
+        loanCount: 0
       };
     }
-    acc[empId].advances.push(advance);
-    acc[empId].totalApplied += advance.amount_applied || 0;
-    acc[empId].totalDisbursed += advance.amount_disbursed || 0;
-    acc[empId].advanceCount += 1;
+    acc[empId].loans.push(loan);
+    acc[empId].totalLoanAmount += loan.loan_amount || 0;
+    acc[empId].totalApprovedAmount += loan.approved_amount || 0;
+    acc[empId].totalAmountDeducted += loan.amount_deducted || 0;
+    acc[empId].totalMonthlyDeductions += loan.monthly_deduction || 0;
+    acc[empId].loanCount += 1;
     return acc;
   }, {} as Record<string, any>);
 
-  const employeeAdvanceArray = Object.values(employeeAdvances);
-  const totalApplied = employeeAdvanceArray.reduce((sum: number, emp: any) => sum + emp.totalApplied, 0);
-  const totalDisbursed = employeeAdvanceArray.reduce((sum: number, emp: any) => sum + emp.totalDisbursed, 0);
-  const totalEmployees = employeeAdvanceArray.length;
-  const totalAdvances = reportData.length;
+  const employeeLoanArray = Object.values(employeeLoans);
+  const totalEmployees = employeeLoanArray.length;
+  const totalLoans = reportData.length;
 
   // Calculate paginated data for employee groups
-  const totalItems = employeeAdvanceArray.length;
+  const totalItems = employeeLoanArray.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedEmployeeData = employeeAdvanceArray.slice(startIndex, endIndex);
+  const paginatedEmployeeData = employeeLoanArray.slice(startIndex, endIndex);
 
   // Reset to first page when filters change or data updates
   useEffect(() => {
     setCurrentPage(1);
   }, [filters.town, filters.employeeNumber, reportData]);
 
-  // Fetch initial employee data and their advances
+  // Fetch initial employee data and their loans
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
@@ -464,58 +572,82 @@ const BaseReport: React.FC<BaseReportProps> = ({
           `)
           .order('"First Name"');
 
-        // Fetch salary advances
-        const { data: advancesData } = await supabase
-          .from('salary_advances')
+        // Fetch staff loans
+        const { data: loansData } = await supabase
+          .from('staff_loans')
           .select('*')
           .order('application_date', { ascending: false });
 
+        // Fetch M-Pesa transactions
+        const { data: mpesaData } = await supabase
+          .from('mpesa_transactions')
+          .select('*')
+          .order('transaction_date', { ascending: false });
+
         if (employeesData) {
-          // Combine employee data with their advances
-          const employeeTableData: SalaryAdvanceData[] = [];
+          // Combine employee data with their loans and M-Pesa transactions
+          const loanTableData: StaffLoanData[] = [];
           
           employeesData.forEach(emp => {
-            const employeeAdvances = advancesData?.filter(
-              advance => advance.employee_number === emp['Employee Number']
+            const employeeLoans = loansData?.filter(
+              loan => loan.employee_number === emp['Employee Number']
             ) || [];
 
-            if (employeeAdvances.length > 0) {
-              // Create an entry for each advance
-              employeeAdvances.forEach(advance => {
-                employeeTableData.push({
-                  id: `${emp['Employee Number']}-${advance.id}`,
+            if (employeeLoans.length > 0) {
+              // Create an entry for each loan
+              employeeLoans.forEach(loan => {
+                const loanMpesaTransactions = mpesaData?.filter(
+                  transaction => transaction.loan_id === loan.id
+                ) || [];
+
+                loanTableData.push({
+                  id: `${emp['Employee Number']}-${loan.id}`,
                   employee_number: emp['Employee Number'],
                   first_name: emp['First Name'] || '',
                   last_name: emp['Last Name'] || '',
                   town: emp.Town || '',
                   branch: emp.Branch || '',
                   phone_number: emp['Mobile Number'] || '',
-                  application_date: advance.application_date,
-                  application_time: advance.application_time,
-                  amount_applied: advance.amount_applied,
-                  amount_disbursed: advance.amount_disbursed,
-                  status: advance.status,
-                  mpesa_code: advance.mpesa_code,
-                  disbursement_date: advance.disbursement_date,
-                  disbursement_time: advance.disbursement_time,
-                  repayment_date: advance.repayment_date,
-                  repayment_time: advance.repayment_time,
-                  repayment_status: advance.repayment_status,
-                  approved_by: advance.approved_by,
-                  approval_date: advance.approval_date,
-                  approval_time: advance.approval_time,
-                  reason: advance.reason,
-                  bank_account: advance.bank_account,
-                  bank_name: advance.bank_name,
-                  deduction_month: advance.deduction_month,
-                  remarks: advance.remarks,
-                  created_at: advance.created_at,
-                  updated_at: advance.updated_at
+                  loan_type: loan.loan_type,
+                  application_date: loan.application_date,
+                  application_time: loan.application_time,
+                  loan_amount: loan.loan_amount,
+                  approved_amount: loan.approved_amount,
+                  interest_rate: loan.interest_rate,
+                  repayment_period: loan.repayment_period,
+                  purpose: loan.purpose,
+                  status: loan.status,
+                  approved_by: loan.approved_by,
+                  approval_date: loan.approval_date,
+                  approval_time: loan.approval_time,
+                  disbursement_date: loan.disbursement_date,
+                  disbursement_time: loan.disbursement_time,
+                  disbursement_method: loan.disbursement_method,
+                  bank_account: loan.bank_account,
+                  bank_name: loan.bank_name,
+                  cheque_number: loan.cheque_number,
+                  mpesa_code: loan.mpesa_code,
+                  monthly_deduction: loan.monthly_deduction,
+                  total_repayable: loan.total_repayable,
+                  amount_deducted: loan.amount_deducted,
+                  amount_remaining: loan.amount_remaining,
+                  last_deduction_date: loan.last_deduction_date,
+                  next_deduction_date: loan.next_deduction_date,
+                  deduction_status: loan.deduction_status,
+                  mpesa_transactions: loanMpesaTransactions,
+                  security_details: loan.security_details,
+                  guarantor1_name: loan.guarantor1_name,
+                  guarantor1_employee_number: loan.guarantor1_employee_number,
+                  guarantor2_name: loan.guarantor2_name,
+                  guarantor2_employee_number: loan.guarantor2_employee_number,
+                  remarks: loan.remarks,
+                  created_at: loan.created_at,
+                  updated_at: loan.updated_at
                 });
               });
             } else {
-              // Employee with no advances - show basic info
-              employeeTableData.push({
+              // Employee with no loans - show basic info
+              loanTableData.push({
                 id: emp['Employee Number'],
                 employee_number: emp['Employee Number'],
                 first_name: emp['First Name'] || '',
@@ -523,24 +655,38 @@ const BaseReport: React.FC<BaseReportProps> = ({
                 town: emp.Town || '',
                 branch: emp.Branch || '',
                 phone_number: emp['Mobile Number'] || '',
+                loan_type: 'Other',
                 application_date: undefined,
                 application_time: undefined,
-                amount_applied: undefined,
-                amount_disbursed: undefined,
+                loan_amount: undefined,
+                approved_amount: undefined,
+                interest_rate: undefined,
+                repayment_period: undefined,
+                purpose: undefined,
                 status: undefined,
-                mpesa_code: undefined,
-                disbursement_date: undefined,
-                disbursement_time: undefined,
-                repayment_date: undefined,
-                repayment_time: undefined,
-                repayment_status: undefined,
                 approved_by: undefined,
                 approval_date: undefined,
                 approval_time: undefined,
-                reason: undefined,
+                disbursement_date: undefined,
+                disbursement_time: undefined,
+                disbursement_method: undefined,
                 bank_account: undefined,
                 bank_name: undefined,
-                deduction_month: undefined,
+                cheque_number: undefined,
+                mpesa_code: undefined,
+                monthly_deduction: undefined,
+                total_repayable: undefined,
+                amount_deducted: undefined,
+                amount_remaining: undefined,
+                last_deduction_date: undefined,
+                next_deduction_date: undefined,
+                deduction_status: undefined,
+                mpesa_transactions: undefined,
+                security_details: undefined,
+                guarantor1_name: undefined,
+                guarantor1_employee_number: undefined,
+                guarantor2_name: undefined,
+                guarantor2_employee_number: undefined,
                 remarks: undefined,
                 created_at: undefined,
                 updated_at: undefined
@@ -550,7 +696,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
 
           setEmployees(employeesData);
           setFilteredEmployees(employeesData);
-          setReportData(employeeTableData);
+          setReportData(loanTableData);
         }
       } catch (error) {
         console.error('Error fetching employee data:', error);
@@ -561,107 +707,6 @@ const BaseReport: React.FC<BaseReportProps> = ({
 
     fetchEmployeeData();
   }, []);
-
-  // Filter employees based on town selection
-  useEffect(() => {
-    let filtered = employees;
-
-    if (filters.town) {
-      filtered = filtered.filter(emp => emp.Town === filters.town);
-    }
-
-    if (filters.employeeNumber) {
-      filtered = filtered.filter(emp => emp['Employee Number'] === filters.employeeNumber);
-    }
-
-    setFilteredEmployees(filtered);
-
-    // Update report data with filtered employees and their advances
-    const fetchFilteredData = async () => {
-      const { data: advancesData } = await supabase
-        .from('salary_advances')
-        .select('*')
-        .order('application_date', { ascending: false });
-
-      const filteredReportData: SalaryAdvanceData[] = [];
-      
-      filtered.forEach(emp => {
-        const employeeAdvances = advancesData?.filter(
-          advance => advance.employee_number === emp['Employee Number']
-        ) || [];
-
-        if (employeeAdvances.length > 0) {
-          employeeAdvances.forEach(advance => {
-            filteredReportData.push({
-              id: `${emp['Employee Number']}-${advance.id}`,
-              employee_number: emp['Employee Number'],
-              first_name: emp['First Name'] || '',
-              last_name: emp['Last Name'] || '',
-              town: emp.Town || '',
-              branch: emp.Branch || '',
-              phone_number: emp['Mobile Number'] || '',
-              application_date: advance.application_date,
-              application_time: advance.application_time,
-              amount_applied: advance.amount_applied,
-              amount_disbursed: advance.amount_disbursed,
-              status: advance.status,
-              mpesa_code: advance.mpesa_code,
-              disbursement_date: advance.disbursement_date,
-              disbursement_time: advance.disbursement_time,
-              repayment_date: advance.repayment_date,
-              repayment_time: advance.repayment_time,
-              repayment_status: advance.repayment_status,
-              approved_by: advance.approved_by,
-              approval_date: advance.approval_date,
-              approval_time: advance.approval_time,
-              reason: advance.reason,
-              bank_account: advance.bank_account,
-              bank_name: advance.bank_name,
-              deduction_month: advance.deduction_month,
-              remarks: advance.remarks,
-              created_at: advance.created_at,
-              updated_at: advance.updated_at
-            });
-          });
-        } else {
-          filteredReportData.push({
-            id: emp['Employee Number'],
-            employee_number: emp['Employee Number'],
-            first_name: emp['First Name'] || '',
-            last_name: emp['Last Name'] || '',
-            town: emp.Town || '',
-            branch: emp.Branch || '',
-            phone_number: emp['Mobile Number'] || '',
-            application_date: undefined,
-            application_time: undefined,
-            amount_applied: undefined,
-            amount_disbursed: undefined,
-            status: undefined,
-            mpesa_code: undefined,
-            disbursement_date: undefined,
-            disbursement_time: undefined,
-            repayment_date: undefined,
-            repayment_time: undefined,
-            repayment_status: undefined,
-            approved_by: undefined,
-            approval_date: undefined,
-            approval_time: undefined,
-            reason: undefined,
-            bank_account: undefined,
-            bank_name: undefined,
-            deduction_month: undefined,
-            remarks: undefined,
-            created_at: undefined,
-            updated_at: undefined
-          });
-        }
-      });
-
-      setReportData(filteredReportData);
-    };
-
-    fetchFilteredData();
-  }, [filters.town, filters.employeeNumber, employees]);
 
   const handleFilterChange = (key: keyof ReportFilters, value: string) => {
     const newFilters = { ...filters, [key]: value };
@@ -709,28 +754,23 @@ const BaseReport: React.FC<BaseReportProps> = ({
       'Last Name',
       'Town',
       'Branch',
-      'Phone Number',
+      'Loan Type',
       'Application Date',
-      'Application Time',
-      'Amount Applied',
-      'Amount Disbursed',
-      'Status',
+      'Loan Amount',
+      'Approved Amount',
+      'Interest Rate',
+      'Repayment Period',
+      'Monthly Deduction',
+      'Total Repayable',
+      'Amount Deducted',
+      'Amount Remaining',
+      'Last Deduction Date',
+      'Next Deduction Date',
+      'Loan Status',
+      'Deduction Status',
+      'Disbursement Method',
       'M-Pesa Code',
-      'Disbursement Date',
-      'Disbursement Time',
-      'Repayment Date',
-      'Repayment Time',
-      'Repayment Status',
-      'Approved By',
-      'Approval Date',
-      'Approval Time',
-      'Reason',
-      'Bank Account',
-      'Bank Name',
-      'Deduction Month',
-      'Remarks',
-      'Created At',
-      'Updated At'
+      'Approved By'
     ];
     
     const csvContent = [
@@ -742,28 +782,23 @@ const BaseReport: React.FC<BaseReportProps> = ({
           `"${row.last_name}"`,
           `"${row.town}"`,
           `"${row.branch}"`,
-          `"${row.phone_number}"`,
+          row.loan_type || '',
           row.application_date || '',
-          row.application_time || '',
-          row.amount_applied || '',
-          row.amount_disbursed || '',
+          row.loan_amount || '',
+          row.approved_amount || '',
+          row.interest_rate || '',
+          row.repayment_period || '',
+          row.monthly_deduction || '',
+          row.total_repayable || '',
+          row.amount_deducted || '',
+          row.amount_remaining || '',
+          row.last_deduction_date || '',
+          row.next_deduction_date || '',
           row.status || '',
+          row.deduction_status || '',
+          row.disbursement_method || '',
           `"${row.mpesa_code}"` || '',
-          row.disbursement_date || '',
-          row.disbursement_time || '',
-          row.repayment_date || '',
-          row.repayment_time || '',
-          row.repayment_status || '',
-          `"${row.approved_by}"` || '',
-          row.approval_date || '',
-          row.approval_time || '',
-          `"${row.reason}"` || '',
-          `"${row.bank_account}"` || '',
-          `"${row.bank_name}"` || '',
-          row.deduction_month || '',
-          `"${row.remarks}"` || '',
-          row.created_at || '',
-          row.updated_at || ''
+          `"${row.approved_by}"` || ''
         ].join(',')
       )
     ].join('\n');
@@ -772,7 +807,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `salary-advance-accounting-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `staff-loans-deduction-report-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -783,7 +818,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
       endDate: new Date().toISOString().split('T')[0],
       town: selectedTown || '',
       employeeNumber: '',
-      employeeName: ''
+      employeeName: '',
+      loanType: '',
+      status: ''
     };
     
     setFilters(resetFilters);
@@ -801,66 +838,63 @@ const BaseReport: React.FC<BaseReportProps> = ({
     setCurrentPage(1);
   };
 
-  // Accounting-style render function with support for multiple advances
-  const renderAccountingReportData = (employeeData: any[]) => (
+  // Accounting-style render function for staff loans with salary deduction
+  const renderLoansReportData = (employeeData: any[]) => (
     <>
-      {/* Traditional Accounting Summary Cards - No Icons */}
+      {/* Traditional Accounting Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 bg-gray-50 border-b border-gray-300">
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Employees</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{totalEmployees}</p>
-          <p className="text-xs text-gray-500 mt-1">Across all locations</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Loan Portfolio</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalLoanPortfolio)}</p>
+          <p className="text-xs text-gray-500 mt-1">Approved amount</p>
         </div>
 
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Advances</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{totalAdvances}</p>
-          <p className="text-xs text-gray-500 mt-1">All applications</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Active Salary Deductions</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{activeLoans}</p>
+          <p className="text-xs text-gray-500 mt-1">{totalLoans} total loans</p>
         </div>
 
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Applied</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalApplied)}</p>
-          <p className="text-xs text-gray-500 mt-1">Amount requested</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Amount Deducted</p>
+          <p className="text-xl font-bold text-green-700 mt-1">{formatCurrency(totalAmountDeducted)}</p>
+          <p className="text-xs text-gray-500 mt-1">Via salary deductions</p>
         </div>
 
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Disbursed</p>
-          <p className="text-xl font-bold text-green-700 mt-1">{formatCurrency(totalDisbursed)}</p>
-          <p className="text-xs text-gray-500 mt-1">Amount paid out</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">M-Pesa Transactions</p>
+          <p className="text-xl font-bold text-blue-700 mt-1">{totalMpesaTransactions}</p>
+          <p className="text-xs text-gray-500 mt-1">{formatCurrency(totalMpesaAmount)} total</p>
         </div>
       </div>
 
-      {/* Accounting Table */}
+      {/* Loans Accounting Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-300">
           <thead className="bg-gray-75 border-b border-gray-300">
             <tr>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Employee Details
+                Employee & Loan Details
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Advance Summary
+                Salary Deduction Schedule
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Recent Application
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Financial Overview
+                Deduction Progress
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Status Summary
+                M-Pesa & Disbursement
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-300">
             {employeeData.map((employeeGroup: any) => {
-              const { employee, advances, totalApplied, totalDisbursed, advanceCount } = employeeGroup;
-              const recentAdvance = advances[0]; // Most recent advance
+              const { employee, loans, totalApprovedAmount, totalAmountDeducted, totalMonthlyDeductions, loanCount } = employeeGroup;
+              const recentLoan = loans[0]; // Most recent loan
 
               return (
                 <tr key={employee.employee_number} className="hover:bg-gray-50 border-b border-gray-200">
-                  {/* Employee Details */}
+                  {/* Employee & Loan Details */}
                   <td className="px-4 py-3 border-r border-gray-300">
                     <div className="text-sm font-semibold text-gray-900">
                       {employee.first_name} {employee.last_name}
@@ -869,95 +903,142 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     <div className="text-xs text-gray-500 mt-1">
                       {employee.town || 'N/A'} • {employee.branch || 'N/A'}
                     </div>
-                    {employee.phone_number && (
-                      <div className="text-xs text-gray-600 mt-1">
-                        {employee.phone_number}
-                      </div>
+                    
+                    {recentLoan && (
+                      <>
+                        <div className="mt-2">
+                          <span className="text-xs font-medium text-gray-600">Latest Loan:</span>
+                          <div className="text-sm text-gray-900">{recentLoan.loan_type}</div>
+                          <div className="text-xs text-gray-500">
+                            {formatAccountingDate(recentLoan.application_date)}
+                          </div>
+                        </div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {loanCount} {loanCount === 1 ? 'loan' : 'loans'} total
+                        </div>
+                      </>
                     )}
                   </td>
 
-                  {/* Advance Summary */}
+                  {/* Salary Deduction Schedule */}
                   <td className="px-4 py-3 border-r border-gray-300">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {advanceCount} {advanceCount === 1 ? 'Advance' : 'Advances'}
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      First: {advances[advances.length - 1]?.application_date ? 
-                        formatAccountingDate(advances[advances.length - 1].application_date) : 'N/A'
-                      }
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      Latest: {recentAdvance?.application_date ? 
-                        formatAccountingDate(recentAdvance.application_date) : 'N/A'
-                      }
-                    </div>
-                  </td>
-
-                  {/* Recent Application Details */}
-                  <td className="px-4 py-3 border-r border-gray-300">
-                    {recentAdvance ? (
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-900">
-                          {formatAccountingDate(recentAdvance.application_date, recentAdvance.application_time)}
-                        </div>
-                        <div className="text-xs text-gray-600 max-w-xs">
-                          {recentAdvance.reason || 'No reason provided'}
-                        </div>
-                        <AccountingStatusBadge status={recentAdvance.status} type="status" />
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-400 italic">No advances</div>
-                    )}
-                  </td>
-
-                  {/* Financial Overview */}
-                  <td className="px-4 py-3 border-r border-gray-300">
-                    {advanceCount > 0 ? (
+                    {recentLoan ? (
                       <div className="space-y-2">
                         <div className="text-sm">
-                          <div className="text-gray-600 text-xs">Total Applied</div>
+                          <div className="text-gray-600 text-xs">Monthly Deduction</div>
                           <div className="font-semibold text-gray-900">
-                            {formatCurrency(totalApplied)}
+                            {formatCurrency(recentLoan.monthly_deduction)}
                           </div>
                         </div>
                         <div className="text-sm">
-                          <div className="text-gray-600 text-xs">Total Disbursed</div>
-                          <div className="font-semibold text-green-700">
-                            {formatCurrency(totalDisbursed)}
+                          <div className="text-gray-600 text-xs">Next Deduction</div>
+                          <div className="font-semibold text-blue-700">
+                            {formatAccountingDate(recentLoan.next_deduction_date)}
                           </div>
                         </div>
-                        {recentAdvance?.mpesa_code && (
-                          <div className="text-xs font-mono text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                            Ref: {recentAdvance.mpesa_code}
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">Last Deduction</div>
+                          <div className="font-semibold text-gray-700">
+                            {formatAccountingDate(recentLoan.last_deduction_date) || 'Not started'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Deduction Status</div>
+                          <LoanStatusBadge status={recentLoan.deduction_status} type="deduction" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 italic">No deduction data</div>
+                    )}
+                  </td>
+
+                  {/* Deduction Progress */}
+                  <td className="px-4 py-3 border-r border-gray-300">
+                    {recentLoan ? (
+                      <div className="space-y-2">
+                        <div>
+                          <div className="text-xs text-gray-600 mb-1">Loan Status</div>
+                          <LoanStatusBadge status={recentLoan.status} type="loan" />
+                        </div>
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">Approved Amount</div>
+                          <div className="font-semibold text-gray-900">
+                            {formatCurrency(recentLoan.approved_amount)}
+                          </div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">Deducted/Total</div>
+                          <div className="font-semibold text-green-700">
+                            {formatCurrency(recentLoan.amount_deducted)} / {formatCurrency(recentLoan.total_repayable)}
+                          </div>
+                        </div>
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">Remaining Balance</div>
+                          <div className="font-semibold text-orange-700">
+                            {formatCurrency(recentLoan.amount_remaining)}
+                          </div>
+                        </div>
+                        {recentLoan.interest_rate && (
+                          <div className="text-xs text-gray-600">
+                            {recentLoan.interest_rate}% over {recentLoan.repayment_period} months
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400 italic">No financial data</div>
+                      <div className="text-sm text-gray-400 italic">No progress data</div>
                     )}
                   </td>
 
-                  {/* Status Summary */}
+                  {/* M-Pesa & Disbursement */}
                   <td className="px-4 py-3">
-                    {recentAdvance ? (
+                    {recentLoan ? (
                       <div className="space-y-2">
-                        <div>
-                          <div className="text-xs text-gray-600 mb-1">Current Status</div>
-                          <AccountingStatusBadge status={recentAdvance.status} type="status" />
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600 mb-1">Repayment</div>
-                          <AccountingStatusBadge status={recentAdvance.repayment_status} type="repayment" />
-                        </div>
                         <div className="text-xs text-gray-600">
-                          <div>Approved by: {recentAdvance.approved_by || 'Pending'}</div>
+                          <div>Disbursed via: {recentLoan.disbursement_method || 'N/A'}</div>
                           <div className="text-gray-400">
-                            {formatAccountingDate(recentAdvance.approval_date, recentAdvance.approval_time)}
+                            {formatAccountingDate(recentLoan.disbursement_date)}
                           </div>
+                        </div>
+                        
+                        {recentLoan.mpesa_code && (
+                          <div className="text-xs font-mono text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
+                            Ref: {recentLoan.mpesa_code}
+                          </div>
+                        )}
+
+                        {recentLoan.mpesa_transactions && recentLoan.mpesa_transactions.length > 0 && (
+                          <div className="mt-2">
+                            <div className="text-xs font-medium text-gray-600 mb-1">
+                              M-Pesa Transactions ({recentLoan.mpesa_transactions.length})
+                            </div>
+                            <div className="space-y-1 max-h-20 overflow-y-auto">
+                              {recentLoan.mpesa_transactions.slice(0, 3).map((transaction, index) => (
+                                <div key={index} className="text-xs border border-gray-200 rounded p-1 bg-gray-50">
+                                  <div className="flex justify-between">
+                                    <span className="font-mono">{transaction.mpesa_code}</span>
+                                    <MpesaStatusBadge status={transaction.status} />
+                                  </div>
+                                  <div className="flex justify-between text-gray-600">
+                                    <span>{formatCurrency(transaction.amount)}</span>
+                                    <span>{formatAccountingDate(transaction.transaction_date)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                              {recentLoan.mpesa_transactions.length > 3 && (
+                                <div className="text-xs text-gray-500 text-center">
+                                  +{recentLoan.mpesa_transactions.length - 3} more transactions
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-gray-600">
+                          <div>Approved by: {recentLoan.approved_by || 'Pending'}</div>
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400 italic">No status data</div>
+                      <div className="text-sm text-gray-400 italic">No disbursement data</div>
                     )}
                   </td>
                 </tr>
@@ -995,6 +1076,27 @@ const BaseReport: React.FC<BaseReportProps> = ({
     }))
   ];
 
+  const loanTypeOptions = [
+    { value: '', label: 'All Types' },
+    { value: 'Emergency', label: 'Emergency Loan' },
+    { value: 'Development', label: 'Development Loan' },
+    { value: 'School Fees', label: 'School Fees Loan' },
+    { value: 'Mortgage', label: 'Mortgage Loan' },
+    { value: 'Vehicle', label: 'Vehicle Loan' },
+    { value: 'Other', label: 'Other' }
+  ];
+
+  const statusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Approved', label: 'Approved' },
+    { value: 'Rejected', label: 'Rejected' },
+    { value: 'Disbursed', label: 'Disbursed' },
+    { value: 'Active', label: 'Active' },
+    { value: 'Completed', label: 'Completed' },
+    { value: 'Written Off', label: 'Written Off' }
+  ];
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <div className="max-w-7xl mx-auto">
@@ -1003,9 +1105,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Salary Advance Accounting Report
+                Staff Loans - Salary Deduction Report
               </h1>
-              <p className="text-gray-600">Comprehensive financial overview of employee salary advances</p>
+              <p className="text-gray-600">Comprehensive overview of staff loan portfolio with automatic salary deductions</p>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
@@ -1056,7 +1158,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
             </div>
 
             <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-300">
-              <span>Total Records: {employeeAdvanceArray.length} • Page {currentPage} of {totalPages}</span>
+              <span>Total Records: {employeeLoanArray.length} • Page {currentPage} of {totalPages}</span>
             </div>
           </div>
 
@@ -1113,6 +1215,32 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     placeholder="Select Employee"
                   />
                 </div>
+
+                {/* Loan Type Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Loan Type
+                  </label>
+                  <SearchableDropdown
+                    options={loanTypeOptions}
+                    value={filters.loanType}
+                    onChange={(value) => handleFilterChange('loanType', value)}
+                    placeholder="Select Loan Type"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <SearchableDropdown
+                    options={statusOptions}
+                    value={filters.status}
+                    onChange={(value) => handleFilterChange('status', value)}
+                    placeholder="Select Status"
+                  />
+                </div>
               </div>
 
               <div className="flex justify-between items-center border-t border-gray-300 pt-4">
@@ -1147,7 +1275,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
               <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
             </div>
           ) : (
-            renderAccountingReportData(paginatedEmployeeData)
+            renderLoansReportData(paginatedEmployeeData)
           )}
         </div>
       </div>
@@ -1155,4 +1283,4 @@ const BaseReport: React.FC<BaseReportProps> = ({
   );
 };
 
-export default BaseReport;
+export default StaffLoansReport;

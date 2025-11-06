@@ -47,6 +47,8 @@ import { ChatArea } from './components/chat/ChatArea';
 import { ChatLayout } from './components/chat/ChatLayout';
 import BaseReport from './components/Reports/BaseReport';
 import ReportsList from './components/Reports/ReportLists';
+import StaffLoansReport from './components/Reports/staffloans';
+import StatutoryDeductionsReport from './components/Reports/statutory';
 
 interface User {
   email: string;
@@ -737,6 +739,9 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
                               <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/reports" element={<ReportsList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                               <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                               <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                                <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                                <Route path="/teams" element={<ChatLayout/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 

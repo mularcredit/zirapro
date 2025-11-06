@@ -36,7 +36,7 @@ const REPORTS_LIST: ReportItem[] = [
     description: 'View and manage employee salary advance requests and records',
     icon: DollarSign,
     category: 'Payroll',
-    path: '/reports/salary-advance'
+    path: '/reports/base'
   },
   {
     id: 'staff-loans',
@@ -44,7 +44,7 @@ const REPORTS_LIST: ReportItem[] = [
     description: 'Track employee loan applications, approvals, and repayment schedules',
     icon: CreditCard,
     category: 'Payroll',
-    path: '/reports/staff-loans'
+    path: '/reports/staffloan'
   },
   {
     id: 'statutory-deductions',
@@ -52,7 +52,7 @@ const REPORTS_LIST: ReportItem[] = [
     description: 'Reports on PAYE, NSSF, NHIF, and other statutory deductions',
     icon: Scale,
     category: 'Payroll',
-    path: '/reports/statutory-deductions'
+    path: '/reports/statutory'
   },
   {
     id: 'staff-salary',
@@ -68,7 +68,7 @@ const REPORTS_LIST: ReportItem[] = [
     description: 'Reports on non-statutory deductions like welfare, loans, etc.',
     icon: PieChart,
     category: 'Payroll',
-    path: '/reports/other-deductions'
+    path: '/reports/statutory'
   },
   {
     id: 'branch-performance',

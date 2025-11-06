@@ -26,7 +26,8 @@ import {
   MessageSquareMore,
   Slack,
   Sparkles,
-  Zap
+  Zap,
+  KeyRound
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -44,6 +45,7 @@ const menuItems = [
   { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },
   { id: 'payroll', label: 'Payroll', icon: Wallet, path: '/payroll', allowedRoles: ['ADMIN','CHECKER'] },
+  { id: 'email admin', label: 'Email Admin', icon: KeyRound, path: '/adminconfirm', allowedRoles: ['ADMIN','CHECKER'] },
   { id: 'performance', label: 'Performance', icon: BarChart3 , path: '/performance' },
   { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR','OPERATIONS','MANAGER','REGIONAL','CHECKER'] },

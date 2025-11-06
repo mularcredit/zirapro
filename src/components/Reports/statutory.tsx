@@ -6,19 +6,20 @@ import {
   Building, 
   User, 
   ChevronDown,
-  X,
   Loader2,
   Search,
   DollarSign,
-  Phone,
+  Shield,
   FileText,
   CheckCircle,
-  XCircle,
-  Clock,
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Landmark,
+  Calculator,
+  Receipt
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
@@ -42,38 +43,65 @@ interface BaseReportProps extends TownProps {
   renderReportData: (data: any[], filters: ReportFilters) => React.ReactNode;
 }
 
-interface SalaryAdvanceData {
+interface StatutoryDeductionData {
   id: string;
   employee_number: string;
   first_name: string;
   last_name: string;
   town: string;
   branch: string;
-  application_date?: string;
-  application_time?: string;
-  amount_applied?: number;
-  amount_disbursed?: number;
-  status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Deducted';
-  mpesa_code?: string;
-  disbursement_date?: string;
-  disbursement_time?: string;
-  repayment_date?: string;
-  repayment_time?: string;
-  repayment_status?: 'Pending' | 'Partial' | 'Completed';
-  approved_by?: string;
-  approval_date?: string;
-  approval_time?: string;
-  reason?: string;
+  department: string;
+  job_title: string;
   phone_number?: string;
-  bank_account?: string;
-  bank_name?: string;
-  deduction_month?: string;
+  
+  // Statutory Deduction Types - Kenya Specific
+  deduction_type: 'NHIF' | 'PAYE' | 'AHL' | 'NSSF' | 'NITA';
+  deduction_period: string;
+  
+  // NSSF Deductions
+  nssf_number?: string;
+  nssf_tier?: 'I' | 'II';
+  nssf_employee_contribution?: number;
+  nssf_employer_contribution?: number;
+  nssf_total_contribution?: number;
+  
+  // NHIF Deductions
+  nhif_number?: string;
+  nhif_amount?: number;
+  nhif_dependents?: number;
+  nhif_tier?: string;
+  
+  // PAYE Deductions
+  paye_amount?: number;
+  personal_relief?: number;
+  insurance_relief?: number;
+  taxable_income?: number;
+  tax_band?: string;
+  
+  // AHL Deductions
+  ahl_employee_contribution?: number;
+  ahl_employer_contribution?: number;
+  ahl_total_contribution?: number;
+  ahl_number?: string;
+  
+  // NITA Deductions
+  nita_amount?: number;
+  nita_training_levy?: number;
+  nita_number?: string;
+  
+  // Totals & Status
+  total_statutory_deductions?: number;
+  status?: 'Processed' | 'Pending' | 'Submitted' | 'Verified' | 'Paid' | 'Overdue';
+  processed_date?: string;
+  submitted_date?: string;
+  
+  // Additional Fields
   remarks?: string;
   created_at?: string;
   updated_at?: string;
 }
 
-// Searchable Dropdown Component (unchanged)
+// Searchable Dropdown Component
 interface SearchableDropdownProps {
   options: { value: string; label: string }[];
   value: string;
@@ -169,8 +197,8 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-// Accounting Status Badge Component - No icons
-const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repayment' }> = ({ status, type }) => {
+// Compliance Status Badge Component
+const ComplianceStatusBadge: React.FC<{ status?: string; type: 'deduction' | 'filing' }> = ({ status, type }) => {
   if (!status) {
     return (
       <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-600 border border-gray-300">
@@ -180,29 +208,31 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
   }
 
   const getStatusConfig = () => {
-    if (type === 'status') {
+    if (type === 'deduction') {
       switch (status) {
+        case 'Processed':
+          return { color: 'bg-green-50 text-green-700 border-green-200' };
         case 'Pending':
           return { color: 'bg-amber-50 text-amber-700 border-amber-200' };
-        case 'Approved':
+        case 'Submitted':
           return { color: 'bg-blue-50 text-blue-700 border-blue-200' };
-        case 'Rejected':
-          return { color: 'bg-red-50 text-red-700 border-red-200' };
-        case 'Disbursed':
-          return { color: 'bg-green-50 text-green-700 border-green-200' };
-        case 'Deducted':
+        case 'Verified':
           return { color: 'bg-purple-50 text-purple-700 border-purple-200' };
+        case 'Paid':
+          return { color: 'bg-gray-50 text-gray-700 border-gray-300' };
+        case 'Overdue':
+          return { color: 'bg-red-50 text-red-700 border-red-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
       }
     } else {
       switch (status) {
-        case 'Pending':
-          return { color: 'bg-amber-50 text-amber-700 border-amber-200' };
-        case 'Partial':
-          return { color: 'bg-orange-50 text-orange-700 border-orange-200' };
-        case 'Completed':
+        case 'On Time':
           return { color: 'bg-green-50 text-green-700 border-green-200' };
+        case 'Late':
+          return { color: 'bg-red-50 text-red-700 border-red-200' };
+        case 'Upcoming':
+          return { color: 'bg-blue-50 text-blue-700 border-blue-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
       }
@@ -225,28 +255,27 @@ const formatCurrency = (amount?: number) => {
 };
 
 // Format date for accounting reports
-const formatAccountingDate = (dateString?: string, timeString?: string) => {
+const formatAccountingDate = (dateString?: string) => {
   if (!dateString) return '-';
   
   const date = new Date(dateString);
-  const time = timeString ? new Date(`1970-01-01T${timeString}`) : null;
   
-  const formattedDate = date.toLocaleDateString('en-KE', { 
+  return date.toLocaleDateString('en-KE', { 
     day: '2-digit', 
     month: 'short', 
     year: 'numeric' 
   });
-  
-  const formattedTime = time ? time.toLocaleTimeString('en-KE', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false 
-  }) : '';
-  
-  return timeString ? `${formattedDate} ${formattedTime}` : formattedDate;
 };
 
-// Pagination Component (unchanged)
+// Format period for display
+const formatPeriod = (period: string) => {
+  if (!period) return '-';
+  const [year, month] = period.split('-');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${monthNames[parseInt(month) - 1]} ${year}`;
+};
+
+// Pagination Component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -367,7 +396,7 @@ const Pagination: React.FC<PaginationProps> = ({
   );
 };
 
-const BaseReport: React.FC<BaseReportProps> = ({
+const StatutoryDeductionsReport: React.FC<BaseReportProps> = ({
   reportTitle,
   reportDescription,
   onGenerateReport,
@@ -386,7 +415,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
   const [towns, setTowns] = useState<string[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<any[]>([]);
-  const [reportData, setReportData] = useState<SalaryAdvanceData[]>([]);
+  const [reportData, setReportData] = useState<StatutoryDeductionData[]>([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -395,44 +424,53 @@ const BaseReport: React.FC<BaseReportProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Calculate totals for accounting summary - now grouped by employee
-  const employeeAdvances = reportData.reduce((acc, advance) => {
-    const empId = advance.employee_number;
+  // Calculate totals for accounting summary - grouped by employee
+  const employeeDeductions = reportData.reduce((acc, deduction) => {
+    const empId = deduction.employee_number;
     if (!acc[empId]) {
       acc[empId] = {
-        employee: advance,
-        advances: [],
-        totalApplied: 0,
-        totalDisbursed: 0,
-        advanceCount: 0
+        employee: deduction,
+        deductions: [],
+        totalNSSF: 0,
+        totalNHIF: 0,
+        totalPAYE: 0,
+        totalAHL: 0,
+        totalNITA: 0,
+        deductionCount: 0
       };
     }
-    acc[empId].advances.push(advance);
-    acc[empId].totalApplied += advance.amount_applied || 0;
-    acc[empId].totalDisbursed += advance.amount_disbursed || 0;
-    acc[empId].advanceCount += 1;
+    acc[empId].deductions.push(deduction);
+    acc[empId].totalNSSF += deduction.nssf_total_contribution || 0;
+    acc[empId].totalNHIF += deduction.nhif_amount || 0;
+    acc[empId].totalPAYE += deduction.paye_amount || 0;
+    acc[empId].totalAHL += deduction.ahl_total_contribution || 0;
+    acc[empId].totalNITA += deduction.nita_amount || 0;
+    acc[empId].deductionCount += 1;
     return acc;
   }, {} as Record<string, any>);
 
-  const employeeAdvanceArray = Object.values(employeeAdvances);
-  const totalApplied = employeeAdvanceArray.reduce((sum: number, emp: any) => sum + emp.totalApplied, 0);
-  const totalDisbursed = employeeAdvanceArray.reduce((sum: number, emp: any) => sum + emp.totalDisbursed, 0);
-  const totalEmployees = employeeAdvanceArray.length;
-  const totalAdvances = reportData.length;
+  const employeeDeductionArray = Object.values(employeeDeductions);
+  const totalNSSF = employeeDeductionArray.reduce((sum: number, emp: any) => sum + emp.totalNSSF, 0);
+  const totalNHIF = employeeDeductionArray.reduce((sum: number, emp: any) => sum + emp.totalNHIF, 0);
+  const totalPAYE = employeeDeductionArray.reduce((sum: number, emp: any) => sum + emp.totalPAYE, 0);
+  const totalAHL = employeeDeductionArray.reduce((sum: number, emp: any) => sum + emp.totalAHL, 0);
+  const totalNITA = employeeDeductionArray.reduce((sum: number, emp: any) => sum + emp.totalNITA, 0);
+  const totalEmployees = employeeDeductionArray.length;
+  const totalDeductions = reportData.length;
 
   // Calculate paginated data for employee groups
-  const totalItems = employeeAdvanceArray.length;
+  const totalItems = employeeDeductionArray.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedEmployeeData = employeeAdvanceArray.slice(startIndex, endIndex);
+  const paginatedEmployeeData = employeeDeductionArray.slice(startIndex, endIndex);
 
   // Reset to first page when filters change or data updates
   useEffect(() => {
     setCurrentPage(1);
   }, [filters.town, filters.employeeNumber, reportData]);
 
-  // Fetch initial employee data and their advances
+  // Fetch initial employee data and their statutory deductions
   useEffect(() => {
     const fetchEmployeeData = async () => {
       try {
@@ -458,99 +496,104 @@ const BaseReport: React.FC<BaseReportProps> = ({
             "Last Name",
             Town,
             Branch,
-            "Mobile Number",
-            "Work Email",
-            "Job Title"
+            Department,
+            "Job Title",
+            "Mobile Number"
           `)
           .order('"First Name"');
 
-        // Fetch salary advances
-        const { data: advancesData } = await supabase
-          .from('salary_advances')
+        // Fetch statutory deductions
+        const { data: deductionsData } = await supabase
+          .from('statutory_deductions')
           .select('*')
-          .order('application_date', { ascending: false });
+          .order('deduction_period', { ascending: false });
 
         if (employeesData) {
-          // Combine employee data with their advances
-          const employeeTableData: SalaryAdvanceData[] = [];
+          // Combine employee data with their statutory deductions
+          const deductionTableData: StatutoryDeductionData[] = [];
           
           employeesData.forEach(emp => {
-            const employeeAdvances = advancesData?.filter(
-              advance => advance.employee_number === emp['Employee Number']
+            const employeeDeductions = deductionsData?.filter(
+              deduction => deduction.employee_number === emp['Employee Number']
             ) || [];
 
-            if (employeeAdvances.length > 0) {
-              // Create an entry for each advance
-              employeeAdvances.forEach(advance => {
-                employeeTableData.push({
-                  id: `${emp['Employee Number']}-${advance.id}`,
+            if (employeeDeductions.length > 0) {
+              // Create an entry for each deduction
+              employeeDeductions.forEach(deduction => {
+                deductionTableData.push({
+                  id: `${emp['Employee Number']}-${deduction.id}`,
                   employee_number: emp['Employee Number'],
                   first_name: emp['First Name'] || '',
                   last_name: emp['Last Name'] || '',
                   town: emp.Town || '',
                   branch: emp.Branch || '',
+                  department: emp.Department || '',
+                  job_title: emp['Job Title'] || '',
                   phone_number: emp['Mobile Number'] || '',
-                  application_date: advance.application_date,
-                  application_time: advance.application_time,
-                  amount_applied: advance.amount_applied,
-                  amount_disbursed: advance.amount_disbursed,
-                  status: advance.status,
-                  mpesa_code: advance.mpesa_code,
-                  disbursement_date: advance.disbursement_date,
-                  disbursement_time: advance.disbursement_time,
-                  repayment_date: advance.repayment_date,
-                  repayment_time: advance.repayment_time,
-                  repayment_status: advance.repayment_status,
-                  approved_by: advance.approved_by,
-                  approval_date: advance.approval_date,
-                  approval_time: advance.approval_time,
-                  reason: advance.reason,
-                  bank_account: advance.bank_account,
-                  bank_name: advance.bank_name,
-                  deduction_month: advance.deduction_month,
-                  remarks: advance.remarks,
-                  created_at: advance.created_at,
-                  updated_at: advance.updated_at
+                  deduction_type: deduction.deduction_type,
+                  deduction_period: deduction.deduction_period,
+                  nssf_number: deduction.nssf_number,
+                  nssf_tier: deduction.nssf_tier,
+                  nssf_employee_contribution: deduction.nssf_employee_contribution,
+                  nssf_employer_contribution: deduction.nssf_employer_contribution,
+                  nssf_total_contribution: deduction.nssf_total_contribution,
+                  nhif_number: deduction.nhif_number,
+                  nhif_amount: deduction.nhif_amount,
+                  nhif_dependents: deduction.nhif_dependents,
+                  nhif_tier: deduction.nhif_tier,
+                  paye_amount: deduction.paye_amount,
+                  personal_relief: deduction.personal_relief,
+                  insurance_relief: deduction.insurance_relief,
+                  taxable_income: deduction.taxable_income,
+                  tax_band: deduction.tax_band,
+                  ahl_employee_contribution: deduction.ahl_employee_contribution,
+                  ahl_employer_contribution: deduction.ahl_employer_contribution,
+                  ahl_total_contribution: deduction.ahl_total_contribution,
+                  ahl_number: deduction.ahl_number,
+                  nita_amount: deduction.nita_amount,
+                  nita_training_levy: deduction.nita_training_levy,
+                  nita_number: deduction.nita_number,
+                  total_statutory_deductions: deduction.total_statutory_deductions,
+                  status: deduction.status,
+                  processed_date: deduction.processed_date,
+                  submitted_date: deduction.submitted_date,
+                  remarks: deduction.remarks,
+                  created_at: deduction.created_at,
+                  updated_at: deduction.updated_at
                 });
               });
             } else {
-              // Employee with no advances - show basic info
-              employeeTableData.push({
+              // Employee with no deductions - show basic info
+              deductionTableData.push({
                 id: emp['Employee Number'],
                 employee_number: emp['Employee Number'],
                 first_name: emp['First Name'] || '',
                 last_name: emp['Last Name'] || '',
                 town: emp.Town || '',
                 branch: emp.Branch || '',
+                department: emp.Department || '',
+                job_title: emp['Job Title'] || '',
                 phone_number: emp['Mobile Number'] || '',
-                application_date: undefined,
-                application_time: undefined,
-                amount_applied: undefined,
-                amount_disbursed: undefined,
-                status: undefined,
-                mpesa_code: undefined,
-                disbursement_date: undefined,
-                disbursement_time: undefined,
-                repayment_date: undefined,
-                repayment_time: undefined,
-                repayment_status: undefined,
-                approved_by: undefined,
-                approval_date: undefined,
-                approval_time: undefined,
-                reason: undefined,
-                bank_account: undefined,
-                bank_name: undefined,
-                deduction_month: undefined,
-                remarks: undefined,
-                created_at: undefined,
-                updated_at: undefined
+                deduction_type: 'NSSF',
+                deduction_period: new Date().toISOString().slice(0, 7),
+                status: 'Pending',
+                nssf_employee_contribution: 0,
+                nssf_employer_contribution: 0,
+                nssf_total_contribution: 0,
+                nhif_amount: 0,
+                paye_amount: 0,
+                ahl_employee_contribution: 0,
+                ahl_employer_contribution: 0,
+                ahl_total_contribution: 0,
+                nita_amount: 0,
+                total_statutory_deductions: 0
               });
             }
           });
 
           setEmployees(employeesData);
           setFilteredEmployees(employeesData);
-          setReportData(employeeTableData);
+          setReportData(deductionTableData);
         }
       } catch (error) {
         console.error('Error fetching employee data:', error);
@@ -576,51 +619,62 @@ const BaseReport: React.FC<BaseReportProps> = ({
 
     setFilteredEmployees(filtered);
 
-    // Update report data with filtered employees and their advances
+    // Update report data with filtered employees and their deductions
     const fetchFilteredData = async () => {
-      const { data: advancesData } = await supabase
-        .from('salary_advances')
+      const { data: deductionsData } = await supabase
+        .from('statutory_deductions')
         .select('*')
-        .order('application_date', { ascending: false });
+        .order('deduction_period', { ascending: false });
 
-      const filteredReportData: SalaryAdvanceData[] = [];
+      const filteredReportData: StatutoryDeductionData[] = [];
       
       filtered.forEach(emp => {
-        const employeeAdvances = advancesData?.filter(
-          advance => advance.employee_number === emp['Employee Number']
+        const employeeDeductions = deductionsData?.filter(
+          deduction => deduction.employee_number === emp['Employee Number']
         ) || [];
 
-        if (employeeAdvances.length > 0) {
-          employeeAdvances.forEach(advance => {
+        if (employeeDeductions.length > 0) {
+          employeeDeductions.forEach(deduction => {
             filteredReportData.push({
-              id: `${emp['Employee Number']}-${advance.id}`,
+              id: `${emp['Employee Number']}-${deduction.id}`,
               employee_number: emp['Employee Number'],
               first_name: emp['First Name'] || '',
               last_name: emp['Last Name'] || '',
               town: emp.Town || '',
               branch: emp.Branch || '',
+              department: emp.Department || '',
+              job_title: emp['Job Title'] || '',
               phone_number: emp['Mobile Number'] || '',
-              application_date: advance.application_date,
-              application_time: advance.application_time,
-              amount_applied: advance.amount_applied,
-              amount_disbursed: advance.amount_disbursed,
-              status: advance.status,
-              mpesa_code: advance.mpesa_code,
-              disbursement_date: advance.disbursement_date,
-              disbursement_time: advance.disbursement_time,
-              repayment_date: advance.repayment_date,
-              repayment_time: advance.repayment_time,
-              repayment_status: advance.repayment_status,
-              approved_by: advance.approved_by,
-              approval_date: advance.approval_date,
-              approval_time: advance.approval_time,
-              reason: advance.reason,
-              bank_account: advance.bank_account,
-              bank_name: advance.bank_name,
-              deduction_month: advance.deduction_month,
-              remarks: advance.remarks,
-              created_at: advance.created_at,
-              updated_at: advance.updated_at
+              deduction_type: deduction.deduction_type,
+              deduction_period: deduction.deduction_period,
+              nssf_number: deduction.nssf_number,
+              nssf_tier: deduction.nssf_tier,
+              nssf_employee_contribution: deduction.nssf_employee_contribution,
+              nssf_employer_contribution: deduction.nssf_employer_contribution,
+              nssf_total_contribution: deduction.nssf_total_contribution,
+              nhif_number: deduction.nhif_number,
+              nhif_amount: deduction.nhif_amount,
+              nhif_dependents: deduction.nhif_dependents,
+              nhif_tier: deduction.nhif_tier,
+              paye_amount: deduction.paye_amount,
+              personal_relief: deduction.personal_relief,
+              insurance_relief: deduction.insurance_relief,
+              taxable_income: deduction.taxable_income,
+              tax_band: deduction.tax_band,
+              ahl_employee_contribution: deduction.ahl_employee_contribution,
+              ahl_employer_contribution: deduction.ahl_employer_contribution,
+              ahl_total_contribution: deduction.ahl_total_contribution,
+              ahl_number: deduction.ahl_number,
+              nita_amount: deduction.nita_amount,
+              nita_training_levy: deduction.nita_training_levy,
+              nita_number: deduction.nita_number,
+              total_statutory_deductions: deduction.total_statutory_deductions,
+              status: deduction.status,
+              processed_date: deduction.processed_date,
+              submitted_date: deduction.submitted_date,
+              remarks: deduction.remarks,
+              created_at: deduction.created_at,
+              updated_at: deduction.updated_at
             });
           });
         } else {
@@ -631,28 +685,22 @@ const BaseReport: React.FC<BaseReportProps> = ({
             last_name: emp['Last Name'] || '',
             town: emp.Town || '',
             branch: emp.Branch || '',
+            department: emp.Department || '',
+            job_title: emp['Job Title'] || '',
             phone_number: emp['Mobile Number'] || '',
-            application_date: undefined,
-            application_time: undefined,
-            amount_applied: undefined,
-            amount_disbursed: undefined,
-            status: undefined,
-            mpesa_code: undefined,
-            disbursement_date: undefined,
-            disbursement_time: undefined,
-            repayment_date: undefined,
-            repayment_time: undefined,
-            repayment_status: undefined,
-            approved_by: undefined,
-            approval_date: undefined,
-            approval_time: undefined,
-            reason: undefined,
-            bank_account: undefined,
-            bank_name: undefined,
-            deduction_month: undefined,
-            remarks: undefined,
-            created_at: undefined,
-            updated_at: undefined
+            deduction_type: 'NSSF',
+            deduction_period: new Date().toISOString().slice(0, 7),
+            status: 'Pending',
+            nssf_employee_contribution: 0,
+            nssf_employer_contribution: 0,
+            nssf_total_contribution: 0,
+            nhif_amount: 0,
+            paye_amount: 0,
+            ahl_employee_contribution: 0,
+            ahl_employer_contribution: 0,
+            ahl_total_contribution: 0,
+            nita_amount: 0,
+            total_statutory_deductions: 0
           });
         }
       });
@@ -709,28 +757,20 @@ const BaseReport: React.FC<BaseReportProps> = ({
       'Last Name',
       'Town',
       'Branch',
-      'Phone Number',
-      'Application Date',
-      'Application Time',
-      'Amount Applied',
-      'Amount Disbursed',
-      'Status',
-      'M-Pesa Code',
-      'Disbursement Date',
-      'Disbursement Time',
-      'Repayment Date',
-      'Repayment Time',
-      'Repayment Status',
-      'Approved By',
-      'Approval Date',
-      'Approval Time',
-      'Reason',
-      'Bank Account',
-      'Bank Name',
-      'Deduction Month',
-      'Remarks',
-      'Created At',
-      'Updated At'
+      'Department',
+      'Deduction Type',
+      'Period',
+      'NSSF Employee',
+      'NSSF Employer',
+      'NSSF Total',
+      'NHIF Amount',
+      'PAYE Amount',
+      'AHL Employee',
+      'AHL Employer',
+      'AHL Total',
+      'NITA Amount',
+      'Total Deductions',
+      'Status'
     ];
     
     const csvContent = [
@@ -742,28 +782,20 @@ const BaseReport: React.FC<BaseReportProps> = ({
           `"${row.last_name}"`,
           `"${row.town}"`,
           `"${row.branch}"`,
-          `"${row.phone_number}"`,
-          row.application_date || '',
-          row.application_time || '',
-          row.amount_applied || '',
-          row.amount_disbursed || '',
-          row.status || '',
-          `"${row.mpesa_code}"` || '',
-          row.disbursement_date || '',
-          row.disbursement_time || '',
-          row.repayment_date || '',
-          row.repayment_time || '',
-          row.repayment_status || '',
-          `"${row.approved_by}"` || '',
-          row.approval_date || '',
-          row.approval_time || '',
-          `"${row.reason}"` || '',
-          `"${row.bank_account}"` || '',
-          `"${row.bank_name}"` || '',
-          row.deduction_month || '',
-          `"${row.remarks}"` || '',
-          row.created_at || '',
-          row.updated_at || ''
+          `"${row.department}"`,
+          row.deduction_type || '',
+          row.deduction_period || '',
+          row.nssf_employee_contribution || '',
+          row.nssf_employer_contribution || '',
+          row.nssf_total_contribution || '',
+          row.nhif_amount || '',
+          row.paye_amount || '',
+          row.ahl_employee_contribution || '',
+          row.ahl_employer_contribution || '',
+          row.ahl_total_contribution || '',
+          row.nita_amount || '',
+          row.total_statutory_deductions || '',
+          row.status || ''
         ].join(',')
       )
     ].join('\n');
@@ -772,7 +804,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `salary-advance-accounting-report-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `statutory-deductions-report-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -801,11 +833,44 @@ const BaseReport: React.FC<BaseReportProps> = ({
     setCurrentPage(1);
   };
 
-  // Accounting-style render function with support for multiple advances
-  const renderAccountingReportData = (employeeData: any[]) => (
+  // Accounting-style render function for statutory deductions
+  const renderDeductionsReportData = (employeeData: any[]) => (
     <>
       {/* Traditional Accounting Summary Cards - No Icons */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 bg-gray-50 border-b border-gray-300">
+        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total NSSF</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalNSSF)}</p>
+          <p className="text-xs text-gray-500 mt-1">Social Security Fund</p>
+        </div>
+
+        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total NHIF</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalNHIF)}</p>
+          <p className="text-xs text-gray-500 mt-1">Health Insurance</p>
+        </div>
+
+        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total PAYE</p>
+          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalPAYE)}</p>
+          <p className="text-xs text-gray-500 mt-1">Income Tax</p>
+        </div>
+
+        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total AHL</p>
+          <p className="text-xl font-bold text-green-700 mt-1">{formatCurrency(totalAHL)}</p>
+          <p className="text-xs text-gray-500 mt-1">Housing Levy</p>
+        </div>
+      </div>
+
+      {/* Additional Summary Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-gray-50 border-b border-gray-300">
+        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total NITA</p>
+          <p className="text-xl font-bold text-purple-700 mt-1">{formatCurrency(totalNITA)}</p>
+          <p className="text-xs text-gray-500 mt-1">Training Levy</p>
+        </div>
+
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
           <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Employees</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{totalEmployees}</p>
@@ -813,25 +878,13 @@ const BaseReport: React.FC<BaseReportProps> = ({
         </div>
 
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Advances</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{totalAdvances}</p>
-          <p className="text-xs text-gray-500 mt-1">All applications</p>
-        </div>
-
-        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Applied</p>
-          <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalApplied)}</p>
-          <p className="text-xs text-gray-500 mt-1">Amount requested</p>
-        </div>
-
-        <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Disbursed</p>
-          <p className="text-xl font-bold text-green-700 mt-1">{formatCurrency(totalDisbursed)}</p>
-          <p className="text-xs text-gray-500 mt-1">Amount paid out</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Deductions</p>
+          <p className="text-xl font-bold text-blue-700 mt-1">{totalDeductions}</p>
+          <p className="text-xs text-gray-500 mt-1">All deduction records</p>
         </div>
       </div>
 
-      {/* Accounting Table */}
+      {/* Statutory Deductions Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-300">
           <thead className="bg-gray-75 border-b border-gray-300">
@@ -840,23 +893,20 @@ const BaseReport: React.FC<BaseReportProps> = ({
                 Employee Details
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Advance Summary
+                NSSF & NHIF
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Recent Application
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
-                Financial Overview
+                PAYE & AHL
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Status Summary
+                NITA & Status
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-300">
             {employeeData.map((employeeGroup: any) => {
-              const { employee, advances, totalApplied, totalDisbursed, advanceCount } = employeeGroup;
-              const recentAdvance = advances[0]; // Most recent advance
+              const { employee, deductions, totalNSSF, totalNHIF, totalPAYE, totalAHL, totalNITA, deductionCount } = employeeGroup;
+              const recentDeduction = deductions[0];
 
               return (
                 <tr key={employee.employee_number} className="hover:bg-gray-50 border-b border-gray-200">
@@ -869,6 +919,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     <div className="text-xs text-gray-500 mt-1">
                       {employee.town || 'N/A'} • {employee.branch || 'N/A'}
                     </div>
+                    <div className="text-xs text-gray-600 mt-1">
+                      {employee.department || 'No Department'}
+                    </div>
                     {employee.phone_number && (
                       <div className="text-xs text-gray-600 mt-1">
                         {employee.phone_number}
@@ -876,88 +929,96 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     )}
                   </td>
 
-                  {/* Advance Summary */}
+                  {/* NSSF & NHIF */}
                   <td className="px-4 py-3 border-r border-gray-300">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {advanceCount} {advanceCount === 1 ? 'Advance' : 'Advances'}
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">
-                      First: {advances[advances.length - 1]?.application_date ? 
-                        formatAccountingDate(advances[advances.length - 1].application_date) : 'N/A'
-                      }
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      Latest: {recentAdvance?.application_date ? 
-                        formatAccountingDate(recentAdvance.application_date) : 'N/A'
-                      }
-                    </div>
-                  </td>
-
-                  {/* Recent Application Details */}
-                  <td className="px-4 py-3 border-r border-gray-300">
-                    {recentAdvance ? (
-                      <div className="space-y-1">
-                        <div className="text-sm text-gray-900">
-                          {formatAccountingDate(recentAdvance.application_date, recentAdvance.application_time)}
-                        </div>
-                        <div className="text-xs text-gray-600 max-w-xs">
-                          {recentAdvance.reason || 'No reason provided'}
-                        </div>
-                        <AccountingStatusBadge status={recentAdvance.status} type="status" />
-                      </div>
-                    ) : (
-                      <div className="text-sm text-gray-400 italic">No advances</div>
-                    )}
-                  </td>
-
-                  {/* Financial Overview */}
-                  <td className="px-4 py-3 border-r border-gray-300">
-                    {advanceCount > 0 ? (
+                    {deductionCount > 0 ? (
                       <div className="space-y-2">
                         <div className="text-sm">
-                          <div className="text-gray-600 text-xs">Total Applied</div>
+                          <div className="text-gray-600 text-xs">NSSF Contributions</div>
                           <div className="font-semibold text-gray-900">
-                            {formatCurrency(totalApplied)}
+                            {formatCurrency(totalNSSF)}
                           </div>
+                          {recentDeduction.nssf_tier && (
+                            <div className="text-xs text-gray-500">
+                              Tier {recentDeduction.nssf_tier}
+                              {recentDeduction.nssf_number && ` • ${recentDeduction.nssf_number}`}
+                            </div>
+                          )}
                         </div>
                         <div className="text-sm">
-                          <div className="text-gray-600 text-xs">Total Disbursed</div>
-                          <div className="font-semibold text-green-700">
-                            {formatCurrency(totalDisbursed)}
+                          <div className="text-gray-600 text-xs">NHIF Contributions</div>
+                          <div className="font-semibold text-blue-700">
+                            {formatCurrency(totalNHIF)}
                           </div>
+                          {recentDeduction.nhif_tier && (
+                            <div className="text-xs text-gray-500">
+                              {recentDeduction.nhif_tier}
+                              {recentDeduction.nhif_dependents && ` • ${recentDeduction.nhif_dependents} dependents`}
+                            </div>
+                          )}
                         </div>
-                        {recentAdvance?.mpesa_code && (
-                          <div className="text-xs font-mono text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
-                            Ref: {recentAdvance.mpesa_code}
-                          </div>
-                        )}
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400 italic">No financial data</div>
+                      <div className="text-sm text-gray-400 italic">No deduction data</div>
                     )}
                   </td>
 
-                  {/* Status Summary */}
-                  <td className="px-4 py-3">
-                    {recentAdvance ? (
+                  {/* PAYE & AHL */}
+                  <td className="px-4 py-3 border-r border-gray-300">
+                    {deductionCount > 0 ? (
                       <div className="space-y-2">
-                        <div>
-                          <div className="text-xs text-gray-600 mb-1">Current Status</div>
-                          <AccountingStatusBadge status={recentAdvance.status} type="status" />
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">PAYE Tax</div>
+                          <div className="font-semibold text-red-700">
+                            {formatCurrency(totalPAYE)}
+                          </div>
+                          {recentDeduction.tax_band && (
+                            <div className="text-xs text-gray-500">
+                              {recentDeduction.tax_band}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">Housing Levy (AHL)</div>
+                          <div className="font-semibold text-green-700">
+                            {formatCurrency(totalAHL)}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            1.5% Employee + 1.5% Employer
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400 italic">No tax data</div>
+                    )}
+                  </td>
+
+                  {/* NITA & Status */}
+                  <td className="px-4 py-3">
+                    {recentDeduction ? (
+                      <div className="space-y-2">
+                        <div className="text-sm">
+                          <div className="text-gray-600 text-xs">NITA Levy</div>
+                          <div className="font-semibold text-purple-700">
+                            {formatCurrency(totalNITA)}
+                          </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-600 mb-1">Repayment</div>
-                          <AccountingStatusBadge status={recentAdvance.repayment_status} type="repayment" />
+                          <div className="text-xs text-gray-600 mb-1">Deduction Status</div>
+                          <ComplianceStatusBadge status={recentDeduction.status} type="deduction" />
                         </div>
                         <div className="text-xs text-gray-600">
-                          <div>Approved by: {recentAdvance.approved_by || 'Pending'}</div>
-                          <div className="text-gray-400">
-                            {formatAccountingDate(recentAdvance.approval_date, recentAdvance.approval_time)}
-                          </div>
+                          <div>Period: {formatPeriod(recentDeduction.deduction_period)}</div>
+                          {recentDeduction.processed_date && (
+                            <div>Processed: {formatAccountingDate(recentDeduction.processed_date)}</div>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {deductionCount} deduction periods
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-400 italic">No status data</div>
+                      <div className="text-sm text-gray-400 italic">No compliance data</div>
                     )}
                   </td>
                 </tr>
@@ -1003,9 +1064,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Salary Advance Accounting Report
+                Statutory Deductions Report
               </h1>
-              <p className="text-gray-600">Comprehensive financial overview of employee salary advances</p>
+              <p className="text-gray-600">Comprehensive overview of NSSF, NHIF, PAYE, AHL, and NITA statutory deductions</p>
               <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
@@ -1056,7 +1117,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
             </div>
 
             <div className="text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-300">
-              <span>Total Records: {employeeAdvanceArray.length} • Page {currentPage} of {totalPages}</span>
+              <span>Total Records: {employeeDeductionArray.length} • Page {currentPage} of {totalPages}</span>
             </div>
           </div>
 
@@ -1147,7 +1208,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
               <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
             </div>
           ) : (
-            renderAccountingReportData(paginatedEmployeeData)
+            renderDeductionsReportData(paginatedEmployeeData)
           )}
         </div>
       </div>
@@ -1155,4 +1216,4 @@ const BaseReport: React.FC<BaseReportProps> = ({
   );
 };
 
-export default BaseReport;
+export default StatutoryDeductionsReport;
