@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, CheckSquare, Square, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, CheckSquare, Square, ChevronLeft, ChevronRight, UserCheck, ShieldCheck } from 'lucide-react';
 
 const SalaryAdvanceAdmin = () => {
   const [applications, setApplications] = useState<any[]>([]);
@@ -14,7 +14,7 @@ const SalaryAdvanceAdmin = () => {
   const [showBulkPaymentModal, setShowBulkPaymentModal] = useState(false);
   const [isProcessingBulkPayment, setIsProcessingBulkPayment] = useState(false);
   const [employeeMobileNumbers, setEmployeeMobileNumbers] = useState<Record<string, string>>({});
-  const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({}); // Track selected staff for payment
+  const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -42,10 +42,12 @@ const SalaryAdvanceAdmin = () => {
       });
       setNotes(initialNotes);
 
-      // Initialize selected staff - all approved applications are selected by default
+      // Initialize selected staff - only fully approved applications are selected by default
       const initialSelected: Record<string, boolean> = {};
       data?.forEach(app => {
-        if (app.status?.toLowerCase() === 'approved') {
+        if (app.status?.toLowerCase() === 'approved' && 
+            app.branch_manager_approval === true && 
+            app.regional_manager_approval === true) {
           initialSelected[app.id] = true;
         }
       });
@@ -86,9 +88,13 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  // Get approved applications
-  const getApprovedApplications = () => {
-    return applications.filter(app => app.status?.toLowerCase() === 'approved');
+  // Get fully approved applications (both branch and regional manager approved)
+  const getFullyApprovedApplications = () => {
+    return applications.filter(app => 
+      app.status?.toLowerCase() === 'approved' && 
+      app.branch_manager_approval === true && 
+      app.regional_manager_approval === true
+    );
   };
 
   // Format amount as Kenyan Shillings
@@ -119,7 +125,7 @@ const SalaryAdvanceAdmin = () => {
 
   // Calculate total amount for selected applications
   const calculateTotalAmount = () => {
-    const approvedApps = getApprovedApplications();
+    const approvedApps = getFullyApprovedApplications();
     return approvedApps.reduce((total, app) => {
       if (selectedStaff[app.id]) {
         return total + Number(app["Amount Requested"] || 0);
@@ -144,7 +150,7 @@ const SalaryAdvanceAdmin = () => {
   // Select all staff
   const selectAllStaff = () => {
     const newSelection: Record<string, boolean> = {};
-    getApprovedApplications().forEach(app => {
+    getFullyApprovedApplications().forEach(app => {
       newSelection[app.id] = true;
     });
     setSelectedStaff(newSelection);
@@ -185,37 +191,35 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  const handleApprove = async (id: string) => {
+  // Branch Manager Approval
+  const handleBranchManagerApprove = async (id: string) => {
     try {
       const { error } = await supabase
         .from('salary_advance')
         .update({ 
-          status: 'Approved',
+          branch_manager_approval: true,
+          branch_manager_approval_date: new Date().toISOString(),
           admin_notes: notes[id] || null 
         })
         .eq('id', id);
 
       if (error) throw error;
       
-      // Add to selected staff when approved
-      setSelectedStaff(prev => ({
-        ...prev,
-        [id]: true
-      }));
-      
-      toast.success('Application approved!');
+      toast.success('Branch manager approval granted!');
       fetchApplications();
     } catch (error) {
-      console.error('Error approving application:', error);
-      toast.error('Failed to approve application');
+      console.error('Error with branch manager approval:', error);
+      toast.error('Failed to process branch manager approval');
     }
   };
 
-  const handleReject = async (id: string) => {
+  // Branch Manager Rejection
+  const handleBranchManagerReject = async (id: string) => {
     try {
       const { error } = await supabase
         .from('salary_advance')
         .update({ 
+          branch_manager_approval: false,
           status: 'Rejected',
           admin_notes: notes[id] || null 
         })
@@ -230,11 +234,100 @@ const SalaryAdvanceAdmin = () => {
         return newSelection;
       });
       
-      toast.success('Application rejected!');
+      toast.success('Application rejected by branch manager!');
       fetchApplications();
     } catch (error) {
-      console.error('Error rejecting application:', error);
-      toast.error('Failed to reject application');
+      console.error('Error with branch manager rejection:', error);
+      toast.error('Failed to process branch manager rejection');
+    }
+  };
+
+  // Regional Manager Approval
+  const handleRegionalManagerApprove = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('salary_advance')
+        .update({ 
+          regional_manager_approval: true,
+          regional_manager_approval_date: new Date().toISOString(),
+          status: 'Approved', // Final approval
+          admin_notes: notes[id] || null 
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // Add to selected staff when fully approved
+      setSelectedStaff(prev => ({
+        ...prev,
+        [id]: true
+      }));
+      
+      toast.success('Regional manager approval granted! Application fully approved!');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error with regional manager approval:', error);
+      toast.error('Failed to process regional manager approval');
+    }
+  };
+
+  // Regional Manager Rejection
+  const handleRegionalManagerReject = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('salary_advance')
+        .update({ 
+          regional_manager_approval: false,
+          status: 'Rejected',
+          admin_notes: notes[id] || null 
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // Remove from selected staff when rejected
+      setSelectedStaff(prev => {
+        const newSelection = {...prev};
+        delete newSelection[id];
+        return newSelection;
+      });
+      
+      toast.success('Application rejected by regional manager!');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error with regional manager rejection:', error);
+      toast.error('Failed to process regional manager rejection');
+    }
+  };
+
+  // Admin can override and approve directly (for urgent cases)
+  const handleAdminApprove = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('salary_advance')
+        .update({ 
+          branch_manager_approval: true,
+          regional_manager_approval: true,
+          status: 'Approved',
+          admin_notes: notes[id] || null,
+          branch_manager_approval_date: new Date().toISOString(),
+          regional_manager_approval_date: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      // Add to selected staff when approved
+      setSelectedStaff(prev => ({
+        ...prev,
+        [id]: true
+      }));
+      
+      toast.success('Application fully approved by admin!');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error with admin approval:', error);
+      toast.error('Failed to process admin approval');
     }
   };
 
@@ -300,7 +393,7 @@ const SalaryAdvanceAdmin = () => {
   const handleBulkPayment = async () => {
     setIsProcessingBulkPayment(true);
     try {
-      const approvedApps = getApprovedApplications();
+      const approvedApps = getFullyApprovedApplications();
       const selectedApps = approvedApps.filter(app => selectedStaff[app.id]);
       const results = [];
       
@@ -359,6 +452,39 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
+  const getApprovalStatus = (app: any) => {
+    if (app.status?.toLowerCase() === 'rejected') {
+      return 'Rejected';
+    }
+    if (app.status?.toLowerCase() === 'paid') {
+      return 'Paid';
+    }
+    if (app.regional_manager_approval) {
+      return 'Fully Approved';
+    }
+    if (app.branch_manager_approval) {
+      return 'Pending Regional Manager';
+    }
+    return 'Pending Branch Manager';
+  };
+
+  const getApprovalBadgeColor = (status: string) => {
+    switch (status) {
+      case 'Fully Approved':
+        return 'bg-green-100 text-green-800';
+      case 'Pending Regional Manager':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'Pending Branch Manager':
+        return 'bg-orange-100 text-orange-800';
+      case 'Rejected':
+        return 'bg-red-100 text-red-800';
+      case 'Paid':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
       app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -378,7 +504,7 @@ const SalaryAdvanceAdmin = () => {
   // Change page
   const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
-  const approvedApplications = getApprovedApplications();
+  const fullyApprovedApplications = getFullyApprovedApplications();
 
   return (
     <div className="p-6">
@@ -386,7 +512,7 @@ const SalaryAdvanceAdmin = () => {
         <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
         
         <div className="flex items-center gap-3">
-          {approvedApplications.length > 0 && (
+          {fullyApprovedApplications.length > 0 && (
             <button
               onClick={() => setShowBulkPaymentModal(true)}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
@@ -439,7 +565,7 @@ const SalaryAdvanceAdmin = () => {
                     Reason
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
+                    Approval Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Notes
@@ -500,11 +626,18 @@ const SalaryAdvanceAdmin = () => {
                       {app["Reason for Advance"]}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getStatusIcon(app["status"])}
-                        <span className="ml-2 text-xs text-gray-500 capitalize">
-                          {app["status"] || 'Pending'}
+                      <div className="flex flex-col gap-1">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getApprovalBadgeColor(getApprovalStatus(app))}`}>
+                          {getApprovalStatus(app)}
                         </span>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <UserCheck className="h-3 w-3" />
+                          <span>BM: {app.branch_manager_approval ? '✓' : 'Pending'}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <ShieldCheck className="h-3 w-3" />
+                          <span>RM: {app.regional_manager_approval ? '✓' : 'Pending'}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap relative">
@@ -546,22 +679,58 @@ const SalaryAdvanceAdmin = () => {
                       {new Date(app.time_added).toLocaleDateString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
-                      {(!app["status"] || app["status"].toLowerCase() === 'pending') && (
-                        <div className="flex space-x-2">
+                      <div className="flex flex-col gap-1">
+                        {/* Branch Manager Actions */}
+                        {!app.branch_manager_approval && !app.regional_manager_approval && app.status?.toLowerCase() === 'pending' && (
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => handleBranchManagerApprove(app.id)}
+                              className="text-green-600 hover:text-green-900 text-xs"
+                              title="Branch Manager Approve"
+                            >
+                              BM ✓
+                            </button>
+                            <button
+                              onClick={() => handleBranchManagerReject(app.id)}
+                              className="text-red-600 hover:text-red-900 text-xs"
+                              title="Branch Manager Reject"
+                            >
+                              BM ✗
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Regional Manager Actions */}
+                        {app.branch_manager_approval && !app.regional_manager_approval && app.status?.toLowerCase() === 'pending' && (
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => handleRegionalManagerApprove(app.id)}
+                              className="text-green-600 hover:text-green-900 text-xs"
+                              title="Regional Manager Approve"
+                            >
+                              RM ✓
+                            </button>
+                            <button
+                              onClick={() => handleRegionalManagerReject(app.id)}
+                              className="text-red-600 hover:text-red-900 text-xs"
+                              title="Regional Manager Reject"
+                            >
+                              RM ✗
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Admin Override Action */}
+                        {app.status?.toLowerCase() === 'pending' && (
                           <button
-                            onClick={() => handleApprove(app.id)}
-                            className="text-green-600 hover:text-green-900"
+                            onClick={() => handleAdminApprove(app.id)}
+                            className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-1 rounded"
+                            title="Admin Override - Approve Immediately"
                           >
-                            Approve
+                            Admin ✓
                           </button>
-                          <button
-                            onClick={() => handleReject(app.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -652,6 +821,7 @@ const SalaryAdvanceAdmin = () => {
             <div className="mb-4 p-3 bg-gray-50 rounded-md">
               <p className="text-xs text-gray-600">
                 You are about to process M-Pesa B2C payments for {getSelectedStaffCount()} selected staff members.
+                Only applications with both Branch Manager and Regional Manager approval will be processed.
               </p>
               
               <div className="mt-3 flex gap-2">
@@ -680,7 +850,7 @@ const SalaryAdvanceAdmin = () => {
             <div className="mb-4 max-h-60 overflow-y-auto">
               <p className="text-xs font-medium mb-2">Staff to be paid:</p>
               <ul className="text-xs divide-y divide-gray-200">
-                {approvedApplications.map(app => (
+                {fullyApprovedApplications.map(app => (
                   <li key={app.id} className="py-2 flex items-center justify-between">
                     <div className="flex items-center">
                       <button

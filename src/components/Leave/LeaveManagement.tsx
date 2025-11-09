@@ -256,11 +256,13 @@ const LeaveTypeIcon = ({ type }: { type: LeaveType }) => {
 };
 
 // Detailed View Component
+// Detailed View Component
+// Detailed View Component
 const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveApplication, onClose: () => void }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-2xl">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="flex-shrink-0 flex justify-between items-center p-6 border-b border-gray-200">
           <h3 className="text-lg font-base text-gray-900">Leave Application Details</h3>
           <button 
             onClick={onClose}
@@ -270,74 +272,77 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
           </button>
         </div>
         
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-500">Employee Name</p>
-              <p className="font-medium">{application.Name}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Employee Number</p>
-              <p className="font-medium">{application["Employee Number"]}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Office Branch</p>
-              <p className="font-medium">{application["Office Branch"] || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Leave Type</p>
-              <p className="font-medium">{application["Leave Type"]}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Start Date</p>
-              <p className="font-medium">{formatDate(application["Start Date"])}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">End Date</p>
-              <p className="font-medium">{formatDate(application["End Date"])}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Days</p>
-              <p className="font-medium">{application.Days}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Type</p>
-              <p className="font-medium">{application.Type}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Status</p>
-              <div className="font-medium">
-                <StatusBadge status={application.Status} />
+        <div className="flex-1 overflow-y-auto p-6 thin-scrollbar">
+          <div className="space-y-4">
+            {/* ... your existing content ... */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Employee Name</p>
+                <p className="font-medium">{application.Name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Employee Number</p>
+                <p className="font-medium">{application["Employee Number"]}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Office Branch</p>
+                <p className="font-medium">{application["Office Branch"] || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Leave Type</p>
+                <p className="font-medium">{application["Leave Type"]}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Start Date</p>
+                <p className="font-medium">{formatDate(application["Start Date"])}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">End Date</p>
+                <p className="font-medium">{formatDate(application["End Date"])}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Days</p>
+                <p className="font-medium">{application.Days}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Type</p>
+                <p className="font-medium">{application.Type}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Status</p>
+                <div className="font-medium">
+                  <StatusBadge status={application.Status} />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Recommendation Status</p>
+                <div className="font-medium">
+                  <RecStatusBadge recstatus={application.recstatus} />
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Applied On</p>
+                <p className="font-medium">{formatDate(application.time_added)}</p>
               </div>
             </div>
+            
             <div>
-              <p className="text-xs text-gray-500">Recommendation Status</p>
-              <div className="font-medium">
-                <RecStatusBadge recstatus={application.recstatus} />
-              </div>
+              <p className="text-xs text-gray-500">Reason</p>
+              <p className="font-medium text-xs whitespace-pre-line">{application.Reason}</p>
             </div>
-            <div>
-              <p className="text-xs text-gray-500">Applied On</p>
-              <p className="font-medium">{formatDate(application.time_added)}</p>
-            </div>
-          </div>
-          
-          <div>
-            <p className="text-xs text-gray-500">Reason</p>
-            <p className="font-medium whitespace-pre-line">{application.Reason}</p>
-          </div>
 
-          {application.recommendation_notes && (
-            <div>
-              <p className="text-xs text-gray-500">Recommendation Notes</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="font-medium whitespace-pre-line text-blue-800">{application.recommendation_notes}</p>
+            {application.recommendation_notes && (
+              <div>
+                <p className="text-xs text-gray-500">Recommendation Notes</p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="font-medium whitespace-pre-line text-blue-800">{application.recommendation_notes}</p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
         
-        <div className="flex justify-end gap-2 pt-6">
+        <div className="flex-shrink-0 flex justify-end gap-2 p-6 border-t border-gray-200">
           <button 
             onClick={onClose}
             className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs"
@@ -349,7 +354,6 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
     </div>
   );
 };
-
 // Status Update Modal Component
 const StatusUpdateModal = ({ 
   isOpen, 

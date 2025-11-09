@@ -19,8 +19,22 @@ import {
   Search,
   ChevronDown,
   CheckSquare,
-  Square
+  Square,
+  RefreshCw,
+  AlertTriangle,
+  Key,
+  Upload,
+  Download,
+  X,
+  AlertCircle,
+  Eye,
+  Table
 } from 'lucide-react';
+
+// You'll need to install these dependencies:
+// npm install xlsx file-saver
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 export default function StaffSignupRequests() {
   const [requests, setRequests] = useState([]);
@@ -34,13 +48,50 @@ export default function StaffSignupRequests() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRequests, setSelectedRequests] = useState(new Set());
   const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [checkingExistingUsers, setCheckingExistingUsers] = useState(false);
+  const [existingUsersCache, setExistingUsersCache] = useState(new Map());
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkEmails, setBulkEmails] = useState('');
+  const [bulkBranch, setBulkBranch] = useState('');
+  const [uploadingBulk, setUploadingBulk] = useState(false);
+  const [emailLogs, setEmailLogs] = useState(new Map());
+  const [checkingBounces, setCheckingBounces] = useState(false);
+  const [uploadMethod, setUploadMethod] = useState('excel'); // 'excel' or 'manual'
+  const [excelFile, setExcelFile] = useState(null);
+  const [parsedData, setParsedData] = useState([]);
+  const [parsingExcel, setParsingExcel] = useState(false);
 
-  const itemsPerPage = 10;
+  const itemsPerPage = 100;
 
   useEffect(() => {
     fetchRequests();
     fetchBranches();
   }, [currentPage, selectedBranch]);
+
+  // Fetch email logs for bounce detection
+  const fetchEmailLogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_logs')
+        .select('*')
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      const logsMap = new Map();
+      data.forEach(log => {
+        // Convert request_id to string for consistent Map key usage
+        const emailKey = log.email.toLowerCase();
+        logsMap.set(emailKey, {
+          ...log,
+          request_id: log.request_id ? log.request_id.toString() : null
+        });
+      });
+      setEmailLogs(logsMap);
+    } catch (error) {
+      console.error('Error fetching email logs:', error);
+    }
+  };
 
   const fetchBranches = async () => {
     try {
@@ -51,7 +102,6 @@ export default function StaffSignupRequests() {
 
       if (error) throw error;
 
-      // Get unique branches, filter out null/undefined, and sort them
       const uniqueBranches = [...new Set(data
         .map(item => item.branch)
         .filter(branch => branch != null && branch.trim() !== '')
@@ -70,12 +120,10 @@ export default function StaffSignupRequests() {
         .select('*', { count: 'exact' })
         .eq('status', 'pending');
 
-      // Apply branch filter
       if (selectedBranch !== 'all') {
         query = query.eq('branch', selectedBranch);
       }
 
-      // Apply pagination
       const from = (currentPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
@@ -84,9 +132,19 @@ export default function StaffSignupRequests() {
         .range(from, to);
 
       if (error) throw error;
-      setRequests(data || []);
+      
+      // Convert IDs to strings for consistent handling
+      const requestsWithStringIds = (data || []).map(request => ({
+        ...request,
+        id: request.id.toString()
+      }));
+      
+      setRequests(requestsWithStringIds);
       setTotalCount(count || 0);
-      setSelectedRequests(new Set()); // Clear selections when requests change
+      setSelectedRequests(new Set());
+      
+      // Fetch email logs after requests are loaded
+      await fetchEmailLogs();
     } catch (error) {
       console.error('Fetch error:', error);
       toast.error('Failed to fetch signup requests');
@@ -95,17 +153,360 @@ export default function StaffSignupRequests() {
     }
   };
 
-  const generateRandomPassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*';
-    let password = '';
-    for (let i = 0; i < 12; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
+  // Track email sends in database
+  const trackEmailSend = async (email, subject, requestId = null, resendId = null) => {
+    try {
+      // Convert requestId to BigInt if it exists
+      const requestIdBigInt = requestId ? parseInt(requestId, 10) : null;
+      
+      const { data, error } = await supabase
+        .from('email_logs')
+        .insert([
+          {
+            email: email,
+            subject: subject,
+            request_id: requestIdBigInt,
+            resend_id: resendId,
+            status: 'sent',
+            sent_at: new Date().toISOString()
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+      
+      // Update local email logs state
+      if (data && data.length > 0) {
+        const newLog = data[0];
+        const updatedLogs = new Map(emailLogs);
+        updatedLogs.set(email.toLowerCase(), {
+          ...newLog,
+          request_id: newLog.request_id ? newLog.request_id.toString() : null
+        });
+        setEmailLogs(updatedLogs);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error tracking email:', error);
     }
-    return password;
   };
 
-  const sendWelcomeEmail = async (email, tempPassword, branch) => {
+  // Update email status when bounce is detected
+  const updateEmailStatus = async (email, status, bounceReason = null) => {
     try {
+      const { data, error } = await supabase
+        .from('email_logs')
+        .update({
+          status: status,
+          bounce_reason: bounceReason,
+          bounced_at: status === 'bounced' ? new Date().toISOString() : null
+        })
+        .eq('email', email)
+        .order('sent_at', { ascending: false })
+        .limit(1)
+        .select();
+
+      if (error) throw error;
+      
+      // Update local state
+      if (data && data.length > 0) {
+        const updatedLog = data[0];
+        const updatedLogs = new Map(emailLogs);
+        updatedLogs.set(email.toLowerCase(), {
+          ...updatedLog,
+          request_id: updatedLog.request_id ? updatedLog.request_id.toString() : null
+        });
+        setEmailLogs(updatedLogs);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error updating email status:', error);
+    }
+  };
+
+  // Get all auth users with pagination
+  const getAllAuthUsers = async () => {
+    let allUsers = [];
+    let page = 1;
+    const perPage = 1000;
+    let hasMore = true;
+
+    try {
+      while (hasMore) {
+        const { data: users, error } = await supabaseAdmin.auth.admin.listUsers({
+          page: page,
+          perPage: perPage
+        });
+
+        if (error) {
+          console.error('Error fetching auth users page', page, error);
+          break;
+        }
+
+        if (users && users.users.length > 0) {
+          allUsers = [...allUsers, ...users.users];
+          page++;
+          
+          if (users.users.length < perPage) {
+            hasMore = false;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      console.log(`Fetched ${allUsers.length} total auth users`);
+      return allUsers;
+    } catch (error) {
+      console.error('Error in getAllAuthUsers:', error);
+      return [];
+    }
+  };
+
+  // Check if user exists and return user data
+  const checkExistingUser = async (email) => {
+    try {
+      let allAuthUsers;
+      if (existingUsersCache.size > 0) {
+        allAuthUsers = Array.from(existingUsersCache.values());
+      } else {
+        allAuthUsers = await getAllAuthUsers();
+        const newCache = new Map();
+        allAuthUsers.forEach(user => {
+          if (user.email) {
+            newCache.set(user.email.toLowerCase(), user);
+          }
+        });
+        setExistingUsersCache(newCache);
+      }
+
+      const normalizedEmail = email.toLowerCase();
+      const existingAuthUser = allAuthUsers.find(user => 
+        user.email && user.email.toLowerCase() === normalizedEmail
+      );
+      
+      if (existingAuthUser) {
+        return {
+          exists: true,
+          type: 'auth',
+          user: existingAuthUser,
+          message: 'User already has an auth account'
+        };
+      }
+      
+      return {
+        exists: false,
+        type: null,
+        user: null,
+        message: 'User does not exist in system'
+      };
+    } catch (error) {
+      console.error('Error checking existing user:', error);
+      return {
+        exists: false,
+        type: 'error',
+        user: null,
+        message: 'Error checking user existence'
+      };
+    }
+  };
+
+  // Check all pending requests for existing users
+  const checkAllExistingUsers = async () => {
+    setCheckingExistingUsers(true);
+    try {
+      setExistingUsersCache(new Map());
+      
+      const results = [];
+      let foundCount = 0;
+      
+      const allAuthUsers = await getAllAuthUsers();
+      const authUserEmails = new Set(
+        allAuthUsers
+          .filter(user => user.email)
+          .map(user => user.email.toLowerCase())
+      );
+
+      for (const request of requests) {
+        const normalizedEmail = request.email.toLowerCase();
+        const exists = authUserEmails.has(normalizedEmail);
+        const existingUser = allAuthUsers.find(user => 
+          user.email && user.email.toLowerCase() === normalizedEmail
+        );
+
+        results.push({
+          ...request,
+          existingUser: {
+            exists,
+            type: exists ? 'auth' : null,
+            user: existingUser || null,
+            message: exists ? 'User already has an auth account' : 'User does not exist in system'
+          }
+        });
+        
+        if (exists) {
+          foundCount++;
+        }
+      }
+      
+      setRequests(results);
+      
+      if (foundCount > 0) {
+        toast.success(`Found ${foundCount} users already in the system`);
+      } else {
+        toast.success('No existing users found in the system');
+      }
+    } catch (error) {
+      console.error('Error checking all users:', error);
+      toast.error('Failed to check for existing users');
+    } finally {
+      setCheckingExistingUsers(false);
+    }
+  };
+
+  // Check for bounced emails from Resend
+  const checkBouncedEmails = async () => {
+    setCheckingBounces(true);
+    try {
+      // First, get recent email logs that are still marked as 'sent'
+      const { data: sentEmails, error } = await supabase
+        .from('email_logs')
+        .select('*')
+        .eq('status', 'sent')
+        .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
+        .order('sent_at', { ascending: false });
+
+      if (error) throw error;
+
+      let bounceCount = 0;
+      let checkedCount = 0;
+
+      // Check each email for bounces using Resend API
+      for (const emailLog of sentEmails || []) {
+        try {
+          if (emailLog.resend_id) {
+            // Use Resend API to check email status
+            const response = await fetch(`https://api.resend.com/emails/${emailLog.resend_id}`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            });
+
+            if (response.ok) {
+              const emailData = await response.json();
+              checkedCount++;
+
+              // Check if email bounced
+              if (emailData.last_event === 'bounced' || emailData.last_event === 'rejected') {
+                await updateEmailStatus(
+                  emailLog.email, 
+                  'bounced', 
+                  emailData.rejection_reason || 'Unknown bounce reason'
+                );
+                bounceCount++;
+                
+                // Show warning for bounced emails
+                toast.error(`Email bounced for ${emailLog.email}: ${emailData.rejection_reason || 'Unknown reason'}`, {
+                  duration: 6000
+                });
+              } else if (emailData.last_event === 'delivered') {
+                await updateEmailStatus(emailLog.email, 'delivered');
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`Error checking email ${emailLog.email}:`, error);
+        }
+      }
+
+      // Refresh email logs
+      await fetchEmailLogs();
+
+      if (bounceCount > 0) {
+        toast.error(`Found ${bounceCount} bounced emails`);
+      } else {
+        toast.success(`Checked ${checkedCount} emails - no bounces found`);
+      }
+    } catch (error) {
+      console.error('Error checking bounced emails:', error);
+      toast.error('Failed to check for bounced emails');
+    } finally {
+      setCheckingBounces(false);
+    }
+  };
+
+  const generateRandomPassword = () => {
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
+  const symbols = '!@#$%&*';
+  const allChars = lowercase + uppercase + numbers + symbols;
+  
+  let password = '';
+  
+  // Ensure we have at least one of each required character type
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
+  
+  // Add remaining characters
+  for (let i = 4; i < 12; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Shuffle to mix the characters
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
+};
+
+  const sendWelcomeEmail = async (email, tempPassword, branch, isResend = false, requestId = null) => {
+    try {
+      const subject = isResend 
+        ? `Your Zira HR Login Credentials - Resent`
+        : `Welcome to Zira HR - Staff Account Approved`;
+
+      const htmlContent = isResend ? `
+        <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #2563eb; text-align: center;">Your Zira HR Login Credentials</h2>
+          <p style="font-size: 16px;">Your login credentials have been resent as requested.</p>
+          
+          <div style="background-color: #fef3cd; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid #f59e0b;">
+            <p style="font-weight: bold; margin-bottom: 8px; color: #92400e;">Your login credentials:</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+          </div>
+          
+          <p style="font-size: 14px; color: #64748b;">Please log in and change your password immediately for security reasons.</p>
+          <p style="font-size: 14px;"><strong>Assigned Branch:</strong> ${branch}</p>
+          
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+            <p>If you didn't request these credentials, please contact our support team immediately.</p>
+          </div>
+        </div>
+      ` : `
+        <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #2563eb; text-align: center;">Welcome to Zira HR!</h2>
+          <p style="font-size: 16px;">Your staff account has been approved by the administrator.</p>
+          
+          <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <p style="font-weight: bold; margin-bottom: 8px;">Your login credentials:</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+          </div>
+          
+          <p style="font-size: 14px; color: #64748b;">Please log in and change your password immediately for security reasons.</p>
+          <p style="font-size: 14px;"><strong>Assigned Branch:</strong> ${branch}</p>
+          
+          <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+            <p>If you didn't request this account, please contact our support team immediately.</p>
+          </div>
+        </div>
+      `;
+
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTION_URL}/dynamic-api`, {
         method: 'POST',
         headers: {
@@ -114,27 +515,11 @@ export default function StaffSignupRequests() {
         },
         body: JSON.stringify({
           to_email: email,
-          subject: `Welcome to Zira HR - Staff Account Approved`,
-          html_content: `
-            <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-              <h2 style="color: #2563eb; text-align: center;">Welcome to Zira HR!</h2>
-              <p style="font-size: 16px;">Your staff account has been approved by the administrator.</p>
-              
-              <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
-                <p style="font-weight: bold; margin-bottom: 8px;">Your login credentials:</p>
-                <p><strong>Email:</strong> ${email}</p>
-                <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-              </div>
-              
-              <p style="font-size: 14px; color: #64748b;">Please log in and change your password immediately for security reasons.</p>
-              <p style="font-size: 14px;"><strong>Assigned Branch:</strong> ${branch}</p>
-              
-              <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
-                <p>If you didn't request this account, please contact our support team immediately.</p>
-              </div>
-            </div>
-          `,
-          from_email: 'noreply@zirahrapp.com'
+          subject: subject,
+          html_content: htmlContent,
+          from_email: 'zirahr@zirahrapp.com',
+          track_opens: true,
+          track_clicks: true
         })
       });
 
@@ -143,56 +528,116 @@ export default function StaffSignupRequests() {
         throw new Error(errorData.error || 'Failed to send email');
       }
 
-      return await response.json();
+      const result = await response.json();
+      
+      // Track the email send with Resend ID if available
+      await trackEmailSend(
+        email, 
+        subject, 
+        requestId, 
+        result.id || null // Resend email ID for tracking
+      );
+
+      return result;
     } catch (error) {
       console.error('Email sending error:', error);
+      
+      // Track failed email attempt
+      await trackEmailSend(email, subject, requestId, null);
       throw error;
     }
   };
 
-  const handleApprove = async (requestId, email, branch) => {
+  // Unified function to handle both new users and existing users
+  const handleProcessRequest = async (requestId, email, branch) => {
     setProcessingId(requestId);
     const tempPassword = generateRandomPassword();
     
     try {
-      // 1. Create user account
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          role: 'STAFF',
-          branch: branch || 'Main Branch' // Default branch if null
+      // Check if user exists
+      const existingUserCheck = await checkExistingUser(email);
+      
+      if (existingUserCheck.exists) {
+        // User exists - update their account and resend credentials
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+          existingUserCheck.user.id,
+          { 
+            password: tempPassword,
+            user_metadata: {
+              ...existingUserCheck.user.user_metadata,
+              role: 'STAFF',
+              branch: branch || 'Main Branch',
+              updated_at: new Date().toISOString()
+            }
+          }
+        );
+
+        if (updateError) throw updateError;
+
+        // Delete the signup request
+        const { error: deleteError } = await supabase
+          .from('staff_signup_requests')
+          .delete()
+          .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
+
+        if (deleteError) throw deleteError;
+
+        // Send credentials email
+        await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch', true, requestId);
+
+        toast.success(`Credentials updated and resent to ${email}`);
+        
+      } else {
+        // User doesn't exist - create new account
+        const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+          email,
+          password: tempPassword,
+          email_confirm: true,
+          user_metadata: {
+            role: 'STAFF',
+            branch: branch || 'Main Branch'
+          }
+        });
+
+        if (userError) {
+          // Handle race condition where user might have been created by another process
+          if (userError.message.includes('already registered') || userError.status === 422) {
+            toast.error(`User ${email} was just created by another process. Please try again.`);
+            return;
+          }
+          throw userError;
         }
-      });
 
-      if (userError) throw userError;
+        // Delete the request
+        const { error: deleteError } = await supabase
+          .from('staff_signup_requests')
+          .delete()
+          .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
 
-      // 2. Delete the request
-      const { error: deleteError } = await supabase
-        .from('staff_signup_requests')
-        .delete()
-        .eq('id', requestId);
+        if (deleteError) throw deleteError;
 
-      if (deleteError) throw deleteError;
+        // Send welcome email
+        await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch', false, requestId);
 
-      // 3. Send welcome email
-      await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch');
+        toast.success(`Account created! Welcome email sent to ${email}`);
+      }
 
-      toast.success(`Account approved! Welcome email sent to ${email}`);
       fetchRequests();
-      fetchBranches(); // Refresh branches list
+      fetchBranches();
+      setExistingUsersCache(new Map());
+      
     } catch (error) {
-      console.error('Approval error:', error);
-      toast.error(`Failed to approve request: ${error.message}`);
+      console.error('Process request error:', error);
+      toast.error(`Failed to process request: ${error.message}`);
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleBulkApprove = async () => {
+  // Bulk process requests - handles both new and existing users
+  const handleBulkProcess = async () => {
     if (selectedRequests.size === 0) {
-      toast.error('Please select at least one request to approve');
+      toast.error('Please select at least one request to process');
       return;
     }
 
@@ -200,15 +645,46 @@ export default function StaffSignupRequests() {
     const selectedRequestsArray = Array.from(selectedRequests);
     let successCount = 0;
     let errorCount = 0;
+    let updatedExistingCount = 0;
+    let createdNewCount = 0;
 
     try {
-      for (const requestId of selectedRequestsArray) {
-        const request = requests.find(req => req.id === requestId);
-        if (request) {
-          try {
-            const tempPassword = generateRandomPassword();
-            
-            // 1. Create user account
+      // Get all auth users for efficient checking
+      const allAuthUsers = await getAllAuthUsers();
+      const authUserMap = new Map();
+      allAuthUsers.forEach(user => {
+        if (user.email) {
+          authUserMap.set(user.email.toLowerCase(), user);
+        }
+      });
+
+      const requestsToProcess = requests.filter(req => selectedRequests.has(req.id));
+
+      for (const request of requestsToProcess) {
+        try {
+          const tempPassword = generateRandomPassword();
+          const normalizedEmail = request.email.toLowerCase();
+          const existingUser = authUserMap.get(normalizedEmail);
+
+          if (existingUser) {
+            // Update existing user
+            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+              existingUser.id,
+              { 
+                password: tempPassword,
+                user_metadata: {
+                  ...existingUser.user_metadata,
+                  role: 'STAFF',
+                  branch: request.branch || 'Main Branch',
+                  updated_at: new Date().toISOString()
+                }
+              }
+            );
+
+            if (updateError) throw updateError;
+            updatedExistingCount++;
+          } else {
+            // Create new user
             const { error: userError } = await supabaseAdmin.auth.admin.createUser({
               email: request.email,
               password: tempPassword,
@@ -219,42 +695,437 @@ export default function StaffSignupRequests() {
               }
             });
 
-            if (userError) throw userError;
-
-            // 2. Delete the request
-            const { error: deleteError } = await supabase
-              .from('staff_signup_requests')
-              .delete()
-              .eq('id', requestId);
-
-            if (deleteError) throw deleteError;
-
-            // 3. Send welcome email
-            await sendWelcomeEmail(request.email, tempPassword, request.branch || 'Main Branch');
-            
-            successCount++;
-          } catch (error) {
-            console.error(`Failed to approve request ${requestId}:`, error);
-            errorCount++;
+            if (userError) {
+              if (userError.message.includes('already registered') || userError.status === 422) {
+                // Skip if user was just created by another process
+                console.log(`User ${request.email} already exists, skipping`);
+                continue;
+              }
+              throw userError;
+            }
+            createdNewCount++;
           }
+
+          // Delete the request
+          const { error: deleteError } = await supabase
+            .from('staff_signup_requests')
+            .delete()
+            .eq('id', parseInt(request.id, 10)); // Convert back to number for DB
+
+          if (deleteError) throw deleteError;
+
+          // Send email
+          await sendWelcomeEmail(request.email, tempPassword, request.branch || 'Main Branch', !!existingUser, request.id);
+          
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to process request ${request.id}:`, error);
+          errorCount++;
         }
       }
 
-      if (successCount > 0) {
-        toast.success(`Successfully approved ${successCount} request(s)`);
+      // Show comprehensive results
+      let message = `Successfully processed ${successCount} request(s)`;
+      if (createdNewCount > 0) {
+        message += ` - ${createdNewCount} new accounts created`;
       }
+      if (updatedExistingCount > 0) {
+        message += ` - ${updatedExistingCount} existing accounts updated`;
+      }
+      
+      toast.success(message);
+      
       if (errorCount > 0) {
-        toast.error(`Failed to approve ${errorCount} request(s)`);
+        toast.error(`Failed to process ${errorCount} request(s)`);
       }
 
       fetchRequests();
       fetchBranches();
       setSelectedRequests(new Set());
+      setExistingUsersCache(new Map());
     } catch (error) {
-      console.error('Bulk approval error:', error);
-      toast.error('Bulk approval process failed');
+      console.error('Bulk process error:', error);
+      toast.error('Bulk process failed');
     } finally {
       setBulkProcessing(false);
+    }
+  };
+
+  // Download Excel template
+  const downloadExcelTemplate = () => {
+    // Create sample data for the template
+    const templateData = [
+      {
+        'Email': 'john.doe@company.com',
+        'Branch': 'Main Branch',
+        'Notes': 'HR Manager'
+      },
+      {
+        'Email': 'jane.smith@company.com',
+        'Branch': 'New York Office',
+        'Notes': 'Sales Executive'
+      },
+      {
+        'Email': 'mike.wilson@company.com',
+        'Branch': 'London Office',
+        'Notes': 'IT Support'
+      }
+    ];
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    
+    // Set column widths
+    const colWidths = [
+      { wch: 25 }, // Email
+      { wch: 20 }, // Branch
+      { wch: 30 }  // Notes
+    ];
+    ws['!cols'] = colWidths;
+
+    // Add instructions worksheet
+    const instructionsData = [
+      ['Instructions for Bulk Upload:'],
+      [''],
+      ['1. Fill in the "Staff Emails" sheet with staff information'],
+      ['2. Required columns: Email, Branch'],
+      ['3. Optional column: Notes (for internal reference)'],
+      ['4. Save the file and upload it using the form'],
+      ['5. All emails will be created as pending signup requests'],
+      [''],
+      ['Column Descriptions:'],
+      ['- Email: Staff email address (required)'],
+      ['- Branch: Assigned branch/department (required)'],
+      ['- Notes: Any additional information (optional)'],
+      [''],
+      ['Example:'],
+      ['Email', 'Branch', 'Notes'],
+      ['john.doe@company.com', 'Main Branch', 'HR Manager'],
+      ['jane.smith@company.com', 'New York Office', 'Sales Executive']
+    ];
+    
+    const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
+    const instructionColWidths = [
+      { wch: 50 } // Instructions column
+    ];
+    wsInstructions['!cols'] = instructionColWidths;
+
+    // Add worksheets to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Staff Emails');
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+
+    // Generate and download the file
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    saveAs(blob, 'staff_bulk_upload_template.xlsx');
+  };
+
+  // Parse Excel file
+  const parseExcelFile = (file) => {
+    setParsingExcel(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        // Get first worksheet
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        // Validate and format the data
+        const validatedData = jsonData
+          .map((row, index) => {
+            const email = row['Email'] || row['email'];
+            const branch = row['Branch'] || row['branch'] || bulkBranch;
+            
+            if (!email) {
+              console.warn(`Row ${index + 2}: Missing email address`);
+              return null;
+            }
+            
+            // Basic email validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+              console.warn(`Row ${index + 2}: Invalid email format - ${email}`);
+              return null;
+            }
+            
+            return {
+              email: email.trim(),
+              branch: branch ? branch.trim() : bulkBranch,
+              notes: row['Notes'] || row['notes'] || ''
+            };
+          })
+          .filter(row => row !== null);
+        
+        setParsedData(validatedData);
+        setExcelFile(file);
+        
+        if (validatedData.length === 0) {
+          toast.error('No valid email addresses found in the Excel file');
+        } else {
+          toast.success(`Found ${validatedData.length} valid staff records`);
+        }
+      } catch (error) {
+        console.error('Error parsing Excel file:', error);
+        toast.error('Error reading Excel file. Please check the format.');
+      } finally {
+        setParsingExcel(false);
+      }
+    };
+    
+    reader.onerror = () => {
+      toast.error('Error reading file');
+      setParsingExcel(false);
+    };
+    
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Handle Excel file upload
+  const handleExcelUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Check file type
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      toast.error('Please upload a valid Excel file (.xlsx or .xls)');
+      return;
+    }
+
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    parseExcelFile(file);
+  };
+
+  // Handle bulk upload from Excel
+  const handleBulkUploadFromExcel = async () => {
+    if (parsedData.length === 0) {
+      toast.error('No valid data to upload');
+      return;
+    }
+
+    if (!bulkBranch.trim() && parsedData.some(item => !item.branch)) {
+      toast.error('Please set a default branch or ensure all records have a branch');
+      return;
+    }
+
+    setUploadingBulk(true);
+
+    try {
+      let successCount = 0;
+      let duplicateCount = 0;
+      let errorCount = 0;
+
+      // Check for existing pending requests to avoid duplicates
+      const { data: existingRequests, error: fetchError } = await supabase
+        .from('staff_signup_requests')
+        .select('email')
+        .eq('status', 'pending');
+
+      if (fetchError) throw fetchError;
+
+      const existingEmails = new Set(
+        (existingRequests || []).map(req => req.email.toLowerCase())
+      );
+
+      // Insert each record
+      for (const record of parsedData) {
+        try {
+          const finalBranch = record.branch || bulkBranch;
+          
+          // Skip if already exists in pending requests
+          if (existingEmails.has(record.email.toLowerCase())) {
+            duplicateCount++;
+            continue;
+          }
+
+          const { error: insertError } = await supabase
+            .from('staff_signup_requests')
+            .insert([
+              {
+                email: record.email,
+                branch: finalBranch,
+                status: 'pending',
+                created_at: new Date().toISOString()
+              }
+            ]);
+
+          if (insertError) {
+            if (insertError.code === '23505') {
+              duplicateCount++;
+            } else {
+              throw insertError;
+            }
+          } else {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error adding email ${record.email}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      let message = `Successfully added ${successCount} staff records`;
+      if (duplicateCount > 0) {
+        message += ` - ${duplicateCount} duplicates skipped`;
+      }
+      if (errorCount > 0) {
+        message += ` - ${errorCount} errors`;
+      }
+
+      toast.success(message);
+
+      // Reset and refresh
+      setExcelFile(null);
+      setParsedData([]);
+      setShowBulkUpload(false);
+      fetchRequests();
+      fetchBranches();
+
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      toast.error('Failed to upload staff records');
+    } finally {
+      setUploadingBulk(false);
+    }
+  };
+
+  // Handle manual bulk upload (existing text-based method)
+  const handleManualBulkUpload = async () => {
+    if (!bulkEmails.trim()) {
+      toast.error('Please enter at least one email address');
+      return;
+    }
+
+    if (!bulkBranch.trim()) {
+      toast.error('Please select a branch for the users');
+      return;
+    }
+
+    setUploadingBulk(true);
+
+    try {
+      // Parse emails - support comma, semicolon, or newline separated
+      const emailList = bulkEmails
+        .split(/[\n,;]+/)
+        .map(email => email.trim())
+        .filter(email => {
+          // Basic email validation
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          return email && emailRegex.test(email);
+        });
+
+      if (emailList.length === 0) {
+        toast.error('No valid email addresses found');
+        return;
+      }
+
+      let successCount = 0;
+      let duplicateCount = 0;
+      let errorCount = 0;
+
+      // Check for existing pending requests to avoid duplicates
+      const { data: existingRequests, error: fetchError } = await supabase
+        .from('staff_signup_requests')
+        .select('email')
+        .eq('status', 'pending');
+
+      if (fetchError) throw fetchError;
+
+      const existingEmails = new Set(
+        (existingRequests || []).map(req => req.email.toLowerCase())
+      );
+
+      // Insert each email as a separate signup request
+      for (const email of emailList) {
+        try {
+          // Skip if already exists in pending requests
+          if (existingEmails.has(email.toLowerCase())) {
+            duplicateCount++;
+            continue;
+          }
+
+          const { error: insertError } = await supabase
+            .from('staff_signup_requests')
+            .insert([
+              {
+                email: email,
+                branch: bulkBranch,
+                status: 'pending',
+                created_at: new Date().toISOString()
+              }
+            ]);
+
+          if (insertError) {
+            // If it's a duplicate error, count as duplicate
+            if (insertError.code === '23505') {
+              duplicateCount++;
+            } else {
+              throw insertError;
+            }
+          } else {
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error adding email ${email}:`, error);
+          errorCount++;
+        }
+      }
+
+      // Show results
+      let message = `Successfully added ${successCount} signup request(s)`;
+      if (duplicateCount > 0) {
+        message += ` - ${duplicateCount} duplicates skipped`;
+      }
+      if (errorCount > 0) {
+        message += ` - ${errorCount} errors`;
+      }
+
+      toast.success(message);
+
+      // Reset form and refresh data
+      setBulkEmails('');
+      setShowBulkUpload(false);
+      fetchRequests();
+      fetchBranches();
+
+    } catch (error) {
+      console.error('Bulk upload error:', error);
+      toast.error('Failed to upload emails');
+    } finally {
+      setUploadingBulk(false);
+    }
+  };
+
+  // Get email status for a specific request
+  const getEmailStatus = (email) => {
+    const log = emailLogs.get(email.toLowerCase());
+    if (!log) return null;
+    
+    return {
+      status: log.status,
+      bounceReason: log.bounce_reason,
+      sentAt: log.sent_at,
+      bouncedAt: log.bounced_at
+    };
+  };
+
+  // Get status badge color
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case 'bounced': return 'bg-red-100 text-red-800';
+      case 'delivered': return 'bg-green-100 text-green-800';
+      case 'sent': return 'bg-blue-100 text-blue-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -264,13 +1135,13 @@ export default function StaffSignupRequests() {
       const { error } = await supabase
         .from('staff_signup_requests')
         .delete()
-        .eq('id', requestId);
+        .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
 
       if (error) throw error;
 
       toast.success(`Request from ${email} has been rejected`);
       fetchRequests();
-      fetchBranches(); // Refresh branches list
+      fetchBranches();
     } catch (error) {
       console.error('Rejection error:', error);
       toast.error('Failed to reject request');
@@ -281,12 +1152,11 @@ export default function StaffSignupRequests() {
 
   const handleBranchSelect = (branch) => {
     setSelectedBranch(branch);
-    setCurrentPage(1); // Reset to first page when filter changes
+    setCurrentPage(1);
     setIsDropdownOpen(false);
-    setSearchTerm(''); // Clear search when selection is made
+    setSearchTerm('');
   };
 
-  // Safe branch filtering with null check
   const filteredBranches = allBranches.filter(branch =>
     branch && branch.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -352,15 +1222,296 @@ export default function StaffSignupRequests() {
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-3">
-            
+          <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Staff Signup Requests</h1>
               <p className="text-gray-600">Review and manage pending staff account requests</p>
             </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={checkBouncedEmails}
+                disabled={checkingBounces}
+                className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+              >
+                {checkingBounces ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking Bounces...
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4 mr-2" />
+                    Check Bounced Emails
+                  </>
+                )}
+              </button>
+              <button
+                onClick={checkAllExistingUsers}
+                disabled={checkingExistingUsers || requests.length === 0}
+                className="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+              >
+                {checkingExistingUsers ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking Users...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Check Existing Users
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowBulkUpload(true)}
+                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Bulk Upload
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Bulk Upload Modal */}
+        {showBulkUpload && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Bulk Upload Staff Emails</h3>
+                <button
+                  onClick={() => {
+                    setShowBulkUpload(false);
+                    setExcelFile(null);
+                    setParsedData([]);
+                    setBulkEmails('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Upload Method Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Upload Method
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => setUploadMethod('excel')}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${
+                        uploadMethod === 'excel'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      <Table className="w-8 h-8 mx-auto mb-2" />
+                      <div className="font-medium">Excel Template</div>
+                      <div className="text-sm text-gray-500">Recommended for large lists</div>
+                    </button>
+                    <button
+                      onClick={() => setUploadMethod('manual')}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${
+                        uploadMethod === 'manual'
+                          ? 'border-purple-500 bg-purple-50 text-purple-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      <FileText className="w-8 h-8 mx-auto mb-2" />
+                      <div className="font-medium">Manual Entry</div>
+                      <div className="text-sm text-gray-500">For small lists</div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Branch Assignment */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Branch Assignment
+                  </label>
+                  <input
+                    type="text"
+                    value={bulkBranch}
+                    onChange={(e) => setBulkBranch(e.target.value)}
+                    placeholder="Enter default branch name (e.g., 'Main Branch', 'New York Office')"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    This branch will be used for all uploaded emails unless specified in the Excel file
+                  </p>
+                </div>
+
+                {/* Excel Upload Section */}
+                {uploadMethod === 'excel' && (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Upload Excel File
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls"
+                          onChange={handleExcelUpload}
+                          className="hidden"
+                          id="excel-upload"
+                        />
+                        <label
+                          htmlFor="excel-upload"
+                          className="cursor-pointer block"
+                        >
+                          <Table className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                          <div className="text-sm text-gray-600">
+                            {excelFile ? (
+                              <span className="text-green-600 font-medium">
+                                {excelFile.name} ({parsedData.length} records found)
+                              </span>
+                            ) : (
+                              <>
+                                <span className="font-medium text-purple-600">Click to upload Excel file</span>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  .xlsx or .xls files only, max 5MB
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Preview parsed data */}
+                    {parsedData.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Preview ({parsedData.length} records)
+                        </label>
+                        <div className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="max-h-48 overflow-y-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Email
+                                  </th>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Branch
+                                  </th>
+                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                    Notes
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {parsedData.slice(0, 10).map((record, index) => (
+                                  <tr key={index}>
+                                    <td className="px-3 py-2 text-sm text-gray-900">
+                                      {record.email}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-900">
+                                      {record.branch}
+                                    </td>
+                                    <td className="px-3 py-2 text-sm text-gray-500">
+                                      {record.notes}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {parsedData.length > 10 && (
+                                  <tr>
+                                    <td colSpan="3" className="px-3 py-2 text-sm text-gray-500 text-center">
+                                      ... and {parsedData.length - 10} more records
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual Upload Section */}
+                {uploadMethod === 'manual' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email List
+                    </label>
+                    <textarea
+                      value={bulkEmails}
+                      onChange={(e) => setBulkEmails(e.target.value)}
+                      placeholder="Enter email addresses (one per line, or separated by commas/semicolons)
+john.doe@company.com
+jane.smith@company.com
+mike.wilson@company.com"
+                      rows={8}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Supports: one email per line, comma-separated, or semicolon-separated
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={downloadExcelTemplate}
+                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 font-medium text-sm"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Excel Template
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => {
+                        setShowBulkUpload(false);
+                        setExcelFile(null);
+                        setParsedData([]);
+                        setBulkEmails('');
+                      }}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={uploadMethod === 'excel' ? handleBulkUploadFromExcel : handleManualBulkUpload}
+                      disabled={
+                        uploadingBulk || 
+                        parsingExcel ||
+                        (uploadMethod === 'excel' && parsedData.length === 0) ||
+                        (uploadMethod === 'manual' && !bulkEmails.trim()) ||
+                        !bulkBranch.trim()
+                      }
+                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                    >
+                      {uploadingBulk || parsingExcel ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          {parsingExcel ? 'Parsing...' : 'Uploading...'}
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-4 h-4 mr-2" />
+                          {uploadMethod === 'excel' ? `Upload ${parsedData.length} Records` : 'Upload Emails'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rest of the component remains the same */}
+        {/* ... (Stats and Filters, Bulk Actions, Requests List, Pagination) */}
+        
         {/* Stats and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
           {/* Stats Card */}
@@ -378,7 +1529,6 @@ export default function StaffSignupRequests() {
                   </p>
                 )}
               </div>
-             
             </div>
           </div>
 
@@ -394,7 +1544,6 @@ export default function StaffSignupRequests() {
               </span>
             </div>
             
-            {/* Dropdown Button */}
             <div className="relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -413,10 +1562,8 @@ export default function StaffSignupRequests() {
                 />
               </button>
 
-              {/* Dropdown Menu */}
               {isDropdownOpen && (
                 <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
-                  {/* Search Input */}
                   <div className="p-2 border-b border-gray-200">
                     <div className="relative">
                       <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
@@ -430,9 +1577,7 @@ export default function StaffSignupRequests() {
                     </div>
                   </div>
 
-                  {/* Dropdown Options */}
                   <div className="max-h-60 overflow-y-auto">
-                    {/* All Branches Option */}
                     <button
                       onClick={() => handleBranchSelect('all')}
                       className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${
@@ -445,7 +1590,6 @@ export default function StaffSignupRequests() {
                       </div>
                     </button>
 
-                    {/* Branch Options */}
                     {filteredBranches.length > 0 ? (
                       filteredBranches.map((branch) => (
                         <button
@@ -453,7 +1597,7 @@ export default function StaffSignupRequests() {
                           onClick={() => handleBranchSelect(branch)}
                           className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${
                             selectedBranch === branch ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
-                          }`}
+                      }`}
                         >
                           <div className="flex items-center space-x-2">
                             <Building className="w-4 h-4" />
@@ -471,7 +1615,6 @@ export default function StaffSignupRequests() {
               )}
             </div>
 
-            {/* Selected Filter Info */}
             {selectedBranch !== 'all' && (
               <div className="mt-3 flex items-center justify-between">
                 <span className="text-xs text-gray-600">
@@ -514,25 +1657,27 @@ export default function StaffSignupRequests() {
                 )}
               </div>
 
-              {selectedRequests.size > 0 && (
-                <button
-                  onClick={handleBulkApprove}
-                  disabled={bulkProcessing}
-                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
-                >
-                  {bulkProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Approving {selectedRequests.size} Request(s)...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Approve Selected ({selectedRequests.size})
-                    </>
-                  )}
-                </button>
-              )}
+              <div className="flex items-center space-x-3">
+                {selectedRequests.size > 0 && (
+                  <button
+                    onClick={handleBulkProcess}
+                    disabled={bulkProcessing}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                  >
+                    {bulkProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing {selectedRequests.size} Request(s)...
+                      </>
+                    ) : (
+                      <>
+                        <Key className="w-4 h-4 mr-2" />
+                        Process Selected ({selectedRequests.size})
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -551,101 +1696,163 @@ export default function StaffSignupRequests() {
                 ? 'All staff signup requests have been processed.' 
                 : `There are no pending requests for the ${selectedBranch} branch.`}
             </p>
+            <button
+              onClick={() => setShowBulkUpload(true)}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm mt-4"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Bulk Upload Staff Emails
+            </button>
           </div>
         ) : (
           <div className="space-y-3">
-            {requests.map((request) => (
-              <div 
-                key={request.id} 
-                className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${
-                  selectedRequests.has(request.id) 
-                    ? 'border-blue-500 ring-2 ring-blue-100' 
-                    : 'border-gray-200 hover:shadow-sm'
-                }`}
-              >
-                <div className="p-5">
-                  <div className="flex items-start justify-between">
-                    {/* Selection Checkbox and Request Info */}
-                    <div className="flex-1">
-                      <div className="flex items-start space-x-4">
-                        <button
-                          onClick={() => toggleRequestSelection(request.id)}
-                          className="mt-2 flex-shrink-0"
-                        >
-                          {selectedRequests.has(request.id) ? (
-                            <CheckSquare className="w-5 h-5 text-blue-600" />
-                          ) : (
-                            <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-                          )}
-                        </button>
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0">
-                          <span className="text-white font-semibold text-lg">
-                            {request.email.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3">
-                            <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              Pending
-                            </span>
+            {requests.map((request) => {
+              const emailStatus = getEmailStatus(request.email);
+              const hasBounced = emailStatus?.status === 'bounced';
+              
+              return (
+                <div 
+                  key={request.id} 
+                  className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${
+                    selectedRequests.has(request.id) 
+                      ? 'border-blue-500 ring-2 ring-blue-100' 
+                      : hasBounced
+                      ? 'border-red-300 ring-1 ring-red-100'
+                      : request.existingUser?.exists
+                      ? 'border-amber-300 ring-1 ring-amber-100'
+                      : 'border-gray-200 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="p-5">
+                    <div className="flex items-start justify-between">
+                      {/* Selection Checkbox and Request Info */}
+                      <div className="flex-1">
+                        <div className="flex items-start space-x-4">
+                          <button
+                            onClick={() => toggleRequestSelection(request.id)}
+                            className="mt-2 flex-shrink-0"
+                          >
+                            {selectedRequests.has(request.id) ? (
+                              <CheckSquare className="w-5 h-5 text-blue-600" />
+                            ) : (
+                              <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                            )}
+                          </button>
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0 ${
+                            hasBounced
+                              ? 'bg-gradient-to-r from-red-500 to-pink-600'
+                              : request.existingUser?.exists 
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-600'
+                              : 'bg-gradient-to-r from-blue-500 to-indigo-600'
+                          }`}>
+                            {hasBounced ? (
+                              <AlertCircle className="w-6 h-6 text-white" />
+                            ) : request.existingUser?.exists ? (
+                              <AlertTriangle className="w-6 h-6 text-white" />
+                            ) : (
+                              <span className="text-white font-semibold text-lg">
+                                {request.email.charAt(0).toUpperCase()}
+                              </span>
+                            )}
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 mt-2">
-                            <div className="flex items-center space-x-1.5">
-                              <Building className="w-4 h-4 text-gray-400" />
-                              <span>{getBranchDisplayName(request.branch)}</span>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                hasBounced
+                                  ? 'bg-red-100 text-red-800'
+                                  : request.existingUser?.exists
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}>
+                                {hasBounced ? 'Email Bounced' : request.existingUser?.exists ? 'User Exists' : 'Pending'}
+                              </span>
+                              {emailStatus && (
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(emailStatus.status)}`}>
+                                  {emailStatus.status}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center space-x-1.5">
-                              <Clock className="w-4 h-4 text-gray-400" />
-                              <span>{new Date(request.created_at).toLocaleString()}</span>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 mt-2">
+                              <div className="flex items-center space-x-1.5">
+                                <Building className="w-4 h-4 text-gray-400" />
+                                <span>{getBranchDisplayName(request.branch)}</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <Clock className="w-4 h-4 text-gray-400" />
+                                <span>{new Date(request.created_at).toLocaleString()}</span>
+                              </div>
+                              {request.existingUser?.exists && (
+                                <div className="flex items-center space-x-1.5 text-amber-600">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  <span>User already in system</span>
+                                </div>
+                              )}
+                              {hasBounced && (
+                                <div className="flex items-center space-x-1.5 text-red-600">
+                                  <AlertCircle className="w-4 h-4" />
+                                  <span>Email bounced: {emailStatus.bounceReason}</span>
+                                </div>
+                              )}
+                              {emailStatus && emailStatus.sentAt && (
+                                <div className="flex items-center space-x-1.5 text-gray-500">
+                                  <Mail className="w-4 h-4" />
+                                  <span>Sent: {new Date(emailStatus.sentAt).toLocaleDateString()}</span>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center space-x-2 ml-4">
-                      <button
-                        onClick={() => handleReject(request.id, request.email)}
-                        disabled={processingId === request.id || bulkProcessing}
-                        className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs"
-                      >
-                        {processingId === request.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                            Reject
-                          </>
-                        )}
-                      </button>
-                      
-                      <button
-                        onClick={() => handleApprove(request.id, request.email, request.branch)}
-                        disabled={processingId === request.id || bulkProcessing}
-                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
-                      >
-                        {processingId === request.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Approve
-                          </>
-                        )}
-                      </button>
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={() => handleReject(request.id, request.email)}
+                          disabled={processingId === request.id || bulkProcessing}
+                          className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs"
+                        >
+                          {processingId === request.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Processing
+                            </>
+                          ) : (
+                            <>
+                              <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                              Reject
+                            </>
+                          )}
+                        </button>
+                        
+                        <button
+                          onClick={() => handleProcessRequest(request.id, request.email, request.branch)}
+                          disabled={processingId === request.id || bulkProcessing || hasBounced}
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
+                        >
+                          {processingId === request.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Processing
+                            </>
+                          ) : hasBounced ? (
+                            <>
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              Email Bounced
+                            </>
+                          ) : (
+                            <>
+                              <Key className="w-4 h-4 mr-2" />
+                              {request.existingUser?.exists ? 'Update & Resend' : 'Approve'}
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
