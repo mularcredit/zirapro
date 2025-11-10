@@ -1227,11 +1227,11 @@ export default function StaffSignupRequests() {
               <h1 className="text-3xl font-bold text-gray-900">Staff Signup Requests</h1>
               <p className="text-gray-600">Review and manage pending staff account requests</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex text-xs items-center space-x-3">
               <button
                 onClick={checkBouncedEmails}
                 disabled={checkingBounces}
-                className="inline-flex items-center px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                className="inline-flex items-center text-xs px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
               >
                 {checkingBounces ? (
                   <>
@@ -1248,7 +1248,7 @@ export default function StaffSignupRequests() {
               <button
                 onClick={checkAllExistingUsers}
                 disabled={checkingExistingUsers || requests.length === 0}
-                className="inline-flex items-center px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                className="inline-flex text-xs items-center px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
               >
                 {checkingExistingUsers ? (
                   <>
@@ -1264,7 +1264,7 @@ export default function StaffSignupRequests() {
               </button>
               <button
                 onClick={() => setShowBulkUpload(true)}
-                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm shadow-sm"
+                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-xs shadow-sm"
               >
                 <Upload className="w-4 h-4 mr-2" />
                 Bulk Upload

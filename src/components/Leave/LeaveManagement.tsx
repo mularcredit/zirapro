@@ -328,7 +328,7 @@ const LeaveApplicationDetails = ({ application, onClose }: { application: LeaveA
             
             <div>
               <p className="text-xs text-gray-500">Reason</p>
-              <p className="font-medium text-xs whitespace-pre-line">{application.Reason}</p>
+              <p className="font-medium text-sm whitespace-pre-line">{application.Reason}</p>
             </div>
 
             {application.recommendation_notes && (

@@ -141,6 +141,13 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
   const [showUploadResults, setShowUploadResults] = useState(false);
   const [bulkUploadPreview, setBulkUploadPreview] = useState<BulkUploadPreview | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({
+    processed: 0,
+    total: 0,
+    success: 0,
+    errors: 0
+  });
 
   // Fetch data from Supabase
   useEffect(() => {
@@ -255,7 +262,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     });
   };
 
-  // Save edited data to Supabase - FIXED VERSION
+  // Save edited data to Supabase
   const saveEditing = async (id: string) => {
     try {
       setLoading(true);
@@ -266,7 +273,6 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
         return;
       }
       
-      // Use the database ID for updating
       const { error } = await supabase
         .from('employees')
         .update(editableData)
@@ -390,25 +396,33 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     });
   };
 
-  // BULK UPLOAD WITH AUTOMATIC UPDATES
+  // FIXED: Bulk Upload with proper create/update logic
   const handleBulkUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
+    setShowUploadModal(true);
 
     try {
       const data = await readExcelFile(file);
       const previewData = await generateBulkUploadPreview(data);
       
       setBulkUploadPreview(previewData);
+      setUploadProgress({
+        processed: 0,
+        total: previewData.operations.length,
+        success: 0,
+        errors: 0
+      });
       
-      // AUTOMATICALLY EXECUTE THE UPLOAD AFTER PREVIEW
-      await executeBulkUpload();
+      // Automatically execute the upload after preview
+      await executeBulkUpload(previewData);
       
     } catch (error) {
       console.error('Bulk upload error:', error);
       toast.error('Failed to process bulk upload. Please check the file format.');
+      setShowUploadModal(false);
     } finally {
       setIsUploading(false);
       if (event.target) event.target.value = ''; // Reset file input
@@ -472,12 +486,22 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
           continue;
         }
 
-        // Check if employee exists
-        const { data: existingEmployee } = await supabase
+        // Check if employee exists using Employee Number
+        const { data: existingEmployee, error } = await supabase
           .from('employees')
           .select('*')
           .eq('Employee Number', employeeData["Employee Number"])
-          .single();
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error checking existing employee:', error);
+          operations.push({
+            employee: employeeData,
+            operation: 'error',
+            error: 'Database error while checking existing record'
+          });
+          continue;
+        }
 
         if (existingEmployee) {
           operations.push({
@@ -515,63 +539,117 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     };
   };
 
-  // AUTOMATIC UPLOAD EXECUTION - NO BUTTON NEEDED
-  const executeBulkUpload = async () => {
-    if (!bulkUploadPreview) return;
+  // FIXED: Upload execution with proper error handling and progress
+  const executeBulkUpload = async (previewData: BulkUploadPreview) => {
+    if (!previewData) return;
 
     setIsUploading(true);
     let successCount = 0;
     let errorCount = 0;
 
     try {
-      for (const operation of bulkUploadPreview.operations) {
+      for (let i = 0; i < previewData.operations.length; i++) {
+        const operation = previewData.operations[i];
+        
+        // Update progress
+        setUploadProgress(prev => ({
+          ...prev,
+          processed: i + 1
+        }));
+
         if (operation.operation === 'error') {
           errorCount++;
+          setUploadProgress(prev => ({
+            ...prev,
+            errors: prev.errors + 1
+          }));
           continue;
         }
 
         try {
           if (operation.operation === 'update') {
+            // Update existing employee using Employee Number
             const { error } = await supabase
               .from('employees')
               .update(operation.employee)
               .eq('Employee Number', operation.employee["Employee Number"]);
             
-            if (error) throw error;
+            if (error) {
+              console.error('Update error:', error);
+              throw error;
+            }
             successCount++;
+            setUploadProgress(prev => ({
+              ...prev,
+              success: prev.success + 1
+            }));
           } else if (operation.operation === 'create') {
+            // Insert new employee
             const { error } = await supabase
               .from('employees')
               .insert([operation.employee]);
             
-            if (error) throw error;
+            if (error) {
+              console.error('Create error:', error);
+              throw error;
+            }
             successCount++;
+            setUploadProgress(prev => ({
+              ...prev,
+              success: prev.success + 1
+            }));
           }
         } catch (error) {
           errorCount++;
+          setUploadProgress(prev => ({
+            ...prev,
+            errors: prev.errors + 1
+          }));
           console.error('Error processing employee:', operation.employee["Employee Number"], error);
         }
       }
 
-      // AUTOMATICALLY CLOSE PREVIEW AND REFRESH DATA
-      setBulkUploadPreview(null);
-      
       // Refresh the data
       await fetchData();
       
-      // Show success message
+      // Show success message and auto-close modal after delay
       if (errorCount === 0) {
         toast.success(`Bulk upload completed successfully: ${successCount} records processed`);
       } else {
         toast.success(`Bulk upload completed: ${successCount} successful, ${errorCount} errors`);
       }
       
+      // Auto-close modal after 2 seconds
+      setTimeout(() => {
+        setShowUploadModal(false);
+        setBulkUploadPreview(null);
+        setUploadProgress({
+          processed: 0,
+          total: 0,
+          success: 0,
+          errors: 0
+        });
+      }, 2000);
+      
     } catch (error) {
       console.error('Bulk upload execution error:', error);
       toast.error('Failed to execute bulk upload.');
+      setShowUploadModal(false);
     } finally {
       setIsUploading(false);
     }
+  };
+
+  // FIXED: Manual close function for the upload modal
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setBulkUploadPreview(null);
+    setUploadProgress({
+      processed: 0,
+      total: 0,
+      success: 0,
+      errors: 0
+    });
   };
 
   const downloadTemplate = () => {
@@ -662,30 +740,91 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     return [...new Set(values)];
   };
 
-  // SIMPLIFIED UPLOAD MODAL - JUST SHOWS PROGRESS
+  // FIXED: Upload Progress Modal with close button and proper state management
   const UploadProgressModal = () => {
-    if (!bulkUploadPreview) return null;
+    if (!showUploadModal) return null;
 
-    const { summary } = bulkUploadPreview;
+    const progressPercentage = uploadProgress.total > 0 
+      ? (uploadProgress.processed / uploadProgress.total) * 100 
+      : 0;
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-lg max-w-md w-full">
-          <div className="p-6 border-b border-gray-200">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-lg font-semibold">Processing Bulk Upload</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              {summary.create} new employees, {summary.update} updates, {summary.error} errors
-            </p>
+            <button
+              onClick={closeUploadModal}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              disabled={isUploading}
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
           
           <div className="p-6">
+            {bulkUploadPreview && (
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  {bulkUploadPreview.summary.create} new employees, {bulkUploadPreview.summary.update} updates, {bulkUploadPreview.summary.error} errors
+                </p>
+                
+                {/* Progress Bar */}
+                <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div 
+                    className="bg-emerald-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progressPercentage}%` }}
+                  ></div>
+                </div>
+                
+                <div className="flex justify-between text-xs text-gray-500 mb-4">
+                  <span>Processed: {uploadProgress.processed}/{uploadProgress.total}</span>
+                  <span>{Math.round(progressPercentage)}%</span>
+                </div>
+
+                {/* Success/Error Counts */}
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Success: {uploadProgress.success}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-red-600">
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Errors: {uploadProgress.errors}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="flex items-center justify-center gap-3">
-              <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
-              <span className="text-sm text-gray-700">
-                {isUploading ? 'Applying changes to database...' : 'Processing completed'}
-              </span>
+              {isUploading ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
+                  <span className="text-sm text-gray-700">
+                    Applying changes to database...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-6 h-6 text-green-500" />
+                  <span className="text-sm text-gray-700">
+                    Processing completed! Closing automatically...
+                  </span>
+                </>
+              )}
             </div>
           </div>
+
+          {!isUploading && (
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={closeUploadModal}
+                className="w-full px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
