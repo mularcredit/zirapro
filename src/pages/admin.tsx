@@ -28,7 +28,11 @@ import {
   X,
   AlertCircle,
   Eye,
-  Table
+  Table,
+  Radio,
+  Wifi,
+  WifiOff,
+  Bell
 } from 'lucide-react';
 
 // You'll need to install these dependencies:
@@ -56,17 +60,94 @@ export default function StaffSignupRequests() {
   const [uploadingBulk, setUploadingBulk] = useState(false);
   const [emailLogs, setEmailLogs] = useState(new Map());
   const [checkingBounces, setCheckingBounces] = useState(false);
-  const [uploadMethod, setUploadMethod] = useState('excel'); // 'excel' or 'manual'
+  const [uploadMethod, setUploadMethod] = useState('excel');
   const [excelFile, setExcelFile] = useState(null);
   const [parsedData, setParsedData] = useState([]);
   const [parsingExcel, setParsingExcel] = useState(false);
+  const [webhookEnabled, setWebhookEnabled] = useState(true);
+  const [webhookStats, setWebhookStats] = useState({
+    total: 0,
+    bounced: 0,
+    delivered: 0,
+    sent: 0,
+    lastUpdate: null
+  });
+  const [filterBounced, setFilterBounced] = useState(false);
 
   const itemsPerPage = 100;
 
   useEffect(() => {
     fetchRequests();
     fetchBranches();
+    setupRealtimeSubscription();
   }, [currentPage, selectedBranch]);
+
+  // Set up real-time subscription for email logs
+  const setupRealtimeSubscription = () => {
+    const subscription = supabase
+      .channel('email_logs_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'email_logs',
+        },
+        (payload) => {
+          console.log('Real-time email log update:', payload);
+          
+          // Update local email logs state
+          const updatedLogs = new Map(emailLogs);
+          const emailKey = payload.new.email.toLowerCase();
+          
+          updatedLogs.set(emailKey, {
+            ...payload.new,
+            request_id: payload.new.request_id ? payload.new.request_id.toString() : null
+          });
+          
+          setEmailLogs(updatedLogs);
+          
+          // Update webhook stats
+          updateWebhookStats(updatedLogs);
+          
+          // Show notification for new bounces
+          if (payload.new.status === 'bounced' && payload.eventType === 'UPDATE') {
+            toast.error(`Email bounced for ${payload.new.email}: ${payload.new.bounce_reason || 'Unknown reason'}`, {
+              duration: 6000,
+              icon: '🚫'
+            });
+            
+            // Refresh requests to update UI
+            fetchRequests();
+          }
+          
+          // Show notification for deliveries
+          if (payload.new.status === 'delivered' && payload.eventType === 'UPDATE') {
+            toast.success(`Email delivered to ${payload.new.email}`, {
+              duration: 3000,
+              icon: '✅'
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
+
+  // Update webhook statistics
+  const updateWebhookStats = (logsMap = emailLogs) => {
+    const logsArray = Array.from(logsMap.values());
+    setWebhookStats({
+      total: logsArray.length,
+      bounced: logsArray.filter(log => log.status === 'bounced').length,
+      delivered: logsArray.filter(log => log.status === 'delivered').length,
+      sent: logsArray.filter(log => log.status === 'sent').length,
+      lastUpdate: new Date()
+    });
+  };
 
   // Fetch email logs for bounce detection
   const fetchEmailLogs = async () => {
@@ -80,7 +161,6 @@ export default function StaffSignupRequests() {
 
       const logsMap = new Map();
       data.forEach(log => {
-        // Convert request_id to string for consistent Map key usage
         const emailKey = log.email.toLowerCase();
         logsMap.set(emailKey, {
           ...log,
@@ -88,6 +168,7 @@ export default function StaffSignupRequests() {
         });
       });
       setEmailLogs(logsMap);
+      updateWebhookStats(logsMap);
     } catch (error) {
       console.error('Error fetching email logs:', error);
     }
@@ -133,7 +214,6 @@ export default function StaffSignupRequests() {
 
       if (error) throw error;
       
-      // Convert IDs to strings for consistent handling
       const requestsWithStringIds = (data || []).map(request => ({
         ...request,
         id: request.id.toString()
@@ -143,7 +223,6 @@ export default function StaffSignupRequests() {
       setTotalCount(count || 0);
       setSelectedRequests(new Set());
       
-      // Fetch email logs after requests are loaded
       await fetchEmailLogs();
     } catch (error) {
       console.error('Fetch error:', error);
@@ -156,7 +235,6 @@ export default function StaffSignupRequests() {
   // Track email sends in database
   const trackEmailSend = async (email, subject, requestId = null, resendId = null) => {
     try {
-      // Convert requestId to BigInt if it exists
       const requestIdBigInt = requestId ? parseInt(requestId, 10) : null;
       
       const { data, error } = await supabase
@@ -175,7 +253,6 @@ export default function StaffSignupRequests() {
 
       if (error) throw error;
       
-      // Update local email logs state
       if (data && data.length > 0) {
         const newLog = data[0];
         const updatedLogs = new Map(emailLogs);
@@ -184,6 +261,7 @@ export default function StaffSignupRequests() {
           request_id: newLog.request_id ? newLog.request_id.toString() : null
         });
         setEmailLogs(updatedLogs);
+        updateWebhookStats(updatedLogs);
       }
       
       return data;
@@ -209,7 +287,6 @@ export default function StaffSignupRequests() {
 
       if (error) throw error;
       
-      // Update local state
       if (data && data.length > 0) {
         const updatedLog = data[0];
         const updatedLogs = new Map(emailLogs);
@@ -218,6 +295,7 @@ export default function StaffSignupRequests() {
           request_id: updatedLog.request_id ? updatedLog.request_id.toString() : null
         });
         setEmailLogs(updatedLogs);
+        updateWebhookStats(updatedLogs);
       }
       
       return data;
@@ -366,102 +444,48 @@ export default function StaffSignupRequests() {
     }
   };
 
-  // Check for bounced emails from Resend
-  const checkBouncedEmails = async () => {
+  // Webhook-based status check
+  const checkWebhookStatus = async () => {
     setCheckingBounces(true);
     try {
-      // First, get recent email logs that are still marked as 'sent'
-      const { data: sentEmails, error } = await supabase
-        .from('email_logs')
-        .select('*')
-        .eq('status', 'sent')
-        .gte('sent_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // Last 7 days
-        .order('sent_at', { ascending: false });
-
-      if (error) throw error;
-
-      let bounceCount = 0;
-      let checkedCount = 0;
-
-      // Check each email for bounces using Resend API
-      for (const emailLog of sentEmails || []) {
-        try {
-          if (emailLog.resend_id) {
-            // Use Resend API to check email status
-            const response = await fetch(`https://api.resend.com/emails/${emailLog.resend_id}`, {
-              method: 'GET',
-              headers: {
-                'Authorization': `Bearer ${import.meta.env.VITE_RESEND_API_KEY}`,
-                'Content-Type': 'application/json'
-              }
-            });
-
-            if (response.ok) {
-              const emailData = await response.json();
-              checkedCount++;
-
-              // Check if email bounced
-              if (emailData.last_event === 'bounced' || emailData.last_event === 'rejected') {
-                await updateEmailStatus(
-                  emailLog.email, 
-                  'bounced', 
-                  emailData.rejection_reason || 'Unknown bounce reason'
-                );
-                bounceCount++;
-                
-                // Show warning for bounced emails
-                toast.error(`Email bounced for ${emailLog.email}: ${emailData.rejection_reason || 'Unknown reason'}`, {
-                  duration: 6000
-                });
-              } else if (emailData.last_event === 'delivered') {
-                await updateEmailStatus(emailLog.email, 'delivered');
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Error checking email ${emailLog.email}:`, error);
-        }
-      }
-
-      // Refresh email logs
       await fetchEmailLogs();
-
+      await fetchRequests();
+      
+      const bounceCount = webhookStats.bounced;
+      
       if (bounceCount > 0) {
-        toast.error(`Found ${bounceCount} bounced emails`);
+        toast.info(`Webhooks detected ${bounceCount} bounced emails`);
       } else {
-        toast.success(`Checked ${checkedCount} emails - no bounces found`);
+        toast.success('No bounced emails detected via webhooks');
       }
     } catch (error) {
-      console.error('Error checking bounced emails:', error);
-      toast.error('Failed to check for bounced emails');
+      console.error('Error checking webhook status:', error);
+      toast.error('Failed to check email status');
     } finally {
       setCheckingBounces(false);
     }
   };
 
   const generateRandomPassword = () => {
-  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
-  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const numbers = '0123456789';
-  const symbols = '!@#$%&*';
-  const allChars = lowercase + uppercase + numbers + symbols;
-  
-  let password = '';
-  
-  // Ensure we have at least one of each required character type
-  password += lowercase[Math.floor(Math.random() * lowercase.length)];
-  password += uppercase[Math.floor(Math.random() * uppercase.length)];
-  password += numbers[Math.floor(Math.random() * numbers.length)];
-  password += symbols[Math.floor(Math.random() * symbols.length)];
-  
-  // Add remaining characters
-  for (let i = 4; i < 12; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)];
-  }
-  
-  // Shuffle to mix the characters
-  return password.split('').sort(() => 0.5 - Math.random()).join('');
-};
+    const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+    const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const numbers = '0123456789';
+    const symbols = '!@#$%&*';
+    const allChars = lowercase + uppercase + numbers + symbols;
+    
+    let password = '';
+    
+    password += lowercase[Math.floor(Math.random() * lowercase.length)];
+    password += uppercase[Math.floor(Math.random() * uppercase.length)];
+    password += numbers[Math.floor(Math.random() * numbers.length)];
+    password += symbols[Math.floor(Math.random() * symbols.length)];
+    
+    for (let i = 4; i < 12; i++) {
+      password += allChars[Math.floor(Math.random() * allChars.length)];
+    }
+    
+    return password.split('').sort(() => 0.5 - Math.random()).join('');
+  };
 
   const sendWelcomeEmail = async (email, tempPassword, branch, isResend = false, requestId = null) => {
     try {
@@ -530,35 +554,29 @@ export default function StaffSignupRequests() {
 
       const result = await response.json();
       
-      // Track the email send with Resend ID if available
       await trackEmailSend(
         email, 
         subject, 
         requestId, 
-        result.id || null // Resend email ID for tracking
+        result.id || null
       );
 
       return result;
     } catch (error) {
       console.error('Email sending error:', error);
-      
-      // Track failed email attempt
       await trackEmailSend(email, subject, requestId, null);
       throw error;
     }
   };
 
-  // Unified function to handle both new users and existing users
   const handleProcessRequest = async (requestId, email, branch) => {
     setProcessingId(requestId);
     const tempPassword = generateRandomPassword();
     
     try {
-      // Check if user exists
       const existingUserCheck = await checkExistingUser(email);
       
       if (existingUserCheck.exists) {
-        // User exists - update their account and resend credentials
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
           existingUserCheck.user.id,
           { 
@@ -574,21 +592,17 @@ export default function StaffSignupRequests() {
 
         if (updateError) throw updateError;
 
-        // Delete the signup request
         const { error: deleteError } = await supabase
           .from('staff_signup_requests')
           .delete()
-          .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
+          .eq('id', parseInt(requestId, 10));
 
         if (deleteError) throw deleteError;
 
-        // Send credentials email
         await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch', true, requestId);
-
         toast.success(`Credentials updated and resent to ${email}`);
         
       } else {
-        // User doesn't exist - create new account
         const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
           email,
           password: tempPassword,
@@ -600,7 +614,6 @@ export default function StaffSignupRequests() {
         });
 
         if (userError) {
-          // Handle race condition where user might have been created by another process
           if (userError.message.includes('already registered') || userError.status === 422) {
             toast.error(`User ${email} was just created by another process. Please try again.`);
             return;
@@ -608,17 +621,14 @@ export default function StaffSignupRequests() {
           throw userError;
         }
 
-        // Delete the request
         const { error: deleteError } = await supabase
           .from('staff_signup_requests')
           .delete()
-          .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
+          .eq('id', parseInt(requestId, 10));
 
         if (deleteError) throw deleteError;
 
-        // Send welcome email
         await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch', false, requestId);
-
         toast.success(`Account created! Welcome email sent to ${email}`);
       }
 
@@ -634,7 +644,6 @@ export default function StaffSignupRequests() {
     }
   };
 
-  // Bulk process requests - handles both new and existing users
   const handleBulkProcess = async () => {
     if (selectedRequests.size === 0) {
       toast.error('Please select at least one request to process');
@@ -649,7 +658,6 @@ export default function StaffSignupRequests() {
     let createdNewCount = 0;
 
     try {
-      // Get all auth users for efficient checking
       const allAuthUsers = await getAllAuthUsers();
       const authUserMap = new Map();
       allAuthUsers.forEach(user => {
@@ -667,7 +675,6 @@ export default function StaffSignupRequests() {
           const existingUser = authUserMap.get(normalizedEmail);
 
           if (existingUser) {
-            // Update existing user
             const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
               existingUser.id,
               { 
@@ -684,7 +691,6 @@ export default function StaffSignupRequests() {
             if (updateError) throw updateError;
             updatedExistingCount++;
           } else {
-            // Create new user
             const { error: userError } = await supabaseAdmin.auth.admin.createUser({
               email: request.email,
               password: tempPassword,
@@ -697,8 +703,6 @@ export default function StaffSignupRequests() {
 
             if (userError) {
               if (userError.message.includes('already registered') || userError.status === 422) {
-                // Skip if user was just created by another process
-                console.log(`User ${request.email} already exists, skipping`);
                 continue;
               }
               throw userError;
@@ -706,17 +710,14 @@ export default function StaffSignupRequests() {
             createdNewCount++;
           }
 
-          // Delete the request
           const { error: deleteError } = await supabase
             .from('staff_signup_requests')
             .delete()
-            .eq('id', parseInt(request.id, 10)); // Convert back to number for DB
+            .eq('id', parseInt(request.id, 10));
 
           if (deleteError) throw deleteError;
 
-          // Send email
           await sendWelcomeEmail(request.email, tempPassword, request.branch || 'Main Branch', !!existingUser, request.id);
-          
           successCount++;
         } catch (error) {
           console.error(`Failed to process request ${request.id}:`, error);
@@ -724,7 +725,6 @@ export default function StaffSignupRequests() {
         }
       }
 
-      // Show comprehensive results
       let message = `Successfully processed ${successCount} request(s)`;
       if (createdNewCount > 0) {
         message += ` - ${createdNewCount} new accounts created`;
@@ -753,7 +753,6 @@ export default function StaffSignupRequests() {
 
   // Download Excel template
   const downloadExcelTemplate = () => {
-    // Create sample data for the template
     const templateData = [
       {
         'Email': 'john.doe@company.com',
@@ -772,19 +771,16 @@ export default function StaffSignupRequests() {
       }
     ];
 
-    // Create workbook and worksheet
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(templateData);
     
-    // Set column widths
     const colWidths = [
-      { wch: 25 }, // Email
-      { wch: 20 }, // Branch
-      { wch: 30 }  // Notes
+      { wch: 25 },
+      { wch: 20 },
+      { wch: 30 }
     ];
     ws['!cols'] = colWidths;
 
-    // Add instructions worksheet
     const instructionsData = [
       ['Instructions for Bulk Upload:'],
       [''],
@@ -807,15 +803,13 @@ export default function StaffSignupRequests() {
     
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
     const instructionColWidths = [
-      { wch: 50 } // Instructions column
+      { wch: 50 }
     ];
     wsInstructions['!cols'] = instructionColWidths;
 
-    // Add worksheets to workbook
     XLSX.utils.book_append_sheet(wb, ws, 'Staff Emails');
     XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
 
-    // Generate and download the file
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/octet-stream' });
     saveAs(blob, 'staff_bulk_upload_template.xlsx');
@@ -831,11 +825,9 @@ export default function StaffSignupRequests() {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         
-        // Get first worksheet
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
-        // Validate and format the data
         const validatedData = jsonData
           .map((row, index) => {
             const email = row['Email'] || row['email'];
@@ -846,7 +838,6 @@ export default function StaffSignupRequests() {
               return null;
             }
             
-            // Basic email validation
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
               console.warn(`Row ${index + 2}: Invalid email format - ${email}`);
@@ -890,13 +881,11 @@ export default function StaffSignupRequests() {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Check file type
     if (!file.name.match(/\.(xlsx|xls)$/)) {
       toast.error('Please upload a valid Excel file (.xlsx or .xls)');
       return;
     }
 
-    // Check file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       toast.error('File size must be less than 5MB');
       return;
@@ -924,7 +913,6 @@ export default function StaffSignupRequests() {
       let duplicateCount = 0;
       let errorCount = 0;
 
-      // Check for existing pending requests to avoid duplicates
       const { data: existingRequests, error: fetchError } = await supabase
         .from('staff_signup_requests')
         .select('email')
@@ -936,12 +924,10 @@ export default function StaffSignupRequests() {
         (existingRequests || []).map(req => req.email.toLowerCase())
       );
 
-      // Insert each record
       for (const record of parsedData) {
         try {
           const finalBranch = record.branch || bulkBranch;
           
-          // Skip if already exists in pending requests
           if (existingEmails.has(record.email.toLowerCase())) {
             duplicateCount++;
             continue;
@@ -973,7 +959,6 @@ export default function StaffSignupRequests() {
         }
       }
 
-      // Show results
       let message = `Successfully added ${successCount} staff records`;
       if (duplicateCount > 0) {
         message += ` - ${duplicateCount} duplicates skipped`;
@@ -984,7 +969,6 @@ export default function StaffSignupRequests() {
 
       toast.success(message);
 
-      // Reset and refresh
       setExcelFile(null);
       setParsedData([]);
       setShowBulkUpload(false);
@@ -999,7 +983,7 @@ export default function StaffSignupRequests() {
     }
   };
 
-  // Handle manual bulk upload (existing text-based method)
+  // Handle manual bulk upload
   const handleManualBulkUpload = async () => {
     if (!bulkEmails.trim()) {
       toast.error('Please enter at least one email address');
@@ -1014,12 +998,10 @@ export default function StaffSignupRequests() {
     setUploadingBulk(true);
 
     try {
-      // Parse emails - support comma, semicolon, or newline separated
       const emailList = bulkEmails
         .split(/[\n,;]+/)
         .map(email => email.trim())
         .filter(email => {
-          // Basic email validation
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           return email && emailRegex.test(email);
         });
@@ -1033,7 +1015,6 @@ export default function StaffSignupRequests() {
       let duplicateCount = 0;
       let errorCount = 0;
 
-      // Check for existing pending requests to avoid duplicates
       const { data: existingRequests, error: fetchError } = await supabase
         .from('staff_signup_requests')
         .select('email')
@@ -1045,10 +1026,8 @@ export default function StaffSignupRequests() {
         (existingRequests || []).map(req => req.email.toLowerCase())
       );
 
-      // Insert each email as a separate signup request
       for (const email of emailList) {
         try {
-          // Skip if already exists in pending requests
           if (existingEmails.has(email.toLowerCase())) {
             duplicateCount++;
             continue;
@@ -1066,7 +1045,6 @@ export default function StaffSignupRequests() {
             ]);
 
           if (insertError) {
-            // If it's a duplicate error, count as duplicate
             if (insertError.code === '23505') {
               duplicateCount++;
             } else {
@@ -1081,7 +1059,6 @@ export default function StaffSignupRequests() {
         }
       }
 
-      // Show results
       let message = `Successfully added ${successCount} signup request(s)`;
       if (duplicateCount > 0) {
         message += ` - ${duplicateCount} duplicates skipped`;
@@ -1092,7 +1069,6 @@ export default function StaffSignupRequests() {
 
       toast.success(message);
 
-      // Reset form and refresh data
       setBulkEmails('');
       setShowBulkUpload(false);
       fetchRequests();
@@ -1115,17 +1091,19 @@ export default function StaffSignupRequests() {
       status: log.status,
       bounceReason: log.bounce_reason,
       sentAt: log.sent_at,
-      bouncedAt: log.bounced_at
+      bouncedAt: log.bounced_at,
+      lastWebhookEvent: log.last_webhook_event,
+      webhookReceivedAt: log.webhook_received_at
     };
   };
 
   // Get status badge color
   const getStatusBadgeColor = (status) => {
     switch (status) {
-      case 'bounced': return 'bg-red-100 text-red-800';
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'sent': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'bounced': return 'bg-red-100 text-red-800 border border-red-200';
+      case 'delivered': return 'bg-green-100 text-green-800 border border-green-200';
+      case 'sent': return 'bg-blue-100 text-blue-800 border border-blue-200';
+      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
@@ -1135,7 +1113,7 @@ export default function StaffSignupRequests() {
       const { error } = await supabase
         .from('staff_signup_requests')
         .delete()
-        .eq('id', parseInt(requestId, 10)); // Convert back to number for DB
+        .eq('id', parseInt(requestId, 10));
 
       if (error) throw error;
 
@@ -1202,6 +1180,11 @@ export default function StaffSignupRequests() {
     return branch || 'No Branch Assigned';
   };
 
+  // Filter requests based on bounce filter
+  const filteredRequests = filterBounced 
+    ? requests.filter(request => getEmailStatus(request.email)?.status === 'bounced')
+    : requests;
+
   if (loading && requests.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
@@ -1229,19 +1212,19 @@ export default function StaffSignupRequests() {
             </div>
             <div className="flex text-xs items-center space-x-3">
               <button
-                onClick={checkBouncedEmails}
+                onClick={checkWebhookStatus}
                 disabled={checkingBounces}
-                className="inline-flex items-center text-xs px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                className="inline-flex items-center text-xs px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
               >
                 {checkingBounces ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Checking Bounces...
+                    Checking Status...
                   </>
                 ) : (
                   <>
-                    <AlertCircle className="w-4 h-4 mr-2" />
-                    Check Bounced Emails
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh Email Status
                   </>
                 )}
               </button>
@@ -1269,6 +1252,57 @@ export default function StaffSignupRequests() {
                 <Upload className="w-4 h-4 mr-2" />
                 Bulk Upload
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Webhook Status Panel */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className={`flex items-center space-x-2 ${webhookEnabled ? 'text-green-600' : 'text-red-600'}`}>
+                {webhookEnabled ? (
+                  <>
+                    <Wifi className="w-5 h-5" />
+                    <span className="font-medium text-sm">Webhook Active</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-5 h-5" />
+                    <span className="font-medium text-sm">Webhook Offline</span>
+                  </>
+                )}
+              </div>
+              <div className="h-4 w-px bg-blue-300"></div>
+              <div className="flex items-center space-x-4 text-xs">
+                <span className="text-gray-600">Total: <strong>{webhookStats.total}</strong></span>
+                <span className="text-green-600">Delivered: <strong>{webhookStats.delivered}</strong></span>
+                <span className="text-red-600">Bounced: <strong>{webhookStats.bounced}</strong></span>
+                <span className="text-blue-600">Sent: <strong>{webhookStats.sent}</strong></span>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setFilterBounced(!filterBounced)}
+                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                  filterBounced 
+                    ? 'bg-red-100 text-red-800 border border-red-300' 
+                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <AlertCircle className="w-4 h-4" />
+                <span>Show Bounced Only</span>
+                {filterBounced && webhookStats.bounced > 0 && (
+                  <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                    {webhookStats.bounced}
+                  </span>
+                )}
+              </button>
+              {webhookStats.lastUpdate && (
+                <span className="text-xs text-gray-500">
+                  Updated: {webhookStats.lastUpdate.toLocaleTimeString()}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1509,9 +1543,6 @@ mike.wilson@company.com"
           </div>
         )}
 
-        {/* Rest of the component remains the same */}
-        {/* ... (Stats and Filters, Bulk Actions, Requests List, Pagination) */}
-        
         {/* Stats and Filters */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
           {/* Stats Card */}
@@ -1526,6 +1557,11 @@ mike.wilson@company.com"
                 {selectedRequests.size > 0 && (
                   <p className="text-xs text-blue-600 font-medium mt-1">
                     {selectedRequests.size} selected
+                  </p>
+                )}
+                {filterBounced && (
+                  <p className="text-xs text-red-600 font-medium mt-1">
+                    Showing {filteredRequests.length} bounced emails
                   </p>
                 )}
               </div>
@@ -1632,7 +1668,7 @@ mike.wilson@company.com"
         </div>
 
         {/* Bulk Actions */}
-        {requests.length > 0 && (
+        {filteredRequests.length > 0 && (
           <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 mb-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -1640,13 +1676,13 @@ mike.wilson@company.com"
                   onClick={toggleSelectAll}
                   className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
                 >
-                  {selectedRequests.size === requests.length ? (
+                  {selectedRequests.size === filteredRequests.length ? (
                     <CheckSquare className="w-5 h-5 text-blue-600" />
                   ) : (
                     <Square className="w-5 h-5 text-gray-400" />
                   )}
                   <span>
-                    {selectedRequests.size === requests.length ? 'Deselect All' : 'Select All'}
+                    {selectedRequests.size === filteredRequests.length ? 'Deselect All' : 'Select All'}
                   </span>
                 </button>
                 
@@ -1683,30 +1719,49 @@ mike.wilson@company.com"
         )}
 
         {/* Requests List */}
-        {requests.length === 0 ? (
+        {filteredRequests.length === 0 ? (
           <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-12 text-center">
             <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <FileText className="w-6 h-6 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {selectedBranch === 'all' ? 'No pending requests' : `No pending requests for ${selectedBranch}`}
+              {filterBounced 
+                ? 'No bounced emails found' 
+                : selectedBranch === 'all' 
+                  ? 'No pending requests' 
+                  : `No pending requests for ${selectedBranch}`
+              }
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              {selectedBranch === 'all' 
-                ? 'All staff signup requests have been processed.' 
-                : `There are no pending requests for the ${selectedBranch} branch.`}
+              {filterBounced 
+                ? 'All emails have been delivered successfully or are still in transit.'
+                : selectedBranch === 'all' 
+                  ? 'All staff signup requests have been processed.' 
+                  : `There are no pending requests for the ${selectedBranch} branch.`
+              }
             </p>
-            <button
-              onClick={() => setShowBulkUpload(true)}
-              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm mt-4"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Bulk Upload Staff Emails
-            </button>
+            {filterBounced && (
+              <button
+                onClick={() => setFilterBounced(false)}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 font-medium text-sm mt-4"
+              >
+                <Eye className="w-4 h-4 mr-2" />
+                Show All Requests
+              </button>
+            )}
+            {!filterBounced && (
+              <button
+                onClick={() => setShowBulkUpload(true)}
+                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm mt-4"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Bulk Upload Staff Emails
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {requests.map((request) => {
+            {filteredRequests.map((request) => {
               const emailStatus = getEmailStatus(request.email);
               const hasBounced = emailStatus?.status === 'bounced';
               
@@ -1760,16 +1815,21 @@ mike.wilson@company.com"
                               <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                 hasBounced
-                                  ? 'bg-red-100 text-red-800'
+                                  ? 'bg-red-100 text-red-800 border border-red-200'
                                   : request.existingUser?.exists
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-blue-100 text-blue-800'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : 'bg-blue-100 text-blue-800 border border-blue-200'
                               }`}>
                                 {hasBounced ? 'Email Bounced' : request.existingUser?.exists ? 'User Exists' : 'Pending'}
                               </span>
                               {emailStatus && (
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(emailStatus.status)}`}>
                                   {emailStatus.status}
+                                  {emailStatus.lastWebhookEvent && (
+                                    <span className="ml-1 text-xs opacity-75">
+                                      ({emailStatus.lastWebhookEvent})
+                                    </span>
+                                  )}
                                 </span>
                               )}
                             </div>
@@ -1788,19 +1848,38 @@ mike.wilson@company.com"
                                   <span>User already in system</span>
                                 </div>
                               )}
-                              {hasBounced && (
-                                <div className="flex items-center space-x-1.5 text-red-600">
-                                  <AlertCircle className="w-4 h-4" />
-                                  <span>Email bounced: {emailStatus.bounceReason}</span>
-                                </div>
-                              )}
                               {emailStatus && emailStatus.sentAt && (
                                 <div className="flex items-center space-x-1.5 text-gray-500">
                                   <Mail className="w-4 h-4" />
                                   <span>Sent: {new Date(emailStatus.sentAt).toLocaleDateString()}</span>
                                 </div>
                               )}
+                              {emailStatus && emailStatus.webhookReceivedAt && (
+                                <div className="flex items-center space-x-1.5 text-green-500">
+                                  <Radio className="w-4 h-4" />
+                                  <span>Webhook: {new Date(emailStatus.webhookReceivedAt).toLocaleTimeString()}</span>
+                                </div>
+                              )}
                             </div>
+                            
+                            {/* Bounce Details */}
+                            {hasBounced && (
+                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                <div className="flex items-start space-x-2 text-red-700">
+                                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="font-medium text-sm">Email Delivery Failed</p>
+                                    <p className="text-xs mt-1">{emailStatus.bounceReason || 'Unknown bounce reason'}</p>
+                                    <div className="flex items-center space-x-4 text-xs mt-2 text-red-600">
+                                      <span>Sent: {new Date(emailStatus.sentAt).toLocaleString()}</span>
+                                      {emailStatus.bouncedAt && (
+                                        <span>Bounced: {new Date(emailStatus.bouncedAt).toLocaleString()}</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1862,6 +1941,7 @@ mike.wilson@company.com"
             <div className="text-sm text-gray-700">
               Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
               {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} requests
+              {filterBounced && ` (${filteredRequests.length} bounced)`}
             </div>
             <div className="flex items-center space-x-2">
               <button
