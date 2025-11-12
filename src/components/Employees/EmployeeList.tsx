@@ -211,7 +211,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
                          employee['Employee Number']?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = selectedDepartment === 'all' || employee['Employee Type'] === selectedDepartment;
     const matchesBranch = selectedBranch === 'all' || employee.Branch === selectedBranch;
-    const matchesEmploymentType = selectedEmploymentType === 'all' || employee.Office === selectedEmploymentType;
+    const matchesEmploymentType = selectedEmploymentType === 'all' || employee.Town === selectedEmploymentType;
     
     return matchesSearch && matchesDepartment && matchesBranch && matchesEmploymentType;
   });
@@ -237,7 +237,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
   // Get unique departments and branches for filters
   const departments = ['all', ...new Set(employees.map(e => e['Employee Type']).filter(Boolean) as string[])];
   const branches = ['all', ...new Set(employees.map(e => e.Branch).filter(Boolean) as string[])];
-  const employmentTypes = ['all', ...new Set(employees.map(e => e.Office).filter(Boolean) as string[])];
+  const employmentTypes = ['all', ...new Set(employees.map(e => e.Town).filter(Boolean) as string[])];
 
   // Helper functions
   const getInitials = (firstName: string | null, middleName: string | null, lastName: string | null) => {
@@ -709,7 +709,7 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange })=>{
               <div className="text-xs">
                 <span className="text-gray-600">Office Town: </span>
                 <span className="text-green-800 font-semibold">
-                  {employee.Office}
+                  {employee.Town}
                 </span>
               </div>
             </div>

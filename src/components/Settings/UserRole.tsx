@@ -15,7 +15,9 @@ import {
   ChevronRight,
   Check,
   X,
-  MoreVertical
+  MoreVertical,
+  Key,
+  Mail
 } from 'lucide-react';
 import { supabaseAdmin } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -98,11 +100,13 @@ const RoleBadge = ({ role }: { role: keyof typeof ROLES }) => {
 const UserCard = ({ 
   user, 
   onEdit, 
-  onDelete 
+  onDelete,
+  onResetPassword
 }: { 
   user: any; 
   onEdit: (user: any) => void; 
-  onDelete: (user: any) => void 
+  onDelete: (user: any) => void;
+  onResetPassword: (user: any) => void;
 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   
@@ -143,6 +147,16 @@ const UserCard = ({
                 >
                   <Edit className="w-4 h-4" />
                   Edit User
+                </button>
+                <button
+                  onClick={() => {
+                    onResetPassword(user);
+                    setShowDropdown(false);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-xs text-blue-600 hover:bg-blue-50 w-full text-left"
+                >
+                  <Key className="w-4 h-4" />
+                  Reset Password
                 </button>
                 <button
                   onClick={() => {
@@ -524,6 +538,177 @@ const UserEditModal = ({
   );
 };
 
+const ResetPasswordModal = ({ 
+  user, 
+  onClose, 
+  onReset 
+}: { 
+  user: any | null; 
+  onClose: () => void; 
+  onReset: (email: string) => void 
+}) => {
+  const [resetMethod, setResetMethod] = useState<'email' | 'manual'>('email');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const validatePassword = () => {
+    if (resetMethod === 'manual') {
+      if (!newPassword) {
+        setPasswordError('Password is required');
+        return false;
+      }
+      
+      if (newPassword.length < 6) {
+        setPasswordError('Password must be at least 6 characters');
+        return false;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        setPasswordError('Passwords do not match');
+        return false;
+      }
+    }
+    
+    setPasswordError('');
+    return true;
+  };
+
+  const handleReset = () => {
+    if (!validatePassword()) return;
+    
+    if (resetMethod === 'email') {
+      // Send password reset email
+      onReset(user.email);
+    } else {
+      // Set manual password
+      onReset(newPassword);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Reset Password for {user?.email}
+          </h3>
+          <button 
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-4 space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p className="text-xs text-blue-700">
+              Choose how you want to reset the password for this user.
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+              <input
+                type="radio"
+                name="resetMethod"
+                value="email"
+                checked={resetMethod === 'email'}
+                onChange={() => setResetMethod('email')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <div>
+                <p className="text-xs font-medium text-gray-900">Send Reset Email</p>
+                <p className="text-xs text-gray-500">
+                  User will receive an email with password reset instructions
+                </p>
+              </div>
+            </label>
+            
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+              <input
+                type="radio"
+                name="resetMethod"
+                value="manual"
+                checked={resetMethod === 'manual'}
+                onChange={() => setResetMethod('manual')}
+                className="text-green-600 focus:ring-green-500"
+              />
+              <div>
+                <p className="text-xs font-medium text-gray-900">Set Manual Password</p>
+                <p className="text-xs text-gray-500">
+                  Set a new password directly for the user
+                </p>
+              </div>
+            </label>
+          </div>
+          
+          {resetMethod === 'manual' && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">New Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs pr-10"
+                    placeholder="••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4 text-gray-400" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-gray-400" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Confirm Password</label>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs"
+                  placeholder="••••••"
+                />
+              </div>
+              
+              {passwordError && (
+                <p className="text-xs text-red-500">{passwordError}</p>
+              )}
+            </>
+          )}
+        </div>
+        
+        <div className="p-4 border-t flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs flex items-center gap-2"
+          >
+            <Key className="w-4 h-4" />
+            Reset Password
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function UserRolesSettings() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -532,10 +717,20 @@ export default function UserRolesSettings() {
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [resettingPasswordUser, setResettingPasswordUser] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(12);
   const navigate = useNavigate();
+
+  // Show success message temporarily
+  useEffect(() => {
+    if (success) {
+      const timer = setTimeout(() => setSuccess(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success]);
 
   // Early return if no admin client
   if (!supabaseAdmin) {
@@ -555,24 +750,42 @@ export default function UserRolesSettings() {
     );
   }
 
-  // Fetch users from Supabase
+  // Fetch users from Supabase - FIXED to get all users
   useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
       setError(null);
       try {
-        const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+        let allUsers: any[] = [];
+        let page = 1;
+        let hasMore = true;
+
+        // Fetch all users with pagination
+        while (hasMore) {
+          const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
+            page: page,
+            perPage: 100 // Maximum per page
+          });
+          
+          if (error) throw error;
+          
+          if (users.length === 0) {
+            hasMore = false;
+          } else {
+            allUsers = [...allUsers, ...users];
+            page++;
+          }
+        }
         
-        if (error) throw error;
-        
-        const formattedUsers = users.map((user: any) => ({
+        const formattedUsers = allUsers.map((user: any) => ({
           id: user.id,
           email: user.email,
           role: user.user_metadata?.role || 'STAFF',
-          active: !user.banned_at,
+          active: !user.banned_at && user.email_confirmed_at !== null,
           last_sign_in_at: user.last_sign_in_at,
           created_at: user.created_at,
-          location: user.user_metadata?.location || null
+          location: user.user_metadata?.location || null,
+          user_metadata: user.user_metadata
         }));
         
         setUsers(formattedUsers);
@@ -616,9 +829,47 @@ export default function UserRolesSettings() {
       if (error) throw error;
       
       setUsers(users.filter(u => u.id !== user.id));
+      setSuccess(`User ${user.email} deleted successfully`);
     } catch (err: any) {
       console.error('Error deleting user:', err);
       setError(err.message || 'Failed to delete user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (user: any, passwordOrEmail: string) => {
+    try {
+      setLoading(true);
+      
+      if (typeof passwordOrEmail === 'string' && passwordOrEmail.includes('@')) {
+        // Send password reset email
+        const { error } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'recovery',
+          email: passwordOrEmail,
+        });
+        
+        if (error) throw error;
+        
+        setSuccess(`Password reset email sent to ${user.email}`);
+      } else {
+        // Set manual password
+        const { error } = await supabaseAdmin.auth.admin.updateUserById(
+          user.id,
+          {
+            password: passwordOrEmail
+          }
+        );
+        
+        if (error) throw error;
+        
+        setSuccess(`Password updated successfully for ${user.email}`);
+      }
+      
+      setResettingPasswordUser(null);
+    } catch (err: any) {
+      console.error('Error resetting password:', err);
+      setError(err.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -653,6 +904,7 @@ export default function UserRolesSettings() {
           location: userData.location || null
         } : u));
         setEditingUser(null);
+        setSuccess(`User ${userData.email} updated successfully`);
       } else {
         // Create new user with password
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
@@ -679,6 +931,7 @@ export default function UserRolesSettings() {
           location: userData.location || null
         }]);
         setShowAddUserModal(false);
+        setSuccess(`User ${userData.email} created successfully`);
       }
     } catch (err: any) {
       console.error('Error saving user:', err);
@@ -709,6 +962,20 @@ export default function UserRolesSettings() {
             Add New User
           </button>
         </div>
+        
+        {/* Success message */}
+        {success && (
+          <div className="bg-green-50 border-l-4 border-green-500 p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <Check className="h-5 w-5 text-green-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-xs text-green-700">{success}</p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Error message */}
         {error && (
@@ -851,6 +1118,7 @@ export default function UserRolesSettings() {
                     user={user} 
                     onEdit={setEditingUser}
                     onDelete={handleDeleteUser}
+                    onResetPassword={setResettingPasswordUser}
                   />
                 ))
               ) : (
@@ -903,6 +1171,14 @@ export default function UserRolesSettings() {
           user={editingUser} 
           onClose={() => setEditingUser(null)} 
           onSave={handleSaveUser}
+        />
+      )}
+      
+      {resettingPasswordUser && (
+        <ResetPasswordModal 
+          user={resettingPasswordUser} 
+          onClose={() => setResettingPasswordUser(null)} 
+          onReset={(passwordOrEmail) => handleResetPassword(resettingPasswordUser, passwordOrEmail)}
         />
       )}
     </div>
