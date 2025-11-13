@@ -5,8 +5,20 @@ import {
   CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, 
   CheckSquare, Square, ChevronLeft, ChevronRight, UserCheck, ShieldCheck,
   Eye, AlertTriangle, Loader, CheckCircle, XCircle as XCircleIcon,
-  User, UserCog, Settings, MapPin, Filter, X, Edit3, DollarSign
+  User, UserCog, Settings, MapPin, Filter, X, Edit3, DollarSign,
+  Crown, Key, Building, Map, Award, MessageCircle
 } from 'lucide-react';
+
+// Role mapping - Connect your actual roles to SalaryAdvanceAdmin roles
+const ROLE_MAPPING = {
+  'ADMIN': 'credit_analyst_officer',      // Full admin access
+  'CHECKER': 'checker',                   // Payment approver
+  'OPERATIONS': 'maker',                  // Request creator  
+  'STAFF': 'maker',                       // Request creator
+  'MANAGER': 'branch_manager',           // Branch manager
+  'REGIONAL': 'regional_manager',        // Regional manager
+  'HR': 'maker'                          // Request creator
+};
 
 // Status Badge Component for Maker-Checker
 const StatusBadge = ({ status }) => {
@@ -82,6 +94,30 @@ const StatusBadge = ({ status }) => {
       text: 'text-red-800',
       icon: XCircleIcon,
       label: 'RM: Recommend Reject'
+    },
+    'pending-branch-manager': {
+      bg: 'bg-orange-100',
+      text: 'text-orange-800',
+      icon: Clock,
+      label: 'Pending Branch Manager'
+    },
+    'pending-regional-manager': {
+      bg: 'bg-yellow-100',
+      text: 'text-yellow-800',
+      icon: Clock,
+      label: 'Pending Regional Manager'
+    },
+    'pending-admin': {
+      bg: 'bg-purple-100',
+      text: 'text-purple-800',
+      icon: Clock,
+      label: 'Pending Admin Approval'
+    },
+    'fully-approved': {
+      bg: 'bg-green-100',
+      text: 'text-green-800',
+      icon: CheckCircle,
+      label: 'Fully Approved'
     }
   };
 
@@ -93,6 +129,109 @@ const StatusBadge = ({ status }) => {
       <Icon className="w-3 h-3" />
       {config.label}
     </span>
+  );
+};
+
+// Manager Badge Component
+const ManagerBadge = ({ isBranchManager, isRegionalManager }) => {
+  if (!isBranchManager && !isRegionalManager) return null;
+
+  const config = isRegionalManager ? {
+    bg: 'bg-purple-100',
+    text: 'text-purple-800',
+    icon: Award,
+    label: 'Regional Manager'
+  } : {
+    bg: 'bg-blue-100',
+    text: 'text-blue-800',
+    icon: UserCog,
+    label: 'Branch Manager'
+  };
+
+  const Icon = config.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${config.bg} ${config.text}`}>
+      <Icon className="w-3 h-3" />
+      {config.label}
+    </span>
+  );
+};
+
+// Comment Modal Component for Regional Managers
+const CommentModal = ({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  application 
+}) => {
+  const [comment, setComment] = useState('');
+
+  const handleConfirm = () => {
+    if (!comment.trim()) {
+      toast.error('Please provide a comment');
+      return;
+    }
+
+    onConfirm(comment.trim());
+    setComment('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-2 flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-blue-600" />
+          Add Comment
+        </h3>
+        
+        <p className="text-sm text-gray-600 mb-4">
+          Provide advisory comments for this application (Regional Manager only)
+        </p>
+
+        {application && (
+          <div className="bg-gray-50 rounded-lg p-3 mb-4">
+            <div className="text-xs text-gray-700">
+              <div className="font-medium">{application["Full Name"]}</div>
+              <div>Employee: {application["Employee Number"]}</div>
+              <div>Amount: KSh {Number(application["Amount Requested"]).toLocaleString()}</div>
+            </div>
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            Comment <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Provide your advisory comments..."
+            rows={4}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!comment.trim()}
+            className="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Submit Comment
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -396,7 +535,7 @@ const RecommendationModal = ({
   const [showAmountField, setShowAmountField] = useState(false);
 
   useEffect(() => {
-    if (actionType === 'bm-recommend-adjusted' || actionType === 'rm-recommend-adjusted') {
+    if (actionType === 'bm-recommend-adjusted' || actionType === 'rm-recommend-adjusted' || actionType === 'admin-approve-adjusted') {
       setShowAmountField(true);
       setAdjustedAmount(currentAmount?.toString() || '');
     } else {
@@ -433,19 +572,26 @@ const RecommendationModal = ({
       'bm-recommend-reject': 'Branch Manager - Recommend Rejection',
       'rm-recommend-current': 'Regional Manager - Recommend Current Amount',
       'rm-recommend-adjusted': 'Regional Manager - Recommend Adjusted Amount',
-      'rm-recommend-reject': 'Regional Manager - Recommend Rejection'
+      'rm-recommend-reject': 'Regional Manager - Recommend Rejection',
+      'admin-approve-current': 'Admin - Approve Current Amount',
+      'admin-approve-adjusted': 'Admin - Approve Adjusted Amount',
+      'admin-reject': 'Admin - Reject Application'
     };
-    return titles[actionType] || 'Recommendation';
+    return titles[actionType] || 'Action';
   };
 
   const getActionDescription = () => {
     const descriptions = {
       'bm-recommend-current': 'Recommend approval with the current requested amount.',
+
       'bm-recommend-adjusted': 'Recommend approval with an adjusted amount.',
       'bm-recommend-reject': 'Recommend rejection of this application.',
       'rm-recommend-current': 'Recommend approval with the current requested amount.',
       'rm-recommend-adjusted': 'Recommend approval with an adjusted amount.',
-      'rm-recommend-reject': 'Recommend rejection of this application.'
+      'rm-recommend-reject': 'Recommend rejection of this application.',
+      'admin-approve-current': 'Final approval with the current requested amount.',
+      'admin-approve-adjusted': 'Final approval with an adjusted amount.',
+      'admin-reject': 'Final rejection of this application.'
     };
     return descriptions[actionType] || '';
   };
@@ -470,6 +616,9 @@ const RecommendationModal = ({
               <div className="font-medium">{application["Full Name"]}</div>
               <div>Employee: {application["Employee Number"]}</div>
               <div>Current Amount: KSh {Number(application["Amount Requested"]).toLocaleString()}</div>
+              {application.isBranchManager && (
+                <div className="text-blue-600 font-medium">Branch Manager</div>
+              )}
             </div>
           </div>
         )}
@@ -530,41 +679,46 @@ const RecommendationModal = ({
   );
 };
 
-// User Role Display Component (Simplified - No manual role change)
-const UserRoleDisplay = ({ userRole }) => {
+// Enhanced User Role Display Component
+const UserRoleDisplay = ({ userRole, userEmail, actualRole }) => {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'maker': return <User className="w-4 h-4" />;
       case 'checker': return <UserCheck className="w-4 h-4" />;
-      case 'credit_analyst_officer': return <UserCog className="w-4 h-4" />;
-      case 'branch_manager': return <ShieldCheck className="w-4 h-4" />;
-      case 'regional_manager': return <UserCheck className="w-4 h-4" />;
+      case 'credit_analyst_officer': return <Crown className="w-4 h-4" />;
+      case 'branch_manager': return <Building className="w-4 h-4" />;
+      case 'regional_manager': return <Map className="w-4 h-4" />;
       default: return <User className="w-4 h-4" />;
     }
   };
 
   const getRoleColor = (role) => {
     switch (role) {
-      case 'maker': return 'bg-blue-100 text-blue-800';
-      case 'checker': return 'bg-orange-100 text-orange-800';
-      case 'credit_analyst_officer': return 'bg-purple-100 text-purple-800';
-      case 'branch_manager': return 'bg-green-100 text-green-800';
-      case 'regional_manager': return 'bg-indigo-100 text-indigo-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'maker': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'checker': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'credit_analyst_officer': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'branch_manager': return 'bg-green-100 text-green-800 border-green-200';
+      case 'regional_manager': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   return (
     <div className="flex items-center gap-3">
-      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(userRole)}`}>
-        {getRoleIcon(userRole)}
-        {userRole.replace(/_/g, ' ').toUpperCase()}
-      </span>
+      <div className="flex flex-col items-end">
+        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(userRole)}`}>
+          {getRoleIcon(userRole)}
+          {userRole.replace(/_/g, ' ').toUpperCase()}
+        </span>
+        <span className="text-xs text-gray-500 mt-1">
+          Actual: {actualRole}
+        </span>
+      </div>
     </div>
   );
 };
 
-// Region and Town Filter Component
+// Branch and Town Filter Component
 const RegionTownFilter = ({ 
   selectedRegion, 
   selectedTown, 
@@ -676,6 +830,7 @@ const SalaryAdvanceAdmin = () => {
   const [isProcessingBulkPayment, setIsProcessingBulkPayment] = useState(false);
   const [employeeMobileNumbers, setEmployeeMobileNumbers] = useState<Record<string, string>>({});
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
+  const [justification, setJustification] = useState('');
   
   // Region and Town Filter State
   const [selectedRegion, setSelectedRegion] = useState('');
@@ -684,15 +839,24 @@ const SalaryAdvanceAdmin = () => {
   const [townsByRegion, setTownsByRegion] = useState<Record<string, string[]>>({});
   const [allTowns, setAllTowns] = useState<string[]>([]);
 
+  // Manager data state
+  const [employeeJobTitles, setEmployeeJobTitles] = useState<Record<string, string>>({});
+  const [isBranchManagerMap, setIsBranchManagerMap] = useState<Record<string, boolean>>({});
+
   // Recommendation modal state
   const [showRecommendationModal, setShowRecommendationModal] = useState(false);
   const [recommendationAction, setRecommendationAction] = useState<string | null>(null);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
 
+  // Comment modal state
+  const [showCommentModal, setShowCommentModal] = useState(false);
+
   // Maker-Checker Payment Flow State
   const [paymentRequests, setPaymentRequests] = useState<any[]>([]);
   const [userRole, setUserRole] = useState('maker');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [actualUserRole, setActualUserRole] = useState('STAFF');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
   const [showApprovalQueue, setShowApprovalQueue] = useState(false);
   const [selectedPaymentForDetails, setSelectedPaymentForDetails] = useState(null);
   const [showPaymentDetails, setShowPaymentDetails] = useState(false);
@@ -704,49 +868,51 @@ const SalaryAdvanceAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
 
-  useEffect(() => {
-    fetchApplications();
-    fetchUserProfile();
-    fetchRegionsAndTowns();
-  }, []);
-
-  // Fetch regions and towns data
-  const fetchRegionsAndTowns = async () => {
+  // Check if employee is a branch manager
+  const checkIfBranchManager = async (employeeNumber: string) => {
     try {
       const { data, error } = await supabase
         .from('employees')
-        .select('Region, Town')
-        .not('Region', 'is', null)
-        .not('Town', 'is', null);
+        .select('"Job Title"')
+        .eq('"Employee Number"', employeeNumber)
+        .single();
 
       if (error) throw error;
-
-      const uniqueRegions = [...new Set(data.map(item => item.Region))].filter(Boolean);
-      const uniqueTowns = [...new Set(data.map(item => item.Town))].filter(Boolean);
       
-      const townsByRegionMap: Record<string, string[]> = {};
-      data.forEach(item => {
-        if (item.Region && item.Town) {
-          if (!townsByRegionMap[item.Region]) {
-            townsByRegionMap[item.Region] = [];
-          }
-          if (!townsByRegionMap[item.Region].includes(item.Town)) {
-            townsByRegionMap[item.Region].push(item.Town);
-          }
-        }
-      });
-
-      setRegions(uniqueRegions);
-      setTownsByRegion(townsByRegionMap);
-      setAllTowns(uniqueTowns);
-
+      const jobTitle = data?.["Job Title"]?.toLowerCase() || '';
+      const isManager = jobTitle.includes('branch manager') || 
+                       jobTitle.includes('manager') || 
+                       jobTitle.includes('bm') ||
+                       jobTitle.includes('head of');
+      
+      return isManager;
     } catch (error) {
-      console.error('Error fetching regions and towns:', error);
-      setRegions(['Nairobi', 'Coast', 'Central', 'Rift Valley', 'Western', 'Nyanza', 'Eastern']);
-      setAllTowns(['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']);
+      console.error('Error checking branch manager status:', error);
+      return false;
     }
   };
 
+  // Check if user is approving themselves
+  const checkIfSelfApproval = (application: any) => {
+    if (!currentUser || !application) return false;
+    
+    // Check if the application belongs to the current user
+    const userEmployeeNumber = currentUser.user_metadata?.employee_number;
+    if (userEmployeeNumber && application["Employee Number"] === userEmployeeNumber) {
+      return true;
+    }
+    
+    // Fallback: check by email (if employee number not available)
+    const userEmail = currentUser.email?.toLowerCase();
+    const applicationEmail = application["Email"]?.toLowerCase();
+    if (userEmail && applicationEmail && userEmail === applicationEmail) {
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Enhanced user profile fetching with role detection
   const fetchUserProfile = async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -757,39 +923,26 @@ const SalaryAdvanceAdmin = () => {
       }
 
       setCurrentUser(user);
+      setUserEmail(user.email || '');
 
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('role')
-        .eq('user_id', user.id)
-        .single();
+      // Use the actual role from user_metadata
+      const actualRole = user.user_metadata?.role || 'STAFF';
+      const mappedRole = ROLE_MAPPING[actualRole] || 'maker';
+      
+      console.log('User role detection:', {
+        email: user.email,
+        actualRole: actualRole,
+        mappedRole: mappedRole
+      });
 
-      if (profileError) {
-        console.warn('No user profile found, creating default maker profile');
-        const { data: newProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert([
-            { 
-              user_id: user.id, 
-              role: 'maker',
-              email: user.email
-            }
-          ])
-          .select()
-          .single();
+      setActualUserRole(actualRole);
+      setUserRole(mappedRole);
+     
 
-        if (createError) {
-          console.error('Error creating user profile:', createError);
-          setUserRole('maker');
-        } else {
-          setUserRole(newProfile.role || 'maker');
-        }
-      } else {
-        setUserRole(profile.role || 'maker');
-      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
       setUserRole('maker');
+      setActualUserRole('STAFF');
     }
   };
 
@@ -817,10 +970,91 @@ const SalaryAdvanceAdmin = () => {
   };
 
   useEffect(() => {
+    fetchApplications();
+    fetchUserProfile();
+    fetchRegionsAndTowns();
+  }, []);
+
+  useEffect(() => {
     if (currentUser) {
       fetchPaymentRequests();
     }
   }, [currentUser]);
+
+  // Fetch regions and towns data
+  const fetchRegionsAndTowns = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('employees')
+        .select('Branch, Town')
+        .not('Branch', 'is', null)
+        .not('Town', 'is', null);
+
+      if (error) throw error;
+
+      const uniqueRegions = [...new Set(data.map(item => item.Branch))].filter(Boolean);
+      const uniqueTowns = [...new Set(data.map(item => item.Town))].filter(Boolean);
+      
+      const townsByRegionMap: Record<string, string[]> = {};
+      data.forEach(item => {
+        if (item.Branch && item.Town) {
+          if (!townsByRegionMap[item.Branch]) {
+            townsByRegionMap[item.Branch] = [];
+          }
+          if (!townsByRegionMap[item.Branch].includes(item.Town)) {
+            townsByRegionMap[item.Branch].push(item.Town);
+          }
+        }
+      });
+
+      setRegions(uniqueRegions);
+      setTownsByRegion(townsByRegionMap);
+      setAllTowns(uniqueTowns);
+
+    } catch (error) {
+      console.error('Error fetching regions and towns:', error);
+      setRegions(['Nairobi', 'Coast', 'Central', 'Rift Valley', 'Western', 'Nyanza', 'Eastern']);
+      setAllTowns(['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']);
+    }
+  };
+
+  // Fetch job titles for all applications
+  const fetchJobTitles = async (apps: any[]) => {
+    try {
+      const employeeNumbers = apps.map(app => app["Employee Number"]).filter(Boolean);
+      
+      if (employeeNumbers.length === 0) return;
+
+      const { data, error } = await supabase
+        .from('employees')
+        .select('"Employee Number", "Job Title"')
+        .in('"Employee Number"', employeeNumbers);
+
+      if (error) throw error;
+
+      const jobTitleMap: Record<string, string> = {};
+      const branchManagerMap: Record<string, boolean> = {};
+
+      data?.forEach(emp => {
+        jobTitleMap[emp["Employee Number"]] = emp["Job Title"] || '';
+        
+        // Check if this employee is a branch manager
+        const jobTitle = emp["Job Title"]?.toLowerCase() || '';
+        const isManager = jobTitle.includes('branch manager') || 
+                         jobTitle.includes('manager') || 
+                         jobTitle.includes('bm') ||
+                         jobTitle.includes('head of');
+        
+        branchManagerMap[emp["Employee Number"]] = isManager;
+      });
+
+      setEmployeeJobTitles(jobTitleMap);
+      setIsBranchManagerMap(branchManagerMap);
+
+    } catch (error) {
+      console.error('Error fetching job titles:', error);
+    }
+  };
 
   const fetchApplications = async () => {
     setIsLoading(true);
@@ -830,8 +1064,9 @@ const SalaryAdvanceAdmin = () => {
         .select('*')
         .order('time_added', { ascending: false });
 
+      // Apply region and town filters
       if (selectedRegion) {
-        query = query.eq('Region', selectedRegion);
+        query = query.eq('Branch', selectedRegion);
       }
       if (selectedTown) {
         query = query.eq('Town', selectedTown);
@@ -840,25 +1075,33 @@ const SalaryAdvanceAdmin = () => {
       const { data, error } = await query;
 
       if (error) throw error;
-      setApplications(data || []);
+      
+      // Enhance applications with manager status
+      const enhancedApplications = data?.map(app => ({
+        ...app,
+        isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
+      })) || [];
+      
+      setApplications(enhancedApplications);
+      
+      // Fetch job titles and manager status
+      await fetchJobTitles(enhancedApplications);
       
       const initialNotes: Record<string, string> = {};
-      data?.forEach(app => {
+      enhancedApplications.forEach(app => {
         initialNotes[app.id] = app.admin_notes || '';
       });
       setNotes(initialNotes);
 
       const initialSelected: Record<string, boolean> = {};
-      data?.forEach(app => {
-        if (app.status?.toLowerCase() === 'approved' && 
-            app.branch_manager_approval === true && 
-            app.regional_manager_approval === true) {
+      enhancedApplications.forEach(app => {
+        if (app.status?.toLowerCase() === 'approved') {
           initialSelected[app.id] = true;
         }
       });
       setSelectedStaff(initialSelected);
 
-      await fetchMobileNumbers(data || []);
+      await fetchMobileNumbers(enhancedApplications);
     } catch (error) {
       console.error('Error fetching applications:', error);
       toast.error('Failed to load applications');
@@ -896,12 +1139,10 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  // Get fully approved applications (both branch and regional manager approved)
+  // Get fully approved applications - FIXED VERSION
   const getFullyApprovedApplications = () => {
     return applications.filter(app => 
-      app.status?.toLowerCase() === 'approved' && 
-      app.branch_manager_approval === true && 
-      app.regional_manager_approval === true
+      app.status?.toLowerCase() === 'approved'
     );
   };
 
@@ -1003,7 +1244,13 @@ const SalaryAdvanceAdmin = () => {
     setShowRecommendationModal(true);
   };
 
-  // Handle recommendation submission - THREE OPTIONS FUNCTIONALITY
+  // Open comment modal
+  const openCommentModal = (application: any) => {
+    setSelectedApplication(application);
+    setShowCommentModal(true);
+  };
+
+  // Handle recommendation submission
   const handleRecommendation = async (recommendationData: any) => {
     const { action, notes, adjustedAmount } = recommendationData;
     
@@ -1013,14 +1260,13 @@ const SalaryAdvanceAdmin = () => {
         last_updated: new Date().toISOString()
       };
 
-      // Handle the THREE recommendation options
       switch (action) {
         case 'bm-recommend-current':
           updateData.branch_manager_recommendation = 'recommend_current';
           updateData.branch_manager_notes = notes;
           updateData.branch_manager_approval = true;
           updateData.branch_manager_approval_date = new Date().toISOString();
-          updateData.status = 'bm-recommend-current';
+          updateData.status = 'pending-regional-manager';
           break;
         
         case 'bm-recommend-adjusted':
@@ -1029,8 +1275,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.branch_manager_adjusted_amount = adjustedAmount;
           updateData.branch_manager_approval = true;
           updateData.branch_manager_approval_date = new Date().toISOString();
-          updateData.status = 'bm-recommend-adjusted';
-          // Update the actual amount if adjusted
+          updateData.status = 'pending-regional-manager';
           if (adjustedAmount) {
             updateData["Amount Requested"] = adjustedAmount;
           }
@@ -1040,7 +1285,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.branch_manager_recommendation = 'recommend_reject';
           updateData.branch_manager_notes = notes;
           updateData.branch_manager_approval = false;
-          updateData.status = 'bm-recommend-reject';
+          updateData.status = 'rejected';
           break;
         
         case 'rm-recommend-current':
@@ -1048,7 +1293,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_notes = notes;
           updateData.regional_manager_approval = true;
           updateData.regional_manager_approval_date = new Date().toISOString();
-          updateData.status = 'rm-recommend-current';
+          updateData.status = 'pending-admin';
           break;
         
         case 'rm-recommend-adjusted':
@@ -1057,8 +1302,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_adjusted_amount = adjustedAmount;
           updateData.regional_manager_approval = true;
           updateData.regional_manager_approval_date = new Date().toISOString();
-          updateData.status = 'rm-recommend-adjusted';
-          // Update the actual amount if adjusted
+          updateData.status = 'pending-admin';
           if (adjustedAmount) {
             updateData["Amount Requested"] = adjustedAmount;
           }
@@ -1068,7 +1312,39 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_recommendation = 'recommend_reject';
           updateData.regional_manager_notes = notes;
           updateData.regional_manager_approval = false;
-          updateData.status = 'rm-recommend-reject';
+          updateData.status = 'rejected';
+          break;
+        
+        // Admin final approval actions
+        case 'admin-approve-current':
+          updateData.admin_approval = true;
+          updateData.admin_approval_date = new Date().toISOString();
+          updateData.admin_notes = notes;
+          updateData.status = 'approved';
+          updateData.approved_by = currentUser?.id;
+          updateData.approved_by_email = currentUser?.email;
+          break;
+        
+        case 'admin-approve-adjusted':
+          updateData.admin_approval = true;
+          updateData.admin_approval_date = new Date().toISOString();
+          updateData.admin_notes = notes;
+          updateData.admin_adjusted_amount = adjustedAmount;
+          updateData.status = 'approved';
+          updateData.approved_by = currentUser?.id;
+          updateData.approved_by_email = currentUser?.email;
+          if (adjustedAmount) {
+            updateData["Amount Requested"] = adjustedAmount;
+          }
+          break;
+        
+        case 'admin-reject':
+          updateData.admin_approval = false;
+          updateData.admin_rejection_date = new Date().toISOString();
+          updateData.admin_notes = notes;
+          updateData.status = 'rejected';
+          updateData.rejected_by = currentUser?.id;
+          updateData.rejected_by_email = currentUser?.email;
           break;
       }
 
@@ -1080,17 +1356,14 @@ const SalaryAdvanceAdmin = () => {
       if (error) throw error;
 
       // Update selected staff for approved applications
-      if (action.includes('recommend-current') || action.includes('recommend-adjusted')) {
-        if (action.startsWith('rm-')) {
-          setSelectedStaff(prev => ({
-            ...prev,
-            [selectedApplication.id]: true
-          }));
-        }
+      if ((action.includes('recommend-current') || action.includes('recommend-adjusted') || action.includes('admin-approve')) && !action.includes('reject')) {
+        setSelectedStaff(prev => ({
+          ...prev,
+          [selectedApplication.id]: true
+        }));
       }
 
-      // Remove from selected staff when rejected
-      if (action.includes('recommend-reject')) {
+      if (action.includes('recommend-reject') || action.includes('admin-reject')) {
         setSelectedStaff(prev => {
           const newSelection = {...prev};
           delete newSelection[selectedApplication.id];
@@ -1098,11 +1371,35 @@ const SalaryAdvanceAdmin = () => {
         });
       }
 
-      toast.success('Recommendation submitted successfully!');
+      toast.success('Action completed successfully!');
       fetchApplications();
     } catch (error) {
-      console.error('Error submitting recommendation:', error);
-      toast.error('Failed to submit recommendation');
+      console.error('Error submitting action:', error);
+      toast.error('Failed to submit action');
+    }
+  };
+
+  // Handle comment submission
+  const handleComment = async (comment: string) => {
+    try {
+      const updateData = {
+        regional_manager_comment: comment,
+        regional_manager_comment_date: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('salary_advance')
+        .update(updateData)
+        .eq('id', selectedApplication.id);
+
+      if (error) throw error;
+
+      toast.success('Comment submitted successfully!');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      toast.error('Failed to submit comment');
     }
   };
 
@@ -1194,7 +1491,8 @@ const SalaryAdvanceAdmin = () => {
         justification: justification,
         total_amount: selectedAdvances.reduce((sum, advance) => sum + Number(advance.amount_requested || 0), 0),
         created_by: user.id,
-        created_by_email: user.email
+        created_by_email: user.email,
+        status: 'pending'
       };
 
       const { data, error } = await supabase
@@ -1394,11 +1692,16 @@ const SalaryAdvanceAdmin = () => {
   };
 
   // Bulk payment with proper maker-checker flow and selection clearing
-  const handleBulkPayment = async (justification?: string) => {
+  const handleBulkPayment = async () => {
     const selectedApps = getFullyApprovedApplications().filter(app => selectedStaff[app.id]);
     
     if (selectedApps.length === 0) {
       toast.error('No staff members selected for payment');
+      return;
+    }
+
+    if (!justification.trim()) {
+      toast.error('Please provide justification for the payment request');
       return;
     }
 
@@ -1408,20 +1711,17 @@ const SalaryAdvanceAdmin = () => {
       mobile_number: employeeMobileNumbers[app["Employee Number"]],
       amount_requested: Number(app["Amount Requested"]),
       branch_manager_approval: app.branch_manager_approval,
-      regional_manager_approval: app.regional_manager_approval
+      regional_manager_approval: app.regional_manager_approval,
+      isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
     }));
 
     if (userRole === 'maker') {
-      if (!justification?.trim()) {
-        toast.error('Please provide justification for the payment request');
-        return;
-      }
-
       try {
         await createPaymentRequest(advancesData, justification);
         toast.success('Payment request submitted for approval!');
         
         setSelectedStaff({});
+        setJustification('');
         setShowBulkPaymentModal(false);
         fetchPaymentRequests();
       } catch (error) {
@@ -1446,6 +1746,7 @@ const SalaryAdvanceAdmin = () => {
         }
         
         setSelectedStaff({});
+        setJustification('');
         setShowBulkPaymentModal(false);
         fetchApplications();
       } catch (error) {
@@ -1470,6 +1771,7 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
+  // FIXED: Get approval status
   const getApprovalStatus = (app: any) => {
     if (app.status?.toLowerCase() === 'rejected') {
       return 'Rejected';
@@ -1477,46 +1779,67 @@ const SalaryAdvanceAdmin = () => {
     if (app.status?.toLowerCase() === 'paid') {
       return 'Paid';
     }
+
+    // Check if fully approved by admin - FIXED
     if (app.status?.toLowerCase() === 'approved') {
       return 'Fully Approved';
     }
-    
-    // Check for recommendations
-    if (app.status?.includes('bm-recommend')) {
-      switch (app.status) {
-        case 'bm-recommend-current':
+
+    // Check for pending admin status
+    if (app.status === 'pending-admin') {
+      return 'Pending Admin Approval';
+    }
+
+    // Check for recommendation statuses
+    if (app.branch_manager_recommendation) {
+      switch (app.branch_manager_recommendation) {
+        case 'recommend_current':
           return 'BM: Recommend Current';
-        case 'bm-recommend-adjusted':
+        case 'recommend_adjusted':
           return 'BM: Recommend Adjusted';
-        case 'bm-recommend-reject':
+        case 'recommend_reject':
           return 'BM: Recommend Reject';
       }
     }
     
-    if (app.status?.includes('rm-recommend')) {
-      switch (app.status) {
-        case 'rm-recommend-current':
+    if (app.regional_manager_recommendation) {
+      switch (app.regional_manager_recommendation) {
+        case 'recommend_current':
           return 'RM: Recommend Current';
-        case 'rm-recommend-adjusted':
+        case 'recommend_adjusted':
           return 'RM: Recommend Adjusted';
-        case 'rm-recommend-reject':
+        case 'recommend_reject':
           return 'RM: Recommend Reject';
       }
     }
-    
-    if (app.regional_manager_approval) {
-      return 'Fully Approved';
-    }
-    if (app.branch_manager_approval) {
+
+    // New status logic based on employee type and approvals
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+
+    // If branch manager has approved regular employee
+    if (app.branch_manager_approval && !isEmployeeBranchManager) {
       return 'Pending Regional Manager';
     }
-    return 'Pending Branch Manager';
+
+    // If regional manager has approved branch manager
+    if (app.regional_manager_approval && isEmployeeBranchManager) {
+      return 'Pending Admin Approval';
+    }
+
+    // No approvals yet - show who can approve
+    if (isEmployeeBranchManager) {
+      return 'Pending Regional Manager';
+    } else {
+      return 'Pending Branch Manager';
+    }
   };
 
   const getApprovalBadgeColor = (status: string) => {
     switch (status) {
       case 'Fully Approved':
         return 'bg-green-100 text-green-800';
+      case 'Pending Admin Approval':
+        return 'bg-purple-100 text-purple-800';
       case 'Pending Regional Manager':
         return 'bg-yellow-100 text-yellow-800';
       case 'Pending Branch Manager':
@@ -1566,9 +1889,9 @@ const SalaryAdvanceAdmin = () => {
   // Pending payment requests count
   const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
 
-  // Handle region change
-  const handleRegionChange = (region: string) => {
-    setSelectedRegion(region);
+  // Handle Branch change
+  const handleRegionChange = (Branch: string) => {
+    setSelectedRegion(Branch);
     setSelectedTown('');
     setCurrentPage(1);
   };
@@ -1579,13 +1902,72 @@ const SalaryAdvanceAdmin = () => {
     setCurrentPage(1);
   };
 
+  // Role-based permissions
+  const isAdmin = userRole === 'credit_analyst_officer';
+  const isBranchManager = userRole === 'branch_manager';
+  const isRegionalManager = userRole === 'regional_manager';
+  const isChecker = userRole === 'checker';
+  const isMaker = userRole === 'maker';
+
+  // FIXED: Check if regional manager can approve this application
+  const canRegionalManagerApprove = (app: any) => {
+    if (!isRegionalManager && !isAdmin) return false;
+    
+    // Regional managers can only approve branch managers, but admins can approve anyone
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    const canApproveThisUser = isAdmin || isEmployeeBranchManager;
+    
+    // Cannot approve themselves
+    const isSelfApproval = checkIfSelfApproval(app);
+    
+    // Must not have regional manager approval yet
+    const hasRegionalApproval = app.regional_manager_approval;
+    
+    return canApproveThisUser && !isSelfApproval && !hasRegionalApproval;
+  };
+
+  // Check if branch manager can approve this application
+  const canBranchManagerApprove = (app: any) => {
+    if (!isBranchManager) return false;
+    
+    // Branch managers cannot approve themselves
+    const isSelfApproval = checkIfSelfApproval(app);
+    
+    // Branch managers can only approve regular employees (not other branch managers)
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    
+    // Must not have branch manager approval yet
+    const hasBranchApproval = app.branch_manager_approval;
+    
+    return !isSelfApproval && !isEmployeeBranchManager && !hasBranchApproval;
+  };
+
+  // Check if regional manager can comment on regular employees
+  const canRegionalManagerComment = (app: any) => {
+    if (!isRegionalManager) return false;
+    
+    // Regional managers can comment on regular employees that are pending branch manager approval
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    const hasBranchApproval = app.branch_manager_approval;
+    
+    return !isEmployeeBranchManager && !hasBranchApproval;
+  };
+
+  // FIXED: Check if admin can approve this application
+  const canAdminApprove = (app: any) => {
+    if (!isAdmin) return false;
+    
+    // Admin can approve any application that has reached "pending-admin" status
+    return app.status === 'pending-admin';
+  };
+
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
         
         <div className="flex items-center gap-3">
-          {/* Region and Town Filter */}
+          {/* Branch and Town Filter */}
           <RegionTownFilter
             selectedRegion={selectedRegion}
             selectedTown={selectedTown}
@@ -1595,11 +1977,15 @@ const SalaryAdvanceAdmin = () => {
             townsByRegion={townsByRegion}
           />
 
-          {/* User Role Display - No manual selection */}
-          <UserRoleDisplay userRole={userRole} />
+          {/* Enhanced User Role Display */}
+          <UserRoleDisplay 
+            userRole={userRole} 
+            userEmail={userEmail}
+            actualRole={actualUserRole}
+          />
 
           {/* Approval Queue Button for Checkers */}
-          {(userRole === 'checker' || userRole === 'credit_analyst_officer') && pendingCount > 0 && (
+          {(isChecker || isAdmin) && pendingCount > 0 && (
             <button
               onClick={() => setShowApprovalQueue(true)}
               className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 px-3 py-1"
@@ -1617,7 +2003,7 @@ const SalaryAdvanceAdmin = () => {
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
             >
               <Send size={16} />
-              {userRole === 'maker' ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
+              {isMaker ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
             </button>
           )}
           
@@ -1634,6 +2020,18 @@ const SalaryAdvanceAdmin = () => {
         </div>
       </div>
 
+      {/* Role-based Information Panel */}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center gap-2 text-xs text-blue-800">
+          <Key className="w-4 h-4" />
+          <span>
+            <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} | 
+            <strong> Actual Role:</strong> {actualUserRole} |
+            <strong> Email:</strong> {userEmail}
+          </span>
+        </div>
+      </div>
+
       {/* Filter Display */}
       {(selectedRegion || selectedTown) && (
         <div className="mb-4 flex items-center gap-2">
@@ -1641,7 +2039,7 @@ const SalaryAdvanceAdmin = () => {
           {selectedRegion && (
             <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
               <MapPin className="w-3 h-3" />
-              Region: {selectedRegion}
+              Branch: {selectedRegion}
               <button
                 onClick={() => handleRegionChange('')}
                 className="text-blue-600 hover:text-blue-800"
@@ -1666,7 +2064,7 @@ const SalaryAdvanceAdmin = () => {
       )}
 
       {/* Payment Approval Queue */}
-      {showApprovalQueue && (userRole === 'checker' || userRole === 'credit_analyst_officer') && (
+      {showApprovalQueue && (isChecker || isAdmin) && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -1765,8 +2163,16 @@ const SalaryAdvanceAdmin = () => {
                 {currentItems.map((app) => (
                   <tr key={app.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
-                      <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
+                          <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
+                        </div>
+                        <ManagerBadge 
+                          isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                          isRegionalManager={false}
+                        />
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                       {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
@@ -1821,6 +2227,12 @@ const SalaryAdvanceAdmin = () => {
                           <ShieldCheck className="h-3 w-3" />
                           <span>RM: {app.regional_manager_approval ? '✓' : (app.regional_manager_recommendation ? 'Recommended' : 'Pending')}</span>
                         </div>
+                        {app.regional_manager_comment && (
+                          <div className="flex items-center gap-2 text-xs text-blue-600">
+                            <MessageCircle className="h-3 w-3" />
+                            <span>RM Comment: {app.regional_manager_comment}</span>
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap relative">
@@ -1863,11 +2275,8 @@ const SalaryAdvanceAdmin = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
                       <div className="flex flex-col gap-1">
-                        {/* Branch Manager Actions - THREE OPTIONS */}
-                        {userRole === 'branch_manager' && 
-                         !app.branch_manager_approval && 
-                         !app.regional_manager_approval && 
-                         app.status?.toLowerCase() === 'pending' && (
+                        {/* Branch Manager Actions */}
+                        {canBranchManagerApprove(app) && (
                           <div className="flex flex-col gap-1">
                             <button
                               onClick={() => openRecommendationModal(app, 'bm-recommend-current')}
@@ -1893,11 +2302,8 @@ const SalaryAdvanceAdmin = () => {
                           </div>
                         )}
 
-                        {/* Regional Manager Actions - THREE OPTIONS */}
-                        {userRole === 'regional_manager' && 
-                         app.branch_manager_approval && 
-                         !app.regional_manager_approval && 
-                         app.status?.toLowerCase() === 'pending' && (
+                        {/* Regional Manager Actions */}
+                        {canRegionalManagerApprove(app) && (
                           <div className="flex flex-col gap-1">
                             <button
                               onClick={() => openRecommendationModal(app, 'rm-recommend-current')}
@@ -1923,17 +2329,56 @@ const SalaryAdvanceAdmin = () => {
                           </div>
                         )}
 
-                        {/* Admin Override Action */}
-                        {app.status?.toLowerCase() === 'pending' && userRole === 'credit_analyst_officer' && (
+                        {/* Regional Manager Comment Action */}
+                        {canRegionalManagerComment(app) && (
                           <button
-                            onClick={() => {
-                              // Admin can override and approve directly
-                              openRecommendationModal(app, 'rm-recommend-current');
-                            }}
-                            className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded"
+                            onClick={() => openCommentModal(app)}
+                            className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
                           >
-                            Admin Override ✓
+                            <MessageCircle className="w-3 h-3" />
+                            Add Comment
                           </button>
+                        )}
+
+                        {/* Admin Final Approval Action */}
+                        {canAdminApprove(app) && (
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={() => openRecommendationModal(app, 'admin-approve-current')}
+                              className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                              Approve Current
+                            </button>
+                            <button
+                              onClick={() => openRecommendationModal(app, 'admin-approve-adjusted')}
+                              className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              Approve Adjusted
+                            </button>
+                            <button
+                              onClick={() => openRecommendationModal(app, 'admin-reject')}
+                              className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                            >
+                              <XCircleIcon className="w-3 h-3" />
+                              Reject
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Self-approval warning */}
+                        {checkIfSelfApproval(app) && (
+                          <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                            Cannot approve own request
+                          </span>
+                        )}
+
+                        {/* No actions available message */}
+                        {!canBranchManagerApprove(app) && !canRegionalManagerApprove(app) && !canRegionalManagerComment(app) && !canAdminApprove(app) && !checkIfSelfApproval(app) && (
+                          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                            Awaiting approval
+                          </span>
                         )}
                       </div>
                     </td>
@@ -2020,12 +2465,12 @@ const SalaryAdvanceAdmin = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
               <Users className="h-5 w-5 text-green-600" />
-              {userRole === 'maker' ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
+              {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
             </h3>
             
             <div className="mb-4 p-3 bg-gray-50 rounded-md">
               <p className="text-xs text-gray-600">
-                {userRole === 'maker' 
+                {isMaker 
                   ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
                   : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
                 }
@@ -2057,11 +2502,13 @@ const SalaryAdvanceAdmin = () => {
             {/* Justification field - required for all roles */}
             <div className="mb-4">
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                {userRole === 'maker' ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
+                {isMaker ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
               </label>
               <textarea
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
                 placeholder={
-                  userRole === 'maker' 
+                  isMaker 
                     ? "Please provide justification for this payment request..."
                     : "Please provide notes for this payment processing..."
                 }
@@ -2069,7 +2516,7 @@ const SalaryAdvanceAdmin = () => {
                 className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
               />
               <p className="text-xs text-gray-500 mt-1">
-                {userRole === 'maker' 
+                {isMaker 
                   ? 'This payment request will be submitted for approval before processing.'
                   : 'These notes will be recorded in the payment history.'
                 }
@@ -2092,13 +2539,19 @@ const SalaryAdvanceAdmin = () => {
                           <Square className="h-5 w-5" />
                         )}
                       </button>
-                      <div>
-                        <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
-                          {app["Full Name"]}
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                            {app["Full Name"]}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
-                        </div>
+                        <ManagerBadge 
+                          isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                          isRegionalManager={false}
+                        />
                       </div>
                     </div>
                     <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
@@ -2111,16 +2564,19 @@ const SalaryAdvanceAdmin = () => {
             
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowBulkPaymentModal(false)}
+                onClick={() => {
+                  setShowBulkPaymentModal(false);
+                  setJustification('');
+                }}
                 className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                 disabled={isProcessingBulkPayment}
               >
                 Cancel
               </button>
               <button
-                onClick={() => handleBulkPayment()}
+                onClick={handleBulkPayment}
                 className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-                disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0}
+                disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0 || !justification.trim()}
               >
                 {isProcessingBulkPayment ? (
                   <>
@@ -2130,7 +2586,7 @@ const SalaryAdvanceAdmin = () => {
                 ) : (
                   <>
                     <Send size={16} />
-                    {userRole === 'maker' 
+                    {isMaker 
                       ? `Submit Request (${getSelectedStaffCount()})`
                       : `Process Payments (${getSelectedStaffCount()})`
                     }
@@ -2177,6 +2633,14 @@ const SalaryAdvanceAdmin = () => {
         application={selectedApplication}
         actionType={recommendationAction}
         currentAmount={selectedApplication?.["Amount Requested"]}
+      />
+
+      {/* Comment Modal */}
+      <CommentModal
+        isOpen={showCommentModal}
+        onClose={() => setShowCommentModal(false)}
+        onConfirm={handleComment}
+        application={selectedApplication}
       />
     </div>
   );

@@ -763,7 +763,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
                               <Route 
                                 path="/salaryadmin" 
                                 element={
-                                  <AuthRoute allowedRoles={['ADMIN','CHECKER', 'HR','MANAGER']}>
+                                  <AuthRoute allowedRoles={['ADMIN','CHECKER', 'HR','MANAGER','REGIONAL']}>
                                     <SalaryAdvanceAdmin />
                                   </AuthRoute>
                                 } 
