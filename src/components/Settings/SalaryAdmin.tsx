@@ -583,7 +583,6 @@ const RecommendationModal = ({
   const getActionDescription = () => {
     const descriptions = {
       'bm-recommend-current': 'Recommend approval with the current requested amount.',
-
       'bm-recommend-adjusted': 'Recommend approval with an adjusted amount.',
       'bm-recommend-reject': 'Recommend rejection of this application.',
       'rm-recommend-current': 'Recommend approval with the current requested amount.',
@@ -680,7 +679,7 @@ const RecommendationModal = ({
 };
 
 // Enhanced User Role Display Component
-const UserRoleDisplay = ({ userRole, userEmail, actualRole }) => {
+const UserRoleDisplay = ({ userRole, userEmail, actualRole, userTown, userRegion, isRegionalManager }) => {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'maker': return <User className="w-4 h-4" />;
@@ -710,24 +709,29 @@ const UserRoleDisplay = ({ userRole, userEmail, actualRole }) => {
           {getRoleIcon(userRole)}
           {userRole.replace(/_/g, ' ').toUpperCase()}
         </span>
-        <span className="text-xs text-gray-500 mt-1">
-          Actual: {actualRole}
-        </span>
+        <div className="text-xs text-gray-500 mt-1">
+          <div>Actual: {actualRole}</div>
+          {userTown && <div>{isRegionalManager ? 'Region' : 'Town'}: {userTown}</div>}
+          {userRegion && isRegionalManager && <div>Region: {userRegion}</div>}
+        </div>
       </div>
     </div>
   );
 };
 
-// Branch and Town Filter Component
-const RegionTownFilter = ({ 
-  selectedRegion, 
+// Town Filter Component - Borrowed from Leave Management
+const TownFilter = ({ 
   selectedTown, 
-  onRegionChange, 
   onTownChange, 
-  regions, 
-  townsByRegion 
+  allTowns,
+  userRole,
+  userTown,
+  isRegionalManager
 }) => {
   const [showFilter, setShowFilter] = useState(false);
+
+  const isBranchManager = userRole === 'branch_manager';
+  const isManager = isBranchManager || isRegionalManager;
 
   return (
     <div className="relative">
@@ -736,18 +740,20 @@ const RegionTownFilter = ({
         className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
       >
         <Filter className="w-4 h-4" />
-        Filter
-        {(selectedRegion || selectedTown) && (
+        {isRegionalManager ? 'Region Filter' : 'Town Filter'}
+        {selectedTown && (
           <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-            {selectedRegion ? '1' : '0'}
+            1
           </span>
         )}
       </button>
 
       {showFilter && (
-        <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-4">
+        <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-medium text-gray-900">Filter by Region & Town</h3>
+            <h3 className="text-sm font-medium text-gray-900">
+              {isRegionalManager ? 'Filter by Region' : 'Filter by Town'}
+            </h3>
             <button
               onClick={() => setShowFilter(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -756,59 +762,58 @@ const RegionTownFilter = ({
             </button>
           </div>
 
+          {isManager && selectedTown && (
+            <div className="mb-3 p-2 bg-blue-50 rounded-md">
+              <p className="text-xs text-blue-700">
+                {isRegionalManager 
+                  ? `Viewing applications for your region: ${selectedTown}`
+                  : `Viewing applications for your town: ${selectedTown}`
+                }
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                Region
-              </label>
-              <select
-                value={selectedRegion || ''}
-                onChange={(e) => onRegionChange(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
-              >
-                <option value="">All Regions</option>
-                {regions.map(region => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">
-                Town
+                {isRegionalManager ? 'Region' : 'Town'} 
+                {isManager && <span className="text-gray-500"> (Auto-filtered)</span>}
               </label>
               <select
                 value={selectedTown || ''}
                 onChange={(e) => onTownChange(e.target.value)}
-                disabled={!selectedRegion}
+                disabled={isManager}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="">All Towns</option>
-                {selectedRegion && townsByRegion[selectedRegion]?.map(town => (
+                <option value="">All {isRegionalManager ? 'Regions' : 'Towns'}</option>
+                {allTowns.map(town => (
                   <option key={town} value={town}>
                     {town}
                   </option>
                 ))}
               </select>
+              {isManager && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Managers are automatically filtered to their assigned {isRegionalManager ? 'region' : 'town'}
+                </p>
+              )}
             </div>
 
             <div className="flex justify-between pt-2 border-t border-gray-200">
               <button
                 onClick={() => {
-                  onRegionChange('');
                   onTownChange('');
                 }}
                 className="text-xs text-gray-600 hover:text-gray-800"
+                disabled={isManager}
               >
-                Clear Filters
+                Clear Filter
               </button>
               <button
                 onClick={() => setShowFilter(false)}
                 className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700"
               >
-                Apply Filters
+                Apply Filter
               </button>
             </div>
           </div>
@@ -832,12 +837,15 @@ const SalaryAdvanceAdmin = () => {
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
   const [justification, setJustification] = useState('');
   
-  // Region and Town Filter State
-  const [selectedRegion, setSelectedRegion] = useState('');
-  const [selectedTown, setSelectedTown] = useState('');
-  const [regions, setRegions] = useState<string[]>([]);
-  const [townsByRegion, setTownsByRegion] = useState<Record<string, string[]>>({});
+  // Town Filter State - Borrowed from Leave Management
+  const [currentTown, setCurrentTown] = useState<string>('');
   const [allTowns, setAllTowns] = useState<string[]>([]);
+  const [userTown, setUserTown] = useState<string>('');
+  const [userRegion, setUserRegion] = useState<string>('');
+  const [areaTownMapping, setAreaTownMapping] = useState<any>({});
+  const [branchAreaMapping, setBranchAreaMapping] = useState<any>({});
+  const [isArea, setIsArea] = useState<boolean>(false);
+  const [townsInArea, setTownsInArea] = useState<string[]>([]);
 
   // Manager data state
   const [employeeJobTitles, setEmployeeJobTitles] = useState<Record<string, string>>({});
@@ -868,51 +876,89 @@ const SalaryAdvanceAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
 
-  // Check if employee is a branch manager
-  const checkIfBranchManager = async (employeeNumber: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('"Job Title"')
-        .eq('"Employee Number"', employeeNumber)
-        .single();
+  // Role-based permissions
+  const isAdmin = userRole === 'credit_analyst_officer';
+  const isBranchManager = userRole === 'branch_manager';
+  const isRegionalManager = userRole === 'regional_manager';
+  const isChecker = userRole === 'checker';
+  const isMaker = userRole === 'maker';
 
-      if (error) throw error;
-      
-      const jobTitle = data?.["Job Title"]?.toLowerCase() || '';
-      const isManager = jobTitle.includes('branch manager') || 
-                       jobTitle.includes('manager') || 
-                       jobTitle.includes('bm') ||
-                       jobTitle.includes('head of');
-      
-      return isManager;
-    } catch (error) {
-      console.error('Error checking branch manager status:', error);
-      return false;
-    }
-  };
+  // BORROWED FROM LEAVE MANAGEMENT: Load area-town mapping and saved town
+  useEffect(() => {
+    const loadMappings = async () => {
+      try {
+        // Fetch the area-town mapping from the database
+        const { data: employeesData, error: employeesError } = await supabase
+          .from('employees')
+          .select('Branch, Town');
+        
+        if (employeesError) {
+          console.error("Error loading area-town mapping:", employeesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const mapping = {};
+        employeesData?.forEach(item => {
+          if (item.Branch && item.Town) {
+            if (!mapping[item.Branch]) {
+              mapping[item.Branch] = [];
+            }
+            mapping[item.Branch].push(item.Town);
+          }
+        });
+        
+        setAreaTownMapping(mapping);
+        
+        // Fetch branch-area mapping from kenya_branches
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('kenya_branches')
+          .select('"Branch Office", "Area"');
+        
+        if (branchesError) {
+          console.error("Error loading branch-area mapping:", branchesError);
+          return;
+        }
+        
+        // Convert the data to a mapping object
+        const branchMapping = {};
+        branchesData?.forEach(item => {
+          if (item['Branch Office'] && item['Area']) {
+            branchMapping[item['Branch Office']] = item['Area'];
+          }
+        });
+        
+        setBranchAreaMapping(branchMapping);
+        
+        // Load saved town from localStorage
+        const savedTown = localStorage.getItem('selectedTown');
+        if (savedTown) {
+          setCurrentTown(savedTown);
+          console.log('🎯 Loaded saved town from storage:', savedTown);
+        }
+      } catch (error) {
+        console.error("Error in loadMappings:", error);
+      }
+    };
 
-  // Check if user is approving themselves
-  const checkIfSelfApproval = (application: any) => {
-    if (!currentUser || !application) return false;
-    
-    // Check if the application belongs to the current user
-    const userEmployeeNumber = currentUser.user_metadata?.employee_number;
-    if (userEmployeeNumber && application["Employee Number"] === userEmployeeNumber) {
-      return true;
-    }
-    
-    // Fallback: check by email (if employee number not available)
-    const userEmail = currentUser.email?.toLowerCase();
-    const applicationEmail = application["Email"]?.toLowerCase();
-    if (userEmail && applicationEmail && userEmail === applicationEmail) {
-      return true;
-    }
-    
-    return false;
-  };
+    loadMappings();
+    fetchUserProfile();
+    fetchTowns();
+  }, []);
 
-  // Enhanced user profile fetching with role detection
+  // BORROWED FROM LEAVE MANAGEMENT: Check if current selection is an area and get its towns
+  useEffect(() => {
+    if (currentTown && areaTownMapping[currentTown]) {
+      setIsArea(true);
+      setTownsInArea(areaTownMapping[currentTown]);
+      console.log('📍 Current selection is an area:', currentTown, 'with towns:', areaTownMapping[currentTown]);
+    } else {
+      setIsArea(false);
+      setTownsInArea([]);
+    }
+  }, [currentTown, areaTownMapping]);
+
+  // Enhanced user profile fetching with manager lookup
   const fetchUserProfile = async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -925,22 +971,85 @@ const SalaryAdvanceAdmin = () => {
       setCurrentUser(user);
       setUserEmail(user.email || '');
 
-      // Use the actual role from user_metadata
       const actualRole = user.user_metadata?.role || 'STAFF';
       const mappedRole = ROLE_MAPPING[actualRole] || 'maker';
-      
-      console.log('User role detection:', {
+
+      let userTown = '';
+      let userRegion = '';
+
+      console.log('🔍 Looking up manager assignment for email:', user.email);
+
+      // METHOD 1: Check if user is a Regional Manager (email in regional_manager column)
+      const { data: regionalManagerData, error: regionalManagerError } = await supabase
+        .from('employees')
+        .select('Town, Branch')
+        .eq('regional_manager', user.email)
+        .maybeSingle();
+
+      if (regionalManagerData) {
+        console.log('✅ User found as Regional Manager:', regionalManagerData);
+        userRegion = regionalManagerData.Branch || '';
+        userTown = userRegion; // For regional managers, use region as town for filtering
+        console.log('📍 Regional Manager assigned to Region:', userRegion);
+      } else {
+        // METHOD 2: Check if user is a Branch Manager (email in manager_email column)
+        const { data: branchManagerData, error: branchManagerError } = await supabase
+          .from('employees')
+          .select('Town, Branch')
+          .eq('manager_email', user.email)
+          .maybeSingle();
+
+        if (branchManagerData) {
+          console.log('✅ User found as Branch Manager:', branchManagerData);
+          userTown = branchManagerData.Town || '';
+          userRegion = branchManagerData.Branch || '';
+          console.log('📍 Branch Manager assigned to Town:', userTown);
+        } else {
+          console.log('❌ User email not found in regional_manager or manager_email columns');
+          
+          // Fallback: try to find as regular employee
+          const { data: employeeData, error: employeeError } = await supabase
+            .from('employees')
+            .select('Town, Branch')
+            .eq('Email', user.email)
+            .maybeSingle();
+
+          if (employeeData) {
+            userTown = employeeData.Town || '';
+            userRegion = employeeData.Branch || '';
+            console.log('📍 Regular employee - Town:', userTown, 'Region:', userRegion);
+          }
+        }
+      }
+
+      console.log('🎯 Final result:', {
         email: user.email,
-        actualRole: actualRole,
-        mappedRole: mappedRole
+        actualRole,
+        mappedRole,
+        userTown,
+        userRegion
       });
 
       setActualUserRole(actualRole);
       setUserRole(mappedRole);
-     
+      setUserTown(userTown);
+      setUserRegion(userRegion);
+
+      // Auto-set filter based on manager type - BORROWED FROM LEAVE MANAGEMENT
+      if (mappedRole === 'regional_manager' && userRegion) {
+        // Regional Manager: filter by region (Branch column)
+        setCurrentTown(userRegion);
+        console.log('🎯 Regional Manager - auto-filtering by region:', userRegion);
+      } else if (mappedRole === 'branch_manager' && userTown) {
+        // Branch Manager: filter by town (Town column)
+        setCurrentTown(userTown);
+        console.log('🎯 Branch Manager - auto-filtering by town:', userTown);
+      } else {
+        setCurrentTown('');
+      }
 
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      console.error('❌ Error fetching user profile:', error);
       setUserRole('maker');
       setActualUserRole('STAFF');
     }
@@ -969,11 +1078,35 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  useEffect(() => {
-    fetchApplications();
-    fetchUserProfile();
-    fetchRegionsAndTowns();
-  }, []);
+  // BORROWED FROM LEAVE MANAGEMENT: Fetch towns and regions data
+  const fetchTowns = async () => {
+    try {
+      console.log('📍 Fetching towns and regions from database...');
+      const { data: employeesData, error: employeesError } = await supabase
+        .from('employees')
+        .select('Town, Branch')
+        .not('Town', 'is', null);
+
+      if (employeesError) {
+        console.error('❌ Error fetching towns:', employeesError);
+        return;
+      }
+
+      // Combine towns and regions for the filter dropdown
+      const allLocations = [...new Set([
+        ...employeesData.map(item => item.Town).filter(Boolean),
+        ...employeesData.map(item => item.Branch).filter(Boolean)
+      ])].sort();
+      
+      console.log('📍 Available locations for filter:', allLocations);
+      console.log('📍 Current user town:', userTown);
+      console.log('📍 Current user region:', userRegion);
+      
+      setAllTowns(allLocations);
+    } catch (error) {
+      console.error('❌ Error fetching towns:', error);
+    }
+  };
 
   useEffect(() => {
     if (currentUser) {
@@ -981,43 +1114,141 @@ const SalaryAdvanceAdmin = () => {
     }
   }, [currentUser]);
 
-  // Fetch regions and towns data
-  const fetchRegionsAndTowns = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('employees')
-        .select('Branch, Town')
-        .not('Branch', 'is', null)
-        .not('Town', 'is', null);
+  // BORROWED FROM LEAVE MANAGEMENT: Enhanced fetchApplications with proper filtering
+const fetchApplications = async () => {
+  setIsLoading(true);
+  try {
+    console.log('🔍 Fetching applications - Role:', userRole, 'Current Town:', currentTown);
+    
+    let query = supabase
+      .from('salary_advance')
+      .select('*')
+      .order('time_added', { ascending: false });
 
-      if (error) throw error;
+    if (currentTown && currentTown.trim() !== '') {
+      if (isRegionalManager) {
+        // Regional Manager: Get all towns in this region, then filter by Office Branch
+        console.log('🌍 Regional Manager - Getting towns for region:', currentTown);
+        
+        // First, get all towns that belong to this region from employees table
+        const { data: regionTowns, error: townsError } = await supabase
+          .from('employees')
+          .select('Town')
+          .ilike('Branch', `%${currentTown}%`)
+          .not('Town', 'is', null);
 
-      const uniqueRegions = [...new Set(data.map(item => item.Branch))].filter(Boolean);
-      const uniqueTowns = [...new Set(data.map(item => item.Town))].filter(Boolean);
-      
-      const townsByRegionMap: Record<string, string[]> = {};
-      data.forEach(item => {
-        if (item.Branch && item.Town) {
-          if (!townsByRegionMap[item.Branch]) {
-            townsByRegionMap[item.Branch] = [];
-          }
-          if (!townsByRegionMap[item.Branch].includes(item.Town)) {
-            townsByRegionMap[item.Branch].push(item.Town);
-          }
+        if (townsError) {
+          console.error('❌ Error fetching region towns:', townsError);
+          throw townsError;
         }
-      });
 
-      setRegions(uniqueRegions);
-      setTownsByRegion(townsByRegionMap);
-      setAllTowns(uniqueTowns);
+        const uniqueTowns = [...new Set(regionTowns.map(item => item.Town))].filter(Boolean);
+        console.log('🏙️ Towns in region:', uniqueTowns);
 
-    } catch (error) {
-      console.error('Error fetching regions and towns:', error);
-      setRegions(['Nairobi', 'Coast', 'Central', 'Rift Valley', 'Western', 'Nyanza', 'Eastern']);
-      setAllTowns(['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret']);
+        if (uniqueTowns.length > 0) {
+          // Filter salary_advance by Office Branch using the towns from this region
+          const orConditions = uniqueTowns.map(town => `"Office Branch".ilike.%${town}%`).join(',');
+          query = query.or(orConditions);
+          console.log('🔍 Filtering by Office Branch with towns:', uniqueTowns);
+        } else {
+          console.log('❌ No towns found for region:', currentTown);
+        }
+
+      } else if (isArea) {
+        // Area selected: filter by all towns in that area using Office Branch
+        console.log('🏙️ Area selected, filtering by Office Branch for towns:', townsInArea);
+        const orConditions = townsInArea.map(town => `"Office Branch".ilike.%${town}%`).join(',');
+        query = query.or(orConditions);
+      } else {
+        // Branch Manager or town filter: filter by Office Branch column
+        console.log('🏙️ Filtering by Office Branch:', currentTown.trim());
+        query = query.ilike('"Office Branch"', `%${currentTown.trim()}%`);
+      }
+    } else {
+      console.log('🔓 No filter applied');
     }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('❌ Error fetching applications:', error);
+      throw error;
+    }
+
+    console.log('✅ Fetched applications:', data?.length);
+    
+    if (data && data.length > 0) {
+      console.log('📊 First application sample:', {
+        id: data[0].id,
+        'Office Branch': data[0]['Office Branch'],
+        'Branch': data[0].Branch,
+        Employee: data[0]['Employee Number']
+      });
+    } else {
+      console.log('❌ No applications found with current filter');
+    }
+
+    // Enhance applications with manager status
+    const enhancedApplications = data?.map(app => ({
+      ...app,
+      isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
+    })) || [];
+    
+    setApplications(enhancedApplications);
+    
+    // Fetch job titles and manager status
+    await fetchJobTitles(enhancedApplications);
+    
+    const initialNotes: Record<string, string> = {};
+    enhancedApplications.forEach(app => {
+      initialNotes[app.id] = app.admin_notes || '';
+    });
+    setNotes(initialNotes);
+
+    const initialSelected: Record<string, boolean> = {};
+    enhancedApplications.forEach(app => {
+      if (app.status?.toLowerCase() === 'approved') {
+        initialSelected[app.id] = true;
+      }
+    });
+    setSelectedStaff(initialSelected);
+
+    await fetchMobileNumbers(enhancedApplications);
+    
+  } catch (error) {
+    console.error('❌ Error fetching applications:', error);
+    toast.error('Failed to load applications');
+  } finally {
+    setIsLoading(false);
+  }
+};
+  // BORROWED FROM LEAVE MANAGEMENT: Update the useEffect to trigger on currentTown changes
+  useEffect(() => {
+    console.log('🔄 Triggering fetch due to town/region change:', currentTown);
+    fetchApplications();
+  }, [currentTown]);
+
+  // BORROWED FROM LEAVE MANAGEMENT: Handle town change
+  const handleTownChange = (town: string) => {
+    setCurrentTown(town);
+    setCurrentPage(1);
+    // Save to localStorage for persistence
+    localStorage.setItem('selectedTown', town);
+    console.log('💾 Saved town to localStorage:', town);
   };
 
+  // BORROWED FROM LEAVE MANAGEMENT: Get display name for current selection
+  const getDisplayName = (currentTown: string, isArea: boolean) => {
+    if (!currentTown) return "All Towns";
+    
+    if (isArea) {
+      return `${currentTown} Region`;
+    }
+    
+    return currentTown;
+  };
+
+  // Rest of your existing functions (fetchJobTitles, fetchMobileNumbers, etc.) remain the same...
   // Fetch job titles for all applications
   const fetchJobTitles = async (apps: any[]) => {
     try {
@@ -1056,64 +1287,6 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  const fetchApplications = async () => {
-    setIsLoading(true);
-    try {
-      let query = supabase
-        .from('salary_advance')
-        .select('*')
-        .order('time_added', { ascending: false });
-
-      // Apply region and town filters
-      if (selectedRegion) {
-        query = query.eq('Branch', selectedRegion);
-      }
-      if (selectedTown) {
-        query = query.eq('Town', selectedTown);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      
-      // Enhance applications with manager status
-      const enhancedApplications = data?.map(app => ({
-        ...app,
-        isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
-      })) || [];
-      
-      setApplications(enhancedApplications);
-      
-      // Fetch job titles and manager status
-      await fetchJobTitles(enhancedApplications);
-      
-      const initialNotes: Record<string, string> = {};
-      enhancedApplications.forEach(app => {
-        initialNotes[app.id] = app.admin_notes || '';
-      });
-      setNotes(initialNotes);
-
-      const initialSelected: Record<string, boolean> = {};
-      enhancedApplications.forEach(app => {
-        if (app.status?.toLowerCase() === 'approved') {
-          initialSelected[app.id] = true;
-        }
-      });
-      setSelectedStaff(initialSelected);
-
-      await fetchMobileNumbers(enhancedApplications);
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-      toast.error('Failed to load applications');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchApplications();
-  }, [selectedRegion, selectedTown]);
-
   const fetchMobileNumbers = async (apps: any[]) => {
     try {
       const employeeNumbers = apps.map(app => app["Employee Number"]).filter(Boolean);
@@ -1139,7 +1312,7 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  // Get fully approved applications - FIXED VERSION
+  // Get fully approved applications
   const getFullyApprovedApplications = () => {
     return applications.filter(app => 
       app.status?.toLowerCase() === 'approved'
@@ -1235,6 +1408,26 @@ const SalaryAdvanceAdmin = () => {
       console.error('Error updating amount:', error);
       toast.error('Failed to update amount');
     }
+  };
+
+  // Check if user is approving themselves
+  const checkIfSelfApproval = (application: any) => {
+    if (!currentUser || !application) return false;
+    
+    // Check if the application belongs to the current user
+    const userEmployeeNumber = currentUser.user_metadata?.employee_number;
+    if (userEmployeeNumber && application["Employee Number"] === userEmployeeNumber) {
+      return true;
+    }
+    
+    // Fallback: check by email (if employee number not available)
+    const userEmail = currentUser.email?.toLowerCase();
+    const applicationEmail = application["Email"]?.toLowerCase();
+    if (userEmail && applicationEmail && userEmail === applicationEmail) {
+      return true;
+    }
+    
+    return false;
   };
 
   // Open recommendation modal
@@ -1489,7 +1682,7 @@ const SalaryAdvanceAdmin = () => {
         type: 'bulk',
         advances_data: selectedAdvances,
         justification: justification,
-        total_amount: selectedAdvances.reduce((sum, advance) => sum + Number(advance.amount_requested || 0), 0),
+        total_amount: selectedAdvances.reduce((sum, advance) => sum + (advance.amount_requested || 0), 0),
         created_by: user.id,
         created_by_email: user.email,
         status: 'pending'
@@ -1691,7 +1884,7 @@ const SalaryAdvanceAdmin = () => {
     return results;
   };
 
-  // Bulk payment with proper maker-checker flow and selection clearing
+  // Bulk payment with proper state clearing
   const handleBulkPayment = async () => {
     const selectedApps = getFullyApprovedApplications().filter(app => selectedStaff[app.id]);
     
@@ -1720,10 +1913,17 @@ const SalaryAdvanceAdmin = () => {
         await createPaymentRequest(advancesData, justification);
         toast.success('Payment request submitted for approval!');
         
+        // Clear everything properly
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
         fetchPaymentRequests();
+        
+        // Refresh applications
+        setTimeout(() => {
+          fetchApplications();
+        }, 1000);
+        
       } catch (error) {
         console.error('Error creating payment request:', error);
         toast.error('Failed to submit payment request');
@@ -1745,10 +1945,16 @@ const SalaryAdvanceAdmin = () => {
           toast.error('All payments failed. Please check your payment service configuration.');
         }
         
+        // Clear everything properly
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
-        fetchApplications();
+        
+        // Refresh applications to update status to "Paid"
+        setTimeout(() => {
+          fetchApplications();
+        }, 1000);
+        
       } catch (error) {
         console.error('Error processing bulk payments:', error);
         toast.error(`Failed to process payments: ${error.message}`);
@@ -1771,7 +1977,7 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  // FIXED: Get approval status
+  // Get approval status
   const getApprovalStatus = (app: any) => {
     if (app.status?.toLowerCase() === 'rejected') {
       return 'Rejected';
@@ -1780,7 +1986,7 @@ const SalaryAdvanceAdmin = () => {
       return 'Paid';
     }
 
-    // Check if fully approved by admin - FIXED
+    // Check if fully approved by admin
     if (app.status?.toLowerCase() === 'approved') {
       return 'Fully Approved';
     }
@@ -1865,6 +2071,58 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
+  // Check if branch manager can approve this application
+  const canBranchManagerApprove = (app: any) => {
+    if (!isBranchManager) return false;
+    
+    // Branch managers cannot approve themselves
+    const isSelfApproval = checkIfSelfApproval(app);
+    
+    // Branch managers can only approve regular employees (not other branch managers)
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    
+    // Must not have branch manager approval yet
+    const hasBranchApproval = app.branch_manager_approval;
+    
+    return !isSelfApproval && !isEmployeeBranchManager && !hasBranchApproval;
+  };
+
+  // Check if regional manager can approve this application
+  const canRegionalManagerApprove = (app: any) => {
+    if (!isRegionalManager && !isAdmin) return false;
+    
+    // Regional managers can only approve branch managers, but admins can approve anyone
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    const canApproveThisUser = isAdmin || isEmployeeBranchManager;
+    
+    // Cannot approve themselves
+    const isSelfApproval = checkIfSelfApproval(app);
+    
+    // Must not have regional manager approval yet
+    const hasRegionalApproval = app.regional_manager_approval;
+    
+    return canApproveThisUser && !isSelfApproval && !hasRegionalApproval;
+  };
+
+  // Check if regional manager can comment on regular employees
+  const canRegionalManagerComment = (app: any) => {
+    if (!isRegionalManager) return false;
+    
+    // Regional managers can comment on regular employees that are pending branch manager approval
+    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
+    const hasBranchApproval = app.branch_manager_approval;
+    
+    return !isEmployeeBranchManager && !hasBranchApproval;
+  };
+
+  // Check if admin can approve this application
+  const canAdminApprove = (app: any) => {
+    if (!isAdmin) return false;
+    
+    // Admin can approve any application that has reached "pending-admin" status
+    return app.status === 'pending-admin';
+  };
+
   const filteredApplications = applications.filter(app => {
     const matchesSearch = 
       app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1889,92 +2147,20 @@ const SalaryAdvanceAdmin = () => {
   // Pending payment requests count
   const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
 
-  // Handle Branch change
-  const handleRegionChange = (Branch: string) => {
-    setSelectedRegion(Branch);
-    setSelectedTown('');
-    setCurrentPage(1);
-  };
-
-  // Handle town change
-  const handleTownChange = (town: string) => {
-    setSelectedTown(town);
-    setCurrentPage(1);
-  };
-
-  // Role-based permissions
-  const isAdmin = userRole === 'credit_analyst_officer';
-  const isBranchManager = userRole === 'branch_manager';
-  const isRegionalManager = userRole === 'regional_manager';
-  const isChecker = userRole === 'checker';
-  const isMaker = userRole === 'maker';
-
-  // FIXED: Check if regional manager can approve this application
-  const canRegionalManagerApprove = (app: any) => {
-    if (!isRegionalManager && !isAdmin) return false;
-    
-    // Regional managers can only approve branch managers, but admins can approve anyone
-    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
-    const canApproveThisUser = isAdmin || isEmployeeBranchManager;
-    
-    // Cannot approve themselves
-    const isSelfApproval = checkIfSelfApproval(app);
-    
-    // Must not have regional manager approval yet
-    const hasRegionalApproval = app.regional_manager_approval;
-    
-    return canApproveThisUser && !isSelfApproval && !hasRegionalApproval;
-  };
-
-  // Check if branch manager can approve this application
-  const canBranchManagerApprove = (app: any) => {
-    if (!isBranchManager) return false;
-    
-    // Branch managers cannot approve themselves
-    const isSelfApproval = checkIfSelfApproval(app);
-    
-    // Branch managers can only approve regular employees (not other branch managers)
-    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
-    
-    // Must not have branch manager approval yet
-    const hasBranchApproval = app.branch_manager_approval;
-    
-    return !isSelfApproval && !isEmployeeBranchManager && !hasBranchApproval;
-  };
-
-  // Check if regional manager can comment on regular employees
-  const canRegionalManagerComment = (app: any) => {
-    if (!isRegionalManager) return false;
-    
-    // Regional managers can comment on regular employees that are pending branch manager approval
-    const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
-    const hasBranchApproval = app.branch_manager_approval;
-    
-    return !isEmployeeBranchManager && !hasBranchApproval;
-  };
-
-  // FIXED: Check if admin can approve this application
-  const canAdminApprove = (app: any) => {
-    if (!isAdmin) return false;
-    
-    // Admin can approve any application that has reached "pending-admin" status
-    return app.status === 'pending-admin';
-  };
-
   return (
     <div className="p-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
         
         <div className="flex items-center gap-3">
-          {/* Branch and Town Filter */}
-          <RegionTownFilter
-            selectedRegion={selectedRegion}
-            selectedTown={selectedTown}
-            onRegionChange={handleRegionChange}
+          {/* Town Filter - BORROWED FROM LEAVE MANAGEMENT */}
+          <TownFilter
+            selectedTown={currentTown}
             onTownChange={handleTownChange}
-            regions={regions}
-            townsByRegion={townsByRegion}
+            allTowns={allTowns}
+            userRole={userRole}
+            userTown={userTown}
+            isRegionalManager={isRegionalManager}
           />
 
           {/* Enhanced User Role Display */}
@@ -1982,6 +2168,9 @@ const SalaryAdvanceAdmin = () => {
             userRole={userRole} 
             userEmail={userEmail}
             actualRole={actualUserRole}
+            userTown={userTown}
+            userRegion={userRegion}
+            isRegionalManager={isRegionalManager}
           />
 
           {/* Approval Queue Button for Checkers */}
@@ -2028,40 +2217,33 @@ const SalaryAdvanceAdmin = () => {
             <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} | 
             <strong> Actual Role:</strong> {actualUserRole} |
             <strong> Email:</strong> {userEmail}
+            {userTown && ` | ${isRegionalManager ? 'Region' : 'Town'}: ${userTown}`}
           </span>
         </div>
       </div>
 
-      {/* Filter Display */}
-      {(selectedRegion || selectedTown) && (
+      {/* BORROWED FROM LEAVE MANAGEMENT: Auto-filter Notice for Managers */}
+      
+
+      {/* BORROWED FROM LEAVE MANAGEMENT: Manual Filter Display */}
+      {!isBranchManager && !isRegionalManager && currentTown && (
         <div className="mb-4 flex items-center gap-2">
-          <span className="text-xs text-gray-600">Active filters:</span>
-          {selectedRegion && (
-            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-              <MapPin className="w-3 h-3" />
-              Branch: {selectedRegion}
-              <button
-                onClick={() => handleRegionChange('')}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
-          {selectedTown && (
-            <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-              <MapPin className="w-3 h-3" />
-              Town: {selectedTown}
-              <button
-                onClick={() => handleTownChange('')}
-                className="text-green-600 hover:text-green-800"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </span>
-          )}
+          <span className="text-xs text-gray-600">Active filter:</span>
+          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+            <MapPin className="w-3 h-3" />
+            {isArea ? 'Region' : 'Town'}: {getDisplayName(currentTown, isArea)}
+            <button
+              onClick={() => handleTownChange('')}
+              className="text-blue-600 hover:text-blue-800 ml-1"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
         </div>
       )}
+
+      {/* Debug Panel */}
+      
 
       {/* Payment Approval Queue */}
       {showApprovalQueue && (isChecker || isAdmin) && (
@@ -2113,6 +2295,7 @@ const SalaryAdvanceAdmin = () => {
         </div>
       )}
 
+      {/* Rest of your existing JSX remains the same... */}
       {isLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-600"></div>
@@ -2120,8 +2303,10 @@ const SalaryAdvanceAdmin = () => {
       ) : filteredApplications.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           No salary advance requests found.
-          {(selectedRegion || selectedTown) && (
-            <p className="text-xs mt-2">Try changing your filters or search term.</p>
+          {currentTown && (
+            <p className="text-xs mt-2">
+              No applications found for {isRegionalManager ? 'region' : isArea ? 'region' : 'town'} "{getDisplayName(currentTown, isArea)}". Try changing your filter or search term.
+            </p>
           )}
         </div>
       ) : (
@@ -2137,7 +2322,7 @@ const SalaryAdvanceAdmin = () => {
                     Mobile Number
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Branch
+                    {isRegionalManager ? 'Region' : 'Branch'}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
@@ -2177,9 +2362,9 @@ const SalaryAdvanceAdmin = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                       {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                      {app["Office Branch"]}
-                    </td>
+                   <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+  {app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A'}
+</td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {editingId === app.id ? (
                         <div className="flex items-center gap-2">
