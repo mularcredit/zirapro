@@ -6,7 +6,8 @@ import {
   CheckSquare, Square, ChevronLeft, ChevronRight, UserCheck, ShieldCheck,
   Eye, AlertTriangle, Loader, CheckCircle, XCircle as XCircleIcon,
   User, UserCog, Settings, MapPin, Filter, X, Edit3, DollarSign,
-  Crown, Key, Building, Map, Award, MessageCircle
+  Crown, Key, Building, Map, Award, Smartphone, RefreshCw,
+  Download, Upload, Calendar
 } from 'lucide-react';
 
 // Role mapping - Connect your actual roles to SalaryAdvanceAdmin roles
@@ -132,6 +133,499 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+// Export Modal Component - FIXED
+const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
+  const [format, setFormat] = useState('excel');
+  const [dateRange, setDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleExport = () => {
+    onExport({
+      format,
+      dateRange,
+      customStartDate,
+      customEndDate
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Download className="h-5 w-5 text-green-600" />
+          Export Salary Advances
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Export Format
+            </label>
+            <select
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="excel">Excel (.xlsx)</option>
+              <option value="csv">CSV (.csv)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Date Range
+            </label>
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="this_week">This Week</option>
+              <option value="this_month">This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          {dateRange === 'custom' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-xs text-blue-800">
+              <strong>Exporting:</strong> Employee, Mobile Number, Branch, Amount, Status
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={isLoading}
+            className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Export
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Import Modal Component - FIXED
+const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
+  const [file, setFile] = useState(null);
+  const [importType, setImportType] = useState('updates');
+
+  if (!isOpen) return null;
+
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      // Validate file type
+      const validTypes = ['.csv', '.xlsx', '.xls'];
+      const fileExtension = '.' + selectedFile.name.toLowerCase().split('.').pop();
+      
+      if (!validTypes.includes(fileExtension)) {
+        toast.error('Please select a CSV or Excel file');
+        return;
+      }
+      
+      setFile(selectedFile);
+    }
+  };
+
+  const handleImport = () => {
+    if (!file) {
+      toast.error('Please select a file');
+      return;
+    }
+    
+    onImport(file, importType);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Upload className="h-5 w-5 text-blue-600" />
+          Import Salary Advance Data
+        </h3>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Import Type
+            </label>
+            <select
+              value={importType}
+              onChange={(e) => setImportType(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="updates">Update Existing Records</option>
+              <option value="new">Import New Applications</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              {importType === 'updates' 
+                ? 'Update existing applications with employee number matching'
+                : 'Create new salary advance applications'
+              }
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Select File
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-md p-4 text-center">
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="file-import"
+              />
+              <label
+                htmlFor="file-import"
+                className="cursor-pointer block"
+              >
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <span className="text-xs text-gray-600">
+                  {file ? file.name : 'Click to select CSV or Excel file'}
+                </span>
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported formats: .csv, .xlsx, .xls
+                </p>
+              </label>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+            <p className="text-xs text-blue-800">
+              <strong>Required Columns:</strong> 
+            </p>
+            <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
+              <li>Employee (Full Name)</li>
+              <li>Mobile Number</li>
+              <li>Branch</li>
+              <li>Amount</li>
+              {importType === 'updates' && <li>Employee Number (for matching)</li>}
+            </ul>
+          </div>
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+            <p className="text-xs text-yellow-800">
+              <strong>Note:</strong> For updates, include Employee Number to match existing records.
+              For new applications, Employee Number will be auto-generated if not provided.
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleImport}
+            disabled={isLoading || !file}
+            className="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Importing...
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                Import
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Enhanced Filter Component
+const EnhancedFilter = ({
+  selectedTown,
+  onTownChange,
+  allTowns,
+  userRole,
+  userTown,
+  isRegionalManager,
+  selectedStatus,
+  onStatusChange,
+  selectedMonth,
+  onMonthChange,
+  selectedDateRange,
+  onDateRangeChange,
+  customStartDate,
+  onCustomStartDateChange,
+  customEndDate,
+  onCustomEndDateChange
+}) => {
+  const [showFilter, setShowFilter] = useState(false);
+
+  const statusOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'pending-branch-manager', label: 'Pending Branch Manager' },
+    { value: 'pending-regional-manager', label: 'Pending Regional Manager' },
+    { value: 'pending-admin', label: 'Pending Admin' }
+  ];
+
+  const monthOptions = [
+    { value: 'all', label: 'All Months' },
+    { value: '0', label: 'January' },
+    { value: '1', label: 'February' },
+    { value: '2', label: 'March' },
+    { value: '3', label: 'April' },
+    { value: '4', label: 'May' },
+    { value: '5', label: 'June' },
+    { value: '6', label: 'July' },
+    { value: '7', label: 'August' },
+    { value: '8', label: 'September' },
+    { value: '9', label: 'October' },
+    { value: '10', label: 'November' },
+    { value: '11', label: 'December' }
+  ];
+
+  const dateRangeOptions = [
+    { value: 'all', label: 'All Time' },
+    { value: 'today', label: 'Today' },
+    { value: 'this_week', label: 'This Week' },
+    { value: 'this_month', label: 'This Month' },
+    { value: 'last_month', label: 'Last Month' },
+    { value: 'last_3_months', label: 'Last 3 Months' },
+    { value: 'custom', label: 'Custom Range' }
+  ];
+
+  const isBranchManager = userRole === 'branch_manager';
+  const isManager = isBranchManager || isRegionalManager;
+
+  const activeFilterCount = [
+    selectedTown,
+    selectedStatus !== 'all',
+    selectedMonth !== 'all',
+    selectedDateRange !== 'all'
+  ].filter(Boolean).length;
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowFilter(!showFilter)}
+        className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
+      >
+        <Filter className="w-4 h-4" />
+        Filters
+        {activeFilterCount > 0 && (
+          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+            {activeFilterCount}
+          </span>
+        )}
+      </button>
+
+      {showFilter && (
+        <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-medium text-gray-900">
+              Filter Applications
+            </h3>
+            <button
+              onClick={() => setShowFilter(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="space-y-4">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Status
+              </label>
+              <select
+                value={selectedStatus}
+                onChange={(e) => onStatusChange(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              >
+                {statusOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Month Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Month
+              </label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => onMonthChange(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              >
+                {monthOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Date Range
+              </label>
+              <select
+                value={selectedDateRange}
+                onChange={(e) => onDateRangeChange(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              >
+                {dateRangeOptions.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Custom Date Range Inputs */}
+            {selectedDateRange === 'custom' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => onCustomStartDateChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => onCustomEndDateChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Town/Region Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                {isRegionalManager ? 'Region' : 'Town'} 
+                {isManager && <span className="text-gray-500"> (Auto-filtered)</span>}
+              </label>
+              <select
+                value={selectedTown || ''}
+                onChange={(e) => onTownChange(e.target.value)}
+                disabled={isManager}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:ring-1 focus:ring-green-500 focus:border-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="">All {isRegionalManager ? 'Regions' : 'Towns'}</option>
+                {allTowns.map(town => (
+                  <option key={town} value={town}>
+                    {town}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-between pt-2 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  onStatusChange('all');
+                  onMonthChange('all');
+                  onDateRangeChange('all');
+                  onTownChange('');
+                  onCustomStartDateChange('');
+                  onCustomEndDateChange('');
+                }}
+                className="text-xs text-gray-600 hover:text-gray-800"
+              >
+                Clear All Filters
+              </button>
+              <button
+                onClick={() => setShowFilter(false)}
+                className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700"
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Manager Badge Component
 const ManagerBadge = ({ isBranchManager, isRegionalManager }) => {
   if (!isBranchManager && !isRegionalManager) return null;
@@ -184,7 +678,7 @@ const CommentModal = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-md w-full p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2 flex items-center gap-2">
-          <MessageCircle className="h-5 w-5 text-blue-600" />
+          <Smartphone className="h-5 w-5 text-blue-600" />
           Add Comment
         </h3>
         
@@ -719,7 +1213,7 @@ const UserRoleDisplay = ({ userRole, userEmail, actualRole, userTown, userRegion
   );
 };
 
-// Town Filter Component - Borrowed from Leave Management
+// Town Filter Component
 const TownFilter = ({ 
   selectedTown, 
   onTownChange, 
@@ -739,7 +1233,7 @@ const TownFilter = ({
         onClick={() => setShowFilter(!showFilter)}
         className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
       >
-        <Filter className="w-4 h-4" />
+        <MapPin className="w-4 h-4" />
         {isRegionalManager ? 'Region Filter' : 'Town Filter'}
         {selectedTown && (
           <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
@@ -823,6 +1317,365 @@ const TownFilter = ({
   );
 };
 
+const MpesaCallbacks = () => {
+  const [callbacks, setCallbacks] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedCallback, setSelectedCallback] = useState<any>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+
+  const fetchCallbacks = async () => {
+    try {
+      setIsLoading(true);
+      console.log('🔄 Fetching M-Pesa callbacks from Supabase...');
+      
+      let query = supabase
+        .from('mpesa_callbacks')
+        .select(`
+          id,
+          callback_date,
+          raw_response,
+          result_type,
+          result_code,
+          result_desc,
+          originator_conversation_id,
+          conversation_id,
+          transaction_id,
+          employee_number,
+          full_name,
+          amount,
+          status,
+          created_at,
+          processed_at
+        `)
+        .order('callback_date', { ascending: false })
+        .limit(100);
+
+      if (filterStatus !== 'all') {
+        query = query.eq('status', filterStatus);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('❌ Error fetching M-Pesa callbacks:', error);
+        console.error('Error details:', error.details, error.hint, error.message);
+        throw error;
+      }
+
+      console.log(`✅ Loaded ${data?.length || 0} M-Pesa callbacks`);
+      console.log('Sample callback data:', data && data.length > 0 ? data[0] : 'No data');
+      
+      setCallbacks(data || []);
+      setLastRefresh(new Date());
+      
+    } catch (error) {
+      console.error('❌ Error fetching M-Pesa callbacks:', error);
+      toast.error('Failed to load M-Pesa callbacks');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Debug function to check table structure
+  const debugTableStructure = async () => {
+    try {
+      console.log('🔍 Checking table structure...');
+      
+      const { data, error } = await supabase
+        .from('mpesa_callbacks')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('❌ Error checking table:', error);
+        return;
+      }
+
+      console.log('📊 Table structure sample:', data);
+      console.log('📋 Available columns:', Object.keys(data || {}));
+      
+    } catch (error) {
+      console.error('❌ Debug error:', error);
+    }
+  };
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    fetchCallbacks();
+    debugTableStructure();
+    
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing M-Pesa callbacks...');
+      fetchCallbacks();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [filterStatus]);
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    await fetchCallbacks();
+    toast.success('M-Pesa callbacks refreshed');
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      received: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Received' },
+      processed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Processed' },
+      failed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Failed' }
+    };
+    
+    const config = statusConfig[status] || statusConfig.received;
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const getResultCodeBadge = (code: number) => {
+    if (code === 0) {
+      return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Success</span>;
+    } else if (code === 1) {
+      return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Failed</span>;
+    } else if (code === 17) {
+      return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">Canceled</span>;
+    } else {
+      return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Code: {code}</span>;
+    }
+  };
+
+  const viewCallbackDetails = (callback: any) => {
+    setSelectedCallback(callback);
+    setShowDetails(true);
+  };
+
+  // Format amount with KES
+  const formatAmount = (amount: number) => {
+    if (!amount) return 'N/A';
+    return `KSh ${amount.toLocaleString()}`;
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Smartphone className="w-5 h-5 text-blue-600" />
+            M-Pesa Callback Results
+          </h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Last refreshed: {lastRefresh.toLocaleTimeString()} | Auto-refreshes every 30 seconds
+            {callbacks.length > 0 && ` | Showing ${callbacks.length} records`}
+          </p>
+        </div>
+        <div className="flex items-center gap-4">
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Status</option>
+            <option value="received">Received</option>
+            <option value="processed">Processed</option>
+            <option value="failed">Failed</option>
+          </select>
+          <button
+            onClick={handleManualRefresh}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            onClick={debugTableStructure}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-md hover:bg-yellow-200"
+            title="Debug table structure"
+          >
+            <Settings className="w-4 h-4" />
+            Debug
+          </button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-sm text-gray-600">Loading M-Pesa callbacks...</span>
+        </div>
+      ) : callbacks.length === 0 ? (
+        <div className="text-center py-8 text-gray-500">
+          <Smartphone className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No M-Pesa callbacks found</h3>
+          <p className="text-gray-600 mb-4">No callback results found in the database.</p>
+          <div className="text-xs text-gray-500 space-y-1">
+            <p>• Check if AppScript is pushing data to Supabase</p>
+            <p>• Verify table name: <code>mpesa_callbacks</code></p>
+            <p>• Check browser console for errors</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            className="mt-4 px-4 py-2 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Check Again
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date & Time
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Transaction ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Result Code
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Description
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Employee
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {callbacks.map((callback) => (
+                <tr key={callback.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                    {callback.callback_date ? new Date(callback.callback_date).toLocaleString() : 'N/A'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-600">
+                    {callback.transaction_id || 'N/A'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {getResultCodeBadge(callback.result_code)}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-gray-600 max-w-xs">
+                    <div className="line-clamp-2">{callback.result_desc || 'No description'}</div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                    {formatAmount(callback.amount)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
+                    <div>
+                      <div className="font-medium">{callback.full_name || 'N/A'}</div>
+                      <div className="text-gray-500">{callback.employee_number || ''}</div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {getStatusBadge(callback.status)}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-xs">
+                    <button
+                      onClick={() => viewCallbackDetails(callback)}
+                      className="text-blue-600 hover:text-blue-900 font-medium"
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Callback Details Modal */}
+      {showDetails && selectedCallback && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
+            <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Callback Details</h2>
+              <button
+                onClick={() => setShowDetails(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div>
+                  <p className="text-xs text-gray-600">Date & Time</p>
+                  <p className="font-semibold text-sm">
+                    {selectedCallback.callback_date ? new Date(selectedCallback.callback_date).toLocaleString() : 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Status</p>
+                  <div className="mt-1">{getStatusBadge(selectedCallback.status)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Result Code</p>
+                  <div className="mt-1">{getResultCodeBadge(selectedCallback.result_code)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Transaction ID</p>
+                  <p className="font-mono font-semibold text-sm">{selectedCallback.transaction_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Conversation ID</p>
+                  <p className="font-mono text-sm">{selectedCallback.conversation_id || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600">Amount</p>
+                  <p className="font-semibold text-sm">{formatAmount(selectedCallback.amount)}</p>
+                </div>
+                {selectedCallback.employee_number && (
+                  <div className="col-span-2 md:col-span-3">
+                    <p className="text-xs text-gray-600">Employee</p>
+                    <p className="font-semibold text-sm">
+                      {selectedCallback.full_name} ({selectedCallback.employee_number})
+                    </p>
+                  </div>
+                )}
+                <div className="col-span-2 md:col-span-3">
+                  <p className="text-xs text-gray-600">Description</p>
+                  <p className="font-semibold text-sm mt-1">{selectedCallback.result_desc || 'No description'}</p>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <h3 className="font-semibold text-gray-900 mb-2">Raw Response Data</h3>
+                <pre className="bg-gray-50 rounded-lg p-4 text-xs overflow-auto max-h-60">
+                  {JSON.stringify(selectedCallback.raw_response, null, 2)}
+                </pre>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowDetails(false)}
+                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// MAIN COMPONENT - SalaryAdvanceAdmin
 const SalaryAdvanceAdmin = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -837,7 +1690,7 @@ const SalaryAdvanceAdmin = () => {
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
   const [justification, setJustification] = useState('');
   
-  // Town Filter State - Borrowed from Leave Management
+  
   const [currentTown, setCurrentTown] = useState<string>('');
   const [allTowns, setAllTowns] = useState<string[]>([]);
   const [userTown, setUserTown] = useState<string>('');
@@ -876,6 +1729,22 @@ const SalaryAdvanceAdmin = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(6);
 
+  // NEW: Active tab state for M-Pesa callbacks
+  const [activeTab, setActiveTab] = useState('applications');
+
+  // NEW: Enhanced filter states
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedDateRange, setSelectedDateRange] = useState('all');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [customEndDate, setCustomEndDate] = useState('');
+
+  // NEW: Export/Import states - FIXED
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+
   // Role-based permissions
   const isAdmin = userRole === 'credit_analyst_officer';
   const isBranchManager = userRole === 'branch_manager';
@@ -887,7 +1756,6 @@ const SalaryAdvanceAdmin = () => {
   useEffect(() => {
     const loadMappings = async () => {
       try {
-        // Fetch the area-town mapping from the database
         const { data: employeesData, error: employeesError } = await supabase
           .from('employees')
           .select('Branch, Town');
@@ -897,7 +1765,6 @@ const SalaryAdvanceAdmin = () => {
           return;
         }
         
-        // Convert the data to a mapping object
         const mapping = {};
         employeesData?.forEach(item => {
           if (item.Branch && item.Town) {
@@ -910,7 +1777,6 @@ const SalaryAdvanceAdmin = () => {
         
         setAreaTownMapping(mapping);
         
-        // Fetch branch-area mapping from kenya_branches
         const { data: branchesData, error: branchesError } = await supabase
           .from('kenya_branches')
           .select('"Branch Office", "Area"');
@@ -920,7 +1786,6 @@ const SalaryAdvanceAdmin = () => {
           return;
         }
         
-        // Convert the data to a mapping object
         const branchMapping = {};
         branchesData?.forEach(item => {
           if (item['Branch Office'] && item['Area']) {
@@ -930,7 +1795,6 @@ const SalaryAdvanceAdmin = () => {
         
         setBranchAreaMapping(branchMapping);
         
-        // Load saved town from localStorage
         const savedTown = localStorage.getItem('selectedTown');
         if (savedTown) {
           setCurrentTown(savedTown);
@@ -979,7 +1843,6 @@ const SalaryAdvanceAdmin = () => {
 
       console.log('🔍 Looking up manager assignment for email:', user.email);
 
-      // METHOD 1: Check if user is a Regional Manager (email in regional_manager column)
       const { data: regionalManagerData, error: regionalManagerError } = await supabase
         .from('employees')
         .select('Town, Branch')
@@ -989,10 +1852,9 @@ const SalaryAdvanceAdmin = () => {
       if (regionalManagerData) {
         console.log('✅ User found as Regional Manager:', regionalManagerData);
         userRegion = regionalManagerData.Branch || '';
-        userTown = userRegion; // For regional managers, use region as town for filtering
+        userTown = userRegion;
         console.log('📍 Regional Manager assigned to Region:', userRegion);
       } else {
-        // METHOD 2: Check if user is a Branch Manager (email in manager_email column)
         const { data: branchManagerData, error: branchManagerError } = await supabase
           .from('employees')
           .select('Town, Branch')
@@ -1007,7 +1869,6 @@ const SalaryAdvanceAdmin = () => {
         } else {
           console.log('❌ User email not found in regional_manager or manager_email columns');
           
-          // Fallback: try to find as regular employee
           const { data: employeeData, error: employeeError } = await supabase
             .from('employees')
             .select('Town, Branch')
@@ -1035,13 +1896,10 @@ const SalaryAdvanceAdmin = () => {
       setUserTown(userTown);
       setUserRegion(userRegion);
 
-      // Auto-set filter based on manager type - BORROWED FROM LEAVE MANAGEMENT
       if (mappedRole === 'regional_manager' && userRegion) {
-        // Regional Manager: filter by region (Branch column)
         setCurrentTown(userRegion);
         console.log('🎯 Regional Manager - auto-filtering by region:', userRegion);
       } else if (mappedRole === 'branch_manager' && userTown) {
-        // Branch Manager: filter by town (Town column)
         setCurrentTown(userTown);
         console.log('🎯 Branch Manager - auto-filtering by town:', userTown);
       } else {
@@ -1092,7 +1950,6 @@ const SalaryAdvanceAdmin = () => {
         return;
       }
 
-      // Combine towns and regions for the filter dropdown
       const allLocations = [...new Set([
         ...employeesData.map(item => item.Town).filter(Boolean),
         ...employeesData.map(item => item.Branch).filter(Boolean)
@@ -1115,113 +1972,107 @@ const SalaryAdvanceAdmin = () => {
   }, [currentUser]);
 
   // BORROWED FROM LEAVE MANAGEMENT: Enhanced fetchApplications with proper filtering
-const fetchApplications = async () => {
-  setIsLoading(true);
-  try {
-    console.log('🔍 Fetching applications - Role:', userRole, 'Current Town:', currentTown);
-    
-    let query = supabase
-      .from('salary_advance')
-      .select('*')
-      .order('time_added', { ascending: false });
+  const fetchApplications = async () => {
+    setIsLoading(true);
+    try {
+      console.log('🔍 Fetching applications - Role:', userRole, 'Current Town:', currentTown);
+      
+      let query = supabase
+        .from('salary_advance')
+        .select('*')
+        .order('time_added', { ascending: false });
 
-    if (currentTown && currentTown.trim() !== '') {
-      if (isRegionalManager) {
-        // Regional Manager: Get all towns in this region, then filter by Office Branch
-        console.log('🌍 Regional Manager - Getting towns for region:', currentTown);
-        
-        // First, get all towns that belong to this region from employees table
-        const { data: regionTowns, error: townsError } = await supabase
-          .from('employees')
-          .select('Town')
-          .ilike('Branch', `%${currentTown}%`)
-          .not('Town', 'is', null);
+      if (currentTown && currentTown.trim() !== '') {
+        if (isRegionalManager) {
+          console.log('🌍 Regional Manager - Getting towns for region:', currentTown);
+          
+          const { data: regionTowns, error: townsError } = await supabase
+            .from('employees')
+            .select('Town')
+            .ilike('Branch', `%${currentTown}%`)
+            .not('Town', 'is', null);
 
-        if (townsError) {
-          console.error('❌ Error fetching region towns:', townsError);
-          throw townsError;
-        }
+          if (townsError) {
+            console.error('❌ Error fetching region towns:', townsError);
+            throw townsError;
+          }
 
-        const uniqueTowns = [...new Set(regionTowns.map(item => item.Town))].filter(Boolean);
-        console.log('🏙️ Towns in region:', uniqueTowns);
+          const uniqueTowns = [...new Set(regionTowns.map(item => item.Town))].filter(Boolean);
+          console.log('🏙️ Towns in region:', uniqueTowns);
 
-        if (uniqueTowns.length > 0) {
-          // Filter salary_advance by Office Branch using the towns from this region
-          const orConditions = uniqueTowns.map(town => `"Office Branch".ilike.%${town}%`).join(',');
+          if (uniqueTowns.length > 0) {
+            const orConditions = uniqueTowns.map(town => `"Office Branch".ilike.%${town}%`).join(',');
+            query = query.or(orConditions);
+            console.log('🔍 Filtering by Office Branch with towns:', uniqueTowns);
+          } else {
+            console.log('❌ No towns found for region:', currentTown);
+          }
+
+        } else if (isArea) {
+          console.log('🏙️ Area selected, filtering by Office Branch for towns:', townsInArea);
+          const orConditions = townsInArea.map(town => `"Office Branch".ilike.%${town}%`).join(',');
           query = query.or(orConditions);
-          console.log('🔍 Filtering by Office Branch with towns:', uniqueTowns);
         } else {
-          console.log('❌ No towns found for region:', currentTown);
+          console.log('🏙️ Filtering by Office Branch:', currentTown.trim());
+          query = query.ilike('"Office Branch"', `%${currentTown.trim()}%`);
         }
-
-      } else if (isArea) {
-        // Area selected: filter by all towns in that area using Office Branch
-        console.log('🏙️ Area selected, filtering by Office Branch for towns:', townsInArea);
-        const orConditions = townsInArea.map(town => `"Office Branch".ilike.%${town}%`).join(',');
-        query = query.or(orConditions);
       } else {
-        // Branch Manager or town filter: filter by Office Branch column
-        console.log('🏙️ Filtering by Office Branch:', currentTown.trim());
-        query = query.ilike('"Office Branch"', `%${currentTown.trim()}%`);
+        console.log('🔓 No filter applied');
       }
-    } else {
-      console.log('🔓 No filter applied');
-    }
 
-    const { data, error } = await query;
+      const { data, error } = await query;
 
-    if (error) {
-      console.error('❌ Error fetching applications:', error);
-      throw error;
-    }
+      if (error) {
+        console.error('❌ Error fetching applications:', error);
+        throw error;
+      }
 
-    console.log('✅ Fetched applications:', data?.length);
-    
-    if (data && data.length > 0) {
-      console.log('📊 First application sample:', {
-        id: data[0].id,
-        'Office Branch': data[0]['Office Branch'],
-        'Branch': data[0].Branch,
-        Employee: data[0]['Employee Number']
+      console.log('✅ Fetched applications:', data?.length);
+      
+      if (data && data.length > 0) {
+        console.log('📊 First application sample:', {
+          id: data[0].id,
+          'Office Branch': data[0]['Office Branch'],
+          'Branch': data[0].Branch,
+          Employee: data[0]['Employee Number']
+        });
+      } else {
+        console.log('❌ No applications found with current filter');
+      }
+
+      const enhancedApplications = data?.map(app => ({
+        ...app,
+        isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
+      })) || [];
+      
+      setApplications(enhancedApplications);
+      
+      await fetchJobTitles(enhancedApplications);
+      
+      const initialNotes: Record<string, string> = {};
+      enhancedApplications.forEach(app => {
+        initialNotes[app.id] = app.admin_notes || '';
       });
-    } else {
-      console.log('❌ No applications found with current filter');
+      setNotes(initialNotes);
+
+      const initialSelected: Record<string, boolean> = {};
+      enhancedApplications.forEach(app => {
+        if (app.status?.toLowerCase() === 'approved') {
+          initialSelected[app.id] = true;
+        }
+      });
+      setSelectedStaff(initialSelected);
+
+      await fetchMobileNumbers(enhancedApplications);
+      
+    } catch (error) {
+      console.error('❌ Error fetching applications:', error);
+      toast.error('Failed to load applications');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    // Enhance applications with manager status
-    const enhancedApplications = data?.map(app => ({
-      ...app,
-      isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
-    })) || [];
-    
-    setApplications(enhancedApplications);
-    
-    // Fetch job titles and manager status
-    await fetchJobTitles(enhancedApplications);
-    
-    const initialNotes: Record<string, string> = {};
-    enhancedApplications.forEach(app => {
-      initialNotes[app.id] = app.admin_notes || '';
-    });
-    setNotes(initialNotes);
-
-    const initialSelected: Record<string, boolean> = {};
-    enhancedApplications.forEach(app => {
-      if (app.status?.toLowerCase() === 'approved') {
-        initialSelected[app.id] = true;
-      }
-    });
-    setSelectedStaff(initialSelected);
-
-    await fetchMobileNumbers(enhancedApplications);
-    
-  } catch (error) {
-    console.error('❌ Error fetching applications:', error);
-    toast.error('Failed to load applications');
-  } finally {
-    setIsLoading(false);
-  }
-};
   // BORROWED FROM LEAVE MANAGEMENT: Update the useEffect to trigger on currentTown changes
   useEffect(() => {
     console.log('🔄 Triggering fetch due to town/region change:', currentTown);
@@ -1232,7 +2083,6 @@ const fetchApplications = async () => {
   const handleTownChange = (town: string) => {
     setCurrentTown(town);
     setCurrentPage(1);
-    // Save to localStorage for persistence
     localStorage.setItem('selectedTown', town);
     console.log('💾 Saved town to localStorage:', town);
   };
@@ -1248,7 +2098,6 @@ const fetchApplications = async () => {
     return currentTown;
   };
 
-  // Rest of your existing functions (fetchJobTitles, fetchMobileNumbers, etc.) remain the same...
   // Fetch job titles for all applications
   const fetchJobTitles = async (apps: any[]) => {
     try {
@@ -1269,7 +2118,6 @@ const fetchApplications = async () => {
       data?.forEach(emp => {
         jobTitleMap[emp["Employee Number"]] = emp["Job Title"] || '';
         
-        // Check if this employee is a branch manager
         const jobTitle = emp["Job Title"]?.toLowerCase() || '';
         const isManager = jobTitle.includes('branch manager') || 
                          jobTitle.includes('manager') || 
@@ -1414,13 +2262,11 @@ const fetchApplications = async () => {
   const checkIfSelfApproval = (application: any) => {
     if (!currentUser || !application) return false;
     
-    // Check if the application belongs to the current user
     const userEmployeeNumber = currentUser.user_metadata?.employee_number;
     if (userEmployeeNumber && application["Employee Number"] === userEmployeeNumber) {
       return true;
     }
     
-    // Fallback: check by email (if employee number not available)
     const userEmail = currentUser.email?.toLowerCase();
     const applicationEmail = application["Email"]?.toLowerCase();
     if (userEmail && applicationEmail && userEmail === applicationEmail) {
@@ -1508,7 +2354,6 @@ const fetchApplications = async () => {
           updateData.status = 'rejected';
           break;
         
-        // Admin final approval actions
         case 'admin-approve-current':
           updateData.admin_approval = true;
           updateData.admin_approval_date = new Date().toISOString();
@@ -1548,7 +2393,6 @@ const fetchApplications = async () => {
 
       if (error) throw error;
 
-      // Update selected staff for approved applications
       if ((action.includes('recommend-current') || action.includes('recommend-adjusted') || action.includes('admin-approve')) && !action.includes('reject')) {
         setSelectedStaff(prev => ({
           ...prev,
@@ -1573,28 +2417,29 @@ const fetchApplications = async () => {
   };
 
   // Handle comment submission
-  const handleComment = async (comment: string) => {
-    try {
-      const updateData = {
-        regional_manager_comment: comment,
-        regional_manager_comment_date: new Date().toISOString(),
-        last_updated: new Date().toISOString()
-      };
+  // Handle comment submission
+const handleComment = async (comment: string) => {
+  try {
+    const updateData = {
+      regional_manager_comment: comment,
+      regional_manager_comment_date: new Date().toISOString(), // FIXED: Changed = to :
+      last_updated: new Date().toISOString()
+    };
 
-      const { error } = await supabase
-        .from('salary_advance')
-        .update(updateData)
-        .eq('id', selectedApplication.id);
+    const { error } = await supabase
+      .from('salary_advance')
+      .update(updateData)
+      .eq('id', selectedApplication.id);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success('Comment submitted successfully!');
-      fetchApplications();
-    } catch (error) {
-      console.error('Error submitting comment:', error);
-      toast.error('Failed to submit comment');
-    }
-  };
+    toast.success('Comment submitted successfully!');
+    fetchApplications();
+  } catch (error) {
+    console.error('Error submitting comment:', error);
+    toast.error('Failed to submit comment');
+  }
+};
 
   const handleNoteChange = (id: string, value: string) => {
     setNotes(prev => ({
@@ -1629,7 +2474,7 @@ const fetchApplications = async () => {
       const formattedPhone = formatPhoneNumber(mobileNumber);
       
       const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
-        ? 'https://your-production-domain.com/api'
+        ? 'https://mpesa-22p0.onrender.com/api'
         : 'http://localhost:3001/api';
       
       const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
@@ -1706,6 +2551,58 @@ const fetchApplications = async () => {
     }
   };
 
+  // Process bulk M-Pesa payment (for checkers/admins only)
+  const processBulkMpesaPayment = async (advancesData: any[]) => {
+    if (userRole === 'maker') {
+      throw new Error('Makers are not authorized to process payments directly');
+    }
+
+    const results = [];
+    
+    for (const advance of advancesData) {
+      try {
+        console.log(`💰 Processing payment for ${advance.full_name}, amount: ${advance.amount_requested}`);
+        
+        const result = await processMpesaPayment(
+          advance.employee_number,
+          advance.amount_requested,
+          advance.full_name
+        );
+        
+        results.push({ success: true, advance, result });
+        
+        const { error: updateError } = await supabase
+          .from('salary_advance')
+          .update({ 
+            status: 'paid',
+            payment_date: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            mpesa_transaction_id: result.transactionId || `MPESA_${Date.now()}`,
+            mpesa_result_desc: result.message || 'Payment processed successfully'
+          })
+          .eq('"Employee Number"', advance.employee_number)
+          .eq('status', 'approved');
+
+        if (updateError) {
+          console.error(`❌ Database update error for ${advance.full_name}:`, updateError);
+          throw updateError;
+        }
+
+        console.log(`✅ Successfully updated ${advance.full_name} status to 'paid'`);
+        toast.success(`Payment sent to ${advance.full_name} and status updated to Paid`);
+        
+      } catch (error) {
+        console.error(`❌ Failed to pay ${advance.full_name}:`, error);
+        results.push({ success: false, advance, error });
+        toast.error(`Failed to pay ${advance.full_name}: ${error.message}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    return results;
+  };
+
   // Approve payment request function
   const approvePayment = async (payment) => {
     try {
@@ -1715,20 +2612,6 @@ const fetchApplications = async () => {
         toast.error('User not authenticated');
         return;
       }
-
-      setPaymentRequests(prev => 
-        prev.map(req => 
-          req.id === payment.id 
-            ? { 
-                ...req, 
-                status: 'approved',
-                approved_by: user.id,
-                approved_at: new Date().toISOString(),
-                approved_by_email: user.email
-              }
-            : req
-        )
-      );
 
       const updateData = {
         status: 'approved',
@@ -1747,18 +2630,18 @@ const fetchApplications = async () => {
       if (error) {
         console.error('Error approving payment request:', error);
         toast.error('Failed to approve payment request');
-        fetchPaymentRequests();
         return;
       }
 
       try {
-        await processBulkMpesaPayment(payment.advances_data);
+        const paymentResults = await processBulkMpesaPayment(payment.advances_data);
 
         await supabase
           .from('salary_advance_payment_flows')
           .update({
             status: 'completed',
-            processed_at: new Date().toISOString()
+            processed_at: new Date().toISOString(),
+            metadata: { results: paymentResults }
           })
           .eq('id', payment.id);
 
@@ -1766,7 +2649,10 @@ const fetchApplications = async () => {
           prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
         );
 
-        toast.success('Payment approved and processed successfully!');
+        await fetchApplications();
+        
+        toast.success('Payment approved and processed successfully! Applications updated to Paid status.');
+        
       } catch (error) {
         await supabase
           .from('salary_advance_payment_flows')
@@ -1782,11 +2668,11 @@ const fetchApplications = async () => {
         );
         
         console.error('Payment processing error:', error);
-        toast.error('Payment approved but failed to process');
+        toast.error('Payment approved but failed to process: ' + error.message);
       }
     } catch (error) {
       console.error('Payment approval error:', error);
-      toast.error('Failed to approve payment request');
+      toast.error('Failed to approve payment request: ' + error.message);
     }
   };
 
@@ -1844,47 +2730,6 @@ const fetchApplications = async () => {
     }
   };
 
-  // Process bulk M-Pesa payment (for checkers/admins only)
-  const processBulkMpesaPayment = async (advancesData: any[]) => {
-    if (userRole === 'maker') {
-      throw new Error('Makers are not authorized to process payments directly');
-    }
-
-    const results = [];
-    
-    for (const advance of advancesData) {
-      try {
-        const result = await processMpesaPayment(
-          advance.employee_number,
-          advance.amount_requested,
-          advance.full_name
-        );
-        
-        results.push({ success: true, advance, result });
-        
-        const { error } = await supabase
-          .from('salary_advance')
-          .update({ status: 'Paid' })
-          .eq('Employee Number', advance.employee_number)
-          .eq('status', 'Approved');
-
-        if (error) throw error;
-        
-        toast.success(`Payment sent to ${advance.full_name}`);
-        
-      } catch (error) {
-        console.error(`Failed to pay ${advance.full_name}:`, error);
-        results.push({ success: false, advance, error });
-        toast.error(`Failed to pay ${advance.full_name}`);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    return results;
-  };
-
-  // Bulk payment with proper state clearing
   const handleBulkPayment = async () => {
     const selectedApps = getFullyApprovedApplications().filter(app => selectedStaff[app.id]);
     
@@ -1913,16 +2758,10 @@ const fetchApplications = async () => {
         await createPaymentRequest(advancesData, justification);
         toast.success('Payment request submitted for approval!');
         
-        // Clear everything properly
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
         fetchPaymentRequests();
-        
-        // Refresh applications
-        setTimeout(() => {
-          fetchApplications();
-        }, 1000);
         
       } catch (error) {
         console.error('Error creating payment request:', error);
@@ -1938,21 +2777,20 @@ const fetchApplications = async () => {
         const totalCount = selectedApps.length;
         
         if (successCount === totalCount) {
-          toast.success(`All ${totalCount} payments processed successfully!`);
+          toast.success(`All ${totalCount} payments processed successfully! Status updated to Paid.`);
         } else if (successCount > 0) {
           toast.success(`${successCount} of ${totalCount} payments processed successfully`);
         } else {
           toast.error('All payments failed. Please check your payment service configuration.');
         }
         
-        // Clear everything properly
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
         
-        // Refresh applications to update status to "Paid"
         setTimeout(() => {
           fetchApplications();
+          fetchPaymentRequests();
         }, 1000);
         
       } catch (error) {
@@ -1979,24 +2817,22 @@ const fetchApplications = async () => {
 
   // Get approval status
   const getApprovalStatus = (app: any) => {
-    if (app.status?.toLowerCase() === 'rejected') {
-      return 'Rejected';
-    }
     if (app.status?.toLowerCase() === 'paid') {
       return 'Paid';
     }
+    
+    if (app.status?.toLowerCase() === 'rejected') {
+      return 'Rejected';
+    }
 
-    // Check if fully approved by admin
     if (app.status?.toLowerCase() === 'approved') {
       return 'Fully Approved';
     }
 
-    // Check for pending admin status
     if (app.status === 'pending-admin') {
       return 'Pending Admin Approval';
     }
 
-    // Check for recommendation statuses
     if (app.branch_manager_recommendation) {
       switch (app.branch_manager_recommendation) {
         case 'recommend_current':
@@ -2019,20 +2855,16 @@ const fetchApplications = async () => {
       }
     }
 
-    // New status logic based on employee type and approvals
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
 
-    // If branch manager has approved regular employee
     if (app.branch_manager_approval && !isEmployeeBranchManager) {
       return 'Pending Regional Manager';
     }
 
-    // If regional manager has approved branch manager
     if (app.regional_manager_approval && isEmployeeBranchManager) {
       return 'Pending Admin Approval';
     }
 
-    // No approvals yet - show who can approve
     if (isEmployeeBranchManager) {
       return 'Pending Regional Manager';
     } else {
@@ -2075,13 +2907,10 @@ const fetchApplications = async () => {
   const canBranchManagerApprove = (app: any) => {
     if (!isBranchManager) return false;
     
-    // Branch managers cannot approve themselves
     const isSelfApproval = checkIfSelfApproval(app);
     
-    // Branch managers can only approve regular employees (not other branch managers)
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
     
-    // Must not have branch manager approval yet
     const hasBranchApproval = app.branch_manager_approval;
     
     return !isSelfApproval && !isEmployeeBranchManager && !hasBranchApproval;
@@ -2091,14 +2920,11 @@ const fetchApplications = async () => {
   const canRegionalManagerApprove = (app: any) => {
     if (!isRegionalManager && !isAdmin) return false;
     
-    // Regional managers can only approve branch managers, but admins can approve anyone
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
     const canApproveThisUser = isAdmin || isEmployeeBranchManager;
     
-    // Cannot approve themselves
     const isSelfApproval = checkIfSelfApproval(app);
     
-    // Must not have regional manager approval yet
     const hasRegionalApproval = app.regional_manager_approval;
     
     return canApproveThisUser && !isSelfApproval && !hasRegionalApproval;
@@ -2108,7 +2934,6 @@ const fetchApplications = async () => {
   const canRegionalManagerComment = (app: any) => {
     if (!isRegionalManager) return false;
     
-    // Regional managers can comment on regular employees that are pending branch manager approval
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
     const hasBranchApproval = app.branch_manager_approval;
     
@@ -2119,19 +2944,398 @@ const fetchApplications = async () => {
   const canAdminApprove = (app: any) => {
     if (!isAdmin) return false;
     
-    // Admin can approve any application that has reached "pending-admin" status
     return app.status === 'pending-admin';
   };
 
-  const filteredApplications = applications.filter(app => {
-    const matchesSearch = 
-      app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app["Full Name"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app["Office Branch"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employeeMobileNumbers[app["Employee Number"]]?.includes(searchTerm);
-    
-    return matchesSearch;
-  });
+  // FIXED: Export function
+  const handleExport = async (exportConfig) => {
+    try {
+      setIsExporting(true);
+      
+      let query = supabase
+        .from('salary_advance')
+        .select('*')
+        .order('time_added', { ascending: false });
+
+      // Apply date range filter for export
+      if (exportConfig.dateRange !== 'all') {
+        const today = new Date();
+        let startDate = new Date();
+        
+        switch (exportConfig.dateRange) {
+          case 'today':
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case 'this_week':
+            startDate.setDate(today.getDate() - today.getDay());
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case 'this_month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            break;
+          case 'last_month':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            break;
+          case 'custom':
+            if (exportConfig.customStartDate) {
+              startDate = new Date(exportConfig.customStartDate);
+            }
+            break;
+        }
+
+        if (exportConfig.dateRange !== 'custom' || exportConfig.customStartDate) {
+          query = query.gte('time_added', startDate.toISOString());
+        }
+
+        if (exportConfig.dateRange === 'custom' && exportConfig.customEndDate) {
+          const endDate = new Date(exportConfig.customEndDate);
+          endDate.setHours(23, 59, 59, 999);
+          query = query.lte('time_added', endDate.toISOString());
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Prepare data for export
+      const exportData = data.map(app => ({
+        'Employee': app['Full Name'],
+        'Employee Number': app['Employee Number'],
+        'Mobile Number': employeeMobileNumbers[app["Employee Number"]] || 'N/A',
+        'Branch': app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A',
+        'Amount': app['Amount Requested'],
+        'Status': app.status || 'pending',
+        'Request Date': new Date(app.time_added).toLocaleDateString(),
+        'Reason': app['Reason for Advance'] || ''
+      }));
+
+      // Convert to CSV or Excel
+      if (exportConfig.format === 'csv') {
+        const headers = ['Employee', 'Employee Number', 'Mobile Number', 'Branch', 'Amount', 'Status', 'Request Date', 'Reason'];
+        
+        const csvContent = [
+          headers.join(','),
+          ...exportData.map(row => 
+            headers.map(header => {
+              const value = row[header];
+              // Handle special characters and formatting
+              if (header === 'Amount') {
+                return `"${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}"`;
+              }
+              return `"${String(value || '').replace(/"/g, '""')}"`;
+            }).join(',')
+          )
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `salary_advances_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For Excel export - using simple tab-separated format that Excel can open
+        const headers = ['Employee', 'Employee Number', 'Mobile Number', 'Branch', 'Amount', 'Status', 'Request Date', 'Reason'];
+        const excelContent = [
+          headers.join('\t'),
+          ...exportData.map(row => 
+            headers.map(header => {
+              const value = row[header];
+              if (header === 'Amount') {
+                return Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 });
+              }
+              return String(value || '');
+            }).join('\t')
+          )
+        ].join('\n');
+
+        const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `salary_advances_${new Date().toISOString().split('T')[0]}.xls`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      toast.success(`Exported ${exportData.length} records successfully`);
+      setShowExportModal(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export data');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // FIXED: Import function
+  const handleImport = async (file, importType) => {
+    try {
+      setIsImporting(true);
+      
+      const reader = new FileReader();
+      
+      reader.onload = async (e) => {
+        try {
+          const content = e.target?.result;
+          
+          if (!content || typeof content !== 'string') {
+            toast.error('Failed to read file content');
+            return;
+          }
+          
+          // Parse CSV content
+          const lines = content.split('\n').filter(line => line.trim() !== '');
+          
+          if (lines.length === 0) {
+            toast.error('File is empty');
+            return;
+          }
+
+          // Parse headers
+          const firstLine = lines[0];
+          let headers = [];
+          
+          // Handle different CSV formats
+          if (firstLine.includes('","')) {
+            // Standard CSV with quotes
+            headers = firstLine.split('","').map(h => h.replace(/"/g, '').trim());
+          } else if (firstLine.includes(',')) {
+            // CSV without quotes
+            headers = firstLine.split(',').map(h => h.trim());
+          } else if (firstLine.includes('\t')) {
+            // Tab-separated
+            headers = firstLine.split('\t').map(h => h.trim());
+          } else {
+            toast.error('Unsupported file format. Please use CSV or Excel file.');
+            return;
+          }
+
+          console.log('Detected headers:', headers);
+          
+          // Normalize header names for comparison
+          const normalizedHeaders = headers.map(header => 
+            header.toLowerCase().replace(/\s+/g, '_')
+          );
+
+          // Check for required columns
+          const requiredColumns = ['employee', 'mobile_number', 'branch', 'amount'];
+          const missingColumns = requiredColumns.filter(required => 
+            !normalizedHeaders.includes(required)
+          );
+
+          if (missingColumns.length > 0) {
+            toast.error(`Missing required columns: ${missingColumns.join(', ')}`);
+            return;
+          }
+
+          // Process data rows
+          const updates = [];
+          for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            
+            let values = [];
+            const currentLine = lines[i];
+            
+            // Parse values using the same method as headers
+            if (currentLine.includes('","')) {
+              values = currentLine.split('","').map(v => v.replace(/"/g, '').trim());
+            } else if (currentLine.includes(',')) {
+              values = currentLine.split(',').map(v => v.trim());
+            } else if (currentLine.includes('\t')) {
+              values = currentLine.split('\t').map(v => v.trim());
+            }
+            
+            if (values.length !== headers.length) {
+              console.warn(`Skipping row ${i} - column count mismatch`);
+              continue;
+            }
+            
+            const row = {};
+            headers.forEach((header, index) => {
+              row[header] = values[index] || '';
+            });
+            
+            updates.push(row);
+          }
+
+          console.log('Processed updates:', updates);
+
+          if (importType === 'updates') {
+            // Update existing records
+            let updatedCount = 0;
+            
+            for (const update of updates) {
+              const updateData = {};
+              
+              // Map imported fields to database fields
+              if (update['Mobile Number']) updateData['Mobile Number'] = update['Mobile Number'];
+              if (update['Branch']) updateData['Office Branch'] = update['Branch'];
+              if (update['Amount']) {
+                const cleanAmount = update['Amount'].replace(/[^\d.-]/g, '');
+                updateData['Amount Requested'] = parseFloat(cleanAmount) || 0;
+              }
+              
+              if (Object.keys(updateData).length > 0) {
+                updateData.last_updated = new Date().toISOString();
+                
+                // Try to find by employee number first, then by name
+                let query = supabase.from('salary_advance');
+                
+                if (update['Employee Number']) {
+                  // Update by employee number
+                  const { error } = await query
+                    .update(updateData)
+                    .eq('Employee Number', update['Employee Number']);
+                  
+                  if (!error) updatedCount++;
+                } else if (update['Employee']) {
+                  // Update by employee name (fuzzy match)
+                  const { error } = await query
+                    .update(updateData)
+                    .ilike('Full Name', `%${update['Employee']}%`);
+                  
+                  if (!error) updatedCount++;
+                }
+              }
+            }
+            
+            toast.success(`Successfully updated ${updatedCount} records`);
+          } else {
+            // Import new applications
+            const newApplications = updates.map((update, index) => ({
+              'Employee Number': update['Employee Number'] || `IMP_${Date.now()}_${index}`,
+              'Full Name': update['Employee'] || 'Unknown Employee',
+              'Office Branch': update['Branch'] || 'Unknown Branch',
+              'Amount Requested': parseFloat(update['Amount']?.replace(/[^\d.-]/g, '') || 0),
+              'Mobile Number': update['Mobile Number'] || '',
+              'status': 'pending',
+              'time_added': new Date().toISOString()
+            }));
+
+            if (newApplications.length > 0) {
+              const { error } = await supabase
+                .from('salary_advance')
+                .insert(newApplications);
+
+              if (error) {
+                console.error('Insert error:', error);
+                throw error;
+              }
+              
+              toast.success(`Successfully imported ${newApplications.length} new applications`);
+            }
+          }
+
+          setShowImportModal(false);
+          fetchApplications(); // Refresh the data
+        } catch (error) {
+          console.error('Import processing error:', error);
+          toast.error(`Failed to process import file: ${error.message}`);
+        }
+      };
+      
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+      };
+      
+      // Read the file as text
+      reader.readAsText(file);
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast.error('Failed to import data');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // NEW: Enhanced filtering function
+  const getFilteredApplications = () => {
+    let filtered = applications.filter(app => {
+      const matchesSearch = 
+        app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app["Full Name"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app["Office Branch"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employeeMobileNumbers[app["Employee Number"]]?.includes(searchTerm);
+      
+      if (!matchesSearch) return false;
+
+      // Status filter
+      if (selectedStatus !== 'all') {
+        const appStatus = app.status?.toLowerCase();
+        const approvalStatus = getApprovalStatus(app).toLowerCase();
+        
+        if (selectedStatus === 'pending') {
+          if (!appStatus.includes('pending') && !approvalStatus.includes('pending')) {
+            return false;
+          }
+        } else if (appStatus !== selectedStatus && approvalStatus !== selectedStatus) {
+          return false;
+        }
+      }
+
+      // Month filter
+      if (selectedMonth !== 'all') {
+        const appDate = new Date(app.time_added);
+        if (appDate.getMonth().toString() !== selectedMonth) {
+          return false;
+        }
+      }
+
+      // Date range filter
+      if (selectedDateRange !== 'all') {
+        const appDate = new Date(app.time_added);
+        const today = new Date();
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay());
+        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const startOfLast3Months = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+
+        switch (selectedDateRange) {
+          case 'today':
+            if (appDate < startOfToday) return false;
+            break;
+          case 'this_week':
+            if (appDate < startOfWeek) return false;
+            break;
+          case 'this_month':
+            if (appDate < startOfMonth) return false;
+            break;
+          case 'last_month':
+            const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            if (appDate < startOfLastMonth || appDate > endOfLastMonth) return false;
+            break;
+          case 'last_3_months':
+            if (appDate < startOfLast3Months) return false;
+            break;
+          case 'custom':
+            if (customStartDate && customEndDate) {
+              const start = new Date(customStartDate);
+              const end = new Date(customEndDate);
+              end.setHours(23, 59, 59, 999);
+              if (appDate < start || appDate > end) return false;
+            }
+            break;
+        }
+      }
+
+      return true;
+    });
+
+    return filtered;
+  };
+
+  // Update the filtered applications to use enhanced filtering
+  const filteredApplications = getFilteredApplications();
 
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -2149,684 +3353,798 @@ const fetchApplications = async () => {
 
   return (
     <div className="p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
-        
-        <div className="flex items-center gap-3">
-          {/* Town Filter - BORROWED FROM LEAVE MANAGEMENT */}
-          <TownFilter
-            selectedTown={currentTown}
-            onTownChange={handleTownChange}
-            allTowns={allTowns}
-            userRole={userRole}
-            userTown={userTown}
-            isRegionalManager={isRegionalManager}
-          />
-
-          {/* Enhanced User Role Display */}
-          <UserRoleDisplay 
-            userRole={userRole} 
-            userEmail={userEmail}
-            actualRole={actualUserRole}
-            userTown={userTown}
-            userRegion={userRegion}
-            isRegionalManager={isRegionalManager}
-          />
-
-          {/* Approval Queue Button for Checkers */}
-          {(isChecker || isAdmin) && pendingCount > 0 && (
-            <button
-              onClick={() => setShowApprovalQueue(true)}
-              className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 px-3 py-1"
-            >
-              <AlertTriangle className="w-4 h-4 text-orange-600" />
-              <span className="text-xs font-medium text-orange-700">
-                {pendingCount} Pending Approvals
-              </span>
-            </button>
-          )}
-
-          {fullyApprovedApplications.length > 0 && (
-            <button
-              onClick={() => setShowBulkPaymentModal(true)}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
-            >
-              <Send size={16} />
-              {isMaker ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
-            </button>
-          )}
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search applications..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
-            />
-          </div>
-        </div>
+      {/* Tab Navigation */}
+      <div className="mb-6 border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('applications')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'applications'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Salary Advance Applications
+          </button>
+          <button
+            onClick={() => setActiveTab('callbacks')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'callbacks'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            M-Pesa Callbacks
+          </button>
+        </nav>
       </div>
 
-      {/* Role-based Information Panel */}
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center gap-2 text-xs text-blue-800">
-          <Key className="w-4 h-4" />
-          <span>
-            <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} | 
-            <strong> Actual Role:</strong> {actualUserRole} |
-            <strong> Email:</strong> {userEmail}
-            {userTown && ` | ${isRegionalManager ? 'Region' : 'Town'}: ${userTown}`}
-          </span>
-        </div>
-      </div>
+      {activeTab === 'applications' ? (
+        <div>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Enhanced Filter Component */}
+              <EnhancedFilter
+                selectedTown={currentTown}
+                onTownChange={handleTownChange}
+                allTowns={allTowns}
+                userRole={userRole}
+                userTown={userTown}
+                isRegionalManager={isRegionalManager}
+                selectedStatus={selectedStatus}
+                onStatusChange={setSelectedStatus}
+                selectedMonth={selectedMonth}
+                onMonthChange={setSelectedMonth}
+                selectedDateRange={selectedDateRange}
+                onDateRangeChange={setSelectedDateRange}
+                customStartDate={customStartDate}
+                onCustomStartDateChange={setCustomStartDate}
+                customEndDate={customEndDate}
+                onCustomEndDateChange={setCustomEndDate}
+              />
 
-      {/* BORROWED FROM LEAVE MANAGEMENT: Auto-filter Notice for Managers */}
-      
-
-      {/* BORROWED FROM LEAVE MANAGEMENT: Manual Filter Display */}
-      {!isBranchManager && !isRegionalManager && currentTown && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-xs text-gray-600">Active filter:</span>
-          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-            <MapPin className="w-3 h-3" />
-            {isArea ? 'Region' : 'Town'}: {getDisplayName(currentTown, isArea)}
-            <button
-              onClick={() => handleTownChange('')}
-              className="text-blue-600 hover:text-blue-800 ml-1"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </span>
-        </div>
-      )}
-
-      {/* Debug Panel */}
-      
-
-      {/* Payment Approval Queue */}
-      {showApprovalQueue && (isChecker || isAdmin) && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-orange-600" />
-              Payment Approval Queue
-              {isLoadingRequests && (
-                <Loader className="w-4 h-4 animate-spin text-gray-400" />
-              )}
-            </h2>
-            <button
-              onClick={() => setShowApprovalQueue(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <XCircle className="w-5 h-5" />
-            </button>
-          </div>
-
-          {paymentRequests.length > 0 ? (
-            <div className="grid gap-4">
-              {paymentRequests
-                .filter(payment => payment.status === 'pending')
-                .map((payment) => (
-                <PaymentRequestCard
-                  key={payment.id}
-                  request={payment}
-                  userRole={userRole}
-                  onApprove={() => approvePayment(payment)}
-                  onReject={() => {
-                    setPaymentToReject(payment);
-                    setShowRejectionModal(true);
-                  }}
-                  onViewDetails={() => {
-                    setSelectedPaymentForDetails(payment);
-                    setShowPaymentDetails(true);
-                  }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No pending payments</h3>
-              <p className="text-gray-600">All payment requests have been processed.</p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Rest of your existing JSX remains the same... */}
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-600"></div>
-        </div>
-      ) : filteredApplications.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          No salary advance requests found.
-          {currentTown && (
-            <p className="text-xs mt-2">
-              No applications found for {isRegionalManager ? 'region' : isArea ? 'region' : 'town'} "{getDisplayName(currentTown, isArea)}". Try changing your filter or search term.
-            </p>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Employee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Mobile Number
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {isRegionalManager ? 'Region' : 'Branch'}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Reason
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Approval Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Notes
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.map((app) => (
-                  <tr key={app.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
-                          <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
-                        </div>
-                        <ManagerBadge 
-                          isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
-                          isRegionalManager={false}
-                        />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                      {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
-                    </td>
-                   <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-  {app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A'}
-</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {editingId === app.id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={editedAmount}
-                            onChange={(e) => setEditedAmount(e.target.value)}
-                            className="w-24 p-1 border rounded text-xs"
-                          />
-                          <button 
-                            onClick={() => handleAmountSave(app.id)}
-                            className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                          >
-                            Save
-                          </button>
-                          <button 
-                            onClick={() => setEditingId(null)}
-                            className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div 
-                          className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
-                          onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
-                        >
-                          {formatKES(Number(app["Amount Requested"]))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
-                      {app["Reason for Advance"]}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getApprovalBadgeColor(getApprovalStatus(app))}`}>
-                          {getApprovalStatus(app)}
-                        </span>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <UserCheck className="h-3 w-3" />
-                          <span>BM: {app.branch_manager_approval ? '✓' : (app.branch_manager_recommendation ? 'Recommended' : 'Pending')}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <ShieldCheck className="h-3 w-3" />
-                          <span>RM: {app.regional_manager_approval ? '✓' : (app.regional_manager_recommendation ? 'Recommended' : 'Pending')}</span>
-                        </div>
-                        {app.regional_manager_comment && (
-                          <div className="flex items-center gap-2 text-xs text-blue-600">
-                            <MessageCircle className="h-3 w-3" />
-                            <span>RM Comment: {app.regional_manager_comment}</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap relative">
-                      <div className="flex items-center">
-                        <button 
-                          onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
-                          className="flex items-center text-xs text-gray-500 hover:text-gray-700"
-                        >
-                          Notes <ChevronDown className="h-4 w-4 ml-1" />
-                        </button>
-                      </div>
-                      {showNotesDropdown === app.id && (
-                        <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
-                          <textarea
-                            value={notes[app.id] || ''}
-                            onChange={(e) => handleNoteChange(app.id, e.target.value)}
-                            placeholder="Add admin notes..."
-                            className="w-full p-2 border rounded text-xs mb-2"
-                            rows={3}
-                          />
-                          <div className="flex justify-end space-x-2">
-                            <button
-                              onClick={() => setShowNotesDropdown(null)}
-                              className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                            >
-                              Cancel
-                            </button>
-                            <button
-                              onClick={() => saveNotes(app.id)}
-                              className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                      {new Date(app.time_added).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
-                      <div className="flex flex-col gap-1">
-                        {/* Branch Manager Actions */}
-                        {canBranchManagerApprove(app) && (
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={() => openRecommendationModal(app, 'bm-recommend-current')}
-                              className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Recommend Current
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'bm-recommend-adjusted')}
-                              className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              Recommend Adjusted
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'bm-recommend-reject')}
-                              className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                            >
-                              <XCircleIcon className="w-3 h-3" />
-                              Recommend Reject
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Regional Manager Actions */}
-                        {canRegionalManagerApprove(app) && (
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={() => openRecommendationModal(app, 'rm-recommend-current')}
-                              className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Recommend Current
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'rm-recommend-adjusted')}
-                              className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              Recommend Adjusted
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'rm-recommend-reject')}
-                              className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                            >
-                              <XCircleIcon className="w-3 h-3" />
-                              Recommend Reject
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Regional Manager Comment Action */}
-                        {canRegionalManagerComment(app) && (
-                          <button
-                            onClick={() => openCommentModal(app)}
-                            className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                          >
-                            <MessageCircle className="w-3 h-3" />
-                            Add Comment
-                          </button>
-                        )}
-
-                        {/* Admin Final Approval Action */}
-                        {canAdminApprove(app) && (
-                          <div className="flex flex-col gap-1">
-                            <button
-                              onClick={() => openRecommendationModal(app, 'admin-approve-current')}
-                              className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Approve Current
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'admin-approve-adjusted')}
-                              className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              Approve Adjusted
-                            </button>
-                            <button
-                              onClick={() => openRecommendationModal(app, 'admin-reject')}
-                              className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                            >
-                              <XCircleIcon className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Self-approval warning */}
-                        {checkIfSelfApproval(app) && (
-                          <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                            Cannot approve own request
-                          </span>
-                        )}
-
-                        {/* No actions available message */}
-                        {!canBranchManagerApprove(app) && !canRegionalManagerApprove(app) && !canRegionalManagerComment(app) && !canAdminApprove(app) && !checkIfSelfApproval(app) && (
-                          <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                            Awaiting approval
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
-              <div className="flex justify-between flex-1 sm:hidden">
+              {/* Export/Import Buttons */}
+              <div className="flex gap-2">
                 <button
-                  onClick={() => paginate(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="relative inline-flex items-center px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setShowExportModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  Previous
+                  <Download className="w-4 h-4" />
+                  Export
                 </button>
                 <button
-                  onClick={() => paginate(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="relative inline-flex items-center px-4 py-2 ml-3 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setShowImportModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  Next
+                  <Upload className="w-4 h-4" />
+                  Import
                 </button>
               </div>
-              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs text-gray-700">
-                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                    <span className="font-medium">
-                      {Math.min(indexOfLastItem, filteredApplications.length)}
-                    </span>{' '}
-                    of <span className="font-medium">{filteredApplications.length}</span> results
-                  </p>
+
+              {/* User Role Display */}
+              <UserRoleDisplay 
+                userRole={userRole} 
+                userEmail={userEmail}
+                actualRole={actualUserRole}
+                userTown={userTown}
+                userRegion={userRegion}
+                isRegionalManager={isRegionalManager}
+              />
+
+              {/* Approval Queue Button for Checkers */}
+              {(isChecker || isAdmin) && pendingCount > 0 && (
+                <button
+                  onClick={() => setShowApprovalQueue(true)}
+                  className="flex items-center gap-2 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 px-3 py-1"
+                >
+                  <AlertTriangle className="w-4 h-4 text-orange-600" />
+                  <span className="text-xs font-medium text-orange-700">
+                    {pendingCount} Pending Approvals
+                  </span>
+                </button>
+              )}
+
+              {fullyApprovedApplications.length > 0 && (
+                <button
+                  onClick={() => setShowBulkPaymentModal(true)}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
+                >
+                  <Send size={16} />
+                  {isMaker ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
+                </button>
+              )}
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search applications..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Role-based Information Panel */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 text-xs text-blue-800">
+              <Key className="w-4 h-4" />
+              <span>
+                <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} | 
+                <strong> Actual Role:</strong> {actualUserRole} |
+                <strong> Email:</strong> {userEmail}
+                {userTown && ` | ${isRegionalManager ? 'Region' : 'Town'}: ${userTown}`}
+              </span>
+            </div>
+          </div>
+
+          {/* Custom Date Range Inputs */}
+          {selectedDateRange === 'custom' && (
+            <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-gray-600" />
+                  <span className="text-xs font-medium text-gray-700">Custom Date Range:</span>
                 </div>
-                <div>
-                  <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-xs"
+                  />
+                  <span className="text-xs text-gray-500">to</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* BORROWED FROM LEAVE MANAGEMENT: Auto-filter Notice for Managers */}
+          {(isBranchManager || isRegionalManager) && currentTown && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 text-xs text-blue-800">
+                <MapPin className="w-4 h-4" />
+                <span>
+                  {isRegionalManager 
+                    ? `Viewing applications for your region: ${currentTown}`
+                    : `Viewing applications for your town: ${currentTown}`
+                  }
+                  <span className="text-blue-600 ml-2">(Auto-filtered)</span>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* BORROWED FROM LEAVE MANAGEMENT: Manual Filter Display */}
+          {!isBranchManager && !isRegionalManager && currentTown && (
+            <div className="mb-4 flex items-center gap-2">
+              <span className="text-xs text-gray-600">Active filter:</span>
+              <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                <MapPin className="w-3 h-3" />
+                {isArea ? 'Region' : 'Town'}: {getDisplayName(currentTown, isArea)}
+                <button
+                  onClick={() => handleTownChange('')}
+                  className="text-blue-600 hover:text-blue-800 ml-1"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            </div>
+          )}
+
+          {/* Payment Approval Queue */}
+          {showApprovalQueue && (isChecker || isAdmin) && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-orange-600" />
+                  Payment Approval Queue
+                  {isLoadingRequests && (
+                    <Loader className="w-4 h-4 animate-spin text-gray-400" />
+                  )}
+                </h2>
+                <button
+                  onClick={() => setShowApprovalQueue(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
+
+              {paymentRequests.length > 0 ? (
+                <div className="grid gap-4">
+                  {paymentRequests
+                    .filter(payment => payment.status === 'pending')
+                    .map((payment) => (
+                    <PaymentRequestCard
+                      key={payment.id}
+                      request={payment}
+                      userRole={userRole}
+                      onApprove={() => approvePayment(payment)}
+                      onReject={() => {
+                        setPaymentToReject(payment);
+                        setShowRejectionModal(true);
+                      }}
+                      onViewDetails={() => {
+                        setSelectedPaymentForDetails(payment);
+                        setShowPaymentDetails(true);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No pending payments</h3>
+                  <p className="text-gray-600">All payment requests have been processed.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Rest of your existing applications JSX */}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-green-600"></div>
+            </div>
+          ) : filteredApplications.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              No salary advance requests found.
+              {currentTown && (
+                <p className="text-xs mt-2">
+                  No applications found for {isRegionalManager ? 'region' : isArea ? 'region' : 'town'} "{getDisplayName(currentTown, isArea)}". Try changing your filter or search term.
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Employee
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Mobile Number
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        {isRegionalManager ? 'Region' : 'Branch'}
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Amount
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Reason
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Approval Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentItems.map((app) => (
+                      <tr key={app.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
+                              <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
+                            </div>
+                            <ManagerBadge 
+                              isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                              isRegionalManager={false}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                          {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
+                        </td>
+                       <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+  {app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A'}
+</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {editingId === app.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editedAmount}
+                                onChange={(e) => setEditedAmount(e.target.value)}
+                                className="w-24 p-1 border rounded text-xs"
+                              />
+                              <button 
+                                onClick={() => handleAmountSave(app.id)}
+                                className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                              >
+                                Save
+                              </button>
+                              <button 
+                                onClick={() => setEditingId(null)}
+                                className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div 
+                              className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
+                              onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
+                            >
+                              {formatKES(Number(app["Amount Requested"]))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
+                          {app["Reason for Advance"]}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getApprovalBadgeColor(getApprovalStatus(app))}`}>
+                              {getApprovalStatus(app)}
+                            </span>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <UserCheck className="h-3 w-3" />
+                              <span>BM: {app.branch_manager_approval ? '✓' : (app.branch_manager_recommendation ? 'Recommended' : 'Pending')}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <ShieldCheck className="h-3 w-3" />
+                              <span>RM: {app.regional_manager_approval ? '✓' : (app.regional_manager_recommendation ? 'Recommended' : 'Pending')}</span>
+                            </div>
+                            {app.regional_manager_comment && (
+                              <div className="flex items-center gap-2 text-xs text-blue-600">
+                                <Smartphone className="h-3 w-3" />
+                                <span>RM Comment: {app.regional_manager_comment}</span>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap relative">
+                          <div className="flex items-center">
+                            <button 
+                              onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
+                              className="flex items-center text-xs text-gray-500 hover:text-gray-700"
+                            >
+                              Notes <ChevronDown className="h-4 w-4 ml-1" />
+                            </button>
+                          </div>
+                          {showNotesDropdown === app.id && (
+                            <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
+                              <textarea
+                                value={notes[app.id] || ''}
+                                onChange={(e) => handleNoteChange(app.id, e.target.value)}
+                                placeholder="Add admin notes..."
+                                className="w-full p-2 border rounded text-xs mb-2"
+                                rows={3}
+                              />
+                              <div className="flex justify-end space-x-2">
+                                <button
+                                  onClick={() => setShowNotesDropdown(null)}
+                                  className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => saveNotes(app.id)}
+                                  className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                          {new Date(app.time_added).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
+                          <div className="flex flex-col gap-1">
+                            {/* Branch Manager Actions */}
+                            {canBranchManagerApprove(app) && (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'bm-recommend-current')}
+                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Recommend Current
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'bm-recommend-adjusted')}
+                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Recommend Adjusted
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'bm-recommend-reject')}
+                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                >
+                                  <XCircleIcon className="w-3 h-3" />
+                                  Recommend Reject
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Regional Manager Actions */}
+                            {canRegionalManagerApprove(app) && (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'rm-recommend-current')}
+                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Recommend Current
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'rm-recommend-adjusted')}
+                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Recommend Adjusted
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'rm-recommend-reject')}
+                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                >
+                                  <XCircleIcon className="w-3 h-3" />
+                                  Recommend Reject
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Regional Manager Comment Action */}
+                            {canRegionalManagerComment(app) && (
+                              <button
+                                onClick={() => openCommentModal(app)}
+                                className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                              >
+                                <Smartphone className="w-3 h-3" />
+                                Add Comment
+                              </button>
+                            )}
+
+                            {/* Admin Final Approval Action */}
+                            {canAdminApprove(app) && (
+                              <div className="flex flex-col gap-1">
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'admin-approve-current')}
+                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                >
+                                  <CheckCircle className="w-3 h-3" />
+                                  Approve Current
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'admin-approve-adjusted')}
+                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  Approve Adjusted
+                                </button>
+                                <button
+                                  onClick={() => openRecommendationModal(app, 'admin-reject')}
+                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                >
+                                  <XCircleIcon className="w-3 h-3" />
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Self-approval warning */}
+                            {checkIfSelfApproval(app) && (
+                              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                Cannot approve own request
+                              </span>
+                            )}
+
+                            {/* No actions available message */}
+                            {!canBranchManagerApprove(app) && !canRegionalManagerApprove(app) && !canRegionalManagerComment(app) && !canAdminApprove(app) && !checkIfSelfApproval(app) && (
+                              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                Awaiting approval
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+                  <div className="flex justify-between flex-1 sm:hidden">
                     <button
                       onClick={() => paginate(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative inline-flex items-center px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="sr-only">Previous</span>
-                      <ChevronLeft className="h-4 w-4" />
+                      Previous
                     </button>
-                    
-                    {/* Page numbers */}
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                      <button
-                        key={page}
-                        onClick={() => paginate(page)}
-                        className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
-                          currentPage === page
-                            ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        } border`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                    
                     <button
                       onClick={() => paginate(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="relative inline-flex items-center px-4 py-2 ml-3 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <span className="sr-only">Next</span>
-                      <ChevronRight className="h-4 w-4" />
+                      Next
                     </button>
-                  </nav>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs text-gray-700">
+                        Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                        <span className="font-medium">
+                          {Math.min(indexOfLastItem, filteredApplications.length)}
+                        </span>{' '}
+                        of <span className="font-medium">{filteredApplications.length}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <button
+                          onClick={() => paginate(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">Previous</span>
+                          <ChevronLeft className="h-4 w-4" />
+                        </button>
+                        
+                        {/* Page numbers */}
+                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                          <button
+                            key={page}
+                            onClick={() => paginate(page)}
+                            className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                            } border`}
+                          >
+                            {page}
+                          </button>
+                        ))}
+                        
+                        <button
+                          onClick={() => paginate(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">Next</span>
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Bulk Payment Modal with Maker-Checker Flow */}
+          {showBulkPaymentModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+                  <Users className="h-5 w-5 text-green-600" />
+                  {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
+                </h3>
+                
+                <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                  <p className="text-xs text-gray-600">
+                    {isMaker 
+                      ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
+                      : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
+                    }
+                  </p>
+                  
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={selectAllStaff}
+                      className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={deselectAllStaff}
+                      className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+                    >
+                      Deselect All
+                    </button>
+                  </div>
+                  
+                  <div className="mt-3 border-t pt-3">
+                    <div className="flex justify-between text-xs">
+                      <span className="font-medium">Total Amount:</span>
+                      <span className="font-bold text-green-700">{formatKES(calculateTotalAmount())}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Justification field - required for all roles */}
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    {isMaker ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={justification}
+                    onChange={(e) => setJustification(e.target.value)}
+                    placeholder={
+                      isMaker 
+                        ? "Please provide justification for this payment request..."
+                        : "Please provide notes for this payment processing..."
+                    }
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isMaker 
+                      ? 'This payment request will be submitted for approval before processing.'
+                      : 'These notes will be recorded in the payment history.'
+                    }
+                  </p>
+                </div>
+                
+                <div className="mb-4 max-h-60 overflow-y-auto">
+                  <p className="text-xs font-medium mb-2">Staff to be paid:</p>
+                  <ul className="text-xs divide-y divide-gray-200">
+                    {fullyApprovedApplications.map(app => (
+                      <li key={app.id} className="py-2 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <button
+                            onClick={() => toggleStaffSelection(app.id)}
+                            className="mr-2 text-green-600 hover:text-green-800"
+                          >
+                            {selectedStaff[app.id] ? (
+                              <CheckSquare className="h-5 w-5" />
+                            ) : (
+                              <Square className="h-5 w-5" />
+                            )}
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <div>
+                              <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                                {app["Full Name"]}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
+                              </div>
+                            </div>
+                            <ManagerBadge 
+                              isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                              isRegionalManager={false}
+                            />
+                          </div>
+                        </div>
+                        <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                          {formatKES(Number(app["Amount Requested"]))}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowBulkPaymentModal(false);
+                      setJustification('');
+                    }}
+                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                    disabled={isProcessingBulkPayment}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBulkPayment}
+                    className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+                    disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0 || !justification.trim()}
+                  >
+                    {isProcessingBulkPayment ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        {isMaker 
+                          ? `Submit Request (${getSelectedStaffCount()})`
+                          : `Process Payments (${getSelectedStaffCount()})`
+                        }
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
           )}
-        </>
-      )}
 
-      {/* Bulk Payment Modal with Maker-Checker Flow */}
-      {showBulkPaymentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-              <Users className="h-5 w-5 text-green-600" />
-              {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
-            </h3>
-            
-            <div className="mb-4 p-3 bg-gray-50 rounded-md">
-              <p className="text-xs text-gray-600">
-                {isMaker 
-                  ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
-                  : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
-                }
-              </p>
-              
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={selectAllStaff}
-                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={deselectAllStaff}
-                  className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-                >
-                  Deselect All
-                </button>
-              </div>
-              
-              <div className="mt-3 border-t pt-3">
-                <div className="flex justify-between text-xs">
-                  <span className="font-medium">Total Amount:</span>
-                  <span className="font-bold text-green-700">{formatKES(calculateTotalAmount())}</span>
-                </div>
-              </div>
-            </div>
+          {/* Payment Details Modal */}
+          <PaymentDetailsModal
+            payment={selectedPaymentForDetails}
+            isOpen={showPaymentDetails}
+            onClose={() => setShowPaymentDetails(false)}
+            onApprove={() => {
+              approvePayment(selectedPaymentForDetails);
+              setShowPaymentDetails(false);
+            }}
+            onReject={() => {
+              setPaymentToReject(selectedPaymentForDetails);
+              setShowRejectionModal(true);
+              setShowPaymentDetails(false);
+            }}
+            userRole={userRole}
+          />
 
-            {/* Justification field - required for all roles */}
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-2">
-                {isMaker ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                placeholder={
-                  isMaker 
-                    ? "Please provide justification for this payment request..."
-                    : "Please provide notes for this payment processing..."
-                }
-                rows={3}
-                className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {isMaker 
-                  ? 'This payment request will be submitted for approval before processing.'
-                  : 'These notes will be recorded in the payment history.'
-                }
-              </p>
-            </div>
-            
-            <div className="mb-4 max-h-60 overflow-y-auto">
-              <p className="text-xs font-medium mb-2">Staff to be paid:</p>
-              <ul className="text-xs divide-y divide-gray-200">
-                {fullyApprovedApplications.map(app => (
-                  <li key={app.id} className="py-2 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => toggleStaffSelection(app.id)}
-                        className="mr-2 text-green-600 hover:text-green-800"
-                      >
-                        {selectedStaff[app.id] ? (
-                          <CheckSquare className="h-5 w-5" />
-                        ) : (
-                          <Square className="h-5 w-5" />
-                        )}
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <div>
-                          <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
-                            {app["Full Name"]}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
-                          </div>
-                        </div>
-                        <ManagerBadge 
-                          isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
-                          isRegionalManager={false}
-                        />
-                      </div>
-                    </div>
-                    <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
-                      {formatKES(Number(app["Amount Requested"]))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowBulkPaymentModal(false);
-                  setJustification('');
-                }}
-                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                disabled={isProcessingBulkPayment}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleBulkPayment}
-                className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-                disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0 || !justification.trim()}
-              >
-                {isProcessingBulkPayment ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Send size={16} />
-                    {isMaker 
-                      ? `Submit Request (${getSelectedStaffCount()})`
-                      : `Process Payments (${getSelectedStaffCount()})`
-                    }
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
+          {/* Rejection Modal */}
+          <RejectionModal
+            isOpen={showRejectionModal}
+            onClose={() => setShowRejectionModal(false)}
+            onConfirm={(reason) => {
+              rejectPayment(paymentToReject, reason);
+              setPaymentToReject(null);
+            }}
+          />
+
+          {/* Recommendation Modal */}
+          <RecommendationModal
+            isOpen={showRecommendationModal}
+            onClose={() => setShowRecommendationModal(false)}
+            onConfirm={handleRecommendation}
+            application={selectedApplication}
+            actionType={recommendationAction}
+            currentAmount={selectedApplication?.["Amount Requested"]}
+          />
+
+          {/* Comment Modal */}
+          <CommentModal
+            isOpen={showCommentModal}
+            onClose={() => setShowCommentModal(false)}
+            onConfirm={handleComment}
+            application={selectedApplication}
+          />
+
+          {/* Export Modal */}
+          <ExportModal
+            isOpen={showExportModal}
+            onClose={() => setShowExportModal(false)}
+            onExport={handleExport}
+            isLoading={isExporting}
+          />
+
+          {/* Import Modal */}
+          <ImportModal
+            isOpen={showImportModal}
+            onClose={() => setShowImportModal(false)}
+            onImport={handleImport}
+            isLoading={isImporting}
+          />
         </div>
+      ) : (
+        // M-Pesa Callbacks Tab
+        <MpesaCallbacks />
       )}
-
-      {/* Payment Details Modal */}
-      <PaymentDetailsModal
-        payment={selectedPaymentForDetails}
-        isOpen={showPaymentDetails}
-        onClose={() => setShowPaymentDetails(false)}
-        onApprove={() => {
-          approvePayment(selectedPaymentForDetails);
-          setShowPaymentDetails(false);
-        }}
-        onReject={() => {
-          setPaymentToReject(selectedPaymentForDetails);
-          setShowRejectionModal(true);
-          setShowPaymentDetails(false);
-        }}
-        userRole={userRole}
-      />
-
-      {/* Rejection Modal */}
-      <RejectionModal
-        isOpen={showRejectionModal}
-        onClose={() => setShowRejectionModal(false)}
-        onConfirm={(reason) => {
-          rejectPayment(paymentToReject, reason);
-          setPaymentToReject(null);
-        }}
-      />
-
-      {/* Recommendation Modal */}
-      <RecommendationModal
-        isOpen={showRecommendationModal}
-        onClose={() => setShowRecommendationModal(false)}
-        onConfirm={handleRecommendation}
-        application={selectedApplication}
-        actionType={recommendationAction}
-        currentAmount={selectedApplication?.["Amount Requested"]}
-      />
-
-      {/* Comment Modal */}
-      <CommentModal
-        isOpen={showCommentModal}
-        onClose={() => setShowCommentModal(false)}
-        onConfirm={handleComment}
-        application={selectedApplication}
-      />
     </div>
   );
 };

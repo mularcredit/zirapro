@@ -18,6 +18,8 @@ type Employee = {
   blood_group: string | null
   Branch: string | null
   City: string | null
+  manager_email: string | null,
+  regional_manager: string | null,
   "Contract End Date": string | null
   "Contract Start Date": string | null
   Country: string | null
@@ -134,7 +136,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
     "NSSF Number": '',
     "NHIF Number": '',
     "Tax PIN": '',
-    "ID Number": null
+    "ID Number": null,
+    manager_email: '',
+    regional_manager: ''
   });
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResults, setUploadResults] = useState<UploadOperation[]>([]);
@@ -199,7 +203,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
         emp["Last Name"]?.toLowerCase().includes(term) ||
         emp["Work Email"]?.toLowerCase().includes(term) ||
         emp["Employee Number"]?.toLowerCase().includes(term) ||
-        emp["ID Number"]?.toString().includes(term))
+        emp["ID Number"]?.toString().includes(term) ||
+        emp.manager_email?.toLowerCase().includes(term) ||
+        emp.regional_manager?.toLowerCase().includes(term))
       );
     }
     
@@ -258,7 +264,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       "NSSF Number": employee["NSSF Number"],
       "NHIF Number": employee["NHIF Number"],
       "Tax PIN": employee["Tax PIN"],
-      "ID Number": employee["ID Number"]
+      "ID Number": employee["ID Number"],
+      manager_email: employee.manager_email,
+      regional_manager: employee.regional_manager
     });
   };
 
@@ -320,7 +328,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       "NSSF Number": '',
       "NHIF Number": '',
       "Tax PIN": '',
-      "ID Number": null
+      "ID Number": null,
+      manager_email: '',
+      regional_manager: ''
     });
   };
 
@@ -363,7 +373,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
           "NSSF Number": '',
           "NHIF Number": '',
           "Tax PIN": '',
-          "ID Number": null
+          "ID Number": null,
+          manager_email: '',
+          regional_manager: ''
         });
         toast.success('Employee added successfully!');
       }
@@ -392,7 +404,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       "NSSF Number": '',
       "NHIF Number": '',
       "Tax PIN": '',
-      "ID Number": null
+      "ID Number": null,
+      manager_email: '',
+      regional_manager: ''
     });
   };
 
@@ -474,6 +488,8 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
           Gender: row['Gender'] || row['gender'],
           "Marital Status": row['Marital Status'] || row['marital_status'],
           "Date of Birth": row['Date of Birth'] || row['date_of_birth'] || row['DOB'],
+          manager_email: row['manager_email'] || row['managerEmail'] || row['Manager Email'],
+          regional_manager: row['regional_manager'] || row['regionalManager'] || row['Regional Manager']
         };
 
         // Validate required fields
@@ -673,7 +689,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
         'Personal Email': 'john@gmail.com',
         'Gender': 'Male',
         'Marital Status': 'Single',
-        'Date of Birth': '1990-01-01'
+        'Date of Birth': '1990-01-01',
+        'manager_email': 'manager@company.com',
+        'regional_manager': 'regional.manager@company.com'
       }
     ];
 
@@ -685,7 +703,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 10 },
       { wch: 15 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 12 },
       { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 12 },
-      { wch: 20 }, { wch: 8 }, { wch: 12 }, { wch: 12 }
+      { wch: 20 }, { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 20 }
     ];
     ws['!cols'] = colWidths;
     
@@ -713,7 +731,9 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
       'Personal Email': emp["Personal Email"],
       'Gender': emp.Gender,
       'Marital Status': emp["Marital Status"],
-      'Date of Birth': emp["Date of Birth"]
+      'Date of Birth': emp["Date of Birth"],
+      'manager_email': emp.manager_email,
+      'regional_manager': emp.regional_manager
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -1053,6 +1073,12 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                 Basic Salary
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Manager Email
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Regional Manager
+              </th>
+              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 SHIF Number
               </th>
               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1174,6 +1200,24 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                     placeholder="Basic Salary"
                     min="0"
                     step="1000"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="email"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee.manager_email || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, manager_email: e.target.value})}
+                    placeholder="Manager Email"
+                  />
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <input
+                    type="text"
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                    value={newEmployee.regional_manager || ''}
+                    onChange={(e) => setNewEmployee({...newEmployee, regional_manager: e.target.value})}
+                    placeholder="Regional Manager"
                   />
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
@@ -1378,6 +1422,32 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
                   <td className="px-4 py-3 whitespace-nowrap">
                     {editingId === employee.id ? (
                       <input
+                        type="email"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData.manager_email || ''}
+                        onChange={(e) => setEditableData({...editableData, manager_email: e.target.value})}
+                        placeholder="Manager Email"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee.manager_email}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
+                        type="text"
+                        className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
+                        value={editableData.regional_manager || ''}
+                        onChange={(e) => setEditableData({...editableData, regional_manager: e.target.value})}
+                        placeholder="Regional Manager"
+                      />
+                    ) : (
+                      <div className="text-xs text-gray-500">{employee.regional_manager}</div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {editingId === employee.id ? (
+                      <input
                         type="text"
                         className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:ring-emerald-500 focus:border-emerald-500"
                         value={editableData["SHIF Number"] || ''}
@@ -1459,7 +1529,7 @@ const EmployeeDataTable: React.FC<TownProps> = ({ selectedTown, onTownChange }) 
               ))
             ) : (
               <tr>
-                <td colSpan={15} className="px-4 py-4 text-center text-xs text-gray-500">
+                <td colSpan={17} className="px-4 py-4 text-center text-xs text-gray-500">
                   No employees found matching your criteria
                 </td>
               </tr>
