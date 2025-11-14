@@ -1027,6 +1027,7 @@ const LeaveApplicationsList = () => {
 };
 
 // Enhanced SalaryAdvanceForm Component with button state control
+// Enhanced SalaryAdvanceForm Component with monthly restriction
 const SalaryAdvanceForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1043,6 +1044,8 @@ const SalaryAdvanceForm = () => {
   const [applications, setApplications] = useState<any[]>([]);
   const [view, setView] = useState<'form' | 'list'>('form');
   const [amountExceeded, setAmountExceeded] = useState(false);
+  const [hasAppliedThisMonth, setHasAppliedThisMonth] = useState(false);
+  const [currentMonthApplication, setCurrentMonthApplication] = useState<any>(null);
 
   // Check if current date is between 15th-18th
   const isAdvancePeriod = () => {
@@ -1062,6 +1065,35 @@ const SalaryAdvanceForm = () => {
     const numericAmount = parseFloat(amount) || 0;
     const maxAdvance = calculateMaxAdvance();
     setAmountExceeded(numericAmount > maxAdvance);
+  };
+
+  // Check if user has already applied for advance this month
+  const checkMonthlyApplication = async (employeeNumber: string) => {
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const { data, error } = await supabase
+        .from('salary_advance')
+        .select('*')
+        .eq('"Employee Number"', employeeNumber)
+        .gte('time_added', firstDayOfMonth.toISOString())
+        .lte('time_added', lastDayOfMonth.toISOString())
+        .order('time_added', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setHasAppliedThisMonth(true);
+        setCurrentMonthApplication(data[0]);
+      } else {
+        setHasAppliedThisMonth(false);
+        setCurrentMonthApplication(null);
+      }
+    } catch (error) {
+      console.error('Error checking monthly applications:', error);
+    }
   };
 
   useEffect(() => {
@@ -1092,6 +1124,7 @@ const SalaryAdvanceForm = () => {
             }));
 
             await fetchApplications(data["Employee Number"]);
+            await checkMonthlyApplication(data["Employee Number"]);
 
             subscription = supabase
               .channel('salary_advance_changes')
@@ -1106,6 +1139,7 @@ const SalaryAdvanceForm = () => {
                 (payload) => {
                   console.log('Change detected:', payload);
                   fetchApplications(data["Employee Number"]);
+                  checkMonthlyApplication(data["Employee Number"]);
                 }
               )
               .subscribe();
@@ -1199,7 +1233,14 @@ const SalaryAdvanceForm = () => {
 
     // Check if within application period
     if (!isAdvancePeriod()) {
-      toast.error('Salary advance can only be applied between 13th-16th processing  latest 18th of the month');
+      toast.error('Salary advance can only be applied between 13th-16th processing latest 18th of the month');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Check if user has already applied this month
+    if (hasAppliedThisMonth) {
+      toast.error('You have already applied for a salary advance this month. Only one application per month is allowed.');
       setIsSubmitting(false);
       return;
     }
@@ -1255,6 +1296,9 @@ const SalaryAdvanceForm = () => {
         time_added: new Date().toISOString()
       }));
 
+      // Refresh the monthly application check
+      await checkMonthlyApplication(formData["Employee Number"]);
+
     } catch (error) {
       console.error('Error submitting salary advance application:', error);
       toast.error('Failed to submit salary advance application');
@@ -1276,7 +1320,7 @@ const SalaryAdvanceForm = () => {
 
   // Enhanced submit button with disabled state
   const renderSubmitButton = () => {
-    const isDisabled = isSubmitting || !isAdvancePeriod() || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"];
+    const isDisabled = isSubmitting || !isAdvancePeriod() || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"] || hasAppliedThisMonth;
     
     return (
       <button
@@ -1296,10 +1340,14 @@ const SalaryAdvanceForm = () => {
             </svg>
             Submitting...
           </>
+        ) : hasAppliedThisMonth ? (
+          'Already Applied This Month'
+        ) : amountExceeded ? (
+          'Amount Exceeds Limit'
         ) : (
           <>
             <Banknote className="h-4 w-4 mr-2" />
-            {amountExceeded ? 'Amount Exceeds Limit' : 'Submit Application'}
+            Submit Application
           </>
         )}
       </button>
@@ -1401,6 +1449,28 @@ const SalaryAdvanceForm = () => {
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
           <p className="text-xs text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
         </div>
+        
+        {/* Monthly Application Restriction Warning */}
+        {hasAppliedThisMonth && (
+          <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <div className="ml-3">
+                <p className="text-xs text-red-700">
+                  <strong>Monthly Application Limit:</strong> You have already applied for a salary advance this month. 
+                  Only one salary advance application is allowed per calendar month.
+                </p>
+                {currentMonthApplication && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Your current application status: <strong>{currentMonthApplication.status}</strong> - 
+                    Submitted on {new Date(currentMonthApplication.time_added).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {!isAdvancePeriod() && (
           <div className="mt-3 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg">
             <div className="flex">
@@ -1474,13 +1544,15 @@ const SalaryAdvanceForm = () => {
                   name="Amount Requested"
                   value={formData["Amount Requested"]}
                   onChange={handleChange}
-                  className="focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg"
+                  className={`focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg ${
+                    hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   placeholder="0.00"
                   required
                   min="0"
                   max={calculateMaxAdvance()}
                   step="0.01"
-                  disabled={!isAdvancePeriod()}
+                  disabled={!isAdvancePeriod() || hasAppliedThisMonth}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <span className="text-gray-500 text-xs">
@@ -1513,11 +1585,13 @@ const SalaryAdvanceForm = () => {
               rows={4}
               value={formData["Reason for Advance"]}
               onChange={handleChange}
-              className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              className={`w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
               placeholder="Please explain why you need this salary advance"
               required
               minLength={10}
-              disabled={!isAdvancePeriod()}
+              disabled={!isAdvancePeriod() || hasAppliedThisMonth}
             />
           </div>
 
