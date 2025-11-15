@@ -97,7 +97,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     const fetchBranches = async () => {
       try {
         const { data, error } = await supabase
-          .from('kenya_branches')
+          .from('kenya_branches_duplicate')
           .select('"Branch Office"')
           .order('Branch Office', { ascending: true });
 
@@ -156,59 +156,50 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     }
   };
 
-  const fetchBranchFromEmail = async (email: string) => {
-    const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
+ const fetchBranchFromEmail = async (email: string) => {
+  const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
+  
+  if (!isValidDomain || isAdminEmail(email)) {
+    console.log('❌ Failed: Invalid domain or admin email');
+    setIsBranchAutoPopulated(false);
+    return;
+  }
+
+  try {
+    console.log('🔍 Searching for email:', email);
     
-    if (!isValidDomain || isAdminEmail(email)) {
+    const { data: employeeData, error: employeeError } = await supabase
+      .from('employees')
+      .select('Town, "Work Email"')
+      .eq('Work Email', email)
+      .single();
+
+    console.log('Query result:', { employeeData, employeeError });
+
+    if (employeeError) {
+      console.log('❌ Database error:', employeeError);
       setIsBranchAutoPopulated(false);
       return;
     }
 
-    try {
-      // First check if email exists in manager_email column
-      const { data: managerData, error: managerError } = await supabase
-        .from('employees')
-        .select('Town')
-        .eq('manager_email', email)
-        .single();
-
-      if (managerData && managerData.Town) {
-        setSelectedBranch(managerData.Town);
-        setIsBranchAutoPopulated(true);
-        return;
-      }
-
-      // If not found in manager_email, check regional_manager column
-      const { data: regionalManagerData, error: regionalManagerError } = await supabase
-        .from('employees')
-        .select('Branch')
-        .eq('regional_manager', email)
-        .single();
-
-      if (regionalManagerData && regionalManagerData.Branch) {
-        setSelectedBranch(regionalManagerData.Branch);
-        setIsBranchAutoPopulated(true);
-        return;
-      }
-
-      // If neither found, check the regular Work Email field as fallback
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('Office')
-        .eq('Work Email', email)
-        .single();
-
-      if (employeeData && employeeData.Office) {
-        setSelectedBranch(employeeData.Office);
-        setIsBranchAutoPopulated(true);
-      } else {
-        setIsBranchAutoPopulated(false);
-      }
-    } catch (error) {
-      console.error('Error fetching employee branch:', error);
+    if (employeeData && employeeData.Town) {
+      console.log('✅ SUCCESS: Found Town:', employeeData.Town);
+      setSelectedBranch(employeeData.Town);
+      setIsBranchAutoPopulated(true);
+    } else if (employeeData) {
+      console.log('❌ FAILED: Employee found but Town is empty/null');
+      setIsBranchAutoPopulated(false);
+    } else {
+      console.log('❌ FAILED: No employee record found for this email');
       setIsBranchAutoPopulated(false);
     }
-  };
+  } catch (error) {
+    console.error('🚨 Unexpected error:', error);
+    setIsBranchAutoPopulated(false);
+  }
+};
+
+
 
   // Handle email change with debounce
   useEffect(() => {

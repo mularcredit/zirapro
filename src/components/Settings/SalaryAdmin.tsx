@@ -10,6 +10,162 @@ import {
   Download, Upload, Calendar
 } from 'lucide-react';
 
+// SMS Service Configuration
+const CELCOM_AFRICA_CONFIG = {
+  baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
+  apiKey: '17323514aa8ce2613e358ee029e65d99',
+  partnerID: '928',
+  defaultShortcode: 'MularCredit'
+};
+
+// SMS Service Functions
+// SMS Service Functions
+const SMSService = {
+  // Format phone number for SMS - handles all Kenyan formats
+  formatPhoneNumberForSMS(phone) {
+    if (!phone) {
+      console.warn('Empty phone number provided');
+      return '';
+    }
+    
+    // Remove all non-numeric characters
+    let cleaned = String(phone).replace(/\D/g, '');
+    
+    console.log('Formatting phone:', phone, '-> cleaned:', cleaned);
+    
+    // Handle different formats
+    if (cleaned.startsWith('254')) {
+      // Already in 254 format
+      if (cleaned.length === 12) {
+        return cleaned;
+      } else if (cleaned.length === 13 && cleaned.startsWith('2540')) {
+        // Remove extra 0: 2540712345678 -> 254712345678
+        return '254' + cleaned.substring(4);
+      }
+    } else if (cleaned.startsWith('0')) {
+      // Kenyan local format (0712345678)
+      if (cleaned.length === 10) {
+        return '254' + cleaned.substring(1);
+      } else if (cleaned.length === 11 && cleaned.startsWith('07')) {
+        // Handle 07012345678 -> 254712345678
+        return '254' + cleaned.substring(2);
+      }
+    } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+      // Number without prefix (712345678 or 112345678)
+      if (cleaned.length === 9) {
+        return '254' + cleaned;
+      } else if (cleaned.length === 10 && (cleaned.startsWith('70') || cleaned.startsWith('71') || cleaned.startsWith('72') || cleaned.startsWith('11'))) {
+        // Handle 0712345678 pattern
+        return '254' + cleaned.substring(1);
+      }
+    }
+    
+    // If we reach here, the format is invalid
+    console.error('Invalid phone number format:', phone, 'cleaned:', cleaned);
+    return '';
+  },
+
+  // Send SMS function
+  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
+    try {
+      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      
+      if (!formattedPhone) {
+        const errorMsg = `Invalid phone number format: ${phoneNumber}`;
+        console.error('❌ SMS Error:', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!message || message.trim().length === 0) {
+        throw new Error('Message cannot be empty');
+      }
+
+      const encodedMessage = encodeURIComponent(message.trim());
+      const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
+
+      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        mode: 'no-cors',
+      });
+
+      console.log('✅ SMS request sent successfully to:', formattedPhone);
+
+      // Log the SMS to database as sent
+      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      await this.logSMS(
+        formattedPhone,
+        message,
+        'sent',
+        shortcode,
+        undefined,
+        messageId,
+        0
+      );
+
+      return {
+        success: true,
+        message: 'SMS sent successfully',
+        messageId: messageId,
+        cost: 0,
+        recipient: formattedPhone
+      };
+      
+    } catch (error) {
+      console.error('❌ SMS sending error:', error);
+      
+      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (formattedPhone) {
+        await this.logSMS(
+          formattedPhone,
+          message,
+          'failed',
+          shortcode,
+          error.message
+        );
+      }
+      
+      return { 
+        success: false, 
+        error: error.message,
+        originalNumber: phoneNumber
+      };
+    }
+  },
+
+  // Log SMS to database
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost) {
+    try {
+      const { error } = await supabase
+        .from('sms_logs')
+        .insert({
+          recipient_phone: recipientPhone,
+          message: message,
+          status: status,
+          error_message: errorMessage,
+          message_id: messageId,
+          sender_id: senderId,
+          cost: cost
+        });
+
+      if (error) {
+        console.error('Failed to log SMS:', error);
+      }
+    } catch (error) {
+      console.error('Error logging SMS:', error);
+    }
+  },
+
+  // Send disbursement notification
+  async sendDisbursementNotification(employeeName, phoneNumber, amount, transactionId) {
+    const message = `Dear ${employeeName}, thank you for being an invaluable team member. Your salary advance of KES ${amount.toLocaleString()} is now in your M-Pesa account. We're here to support you. Keep up the great work! - Mular Credit`;
+    
+    return await this.sendSMS(phoneNumber, message);
+  }
+};
+
 // Role mapping - Connect your actual roles to SalaryAdvanceAdmin roles
 const ROLE_MAPPING = {
   'ADMIN': 'credit_analyst_officer',      // Full admin access
@@ -133,12 +289,15 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Export Modal Component - FIXED
-const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
+// Enhanced Export Modal Component with Filter Options
+const ExportModal = ({ isOpen, onClose, onExport, isLoading, filterOptions }) => {
   const [format, setFormat] = useState('excel');
   const [dateRange, setDateRange] = useState('all');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
+  const [exportStatus, setExportStatus] = useState('all');
+  const [exportTown, setExportTown] = useState('all');
+  const [exportMonth, setExportMonth] = useState('all');
 
   if (!isOpen) return null;
 
@@ -147,13 +306,43 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
       format,
       dateRange,
       customStartDate,
-      customEndDate
+      customEndDate,
+      status: exportStatus,
+      town: exportTown,
+      month: exportMonth
     });
   };
 
+  const statusOptions = [
+    { value: 'all', label: 'All Statuses' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'approved', label: 'Approved' },
+    { value: 'rejected', label: 'Rejected' },
+    { value: 'paid', label: 'Paid' },
+    { value: 'pending-branch-manager', label: 'Pending Branch Manager' },
+    { value: 'pending-regional-manager', label: 'Pending Regional Manager' },
+    { value: 'pending-admin', label: 'Pending Admin' }
+  ];
+
+  const monthOptions = [
+    { value: 'all', label: 'All Months' },
+    { value: '0', label: 'January' },
+    { value: '1', label: 'February' },
+    { value: '2', label: 'March' },
+    { value: '3', label: 'April' },
+    { value: '4', label: 'May' },
+    { value: '5', label: 'June' },
+    { value: '6', label: 'July' },
+    { value: '7', label: 'August' },
+    { value: '8', label: 'September' },
+    { value: '9', label: 'October' },
+    { value: '10', label: 'November' },
+    { value: '11', label: 'December' }
+  ];
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+      <div className="bg-white rounded-lg max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
           <Download className="h-5 w-5 text-green-600" />
           Export Salary Advances
@@ -188,6 +377,7 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
               <option value="this_week">This Week</option>
               <option value="this_month">This Month</option>
               <option value="last_month">Last Month</option>
+              <option value="last_3_months">Last 3 Months</option>
               <option value="custom">Custom Range</option>
             </select>
           </div>
@@ -219,10 +409,73 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
             </div>
           )}
 
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Status Filter
+            </label>
+            <select
+              value={exportStatus}
+              onChange={(e) => setExportStatus(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            >
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Town/Region Filter
+            </label>
+            <select
+              value={exportTown}
+              onChange={(e) => setExportTown(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            >
+              <option value="all">All Towns/Regions</option>
+              {filterOptions?.allTowns?.map(town => (
+                <option key={town} value={town}>
+                  {town}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Month Filter
+            </label>
+            <select
+              value={exportMonth}
+              onChange={(e) => setExportMonth(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            >
+              {monthOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-xs text-blue-800">
-              <strong>Exporting:</strong> Employee, Mobile Number, Branch, Amount, Status
+              <strong>Exporting Columns:</strong> 
             </p>
+            <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
+              <li>Employee Name & Number</li>
+              <li>Mobile Number</li>
+              <li>Branch/Region</li>
+              <li>Amount Requested</li>
+              <li>Status</li>
+              <li>Request Date</li>
+              <li>Reason for Advance</li>
+              <li>Approval Status</li>
+              <li>Manager Recommendations</li>
+            </ul>
           </div>
         </div>
         
@@ -257,7 +510,7 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading }) => {
   );
 };
 
-// Import Modal Component - FIXED
+// Import Modal Component
 const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
   const [file, setFile] = useState(null);
   const [importType, setImportType] = useState('updates');
@@ -265,7 +518,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
   if (!isOpen) return null;
 
   const handleFileSelect = (e) => {
-    const selectedFile = e.target.files[0];
+    const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       // Validate file type
       const validTypes = ['.csv', '.xlsx', '.xls'];
@@ -1317,6 +1570,7 @@ const TownFilter = ({
   );
 };
 
+// MpesaCallbacks Component
 const MpesaCallbacks = () => {
   const [callbacks, setCallbacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1324,6 +1578,9 @@ const MpesaCallbacks = () => {
   const [selectedCallback, setSelectedCallback] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   const fetchCallbacks = async () => {
     try {
@@ -1349,8 +1606,7 @@ const MpesaCallbacks = () => {
           created_at,
           processed_at
         `)
-        .order('callback_date', { ascending: false })
-        .limit(100);
+        .order('callback_date', { ascending: false });
 
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
@@ -1365,9 +1621,12 @@ const MpesaCallbacks = () => {
       }
 
       console.log(`✅ Loaded ${data?.length || 0} M-Pesa callbacks`);
-      console.log('Sample callback data:', data && data.length > 0 ? data[0] : 'No data');
       
-      setCallbacks(data || []);
+      // Remove duplicates based on transaction_id
+      const uniqueCallbacks = removeDuplicateCallbacks(data || []);
+      console.log(`🔄 Removed duplicates, showing ${uniqueCallbacks.length} unique records`);
+      
+      setCallbacks(uniqueCallbacks);
       setLastRefresh(new Date());
       
     } catch (error) {
@@ -1378,34 +1637,61 @@ const MpesaCallbacks = () => {
     }
   };
 
-  // Debug function to check table structure
-  const debugTableStructure = async () => {
-    try {
-      console.log('🔍 Checking table structure...');
-      
-      const { data, error } = await supabase
-        .from('mpesa_callbacks')
-        .select('*')
-        .limit(1)
-        .single();
+  // Function to remove duplicate callbacks based on transaction_id
+  const removeDuplicateCallbacks = (callbacks: any[]) => {
+    const seenTransactionIds = new Set();
+    const uniqueCallbacks: any[] = [];
 
-      if (error) {
-        console.error('❌ Error checking table:', error);
+    callbacks.forEach(callback => {
+      const transactionId = callback.transaction_id;
+      
+      if (!transactionId) {
+        // Include records without transaction_id (they might be important)
+        uniqueCallbacks.push(callback);
         return;
       }
 
-      console.log('📊 Table structure sample:', data);
-      console.log('📋 Available columns:', Object.keys(data || {}));
+      if (!seenTransactionIds.has(transactionId)) {
+        seenTransactionIds.add(transactionId);
+        uniqueCallbacks.push(callback);
+      } else {
+        console.log(`🔄 Removing duplicate transaction: ${transactionId}`);
+      }
+    });
+
+    return uniqueCallbacks;
+  };
+
+  // Extract important data from raw_response
+  const extractTransactionData = (callback: any) => {
+    try {
+      if (!callback.raw_response) return null;
       
+      const rawResponse = typeof callback.raw_response === 'string' 
+        ? JSON.parse(callback.raw_response) 
+        : callback.raw_response;
+      
+      if (!rawResponse.Result?.ResultParameters?.ResultParameter) return null;
+      
+      const parameters = rawResponse.Result.ResultParameters.ResultParameter;
+      const transactionData: any = {};
+      
+      parameters.forEach((param: any) => {
+        if (param.Key && param.Value !== undefined) {
+          transactionData[param.Key] = param.Value;
+        }
+      });
+      
+      return transactionData;
     } catch (error) {
-      console.error('❌ Debug error:', error);
+      console.error('Error extracting transaction data:', error);
+      return null;
     }
   };
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
     fetchCallbacks();
-    debugTableStructure();
     
     const interval = setInterval(() => {
       console.log('🔄 Auto-refreshing M-Pesa callbacks...');
@@ -1420,6 +1706,24 @@ const MpesaCallbacks = () => {
     await fetchCallbacks();
     toast.success('M-Pesa callbacks refreshed');
   };
+
+  // Filter callbacks by search term (transaction ID)
+  const filteredCallbacks = callbacks.filter(callback => 
+    callback.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    callback.conversation_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    callback.originator_conversation_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    callback.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    callback.employee_number?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  // Pagination calculations
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = filteredCallbacks.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredCallbacks.length / itemsPerPage);
+
+  // Change page
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -1464,15 +1768,35 @@ const MpesaCallbacks = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-blue-600" />
-            M-Pesa Callback Results
+            <img src='M-PESA_LOGO-01.svg.png' className='w-14' alt="M-Pesa Logo" />
+            M-Pesa Callbacks
           </h2>
           <p className="text-xs text-gray-500 mt-1">
             Last refreshed: {lastRefresh.toLocaleTimeString()} | Auto-refreshes every 30 seconds
-            {callbacks.length > 0 && ` | Showing ${callbacks.length} records`}
+            {callbacks.length > 0 && ` | Showing ${filteredCallbacks.length} unique records`}
+            {callbacks.length > 0 && (
+              <span className="text-green-600 ml-1">
+                (Duplicates removed by Transaction ID)
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by Transaction ID, Name, Employee No..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page when searching
+              }}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
+            />
+          </div>
+
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -1483,20 +1807,13 @@ const MpesaCallbacks = () => {
             <option value="processed">Processed</option>
             <option value="failed">Failed</option>
           </select>
+          
           <button
             onClick={handleManualRefresh}
             className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
-          <button
-            onClick={debugTableStructure}
-            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-md hover:bg-yellow-200"
-            title="Debug table structure"
-          >
-            <Settings className="w-4 h-4" />
-            Debug
           </button>
         </div>
       </div>
@@ -1506,97 +1823,214 @@ const MpesaCallbacks = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
           <span className="ml-2 text-sm text-gray-600">Loading M-Pesa callbacks...</span>
         </div>
-      ) : callbacks.length === 0 ? (
+      ) : filteredCallbacks.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Smartphone className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No M-Pesa callbacks found</h3>
-          <p className="text-gray-600 mb-4">No callback results found in the database.</p>
-          <div className="text-xs text-gray-500 space-y-1">
-            <p>• Check if AppScript is pushing data to Supabase</p>
-            <p>• Verify table name: <code>mpesa_callbacks</code></p>
-            <p>• Check browser console for errors</p>
-          </div>
-          <button
-            onClick={handleManualRefresh}
-            className="mt-4 px-4 py-2 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Check Again
-          </button>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {searchTerm ? 'No matching M-Pesa callbacks found' : 'No M-Pesa callbacks found'}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {searchTerm 
+              ? 'No callback results match your search criteria.'
+              : 'No callback results found in the database.'
+            }
+          </p>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="mt-2 px-4 py-2 text-xs bg-gray-600 text-white rounded-md hover:bg-gray-700"
+            >
+              Clear Search
+            </button>
+          )}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Transaction ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Result Code
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Employee
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {callbacks.map((callback) => (
-                <tr key={callback.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
-                    {callback.callback_date ? new Date(callback.callback_date).toLocaleString() : 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-600">
-                    {callback.transaction_id || 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {getResultCodeBadge(callback.result_code)}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 max-w-xs">
-                    <div className="line-clamp-2">{callback.result_desc || 'No description'}</div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
-                    {formatAmount(callback.amount)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
-                    <div>
-                      <div className="font-medium">{callback.full_name || 'N/A'}</div>
-                      <div className="text-gray-500">{callback.employee_number || ''}</div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {getStatusBadge(callback.status)}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-xs">
-                    <button
-                      onClick={() => viewCallbackDetails(callback)}
-                      className="text-blue-600 hover:text-blue-900 font-medium"
-                    >
-                      View Details
-                    </button>
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date & Time
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Transaction ID
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Result Code
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Transaction Amount
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Receiver Party
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {currentItems.map((callback) => {
+                  const transactionData = extractTransactionData(callback);
+                  const transactionAmount = transactionData?.TransactionAmount || callback.amount;
+                  const receiverParty = transactionData?.ReceiverPartyPublicName || 'N/A';
+                  
+                  return (
+                    <tr key={callback.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                        {callback.callback_date ? new Date(callback.callback_date).toLocaleString() : 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-600">
+                        <div className="flex items-center gap-1">
+                          {callback.transaction_id || 'N/A'}
+                          {callback.transaction_id && (
+                            <span 
+                              className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                              title="Unique Transaction ID"
+                            >
+                              Unique
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {getResultCodeBadge(callback.result_code)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs font-medium text-gray-900">
+                        {formatAmount(transactionAmount)}
+                      </td>
+                      <td className="px-4 py-3 text-xs max-w-xs">
+                        {/* Updated Receiver Party - Bold and Green */}
+                        <div className="line-clamp-2 font-base text-xs text-semibold">
+                          {receiverParty}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-600 max-w-xs">
+                        <div className="line-clamp-2">{callback.result_desc || 'No description'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
+                        <div>
+                          <div className="font-medium">{callback.full_name || 'N/A'}</div>
+                          <div className="text-gray-500">{callback.employee_number || ''}</div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {getStatusBadge(callback.status)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-xs">
+                        <button
+                          onClick={() => viewCallbackDetails(callback)}
+                          className="text-blue-600 hover:text-blue-900 font-medium"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 px-4 py-3 border-t border-gray-200">
+              <div className="flex justify-between flex-1 sm:hidden">
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                    <span className="font-medium">
+                      {Math.min(indexOfLastItem, filteredCallbacks.length)}
+                    </span>{' '}
+                    of <span className="font-medium">{filteredCallbacks.length}</span> unique records
+                  </p>
+                </div>
+                <div>
+                  <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Previous</span>
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    
+                    {/* Page numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first, last, and pages around current page
+                        if (page === 1 || page === totalPages) return true;
+                        if (page >= currentPage - 1 && page <= currentPage + 1) return true;
+                        return false;
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis for gaps
+                        const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                        return (
+                          <div key={page} className="flex">
+                            {showEllipsis && (
+                              <span className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300">
+                                ...
+                              </span>
+                            )}
+                            <button
+                              onClick={() => paginate(page)}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+                                currentPage === page
+                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              } border`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <span className="sr-only">Next</span>
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Callback Details Modal */}
+      {/* Enhanced Callback Details Modal */}
       {showDetails && selectedCallback && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-auto">
@@ -1635,21 +2069,56 @@ const MpesaCallbacks = () => {
                   <p className="font-mono text-sm">{selectedCallback.conversation_id || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-gray-600">Amount</p>
-                  <p className="font-semibold text-sm">{formatAmount(selectedCallback.amount)}</p>
+                  <p className="text-xs text-gray-600">Originator Conversation ID</p>
+                  <p className="font-mono text-sm">{selectedCallback.originator_conversation_id || 'N/A'}</p>
                 </div>
-                {selectedCallback.employee_number && (
-                  <div className="col-span-2 md:col-span-3">
-                    <p className="text-xs text-gray-600">Employee</p>
-                    <p className="font-semibold text-sm">
-                      {selectedCallback.full_name} ({selectedCallback.employee_number})
-                    </p>
-                  </div>
-                )}
-                <div className="col-span-2 md:col-span-3">
-                  <p className="text-xs text-gray-600">Description</p>
-                  <p className="font-semibold text-sm mt-1">{selectedCallback.result_desc || 'No description'}</p>
-                </div>
+              </div>
+
+              {/* Enhanced Transaction Details from Raw Response */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">Transaction Details</h3>
+                {(() => {
+                  const transactionData = extractTransactionData(selectedCallback);
+                  if (!transactionData) {
+                    return <p className="text-gray-500 text-sm">No transaction data available</p>;
+                  }
+
+                  const importantFields = {
+                    'TransactionAmount': 'Transaction Amount',
+                    'TransactionReceipt': 'Transaction Receipt',
+                    'ReceiverPartyPublicName': 'Receiver Party',
+                    'TransactionCompletedDateTime': 'Completed Date Time',
+                    'B2CUtilityAccountAvailableFunds': 'Utility Account Funds',
+                    'B2CWorkingAccountAvailableFunds': 'Working Account Funds',
+                    'B2CRecipientIsRegisteredCustomer': 'Recipient Registered',
+                    'B2CChargesPaidAccountAvailableFunds': 'Charges Paid Funds'
+                  };
+
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {Object.entries(importantFields).map(([key, label]) => {
+                          if (transactionData[key] !== undefined) {
+                            return (
+                              <div key={key}>
+                                <p className="text-xs text-gray-600">{label}</p>
+                                <p className={`font-semibold text-sm mt-1 ${
+                                  key === 'ReceiverPartyPublicName' ? 'text-green-600 font-bold' : ''
+                                }`}>
+                                  {key.includes('Amount') || key.includes('Funds') 
+                                    ? formatAmount(Number(transactionData[key]))
+                                    : String(transactionData[key])
+                                  }
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }).filter(Boolean)}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="mb-4">
@@ -1671,6 +2140,209 @@ const MpesaCallbacks = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Enhanced Bulk Payment Modal with Search
+const BulkPaymentModal = ({ 
+  isOpen, 
+  onClose, 
+  onProcess, 
+  isLoading, 
+  applications, 
+  selectedStaff, 
+  onToggleStaff, 
+  onSelectAll, 
+  onDeselectAll, 
+  employeeMobileNumbers,
+  isBranchManagerMap,
+  justification,
+  onJustificationChange,
+  userRole
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  if (!isOpen) return null;
+
+  const isMaker = userRole === 'maker';
+  const fullyApprovedApplications = applications.filter(app => 
+    app.status?.toLowerCase() === 'approved'
+  );
+
+  const filteredApplications = fullyApprovedApplications.filter(app => 
+    app["Full Name"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    employeeMobileNumbers[app["Employee Number"]]?.includes(searchTerm)
+  );
+
+  const calculateTotalAmount = () => {
+    return filteredApplications.reduce((total, app) => {
+      if (selectedStaff[app.id]) {
+        return total + Number(app["Amount Requested"] || 0);
+      }
+      return total;
+    }, 0);
+  };
+
+  const getSelectedStaffCount = () => {
+    return Object.values(selectedStaff).filter(selected => selected).length;
+  };
+
+  const formatKES = (amount) => {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 2
+    }).format(amount);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <Users className="h-5 w-5 text-green-600" />
+          {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
+        </h3>
+        
+        <div className="mb-4 p-3 bg-gray-50 rounded-md">
+          <p className="text-xs text-gray-600">
+            {isMaker 
+              ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
+              : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
+            }
+          </p>
+          
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={onSelectAll}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Select All
+            </button>
+            <button
+              onClick={onDeselectAll}
+              className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
+            >
+              Deselect All
+            </button>
+          </div>
+          
+          <div className="mt-3 border-t pt-3">
+            <div className="flex justify-between text-xs">
+              <span className="font-medium">Total Amount:</span>
+              <span className="font-bold text-green-700">{formatKES(calculateTotalAmount())}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search employees by name, employee number, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+            />
+          </div>
+        </div>
+
+        {/* Justification field - required for all roles */}
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            {isMaker ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={justification}
+            onChange={(e) => onJustificationChange(e.target.value)}
+            placeholder={
+              isMaker 
+                ? "Please provide justification for this payment request..."
+                : "Please provide notes for this payment processing..."
+            }
+            rows={3}
+            className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {isMaker 
+              ? 'This payment request will be submitted for approval before processing.'
+              : 'These notes will be recorded in the payment history.'
+            }
+          </p>
+        </div>
+        
+        <div className="mb-4 max-h-60 overflow-y-auto">
+          <p className="text-xs font-medium mb-2">Staff to be paid ({filteredApplications.length} found):</p>
+          <ul className="text-xs divide-y divide-gray-200">
+            {filteredApplications.map(app => (
+              <li key={app.id} className="py-2 flex items-center justify-between">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => onToggleStaff(app.id)}
+                    className="mr-2 text-green-600 hover:text-green-800"
+                  >
+                    {selectedStaff[app.id] ? (
+                      <CheckSquare className="h-5 w-5" />
+                    ) : (
+                      <Square className="h-5 w-5" />
+                    )}
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <div>
+                      <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                        {app["Full Name"]}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
+                      </div>
+                    </div>
+                    <ManagerBadge 
+                      isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                      isRegionalManager={false}
+                    />
+                  </div>
+                </div>
+                <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
+                  {formatKES(Number(app["Amount Requested"]))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onProcess}
+            className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+            disabled={isLoading || getSelectedStaffCount() === 0 || !justification.trim()}
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Send size={16} />
+                {isMaker 
+                  ? `Submit Request (${getSelectedStaffCount()})`
+                  : `Process Payments (${getSelectedStaffCount()})`
+                }
+              </>
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -1739,7 +2411,7 @@ const SalaryAdvanceAdmin = () => {
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
 
-  // NEW: Export/Import states - FIXED
+  // NEW: Export/Import states
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -1751,6 +2423,61 @@ const SalaryAdvanceAdmin = () => {
   const isRegionalManager = userRole === 'regional_manager';
   const isChecker = userRole === 'checker';
   const isMaker = userRole === 'maker';
+
+  // Duplicate prevention function
+  const checkForDuplicateApplication = async (employeeNumber, month, year) => {
+    try {
+      const { data, error } = await supabase
+        .from('salary_advance')
+        .select('*')
+        .eq('Employee Number', employeeNumber)
+        .eq('application_month', month)
+        .eq('application_year', year);
+
+      if (error) throw error;
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Error checking for duplicates:', error);
+      return false;
+    }
+  };
+
+  // Enhanced status management
+  const updateApplicationStatus = async (applicationId, newStatus, additionalData = {}) => {
+    try {
+      const updateData = {
+        status: newStatus,
+        last_updated: new Date().toISOString(),
+        ...additionalData
+      };
+
+      // Ensure status transitions are handled correctly
+      if (newStatus === 'approved') {
+        updateData.admin_approval = true;
+        updateData.admin_approval_date = new Date().toISOString();
+      } else if (newStatus === 'paid') {
+        updateData.payment_date = new Date().toISOString();
+        updateData.payment_processed = true;
+      } else if (newStatus === 'rejected') {
+        updateData.admin_approval = false;
+        updateData.admin_rejection_date = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('salary_advance')
+        .update(updateData)
+        .eq('id', applicationId);
+
+      if (error) throw error;
+      
+      toast.success(`Status updated to ${newStatus}`);
+      return true;
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
+      return false;
+    }
+  };
 
   // BORROWED FROM LEAVE MANAGEMENT: Load area-town mapping and saved town
   useEffect(() => {
@@ -2176,20 +2903,11 @@ const SalaryAdvanceAdmin = () => {
     }).format(amount);
   };
 
+  // Format phone number for M-Pesa (254 format) - FIXED VERSION
   // Format phone number for M-Pesa (254 format)
-  const formatPhoneNumber = (phone: string) => {
-    if (!phone) return '';
-    
-    let cleaned = phone.replace(/\D/g, '');
-    
-    if (cleaned.startsWith('0')) {
-      cleaned = '254' + cleaned.substring(1);
-    } else if (cleaned.startsWith('7')) {
-      cleaned = '254' + cleaned;
-    }
-    
-    return cleaned;
-  };
+const formatPhoneNumber = (phone: string) => {
+  return SMSService.formatPhoneNumberForSMS(phone);
+};
 
   // Calculate total amount for selected applications
   const calculateTotalAmount = () => {
@@ -2289,7 +3007,7 @@ const SalaryAdvanceAdmin = () => {
     setShowCommentModal(true);
   };
 
-  // Handle recommendation submission
+  // Enhanced recommendation handler with proper status updates
   const handleRecommendation = async (recommendationData: any) => {
     const { action, notes, adjustedAmount } = recommendationData;
     
@@ -2299,13 +3017,15 @@ const SalaryAdvanceAdmin = () => {
         last_updated: new Date().toISOString()
       };
 
+      let newStatus = '';
+
       switch (action) {
         case 'bm-recommend-current':
           updateData.branch_manager_recommendation = 'recommend_current';
           updateData.branch_manager_notes = notes;
           updateData.branch_manager_approval = true;
           updateData.branch_manager_approval_date = new Date().toISOString();
-          updateData.status = 'pending-regional-manager';
+          newStatus = 'pending-regional-manager';
           break;
         
         case 'bm-recommend-adjusted':
@@ -2314,7 +3034,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.branch_manager_adjusted_amount = adjustedAmount;
           updateData.branch_manager_approval = true;
           updateData.branch_manager_approval_date = new Date().toISOString();
-          updateData.status = 'pending-regional-manager';
+          newStatus = 'pending-regional-manager';
           if (adjustedAmount) {
             updateData["Amount Requested"] = adjustedAmount;
           }
@@ -2324,7 +3044,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.branch_manager_recommendation = 'recommend_reject';
           updateData.branch_manager_notes = notes;
           updateData.branch_manager_approval = false;
-          updateData.status = 'rejected';
+          newStatus = 'rejected';
           break;
         
         case 'rm-recommend-current':
@@ -2332,7 +3052,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_notes = notes;
           updateData.regional_manager_approval = true;
           updateData.regional_manager_approval_date = new Date().toISOString();
-          updateData.status = 'pending-admin';
+          newStatus = 'pending-admin';
           break;
         
         case 'rm-recommend-adjusted':
@@ -2341,7 +3061,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_adjusted_amount = adjustedAmount;
           updateData.regional_manager_approval = true;
           updateData.regional_manager_approval_date = new Date().toISOString();
-          updateData.status = 'pending-admin';
+          newStatus = 'pending-admin';
           if (adjustedAmount) {
             updateData["Amount Requested"] = adjustedAmount;
           }
@@ -2351,14 +3071,14 @@ const SalaryAdvanceAdmin = () => {
           updateData.regional_manager_recommendation = 'recommend_reject';
           updateData.regional_manager_notes = notes;
           updateData.regional_manager_approval = false;
-          updateData.status = 'rejected';
+          newStatus = 'rejected';
           break;
         
         case 'admin-approve-current':
           updateData.admin_approval = true;
           updateData.admin_approval_date = new Date().toISOString();
           updateData.admin_notes = notes;
-          updateData.status = 'approved';
+          newStatus = 'approved'; // This should change from 'pending-admin' to 'approved'
           updateData.approved_by = currentUser?.id;
           updateData.approved_by_email = currentUser?.email;
           break;
@@ -2368,7 +3088,7 @@ const SalaryAdvanceAdmin = () => {
           updateData.admin_approval_date = new Date().toISOString();
           updateData.admin_notes = notes;
           updateData.admin_adjusted_amount = adjustedAmount;
-          updateData.status = 'approved';
+          newStatus = 'approved'; // This should change from 'pending-admin' to 'approved'
           updateData.approved_by = currentUser?.id;
           updateData.approved_by_email = currentUser?.email;
           if (adjustedAmount) {
@@ -2380,11 +3100,14 @@ const SalaryAdvanceAdmin = () => {
           updateData.admin_approval = false;
           updateData.admin_rejection_date = new Date().toISOString();
           updateData.admin_notes = notes;
-          updateData.status = 'rejected';
+          newStatus = 'rejected'; // This should change from 'pending-admin' to 'rejected'
           updateData.rejected_by = currentUser?.id;
           updateData.rejected_by_email = currentUser?.email;
           break;
       }
+
+      // Ensure status is always set
+      updateData.status = newStatus;
 
       const { error } = await supabase
         .from('salary_advance')
@@ -2393,6 +3116,7 @@ const SalaryAdvanceAdmin = () => {
 
       if (error) throw error;
 
+      // Update selection state
       if ((action.includes('recommend-current') || action.includes('recommend-adjusted') || action.includes('admin-approve')) && !action.includes('reject')) {
         setSelectedStaff(prev => ({
           ...prev,
@@ -2417,29 +3141,28 @@ const SalaryAdvanceAdmin = () => {
   };
 
   // Handle comment submission
-  // Handle comment submission
-const handleComment = async (comment: string) => {
-  try {
-    const updateData = {
-      regional_manager_comment: comment,
-      regional_manager_comment_date: new Date().toISOString(), // FIXED: Changed = to :
-      last_updated: new Date().toISOString()
-    };
+  const handleComment = async (comment: string) => {
+    try {
+      const updateData = {
+        regional_manager_comment: comment,
+        regional_manager_comment_date: new Date().toISOString(),
+        last_updated: new Date().toISOString()
+      };
 
-    const { error } = await supabase
-      .from('salary_advance')
-      .update(updateData)
-      .eq('id', selectedApplication.id);
+      const { error } = await supabase
+        .from('salary_advance')
+        .update(updateData)
+        .eq('id', selectedApplication.id);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    toast.success('Comment submitted successfully!');
-    fetchApplications();
-  } catch (error) {
-    console.error('Error submitting comment:', error);
-    toast.error('Failed to submit comment');
-  }
-};
+      toast.success('Comment submitted successfully!');
+      fetchApplications();
+    } catch (error) {
+      console.error('Error submitting comment:', error);
+      toast.error('Failed to submit comment');
+    }
+  };
 
   const handleNoteChange = (id: string, value: string) => {
     setNotes(prev => ({
@@ -2464,56 +3187,107 @@ const handleComment = async (comment: string) => {
     }
   };
 
-  const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
-    try {
-      const mobileNumber = employeeMobileNumbers[employeeNumber];
-      if (!mobileNumber) {
-        throw new Error(`Mobile number not found for employee ${employeeNumber}`);
-      }
-
-      const formattedPhone = formatPhoneNumber(mobileNumber);
-      
-      const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
-        ? 'https://mpesa-22p0.onrender.com/api'
-        : 'http://localhost:3001/api';
-      
-      const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phoneNumber: formattedPhone,
-          amount: amount,
-          employeeNumber: employeeNumber,
-          fullName: fullName
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to process payment');
-      }
-
-      const result = await response.json();
-      return result;
-    } catch (error) {
-      console.error('M-Pesa payment error:', error);
-      
-      if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
-        console.warn('Backend unavailable, using mock mode');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return {
-          success: true,
-          message: 'Mock payment processed successfully',
-          transactionId: 'MOCK_' + Date.now()
-        };
-      }
-      
-      throw error;
+  // Enhanced M-Pesa payment function with SMS notifications
+// Enhanced M-Pesa payment function with SMS notifications
+const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
+  try {
+    const mobileNumber = employeeMobileNumbers[employeeNumber];
+    if (!mobileNumber) {
+      throw new Error(`Mobile number not found for employee ${employeeNumber}`);
     }
-  };
 
+    const formattedPhone = formatPhoneNumber(mobileNumber);
+    
+    if (!formattedPhone) {
+      throw new Error(`Invalid phone number format for ${employeeNumber}: ${mobileNumber}`);
+    }
+
+    console.log(`💰 Processing M-Pesa payment:`, {
+      employee: fullName,
+      employeeNumber,
+      amount,
+      originalPhone: mobileNumber,
+      formattedPhone
+    });
+    
+    const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
+      ? 'https://mpesa-22p0.onrender.com/api'
+      : 'http://localhost:3001/api';
+    
+    const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        phoneNumber: formattedPhone,
+        amount: amount,
+        employeeNumber: employeeNumber,
+        fullName: fullName
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to process payment');
+    }
+
+    const result = await response.json();
+    
+    console.log('✅ M-Pesa payment processed:', result);
+    
+    // Send SMS notification after successful payment
+    if (result.success) {
+      try {
+        const smsResult = await SMSService.sendDisbursementNotification(
+          fullName,
+          mobileNumber,
+          amount,
+          result.transactionId || 'N/A'
+        );
+        
+        if (smsResult.success) {
+          console.log(`✅ SMS notification sent to ${fullName} (${smsResult.recipient})`);
+        } else {
+          console.error(`❌ SMS failed for ${fullName}:`, smsResult.error);
+        }
+      } catch (smsError) {
+        console.error('❌ Failed to send SMS notification:', smsError);
+        // Don't throw error - payment was successful, just SMS failed
+      }
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('❌ M-Pesa payment error:', error);
+    
+    if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
+      console.warn('⚠️ Backend unavailable, using mock mode');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Mock SMS notification in development
+      try {
+        const mockTransactionId = 'MOCK_' + Date.now();
+        await SMSService.sendDisbursementNotification(
+          fullName,
+          employeeMobileNumbers[employeeNumber],
+          amount,
+          mockTransactionId
+        );
+      } catch (smsError) {
+        console.error('❌ Failed to send mock SMS:', smsError);
+      }
+      
+      return {
+        success: true,
+        message: 'Mock payment processed successfully',
+        transactionId: 'MOCK_' + Date.now()
+      };
+    }
+    
+    throw error;
+  }
+};
   // Create payment request function for maker-checker flow
   const createPaymentRequest = async (selectedAdvances, justification) => {
     try {
@@ -2551,7 +3325,7 @@ const handleComment = async (comment: string) => {
     }
   };
 
-  // Process bulk M-Pesa payment (for checkers/admins only)
+  // Enhanced payment processing with proper status updates and SMS notifications
   const processBulkMpesaPayment = async (advancesData: any[]) => {
     if (userRole === 'maker') {
       throw new Error('Makers are not authorized to process payments directly');
@@ -2571,21 +3345,18 @@ const handleComment = async (comment: string) => {
         
         results.push({ success: true, advance, result });
         
-        const { error: updateError } = await supabase
-          .from('salary_advance')
-          .update({ 
-            status: 'paid',
-            payment_date: new Date().toISOString(),
-            last_updated: new Date().toISOString(),
+        // Use the enhanced status update function
+        const updateSuccess = await updateApplicationStatus(
+          advance.id,
+          'paid',
+          {
             mpesa_transaction_id: result.transactionId || `MPESA_${Date.now()}`,
             mpesa_result_desc: result.message || 'Payment processed successfully'
-          })
-          .eq('"Employee Number"', advance.employee_number)
-          .eq('status', 'approved');
+          }
+        );
 
-        if (updateError) {
-          console.error(`❌ Database update error for ${advance.full_name}:`, updateError);
-          throw updateError;
+        if (!updateSuccess) {
+          throw new Error('Failed to update application status');
         }
 
         console.log(`✅ Successfully updated ${advance.full_name} status to 'paid'`);
@@ -2744,6 +3515,7 @@ const handleComment = async (comment: string) => {
     }
 
     const advancesData = selectedApps.map(app => ({
+      id: app.id,
       employee_number: app["Employee Number"],
       full_name: app["Full Name"],
       mobile_number: employeeMobileNumbers[app["Employee Number"]],
@@ -2947,7 +3719,7 @@ const handleComment = async (comment: string) => {
     return app.status === 'pending-admin';
   };
 
-  // FIXED: Export function
+  // Enhanced Export function with filtering options
   const handleExport = async (exportConfig) => {
     try {
       setIsExporting(true);
@@ -2976,6 +3748,9 @@ const handleComment = async (comment: string) => {
           case 'last_month':
             startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             break;
+          case 'last_3_months':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            break;
           case 'custom':
             if (exportConfig.customStartDate) {
               startDate = new Date(exportConfig.customStartDate);
@@ -2994,25 +3769,51 @@ const handleComment = async (comment: string) => {
         }
       }
 
+      // Apply status filter
+      if (exportConfig.status !== 'all') {
+        query = query.eq('status', exportConfig.status);
+      }
+
+      // Apply town filter
+      if (exportConfig.town !== 'all') {
+        query = query.ilike('"Office Branch"', `%${exportConfig.town}%`);
+      }
+
+      // Apply month filter
+      if (exportConfig.month !== 'all') {
+        const month = parseInt(exportConfig.month);
+        const year = new Date().getFullYear();
+        const startDate = new Date(year, month, 1);
+        const endDate = new Date(year, month + 1, 0);
+        endDate.setHours(23, 59, 59, 999);
+        
+        query = query.gte('time_added', startDate.toISOString())
+                 .lte('time_added', endDate.toISOString());
+      }
+
       const { data, error } = await query;
 
       if (error) throw error;
 
       // Prepare data for export
       const exportData = data.map(app => ({
-        'Employee': app['Full Name'],
+        'Employee Name': app['Full Name'],
         'Employee Number': app['Employee Number'],
         'Mobile Number': employeeMobileNumbers[app["Employee Number"]] || 'N/A',
         'Branch': app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A',
-        'Amount': app['Amount Requested'],
+        'Amount Requested': app['Amount Requested'],
         'Status': app.status || 'pending',
         'Request Date': new Date(app.time_added).toLocaleDateString(),
-        'Reason': app['Reason for Advance'] || ''
+        'Reason': app['Reason for Advance'] || '',
+        'Branch Manager Approval': app.branch_manager_approval ? 'Approved' : 'Pending',
+        'Regional Manager Approval': app.regional_manager_approval ? 'Approved' : 'Pending',
+        'Admin Approval': app.admin_approval ? 'Approved' : 'Pending',
+        'Final Status': getApprovalStatus(app)
       }));
 
       // Convert to CSV or Excel
       if (exportConfig.format === 'csv') {
-        const headers = ['Employee', 'Employee Number', 'Mobile Number', 'Branch', 'Amount', 'Status', 'Request Date', 'Reason'];
+        const headers = Object.keys(exportData[0] || {});
         
         const csvContent = [
           headers.join(','),
@@ -3020,7 +3821,7 @@ const handleComment = async (comment: string) => {
             headers.map(header => {
               const value = row[header];
               // Handle special characters and formatting
-              if (header === 'Amount') {
+              if (header === 'Amount Requested') {
                 return `"${Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 })}"`;
               }
               return `"${String(value || '').replace(/"/g, '""')}"`;
@@ -3039,13 +3840,13 @@ const handleComment = async (comment: string) => {
         document.body.removeChild(link);
       } else {
         // For Excel export - using simple tab-separated format that Excel can open
-        const headers = ['Employee', 'Employee Number', 'Mobile Number', 'Branch', 'Amount', 'Status', 'Request Date', 'Reason'];
+        const headers = Object.keys(exportData[0] || {});
         const excelContent = [
           headers.join('\t'),
           ...exportData.map(row => 
             headers.map(header => {
               const value = row[header];
-              if (header === 'Amount') {
+              if (header === 'Amount Requested') {
                 return Number(value || 0).toLocaleString('en-KE', { minimumFractionDigits: 2 });
               }
               return String(value || '');
@@ -3074,7 +3875,7 @@ const handleComment = async (comment: string) => {
     }
   };
 
-  // FIXED: Import function
+  // Import function
   const handleImport = async (file, importType) => {
     try {
       setIsImporting(true);
@@ -3256,7 +4057,7 @@ const handleComment = async (comment: string) => {
     }
   };
 
-  // NEW: Enhanced filtering function
+  // Enhanced filtering function
   const getFilteredApplications = () => {
     let filtered = applications.filter(app => {
       const matchesSearch = 
@@ -3371,10 +4172,10 @@ const handleComment = async (comment: string) => {
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'callbacks'
                 ? 'border-green-500 text-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                : 'border-transparent text-blue-500 text-xs hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            M-Pesa Callbacks
+               <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
           </button>
         </nav>
       </div>
@@ -3382,7 +4183,7 @@ const handleComment = async (comment: string) => {
       {activeTab === 'applications' ? (
         <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h2 className="text-lg font-medium text-gray-900">Salary Advance Requests</h2>
+            
             
             <div className="flex items-center gap-3 flex-wrap">
               {/* Enhanced Filter Component */}
@@ -3449,9 +4250,9 @@ const handleComment = async (comment: string) => {
               {fullyApprovedApplications.length > 0 && (
                 <button
                   onClick={() => setShowBulkPaymentModal(true)}
-                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-xs font-medium"
+                  className="flex items-center gap-2 bg-green-800 hover:bg-green-900 text-white px-4 py-2 rounded-md text-xs font-medium"
                 >
-                  <Send size={16} />
+                  <img src='M-PESA_LOGO-01.svg.png' className='w-12'></img> 
                   {isMaker ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
                 </button>
               )}
@@ -3871,214 +4672,158 @@ const handleComment = async (comment: string) => {
               </div>
 
               {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
-                  <div className="flex justify-between flex-1 sm:hidden">
-                    <button
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className="relative inline-flex items-center px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className="relative inline-flex items-center px-4 py-2 ml-3 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-xs text-gray-700">
-                        Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-                        <span className="font-medium">
-                          {Math.min(indexOfLastItem, filteredApplications.length)}
-                        </span>{' '}
-                        of <span className="font-medium">{filteredApplications.length}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        <button
-                          onClick={() => paginate(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Previous</span>
-                          <ChevronLeft className="h-4 w-4" />
-                        </button>
-                        
-                        {/* Page numbers */}
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <button
-                            key={page}
-                            onClick={() => paginate(page)}
-                            className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
-                              currentPage === page
-                                ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            } border`}
-                          >
-                            {page}
-                          </button>
-                        ))}
-                        
-                        <button
-                          onClick={() => paginate(currentPage + 1)}
-                          disabled={currentPage === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <span className="sr-only">Next</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
+             {/* Pagination Controls */}
+{totalPages > 1 && (
+  <div className="flex items-center justify-center mt-6 px-4 py-4">
+    {/* Mobile pagination */}
+    <div className="flex items-center justify-between w-full sm:hidden">
+      <button
+        onClick={() => paginate(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ChevronLeft className="h-4 w-4 mr-1" />
+        Previous
+      </button>
+      <span className="text-xs text-gray-700">
+        Page {currentPage} of {totalPages}
+      </span>
+      <button
+        onClick={() => paginate(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Next
+        <ChevronRight className="h-4 w-4 ml-1" />
+      </button>
+    </div>
+    
+    {/* Desktop pagination */}
+    <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-3">
+      <p className="text-xs text-gray-700">
+        Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+        <span className="font-medium">
+          {Math.min(indexOfLastItem, filteredApplications.length)}
+        </span>{' '}
+        of <span className="font-medium">{filteredApplications.length}</span> results
+      </p>
+      <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+        <button
+          onClick={() => paginate(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span className="sr-only">Previous</span>
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        
+        {/* Page numbers - show limited set for better layout */}
+        {(() => {
+          const maxVisible = 5;
+          let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+          let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+          
+          if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+          }
+          
+          const pages = [];
+          
+          // First page
+          if (startPage > 1) {
+            pages.push(
+              <button
+                key={1}
+                onClick={() => paginate(1)}
+                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+              >
+                1
+              </button>
+            );
+            if (startPage > 2) {
+              pages.push(
+                <span key="dots1" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                  ...
+                </span>
+              );
+            }
+          }
+          
+          // Visible pages
+          for (let i = startPage; i <= endPage; i++) {
+            pages.push(
+              <button
+                key={i}
+                onClick={() => paginate(i)}
+                className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
+                  currentPage === i
+                    ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                } border`}
+              >
+                {i}
+              </button>
+            );
+          }
+          
+          // Last page
+          if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+              pages.push(
+                <span key="dots2" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                  ...
+                </span>
+              );
+            }
+            pages.push(
+              <button
+                key={totalPages}
+                onClick={() => paginate(totalPages)}
+                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+              >
+                {totalPages}
+              </button>
+            );
+          }
+          
+          return pages;
+        })()}
+        
+        <button
+          onClick={() => paginate(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span className="sr-only">Next</span>
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </nav>
+    </div>
+  </div>
+)}
             </>
           )}
 
-          {/* Bulk Payment Modal with Maker-Checker Flow */}
-          {showBulkPaymentModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-              <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
-                  <Users className="h-5 w-5 text-green-600" />
-                  {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
-                </h3>
-                
-                <div className="mb-4 p-3 bg-gray-50 rounded-md">
-                  <p className="text-xs text-gray-600">
-                    {isMaker 
-                      ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
-                      : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
-                    }
-                  </p>
-                  
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={selectAllStaff}
-                      className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-                    >
-                      Select All
-                    </button>
-                    <button
-                      onClick={deselectAllStaff}
-                      className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded"
-                    >
-                      Deselect All
-                    </button>
-                  </div>
-                  
-                  <div className="mt-3 border-t pt-3">
-                    <div className="flex justify-between text-xs">
-                      <span className="font-medium">Total Amount:</span>
-                      <span className="font-bold text-green-700">{formatKES(calculateTotalAmount())}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Justification field - required for all roles */}
-                <div className="mb-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">
-                    {isMaker ? 'Justification for Payment Request' : 'Payment Notes'} <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={justification}
-                    onChange={(e) => setJustification(e.target.value)}
-                    placeholder={
-                      isMaker 
-                        ? "Please provide justification for this payment request..."
-                        : "Please provide notes for this payment processing..."
-                    }
-                    rows={3}
-                    className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {isMaker 
-                      ? 'This payment request will be submitted for approval before processing.'
-                      : 'These notes will be recorded in the payment history.'
-                    }
-                  </p>
-                </div>
-                
-                <div className="mb-4 max-h-60 overflow-y-auto">
-                  <p className="text-xs font-medium mb-2">Staff to be paid:</p>
-                  <ul className="text-xs divide-y divide-gray-200">
-                    {fullyApprovedApplications.map(app => (
-                      <li key={app.id} className="py-2 flex items-center justify-between">
-                        <div className="flex items-center">
-                          <button
-                            onClick={() => toggleStaffSelection(app.id)}
-                            className="mr-2 text-green-600 hover:text-green-800"
-                          >
-                            {selectedStaff[app.id] ? (
-                              <CheckSquare className="h-5 w-5" />
-                            ) : (
-                              <Square className="h-5 w-5" />
-                            )}
-                          </button>
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <div className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
-                                {app["Full Name"]}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
-                              </div>
-                            </div>
-                            <ManagerBadge 
-                              isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
-                              isRegionalManager={false}
-                            />
-                          </div>
-                        </div>
-                        <span className={selectedStaff[app.id] ? "font-medium" : "text-gray-500"}>
-                          {formatKES(Number(app["Amount Requested"]))}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => {
-                      setShowBulkPaymentModal(false);
-                      setJustification('');
-                    }}
-                    className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-                    disabled={isProcessingBulkPayment}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleBulkPayment}
-                    className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
-                    disabled={isProcessingBulkPayment || getSelectedStaffCount() === 0 || !justification.trim()}
-                  >
-                    {isProcessingBulkPayment ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        {isMaker 
-                          ? `Submit Request (${getSelectedStaffCount()})`
-                          : `Process Payments (${getSelectedStaffCount()})`
-                        }
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Enhanced Bulk Payment Modal with Search */}
+          <BulkPaymentModal
+            isOpen={showBulkPaymentModal}
+            onClose={() => {
+              setShowBulkPaymentModal(false);
+              setJustification('');
+            }}
+            onProcess={handleBulkPayment}
+            isLoading={isProcessingBulkPayment}
+            applications={applications}
+            selectedStaff={selectedStaff}
+            onToggleStaff={toggleStaffSelection}
+            onSelectAll={selectAllStaff}
+            onDeselectAll={deselectAllStaff}
+            employeeMobileNumbers={employeeMobileNumbers}
+            isBranchManagerMap={isBranchManagerMap}
+            justification={justification}
+            onJustificationChange={setJustification}
+            userRole={userRole}
+          />
 
           {/* Payment Details Modal */}
           <PaymentDetailsModal
@@ -4131,6 +4876,7 @@ const handleComment = async (comment: string) => {
             onClose={() => setShowExportModal(false)}
             onExport={handleExport}
             isLoading={isExporting}
+            filterOptions={{ allTowns }}
           />
 
           {/* Import Modal */}

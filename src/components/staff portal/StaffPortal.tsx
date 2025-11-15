@@ -1028,6 +1028,7 @@ const LeaveApplicationsList = () => {
 
 // Enhanced SalaryAdvanceForm Component with button state control
 // Enhanced SalaryAdvanceForm Component with monthly restriction
+// Enhanced SalaryAdvanceForm Component with comprehensive status handling
 const SalaryAdvanceForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1046,6 +1047,7 @@ const SalaryAdvanceForm = () => {
   const [amountExceeded, setAmountExceeded] = useState(false);
   const [hasAppliedThisMonth, setHasAppliedThisMonth] = useState(false);
   const [currentMonthApplication, setCurrentMonthApplication] = useState<any>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Check if current date is between 15th-18th
   const isAdvancePeriod = () => {
@@ -1065,6 +1067,154 @@ const SalaryAdvanceForm = () => {
     const numericAmount = parseFloat(amount) || 0;
     const maxAdvance = calculateMaxAdvance();
     setAmountExceeded(numericAmount > maxAdvance);
+  };
+
+  // Enhanced status detection that considers all approval fields
+  const getEnhancedStatus = (app: any) => {
+    // If it has a payment date and M-Pesa transaction, it's definitely paid
+    if (app.payment_date && app.mpesa_transaction_id) {
+      return {
+        status: 'paid',
+        label: 'Paid',
+        class: 'bg-green-100 text-green-800 border border-green-200',
+        description: `Paid on ${new Date(app.payment_date).toLocaleDateString()}`,
+        icon: '✅'
+      };
+    }
+
+    // If admin approved and has payment details
+    if (app.admin_approval?.toLowerCase() === 'approved' && app.mpesa_transaction_id) {
+      return {
+        status: 'paid',
+        label: 'Paid',
+        class: 'bg-green-100 text-green-800 border border-green-200',
+        description: 'Payment processed',
+        icon: '✅'
+      };
+    }
+
+    // Admin approved but not paid yet
+    if (app.admin_approval?.toLowerCase() === 'approved') {
+      return {
+        status: 'approved',
+        label: 'Approved - Awaiting Payment',
+        class: 'bg-blue-100 text-blue-800 border border-blue-200',
+        description: 'Approved by admin, payment pending',
+        icon: '📋'
+      };
+    }
+
+    // Both managers approved
+    if (app.branch_manager_approval && app.regional_manager_approval) {
+      return {
+        status: 'approved',
+        label: 'Approved by Managers',
+        class: 'bg-blue-100 text-blue-800 border border-blue-200',
+        description: 'Pending admin approval',
+        icon: '👥'
+      };
+    }
+
+    // Regional manager approved
+    if (app.regional_manager_approval) {
+      return {
+        status: 'pending',
+        label: 'Regional Manager Approved',
+        class: 'bg-purple-100 text-purple-800 border border-purple-200',
+        description: 'Waiting for branch manager',
+        icon: '🏢'
+      };
+    }
+
+    // Branch manager approved
+    if (app.branch_manager_approval) {
+      return {
+        status: 'pending',
+        label: 'Branch Manager Approved',
+        class: 'bg-purple-100 text-purple-800 border border-purple-200',
+        description: 'Waiting for regional manager',
+        icon: '🏢'
+      };
+    }
+
+    // Check the basic status field as fallback
+    const basicStatus = app.status?.toLowerCase() || 'pending';
+    
+    switch (basicStatus) {
+      case 'paid':
+        return {
+          status: 'paid',
+          label: 'Paid',
+          class: 'bg-green-100 text-green-800 border border-green-200',
+          description: 'Payment completed',
+          icon: '✅'
+        };
+      case 'approved':
+        return {
+          status: 'approved',
+          label: 'Approved',
+          class: 'bg-blue-100 text-blue-800 border border-blue-200',
+          description: 'Application approved',
+          icon: '📋'
+        };
+      case 'rejected':
+        return {
+          status: 'rejected',
+          label: 'Rejected',
+          class: 'bg-red-100 text-red-800 border border-red-200',
+          description: 'Application rejected',
+          icon: '❌'
+        };
+      default:
+        return {
+          status: 'pending',
+          label: 'Under Review',
+          class: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+          description: 'Waiting for manager approval',
+          icon: '⏳'
+        };
+    }
+  };
+
+  // Enhanced status badge component
+  const getStatusBadge = (app: any) => {
+    const enhancedStatus = getEnhancedStatus(app);
+
+    return (
+      <div className="flex flex-col space-y-2 min-w-[200px]">
+        <div className="flex items-center space-x-2">
+          <span className="text-xs">{enhancedStatus.icon}</span>
+          <span className={`px-3 py-2 text-xs rounded-lg ${enhancedStatus.class} font-medium text-center`}>
+            {enhancedStatus.label}
+          </span>
+        </div>
+        <div className="text-xs text-gray-600 leading-tight">
+          {enhancedStatus.description}
+        </div>
+        
+        {/* Show payment details if available */}
+        {app.mpesa_transaction_id && (
+          <div className="text-xs text-green-700 bg-green-50 p-1 rounded border border-green-200">
+            <strong>M-Pesa ID:</strong> {app.mpesa_transaction_id}
+          </div>
+        )}
+        
+        {/* Show approval dates if available */}
+        {(app.branch_manager_approval_date || app.regional_manager_approval_date || app.admin_approval_date) && (
+          <div className="text-xs text-gray-500 space-y-1">
+            {app.branch_manager_approval_date && (
+              <div>Branch: {new Date(app.branch_manager_approval_date).toLocaleDateString()}</div>
+            )}
+            {app.regional_manager_approval_date && (
+              <div>Regional: {new Date(app.regional_manager_approval_date).toLocaleDateString()}</div>
+            )}
+            {app.admin_approval_date && (
+              <div>Admin: {new Date(app.admin_approval_date).toLocaleDateString()}</div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Check if user has already applied for advance this month
@@ -1198,6 +1348,23 @@ const SalaryAdvanceForm = () => {
     }
   };
 
+  // Add function to manually refresh status
+  const refreshApplications = async () => {
+    setIsRefreshing(true);
+    try {
+      if (formData["Employee Number"]) {
+        await fetchApplications(formData["Employee Number"]);
+        await checkMonthlyApplication(formData["Employee Number"]);
+        toast.success('Applications refreshed');
+      }
+    } catch (error) {
+      console.error('Error refreshing applications:', error);
+      toast.error('Failed to refresh applications');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
@@ -1307,17 +1474,6 @@ const SalaryAdvanceForm = () => {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'approved':
-        return <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Approved</span>;
-      case 'rejected':
-        return <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Rejected</span>;
-      default:
-        return <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
-    }
-  };
-
   // Enhanced submit button with disabled state
   const renderSubmitButton = () => {
     const isDisabled = isSubmitting || !isAdvancePeriod() || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"] || hasAppliedThisMonth;
@@ -1362,16 +1518,37 @@ const SalaryAdvanceForm = () => {
             <h2 className="text-2xl font-semibold text-gray-800">Salary Advance History</h2>
             <div className="flex items-center mt-2">
               <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
-              <p className="text-xs text-green-600">View your salary advance applications</p>
+              <p className="text-xs text-green-600">View your salary advance applications and their current status</p>
             </div>
           </div>
-          <button
-            onClick={() => setView('form')}
-            className="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 flex items-center"
-          >
-            <Wallet className="h-4 w-4 mr-2" />
-            New Application
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={refreshApplications}
+              disabled={isRefreshing}
+              className={`px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center ${
+                isRefreshing ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              {isRefreshing ? (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              )}
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              onClick={() => setView('form')}
+              className="px-4 py-2 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 flex items-center"
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              New Application
+            </button>
+          </div>
         </div>
 
         {applications.length === 0 ? (
@@ -1392,18 +1569,24 @@ const SalaryAdvanceForm = () => {
           </div>
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg font-medium text-gray-800">Your Applications</h3>
+              <div className="text-xs text-gray-500">
+                Showing {applications.length} application{applications.length !== 1 ? 's' : ''}
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
+                      Amount & Details
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Net Salary
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
+                      Status & Progress
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Date Submitted
@@ -1413,22 +1596,30 @@ const SalaryAdvanceForm = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {applications.map((app) => (
                     <tr key={app.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-xs font-medium text-gray-900">
-                          Ksh{app["Amount Requested"]}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900">
+                          Ksh {parseFloat(app["Amount Requested"]).toLocaleString()}
                         </div>
-                        <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
+                        <div className="text-xs text-gray-500 mt-1 max-w-xs">
                           {app["Reason for Advance"]}
                         </div>
+                        {app.last_updated && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            Last updated: {new Date(app.last_updated).toLocaleDateString()}
+                          </div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-900">
-                        Ksh{app["Net Salary"]}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        Ksh {parseFloat(app["Net Salary"] || "0").toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getStatusBadge(app.status)}
+                      <td className="px-6 py-4">
+                        {getStatusBadge(app)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(app.time_added).toLocaleDateString()}
+                        <div className="text-xs text-gray-400">
+                          {new Date(app.time_added).toLocaleTimeString()}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1462,7 +1653,7 @@ const SalaryAdvanceForm = () => {
                 </p>
                 {currentMonthApplication && (
                   <p className="text-xs text-red-600 mt-1">
-                    Your current application status: <strong>{currentMonthApplication.status}</strong> - 
+                    Your current application status: <strong>{getEnhancedStatus(currentMonthApplication).label}</strong> - 
                     Submitted on {new Date(currentMonthApplication.time_added).toLocaleDateString()}
                   </p>
                 )}
@@ -1528,7 +1719,7 @@ const SalaryAdvanceForm = () => {
               <input
                 type="text"
                 name="Basic Salary"
-                value={`Ksh${formData["Basic Salary"]}`}
+                value={`Ksh ${parseFloat(formData["Basic Salary"] || "0").toLocaleString()}`}
                 className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
@@ -1556,7 +1747,7 @@ const SalaryAdvanceForm = () => {
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <span className="text-gray-500 text-xs">
-                    Max: Ksh{calculateMaxAdvance().toFixed(2)}
+                    Max: Ksh{calculateMaxAdvance().toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -1571,7 +1762,7 @@ const SalaryAdvanceForm = () => {
               <input
                 type="text"
                 name="Net Salary"
-                value={`Ksh${formData["Net Salary"]}`}
+                value={`Ksh ${parseFloat(formData["Net Salary"] || "0").toLocaleString()}`}
                 className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg bg-gray-50"
                 readOnly
               />
