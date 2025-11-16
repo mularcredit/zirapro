@@ -18,6 +18,138 @@ interface SuccessPopupProps {
   message: string;
 }
 
+// SMS Service functions (same as your SMS center)
+const formatPhoneNumberForSMS = (phone: string): string => {
+  if (!phone) return '';
+  
+  let cleaned = phone.replace(/\D/g, '');
+  
+  if (cleaned.startsWith('0') && cleaned.length === 10) {
+    cleaned = '254' + cleaned.substring(1);
+  } else if (cleaned.startsWith('7') && cleaned.length === 9) {
+    cleaned = '254' + cleaned;
+  } else if (cleaned.startsWith('254') && cleaned.length === 12) {
+    // Keep as is
+  } else if (cleaned.startsWith('+254') && cleaned.length === 13) {
+    cleaned = cleaned.substring(1);
+  }
+  
+  if (cleaned.length === 12 && cleaned.startsWith('254')) {
+    return cleaned;
+  }
+  
+  return '';
+};
+
+const sendSMS = async (phoneNumber: string, message: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+  messageId?: string;
+}> => {
+  try {
+    const formattedPhone = formatPhoneNumberForSMS(phoneNumber);
+    
+    if (!formattedPhone) {
+      throw new Error(`Invalid phone number format: ${phoneNumber}`);
+    }
+
+    if (!message || message.trim().length === 0) {
+      throw new Error('Message cannot be empty');
+    }
+
+    // Celcom Africa API Configuration
+    const CELCOM_AFRICA_CONFIG = {
+      baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
+      apiKey: '17323514aa8ce2613e358ee029e65d99',
+      partnerID: '928',
+      defaultShortcode: 'MularCredit'
+    };
+
+    // URL encode the message
+    const encodedMessage = encodeURIComponent(message.trim());
+    
+    // Construct GET URL
+    const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${CELCOM_AFRICA_CONFIG.defaultShortcode}&mobile=${formattedPhone}`;
+
+    console.log('🚀 Sending MFA SMS...');
+
+    // Use fetch with no-cors mode
+    const response = await fetch(endpoint, {
+      method: 'GET',
+      mode: 'no-cors',
+    });
+
+    console.log('✅ MFA SMS request sent successfully');
+
+    // Log the SMS to database
+    const messageId = `mfa-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    await logSMS(
+      formattedPhone,
+      message,
+      'sent',
+      CELCOM_AFRICA_CONFIG.defaultShortcode,
+      undefined,
+      messageId,
+      0
+    );
+
+    return {
+      success: true,
+      message: 'MFA SMS sent successfully',
+      messageId: messageId
+    };
+    
+  } catch (error) {
+    console.error('❌ MFA SMS sending error:', error);
+    
+    await logSMS(
+      formatPhoneNumberForSMS(phoneNumber),
+      message,
+      'failed',
+      'MularCredit',
+      (error as Error).message
+    );
+    
+    return { 
+      success: false, 
+      error: (error as Error).message
+    };
+  }
+};
+
+const logSMS = async (
+  recipientPhone: string,
+  message: string,
+  status: 'sent' | 'failed',
+  senderId: string,
+  errorMessage?: string,
+  messageId?: string,
+  cost?: number
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('sms_logs')
+      .insert({
+        recipient_phone: recipientPhone,
+        message: message,
+        status: status,
+        error_message: errorMessage,
+        message_id: messageId,
+        sender_id: senderId,
+        cost: cost,
+        sms_type: 'mfa'
+      });
+
+    if (error) {
+      console.error('Failed to log MFA SMS:', error);
+    }
+  } catch (error) {
+    console.error('Error logging MFA SMS:', error);
+  }
+};
+
 function SuccessPopup({ show, onClose, message }: SuccessPopupProps) {
   if (!show) return null;
 
@@ -70,9 +202,14 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     'checker@mularcredit.com',
     'hr@mularcredit.co.ke',
     'it@mularcredit.co.ke',
+    'hr@zira.com',
     'olivia.hr@mularcredit.com',
     'daniel.admin@mularcredit.com',
-    'checker.superadmin@mularcredit.com'
+    'checker.superadmin@mularcredit.com',
+    'titus1admin@mularcredit.co.ke',
+    'ian3admin@mularcredit.co.ke',
+    'collins2admin@mularcredit.co.ke'
+
   ];
 
   const isAdminEmail = (email: string) => {
@@ -156,50 +293,128 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     }
   };
 
- const fetchBranchFromEmail = async (email: string) => {
-  const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
-  
-  if (!isValidDomain || isAdminEmail(email)) {
-    console.log('❌ Failed: Invalid domain or admin email');
-    setIsBranchAutoPopulated(false);
-    return;
-  }
-
-  try {
-    console.log('🔍 Searching for email:', email);
+  const fetchBranchFromEmail = async (email: string) => {
+    const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
     
-    const { data: employeeData, error: employeeError } = await supabase
-      .from('employees')
-      .select('Town, "Work Email"')
-      .eq('Work Email', email)
-      .single();
-
-    console.log('Query result:', { employeeData, employeeError });
-
-    if (employeeError) {
-      console.log('❌ Database error:', employeeError);
+    if (!isValidDomain || isAdminEmail(email)) {
+      console.log('❌ Failed: Invalid domain or admin email');
       setIsBranchAutoPopulated(false);
       return;
     }
 
-    if (employeeData && employeeData.Town) {
-      console.log('✅ SUCCESS: Found Town:', employeeData.Town);
-      setSelectedBranch(employeeData.Town);
-      setIsBranchAutoPopulated(true);
-    } else if (employeeData) {
-      console.log('❌ FAILED: Employee found but Town is empty/null');
-      setIsBranchAutoPopulated(false);
-    } else {
-      console.log('❌ FAILED: No employee record found for this email');
+    try {
+      console.log('🔍 Searching for email:', email);
+      
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employees')
+        .select('Town, "Work Email"')
+        .eq('Work Email', email)
+        .single();
+
+      console.log('Query result:', { employeeData, employeeError });
+
+      if (employeeError) {
+        console.log('❌ Database error:', employeeError);
+        setIsBranchAutoPopulated(false);
+        return;
+      }
+
+      if (employeeData && employeeData.Town) {
+        console.log('✅ SUCCESS: Found Town:', employeeData.Town);
+        setSelectedBranch(employeeData.Town);
+        setIsBranchAutoPopulated(true);
+      } else if (employeeData) {
+        console.log('❌ FAILED: Employee found but Town is empty/null');
+        setIsBranchAutoPopulated(false);
+      } else {
+        console.log('❌ FAILED: No employee record found for this email');
+        setIsBranchAutoPopulated(false);
+      }
+    } catch (error) {
+      console.error('🚨 Unexpected error:', error);
       setIsBranchAutoPopulated(false);
     }
-  } catch (error) {
-    console.error('🚨 Unexpected error:', error);
-    setIsBranchAutoPopulated(false);
-  }
-};
+  };
 
+  // Get phone number from mfa_numbers table
+  const getPhoneNumberForMFA = async (email: string): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('mfa_numbers')
+        .select('phone_number')
+        .eq('email', email)
+        .single();
 
+      if (error) {
+        console.error('Error fetching phone number:', error);
+        return null;
+      }
+
+      return data?.phone_number || null;
+    } catch (error) {
+      console.error('Error getting phone number for MFA:', error);
+      return null;
+    }
+  };
+
+  // Store MFA code in database
+  const storeMFACode = async (userId: string, email: string, code: string, phoneNumber: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('mfa_codes')
+        .upsert({
+          user_id: userId,
+          email: email,
+          code: code,
+          phone_number: phoneNumber,
+          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
+          used: false
+        });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error storing MFA code:', error);
+      return false;
+    }
+  };
+
+  // Send MFA code via SMS
+  const sendMFACode = async (userId: string, email: string): Promise<boolean> => {
+    try {
+      // Get phone number from mfa_numbers table
+      const phoneNumber = await getPhoneNumberForMFA(email);
+      
+      if (!phoneNumber) {
+        throw new Error('Phone number not found for MFA. Please contact administrator.');
+      }
+
+      // Generate a 6-digit code
+      const mfaCode = Math.floor(100000 + Math.random() * 900000).toString();
+      
+      // Store the MFA code in the database
+      const stored = await storeMFACode(userId, email, mfaCode, phoneNumber);
+      if (!stored) {
+        throw new Error('Failed to generate MFA code');
+      }
+
+      // Send SMS with the code
+      const message = `Your Mular Credit verification code is: ${mfaCode}. This code expires in 10 minutes.`;
+      
+      const smsResult = await sendSMS(phoneNumber, message);
+      
+      if (!smsResult.success) {
+        throw new Error('Failed to send verification code via SMS');
+      }
+
+      console.log(`✅ MFA code ${mfaCode} sent to ${phoneNumber}`);
+      return true;
+    } catch (error: any) {
+      console.error('MFA SMS error:', error);
+      toast.error(error.message || 'Failed to send verification code');
+      return false;
+    }
+  };
 
   // Handle email change with debounce
   useEffect(() => {
@@ -219,33 +434,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     return () => clearTimeout(timer);
   }, [email, isSignUp]);
 
-  const sendMFACode = async (userId: string, email: string) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-mfa-code`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          userId,
-          email
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to send MFA code');
-      }
-
-      return true;
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to send verification code');
-      return false;
-    }
-  };
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -261,18 +449,24 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       const userRole = data.user?.user_metadata?.role || 'STAFF';
       console.log('User role detected:', userRole);
 
-      // Check if user is CHECKER role - require MFA
-      if (userRole === 'CHECKER') {
-        console.log('CHECKER role detected, initiating MFA...');
+      // Check if user is CHECKER or ADMIN role - require MFA
+      if (userRole === 'CHECKER' || userRole === 'ADMIN') {
+        console.log(`${userRole} role detected, initiating MFA...`);
         
-        // Immediately redirect to verification page without any delay
-        navigate(`/mfa?email=${encodeURIComponent(email)}&userId=${data.user.id}&role=CHECKER`);
+        // Check if phone number exists for MFA
+        const phoneNumber = await getPhoneNumberForMFA(email);
+        if (!phoneNumber) {
+          throw new Error('MFA phone number not configured. Please contact administrator.');
+        }
+
+        // Immediately redirect to verification page
+        navigate(`/mfa?email=${encodeURIComponent(email)}&userId=${data.user.id}&role=${userRole}`);
         
-        // Send MFA code in the background
+        // Send MFA code via SMS in the background
         sendMFACode(data.user.id, email)
           .then((success) => {
             if (success) {
-              toast.success('Verification code sent to your email');
+              toast.success(`Verification code sent to your phone number`);
             } else {
               toast.error('Failed to send verification code');
             }
@@ -285,8 +479,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         return; // Stop execution here
       }
 
-      // Handle other roles (non-CHECKER) normally
-      console.log('Non-CHECKER role, proceeding with normal login...');
+      // Handle other roles (non-CHECKER, non-ADMIN) normally
+      console.log('Non-MFA role, proceeding with normal login...');
       
       if (userRole === 'ADMIN' || isAdminEmail(email)) {
         toast.success('Admin login successful!');
@@ -385,8 +579,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="absolute top-8 left-8 z-10">
           <img src="/solo.png" alt="Company Logo" className="h-16" />
         </div>
-        
-        
       </div>
 
       {/* Right side - Login Form */}

@@ -23,10 +23,36 @@ export default function MFAVerification() {
   const [isLocked, setIsLocked] = useState(false);
   const [lockTime, setLockTime] = useState(0);
   const [countdown, setCountdown] = useState(0);
+  const [isVerified, setIsVerified] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // CRITICAL FIX: Prevent back button bypass
+  useEffect(() => {
+    // Set MFA verification flag
+    sessionStorage.setItem('mfaInProgress', 'true');
+
+    const handleBackButton = (event: PopStateEvent) => {
+      if (!isVerified) {
+        event.preventDefault();
+        event.stopPropagation();
+        toast.error('Please complete MFA verification first');
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+
+    window.addEventListener('popstate', handleBackButton);
+    window.history.pushState(null, '', window.location.href);
+
+    return () => {
+      window.removeEventListener('popstate', handleBackButton);
+      if (!isVerified) {
+        sessionStorage.removeItem('mfaInProgress');
+      }
+    };
+  }, [isVerified]);
 
   useEffect(() => {
     // Check if user is already locked out
@@ -47,7 +73,6 @@ export default function MFAVerification() {
         setUserRole(parsedData.userRole);
         setBranch(parsedData.branch);
         
-        // Restore session if available
         if (parsedData.session) {
           supabase.auth.setSession(parsedData.session);
         }
@@ -57,7 +82,6 @@ export default function MFAVerification() {
         navigate('/login');
       }
     } else {
-      // If no MFA data found, check URL parameters for redirect
       const redirectEmail = searchParams.get('email');
       const redirectUserId = searchParams.get('userId');
       
@@ -65,7 +89,6 @@ export default function MFAVerification() {
         setEmail(redirectEmail);
         setUserId(redirectUserId);
         
-        // Try to get additional data from localStorage as fallback
         const fallbackData = localStorage.getItem(`mfa_${redirectUserId}`);
         if (fallbackData) {
           try {
@@ -77,13 +100,11 @@ export default function MFAVerification() {
           }
         }
       } else {
-        // If no MFA data found, redirect back to login
         toast.error('Session expired. Please login again.');
         navigate('/login');
       }
     }
 
-    // Set countdown for resend button (30 seconds)
     setCountdown(30);
     const countdownInterval = setInterval(() => {
       setCountdown(prev => {
@@ -118,19 +139,16 @@ export default function MFAVerification() {
   const handleCodeChange = (index: number, value: string) => {
     if (isLocked) return;
     
-    // Only allow digits
     if (!/^\d*$/.test(value)) return;
     
     const newCodes = [...codes];
     newCodes[index] = value;
     setCodes(newCodes);
     
-    // Auto-focus to next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
     
-    // If all digits are entered, submit the form
     if (newCodes.every(code => code !== '') && index === 5) {
       handleVerification(newCodes.join(''));
     }
@@ -138,7 +156,6 @@ export default function MFAVerification() {
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace' && !codes[index] && index > 0) {
-      // Move focus to previous input on backspace
       inputRefs.current[index - 1]?.focus();
     }
   };
@@ -191,30 +208,30 @@ export default function MFAVerification() {
       }
 
       if (result.success) {
-        // Reset attempt count on success
+        // CRITICAL: Set verification flags
+        setIsVerified(true);
+        sessionStorage.setItem('mfaVerified', 'true');
+        sessionStorage.setItem('mfaVerifiedUserId', userId);
+        sessionStorage.setItem('mfaVerifiedTime', Date.now().toString());
+        
+        // Clear security data
         localStorage.removeItem('mfaAttemptCount');
         localStorage.removeItem('mfaLockUntil');
-        
-        // Clear MFA data
         sessionStorage.removeItem('mfaData');
         localStorage.removeItem(`mfa_${userId}`);
         
         toast.success('Verification successful!');
         
-        // Navigate based on role
-        if (userRole === 'CHECKER') {
-          navigate('/dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+        // CRITICAL: Use replace navigation to prevent back button issues
+        setTimeout(() => {
+          navigate('/dashboard', { replace: true });
+        }, 1000);
       } else {
-        // Increment attempt count
         const newAttemptCount = attemptCount + 1;
         setAttemptCount(newAttemptCount);
         localStorage.setItem('mfaAttemptCount', newAttemptCount.toString());
         
         if (newAttemptCount >= 5) {
-          // Lock user out for 5 minutes
           const lockUntil = Date.now() + 5 * 60 * 1000;
           setIsLocked(true);
           setLockTime(lockUntil);
@@ -257,7 +274,6 @@ export default function MFAVerification() {
         throw new Error(result.error || 'Failed to resend code');
       }
 
-      // Reset countdown
       setCountdown(30);
       const countdownInterval = setInterval(() => {
         setCountdown(prev => {
@@ -278,16 +294,20 @@ export default function MFAVerification() {
   };
 
   const handleBackToLogin = () => {
-    // Clear all MFA related data
+    // Clear all MFA data
     sessionStorage.removeItem('mfaData');
+    sessionStorage.removeItem('mfaInProgress');
+    sessionStorage.removeItem('mfaVerified');
+    sessionStorage.removeItem('mfaVerifiedUserId');
+    sessionStorage.removeItem('mfaVerifiedTime');
     localStorage.removeItem(`mfa_${userId}`);
     localStorage.removeItem('mfaAttemptCount');
     localStorage.removeItem('mfaLockUntil');
     
-    // Sign out any existing session
     supabase.auth.signOut();
     
-    navigate('/login');
+    // Use replace to prevent back navigation
+    navigate('/login', { replace: true });
   };
 
   const formatTimeRemaining = () => {
@@ -301,7 +321,6 @@ export default function MFAVerification() {
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
           <div className="flex justify-center mb-6">
             <div className="bg-green-900 p-4 rounded-full">
-              {/* Your Logo - Replace with your actual logo */}
               <img 
                 src="/logo.png" 
                 alt="Company Logo" 
@@ -314,7 +333,7 @@ export default function MFAVerification() {
             Verify Your Identity
           </h2>
           <p className="mt-2 text-center text-xs text-gray-600">
-            Enter the 6-digit verification code sent to
+            Enter the 6-digit verification code sent to your phone
           </p>
           <p className="text-center text-xs font-medium text-green-600">
             {email}
@@ -397,7 +416,7 @@ export default function MFAVerification() {
         
         <div className="text-center text-xs text-gray-500">
           <p>Having trouble receiving the code?</p>
-          <p className="mt-1">Check your spam folder or contact support</p>
+          <p className="mt-1">Check your phone connection or contact support</p>
         </div>
       </div>
     </div>

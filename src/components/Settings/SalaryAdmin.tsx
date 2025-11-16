@@ -9,6 +9,7 @@ import {
   Crown, Key, Building, Map, Award, Smartphone, RefreshCw,
   Download, Upload, Calendar
 } from 'lucide-react';
+import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 
 // SMS Service Configuration
 const CELCOM_AFRICA_CONFIG = {
@@ -4167,6 +4168,8 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           >
             Salary Advance Applications
           </button>
+                    <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
+          
           <button
             onClick={() => setActiveTab('callbacks')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -4177,6 +4180,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           >
                <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
           </button>
+          </RoleButtonWrapper>
         </nav>
       </div>
 
