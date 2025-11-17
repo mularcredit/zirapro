@@ -1030,6 +1030,7 @@ const LeaveApplicationsList = () => {
 // Enhanced SalaryAdvanceForm Component with button state control
 // Enhanced SalaryAdvanceForm Component with monthly restriction
 // Enhanced SalaryAdvanceForm Component with comprehensive status handling
+// Enhanced SalaryAdvanceForm Component with 13th-16th monthly schedule
 const SalaryAdvanceForm = () => {
   const [formData, setFormData] = useState({
     "Employee Number": '',
@@ -1050,11 +1051,44 @@ const SalaryAdvanceForm = () => {
   const [currentMonthApplication, setCurrentMonthApplication] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Check if current date is between 15th-18th
+  // Check if current date is between 13th-16th of the month
   const isAdvancePeriod = () => {
     const today = new Date();
     const day = today.getDate();
-    return day >= 1 && day <= 31;
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    // Define application period: 13th to 16th
+    const applicationStart = new Date(currentYear, currentMonth, 13);
+    const applicationEnd = new Date(currentYear, currentMonth, 16);
+    
+    return today >= applicationStart && today <= applicationEnd;
+  };
+
+  // Get the next application period
+  const getNextApplicationPeriod = () => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    
+    let nextMonth = currentMonth;
+    let nextYear = currentYear;
+    
+    if (today.getDate() > 16) {
+      nextMonth = currentMonth + 1;
+      if (nextMonth > 11) {
+        nextMonth = 0;
+        nextYear = currentYear + 1;
+      }
+    }
+    
+    const nextStart = new Date(nextYear, nextMonth, 13);
+    const nextEnd = new Date(nextYear, nextMonth, 16);
+    
+    return {
+      start: nextStart,
+      end: nextEnd
+    };
   };
 
   // Calculate maximum eligible advance amount (20% of basic salary)
@@ -1399,9 +1433,10 @@ const SalaryAdvanceForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Check if within application period
+    // Check if within application period (13th-16th)
     if (!isAdvancePeriod()) {
-      toast.error('Salary advance can only be applied between 13th-16th processing latest 18th of the month');
+      const nextPeriod = getNextApplicationPeriod();
+      toast.error(`Salary advance applications are only accepted from 13th to 16th of each month. Next application period: ${nextPeriod.start.toLocaleDateString()} to ${nextPeriod.end.toLocaleDateString()}`);
       setIsSubmitting(false);
       return;
     }
@@ -1477,7 +1512,8 @@ const SalaryAdvanceForm = () => {
 
   // Enhanced submit button with disabled state
   const renderSubmitButton = () => {
-    const isDisabled = isSubmitting || !isAdvancePeriod() || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"] || hasAppliedThisMonth;
+    const isApplicationPeriod = isAdvancePeriod();
+    const isDisabled = isSubmitting || !isApplicationPeriod || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"] || hasAppliedThisMonth;
     
     return (
       <button
@@ -1497,6 +1533,8 @@ const SalaryAdvanceForm = () => {
             </svg>
             Submitting...
           </>
+        ) : !isApplicationPeriod ? (
+          'Outside Application Period'
         ) : hasAppliedThisMonth ? (
           'Already Applied This Month'
         ) : amountExceeded ? (
@@ -1633,6 +1671,9 @@ const SalaryAdvanceForm = () => {
     );
   }
 
+  const isApplicationPeriod = isAdvancePeriod();
+  const nextPeriod = getNextApplicationPeriod();
+
   return (
     <div className="p-6">
       <div className="mb-6">
@@ -1641,6 +1682,32 @@ const SalaryAdvanceForm = () => {
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
           <p className="text-xs text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
         </div>
+        
+        {/* Application Schedule Information */}
+        {isApplicationPeriod ? (
+          <div className="mt-3 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+            <div className="flex">
+              <Calendar className="h-5 w-5 text-green-500" />
+              <div className="ml-3">
+                <p className="text-xs text-green-700">
+                  <strong>Application Period Active:</strong> You can submit salary advance applications from <strong>13th to 16th</strong> of each month.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 bg-white border-l-4 border-blue-500 p-4 rounded-r-lg">
+            <div className="flex">
+              <Calendar className="h-5 w-5 text-blue-500" />
+              <div className="ml-3">
+                <p className="text-xs text-blue-700">
+                  <strong>Application Schedule:</strong> Salary advance applications are only accepted from <strong>13th to 16th</strong> of each month. 
+                  {` Next application period: ${nextPeriod.start.toLocaleDateString()} to ${nextPeriod.end.toLocaleDateString()}`}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         
         {/* Monthly Application Restriction Warning */}
         {hasAppliedThisMonth && (
@@ -1658,21 +1725,6 @@ const SalaryAdvanceForm = () => {
                     Submitted on {new Date(currentMonthApplication.time_added).toLocaleDateString()}
                   </p>
                 )}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {!isAdvancePeriod() && (
-          <div className="mt-3 bg-blue-100 border-l-4 border-blue-500 p-4 rounded-r-lg">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <AlertCircle className="h-5 w-5 text-gray-500" />
-              </div>
-              <div className="ml-3">
-                <p className="text-xs text-gray-700">
-                  Note: Salary advance can only be applied between 13th-16th processing is latest 18th of the month
-                </p>
               </div>
             </div>
           </div>
@@ -1737,14 +1789,14 @@ const SalaryAdvanceForm = () => {
                   value={formData["Amount Requested"]}
                   onChange={handleChange}
                   className={`focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg ${
-                    hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+                    !isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
                   }`}
                   placeholder="0.00"
                   required
                   min="0"
                   max={calculateMaxAdvance()}
                   step="0.01"
-                  disabled={!isAdvancePeriod() || hasAppliedThisMonth}
+                  disabled={!isApplicationPeriod || hasAppliedThisMonth}
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
                   <span className="text-gray-500 text-xs">
@@ -1778,12 +1830,12 @@ const SalaryAdvanceForm = () => {
               value={formData["Reason for Advance"]}
               onChange={handleChange}
               className={`w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
-                hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+                !isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
               }`}
               placeholder="Please explain why you need this salary advance"
               required
               minLength={10}
-              disabled={!isAdvancePeriod() || hasAppliedThisMonth}
+              disabled={!isApplicationPeriod || hasAppliedThisMonth}
             />
           </div>
 
@@ -3263,23 +3315,8 @@ const StaffPortal = () => {
               {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
 {activeTab === 'salary-advance' && (
   <div className="p-6">
-    <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
-      <div className="flex items-start space-x-3">
-        <Lock className="h-5 w-5 text-green-600 mt-0.5" />
-        <div>
-          <h3 className="text-sm font-medium text-green-800">Salary Advance Applications Closed</h3>
-          <p className="text-xs text-green-700 mt-1">Salary advance applications have been closed for this month. The application window will reopen at the beginning of next month.</p>
-        </div>
-      </div>
-    </div>
-    
-    {/* REPLACE SalaryAdvanceForm WITH DISABLED MESSAGE */}
-    <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-      <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-      <h3 className="text-lg font-medium text-gray-900 mb-2">Applications Currently Unavailable</h3>
-      <p className="text-gray-500 text-sm">Salary advance applications are closed for the current month.</p>
-      <p className="text-gray-500 text-sm mt-1">Please check back at the beginning of next month.</p>
-    </div>
+    {/* YOUR UPDATED SALARY ADVANCE FORM - IT NOW HANDLES THE SCHEDULE AUTOMATICALLY */}
+    <SalaryAdvanceForm />
   </div>
 )}
               {activeTab === 'biodata' && <EmployeeBioPage/>}
