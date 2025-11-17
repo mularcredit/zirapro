@@ -3260,7 +3260,23 @@ const StaffPortal = () => {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
-              {activeTab === 'salary-advance' && <SalaryAdvanceForm />}
+            {activeTab === 'salary-advance' && (
+  <div className="p-6">
+    {/* ADD THIS WARNING MESSAGE */}
+    <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+      <div className="flex items-start space-x-3">
+        <LockKeyhole className="h-5 w-5 text-green-600 mt-0.5" />
+        <div>
+          <h3 className="text-sm font-medium text-green-800">Salary Advance Applications Closed</h3>
+          <p className="text-xs text-green-700 mt-1">Salary advance applications have been closed for this month. The application window will reopen at the beginning of next month.</p>
+        </div>
+      </div>
+    </div>
+    
+    {/* YOUR EXISTING SALARY ADVANCE FORM */}
+    <SalaryAdvanceForm />
+  </div>
+)}
               {activeTab === 'biodata' && <EmployeeBioPage/>}
               {activeTab === 'payslips' && <PayslipViewer />}
               {activeTab === 'loan' && <LoanRequestForm />}
