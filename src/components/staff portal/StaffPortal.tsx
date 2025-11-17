@@ -30,7 +30,8 @@ import {
   Trash2,
   Bell,
   Mail,
-  PhoneCall
+  PhoneCall,
+  Lock
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -3260,12 +3261,11 @@ const StaffPortal = () => {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
-            {activeTab === 'salary-advance' && (
+{activeTab === 'salary-advance' && (
   <div className="p-6">
-    {/* ADD THIS WARNING MESSAGE */}
-    <div className="mb-6 bg-green-50 border-l-4 border-green-400 p-4 rounded-lg">
+    <div className="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
       <div className="flex items-start space-x-3">
-        <LockKeyhole className="h-5 w-5 text-green-600 mt-0.5" />
+        <Lock className="h-5 w-5 text-green-600 mt-0.5" />
         <div>
           <h3 className="text-sm font-medium text-green-800">Salary Advance Applications Closed</h3>
           <p className="text-xs text-green-700 mt-1">Salary advance applications have been closed for this month. The application window will reopen at the beginning of next month.</p>
@@ -3273,8 +3273,13 @@ const StaffPortal = () => {
       </div>
     </div>
     
-    {/* YOUR EXISTING SALARY ADVANCE FORM */}
-    <SalaryAdvanceForm />
+    {/* REPLACE SalaryAdvanceForm WITH DISABLED MESSAGE */}
+    <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+      <Lock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900 mb-2">Applications Currently Unavailable</h3>
+      <p className="text-gray-500 text-sm">Salary advance applications are closed for the current month.</p>
+      <p className="text-gray-500 text-sm mt-1">Please check back at the beginning of next month.</p>
+    </div>
   </div>
 )}
               {activeTab === 'biodata' && <EmployeeBioPage/>}
