@@ -39,7 +39,7 @@ const menuItems = [
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'task-manager', label: 'Task Manager', icon: Blocks, path: '/tasks' },
   { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
-  { id: 'advanced', label: 'Sallary Advance', icon: Wallet, path: '/salaryadmin' },
+  { id: 'advanced', label: 'Sallary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN','CHECKER'] },
   { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
   { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },

@@ -20,7 +20,6 @@ const CELCOM_AFRICA_CONFIG = {
 };
 
 // SMS Service Functions
-// SMS Service Functions
 const SMSService = {
   // Format phone number for SMS - handles all Kenyan formats
   formatPhoneNumberForSMS(phone) {
@@ -1583,6 +1582,129 @@ const MpesaCallbacks = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  // Enhanced function to match M-Pesa transactions with employees
+  const enhanceCallbackWithEmployeeData = async (callbacks) => {
+    try {
+      // Extract all phone numbers from callbacks and create better matching
+      const phoneNumbers = callbacks.map(callback => {
+        const transactionData = extractTransactionData(callback);
+        const receiverParty = transactionData?.ReceiverPartyPublicName || '';
+        
+        // Enhanced phone number cleaning
+        let cleanPhone = receiverParty.replace(/\D/g, '');
+        
+        // Convert to 254 format for matching
+        if (cleanPhone.startsWith('0') && cleanPhone.length === 10) {
+          cleanPhone = '254' + cleanPhone.substring(1);
+        } else if (cleanPhone.length === 9) {
+          cleanPhone = '254' + cleanPhone;
+        }
+        
+        return cleanPhone;
+      }).filter(phone => phone && phone.length === 12);
+
+      console.log('📞 Phone numbers to match:', phoneNumbers);
+
+      if (phoneNumbers.length === 0) return callbacks;
+
+      // Query employees table with better matching
+      const { data: employees, error } = await supabase
+        .from('employees')
+        .select('"Employee Number", "Full Name", "Mobile Number"');
+
+      if (error) {
+        console.error('Error fetching employee data:', error);
+        return callbacks;
+      }
+
+      console.log('👥 Found employees:', employees?.length);
+
+      // Create enhanced mapping with multiple phone formats
+      const employeeMap = {};
+      employees?.forEach(emp => {
+        if (emp['Mobile Number']) {
+          const mobile = emp['Mobile Number'];
+          
+          // Create multiple format variations for better matching
+          const formats = [];
+          
+          // Original format
+          formats.push(mobile.replace(/\D/g, ''));
+          
+          // 254 format
+          let cleanMobile = mobile.replace(/\D/g, '');
+          if (cleanMobile.startsWith('0') && cleanMobile.length === 10) {
+            formats.push('254' + cleanMobile.substring(1));
+          } else if (cleanMobile.length === 9) {
+            formats.push('254' + cleanMobile);
+          } else if (cleanMobile.length === 12 && cleanMobile.startsWith('254')) {
+            formats.push(cleanMobile);
+          }
+          
+          // Add all formats to map
+          formats.forEach(format => {
+            if (format.length >= 9) {
+              employeeMap[format] = {
+                employee_number: emp['Employee Number'],
+                full_name: emp['Full Name'],
+                original_mobile: mobile
+              };
+            }
+          });
+        }
+      });
+
+      console.log('🗺️ Employee map size:', Object.keys(employeeMap).length);
+
+      // Enhance callbacks with employee data
+      const enhancedCallbacks = callbacks.map(callback => {
+        const transactionData = extractTransactionData(callback);
+        const receiverParty = transactionData?.ReceiverPartyPublicName || '';
+        let cleanReceiverPhone = receiverParty.replace(/\D/g, '');
+        
+        // Convert receiver phone to 254 format for matching
+        if (cleanReceiverPhone.startsWith('0') && cleanReceiverPhone.length === 10) {
+          cleanReceiverPhone = '254' + cleanReceiverPhone.substring(1);
+        } else if (cleanReceiverPhone.length === 9) {
+          cleanReceiverPhone = '254' + cleanReceiverPhone;
+        }
+        
+        let employeeData = employeeMap[cleanReceiverPhone];
+        
+        // If no direct match, try partial matching
+        if (!employeeData && cleanReceiverPhone.length >= 9) {
+          const last9Digits = cleanReceiverPhone.slice(-9);
+          employeeData = Object.entries(employeeMap).find(([phone]) => 
+            phone.includes(last9Digits)
+          )?.[1];
+        }
+
+        const enhancedCallback = {
+          ...callback,
+          full_name: employeeData?.full_name || callback.full_name || 'Not Matched',
+          employee_number: employeeData?.employee_number || callback.employee_number || 'Not Matched',
+          matched_phone: employeeData?.original_mobile || 'No match',
+          search_phone: cleanReceiverPhone
+        };
+
+        // Log matches for debugging
+        if (employeeData && receiverParty) {
+          console.log(`✅ Matched: ${receiverParty} -> ${employeeData.full_name}`);
+        } else if (receiverParty) {
+          console.log(`❌ No match: ${receiverParty} (searched as: ${cleanReceiverPhone})`);
+        }
+
+        return enhancedCallback;
+      });
+
+      return enhancedCallbacks;
+
+    } catch (error) {
+      console.error('Error enhancing callback data:', error);
+      return callbacks;
+    }
+  };
+
   const fetchCallbacks = async () => {
     try {
       setIsLoading(true);
@@ -1627,7 +1749,11 @@ const MpesaCallbacks = () => {
       const uniqueCallbacks = removeDuplicateCallbacks(data || []);
       console.log(`🔄 Removed duplicates, showing ${uniqueCallbacks.length} unique records`);
       
-      setCallbacks(uniqueCallbacks);
+      // Enhance callbacks with employee data
+      console.log('🔍 Enhancing callbacks with employee data...');
+      const enhancedCallbacks = await enhanceCallbackWithEmployeeData(uniqueCallbacks);
+      
+      setCallbacks(enhancedCallbacks);
       setLastRefresh(new Date());
       
     } catch (error) {
@@ -1708,14 +1834,23 @@ const MpesaCallbacks = () => {
     toast.success('M-Pesa callbacks refreshed');
   };
 
-  // Filter callbacks by search term (transaction ID)
-  const filteredCallbacks = callbacks.filter(callback => 
-    callback.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    callback.conversation_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    callback.originator_conversation_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    callback.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    callback.employee_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Enhanced search filter to include Receiver Party and better employee matching
+  const filteredCallbacks = callbacks.filter(callback => {
+    const transactionData = extractTransactionData(callback);
+    const receiverParty = transactionData?.ReceiverPartyPublicName || '';
+    
+    const searchLower = searchTerm.toLowerCase();
+    
+    return (
+      callback.transaction_id?.toLowerCase().includes(searchLower) ||
+      callback.conversation_id?.toLowerCase().includes(searchLower) ||
+      callback.originator_conversation_id?.toLowerCase().includes(searchLower) ||
+      callback.full_name?.toLowerCase().includes(searchLower) ||
+      callback.employee_number?.toLowerCase().includes(searchLower) ||
+      receiverParty.toLowerCase().includes(searchLower) || // Search in Receiver Party
+      callback.result_desc?.toLowerCase().includes(searchLower) // Search in description
+    );
+  });
 
   // Pagination calculations
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -1788,13 +1923,13 @@ const MpesaCallbacks = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by Transaction ID, Name, Employee No..."
+              placeholder="Search by Transaction ID, Name, Employee No, Receiver Party..."
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1); // Reset to first page when searching
               }}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-64"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-80"
             />
           </div>
 
@@ -1911,18 +2046,33 @@ const MpesaCallbacks = () => {
                         {formatAmount(transactionAmount)}
                       </td>
                       <td className="px-4 py-3 text-xs max-w-xs">
-                        {/* Updated Receiver Party - Bold and Green */}
-                        <div className="line-clamp-2 font-base text-xs text-semibold">
+                        {/* Enhanced Receiver Party display with better styling */}
+                        <div className={`line-clamp-2 font-semibold text-xs ${
+                          receiverParty !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                        }`}>
                           {receiverParty}
                         </div>
+                        {receiverParty !== 'N/A' && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Phone: {receiverParty.replace(/\D/g, '')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-600 max-w-xs">
                         <div className="line-clamp-2">{callback.result_desc || 'No description'}</div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
                         <div>
-                          <div className="font-medium">{callback.full_name || 'N/A'}</div>
-                          <div className="text-gray-500">{callback.employee_number || ''}</div>
+                          <div className={`font-medium ${
+                            callback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
+                          }`}>
+                            {callback.full_name}
+                          </div>
+                          <div className={`text-xs ${
+                            callback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                          }`}>
+                            {callback.employee_number}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -2075,6 +2225,31 @@ const MpesaCallbacks = () => {
                 </div>
               </div>
 
+              {/* Enhanced Employee Information Section */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-900 mb-3">Employee Information</h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-600">Employee Name</p>
+                      <p className={`font-semibold text-sm ${
+                        selectedCallback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
+                      }`}>
+                        {selectedCallback.full_name}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-600">Employee Number</p>
+                      <p className={`font-semibold text-sm ${
+                        selectedCallback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        {selectedCallback.employee_number}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Enhanced Transaction Details from Raw Response */}
               <div className="mb-6">
                 <h3 className="font-semibold text-gray-900 mb-3">Transaction Details</h3>
@@ -2104,7 +2279,9 @@ const MpesaCallbacks = () => {
                               <div key={key}>
                                 <p className="text-xs text-gray-600">{label}</p>
                                 <p className={`font-semibold text-sm mt-1 ${
-                                  key === 'ReceiverPartyPublicName' ? 'text-green-600 font-bold' : ''
+                                  key === 'ReceiverPartyPublicName' ? 'text-green-600 font-bold' :
+                                  key.includes('Amount') || key.includes('Funds') ? 'text-blue-600' :
+                                  'text-gray-900'
                                 }`}>
                                   {key.includes('Amount') || key.includes('Funds') 
                                     ? formatAmount(Number(transactionData[key]))
@@ -2363,7 +2540,6 @@ const SalaryAdvanceAdmin = () => {
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
   const [justification, setJustification] = useState('');
   
-  
   const [currentTown, setCurrentTown] = useState<string>('');
   const [allTowns, setAllTowns] = useState<string[]>([]);
   const [userTown, setUserTown] = useState<string>('');
@@ -2425,24 +2601,6 @@ const SalaryAdvanceAdmin = () => {
   const isChecker = userRole === 'checker';
   const isMaker = userRole === 'maker';
 
-  // Duplicate prevention function
-  const checkForDuplicateApplication = async (employeeNumber, month, year) => {
-    try {
-      const { data, error } = await supabase
-        .from('salary_advance')
-        .select('*')
-        .eq('Employee Number', employeeNumber)
-        .eq('application_month', month)
-        .eq('application_year', year);
-
-      if (error) throw error;
-      return data && data.length > 0;
-    } catch (error) {
-      console.error('Error checking for duplicates:', error);
-      return false;
-    }
-  };
-
   // Enhanced status management
   const updateApplicationStatus = async (applicationId, newStatus, additionalData = {}) => {
     try {
@@ -2459,6 +2617,7 @@ const SalaryAdvanceAdmin = () => {
       } else if (newStatus === 'paid') {
         updateData.payment_date = new Date().toISOString();
         updateData.payment_processed = true;
+        updateData.payment_status = 'completed';
       } else if (newStatus === 'rejected') {
         updateData.admin_approval = false;
         updateData.admin_rejection_date = new Date().toISOString();
@@ -2471,6 +2630,7 @@ const SalaryAdvanceAdmin = () => {
 
       if (error) throw error;
       
+      console.log(`✅ Status updated to ${newStatus} for application ${applicationId}`);
       toast.success(`Status updated to ${newStatus}`);
       return true;
     } catch (error) {
@@ -2479,6 +2639,273 @@ const SalaryAdvanceAdmin = () => {
       return false;
     }
   };
+
+  // Function to wait for M-Pesa confirmation
+  const waitForMpesaConfirmation = async (transactionId, expectedAmount, timeoutMs = 60000) => {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeoutMs) {
+      try {
+        // Check if we have a successful M-Pesa callback for this transaction
+        const { data: callbacks, error } = await supabase
+          .from('mpesa_callbacks')
+          .select('*')
+          .or(`transaction_id.eq.${transactionId},employee_number.eq.${transactionId}`)
+          .eq('result_code', 0) // Success code
+          .gte('callback_date', new Date(Date.now() - 300000).toISOString()) // Last 5 minutes
+          .limit(1);
+
+        if (error) {
+          console.error('Error checking M-Pesa callbacks:', error);
+        }
+
+        if (callbacks && callbacks.length > 0) {
+          const callback = callbacks[0];
+          const transactionData = extractTransactionData(callback);
+          const actualAmount = transactionData?.TransactionAmount;
+          
+          // Verify amount matches
+          if (actualAmount && Number(actualAmount) === Number(expectedAmount)) {
+            console.log(`✅ M-Pesa confirmation received for transaction ${transactionId}`);
+            return true;
+          }
+        }
+
+        // Wait before checking again
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } catch (error) {
+        console.error('Error in M-Pesa confirmation check:', error);
+      }
+    }
+    
+    console.warn(`⚠️ M-Pesa confirmation timeout for transaction ${transactionId}`);
+    return false;
+  };
+
+  // Function to send SMS only after payment confirmation
+  const sendConfirmedSMS = async (employeeNumber: string, amount: number, fullName: string, transactionId: string) => {
+    try {
+      const mobileNumber = employeeMobileNumbers[employeeNumber];
+      if (!mobileNumber) {
+        console.error(`Cannot send SMS: Mobile number not found for ${employeeNumber}`);
+        return;
+      }
+
+      const smsResult = await SMSService.sendDisbursementNotification(
+        fullName,
+        mobileNumber,
+        amount,
+        transactionId
+      );
+      
+      if (smsResult.success) {
+        console.log(`✅ Confirmation SMS sent to ${fullName}`);
+        
+        // Log SMS success in database
+        await supabase
+          .from('salary_advance')
+          .update({
+            sms_sent: true,
+            sms_sent_at: new Date().toISOString()
+          })
+          .eq('Employee Number', employeeNumber)
+          .eq('status', 'paid');
+      } else {
+        console.error(`❌ SMS failed for ${fullName}:`, smsResult.error);
+      }
+    } catch (smsError) {
+      console.error('❌ Failed to send confirmation SMS:', smsError);
+    }
+  };
+
+  // Enhanced M-Pesa payment function with confirmed SMS
+  const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
+    try {
+      const mobileNumber = employeeMobileNumbers[employeeNumber];
+      if (!mobileNumber) {
+        throw new Error(`Mobile number not found for employee ${employeeNumber}`);
+      }
+
+      const formattedPhone = SMSService.formatPhoneNumberForSMS(mobileNumber);
+      
+      if (!formattedPhone) {
+        throw new Error(`Invalid phone number format for ${employeeNumber}: ${mobileNumber}`);
+      }
+
+      console.log(`💰 Processing M-Pesa payment:`, {
+        employee: fullName,
+        employeeNumber,
+        amount,
+        originalPhone: mobileNumber,
+        formattedPhone
+      });
+      
+      const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
+        ? 'https://mpesa-22p0.onrender.com/api'
+        : 'http://localhost:3001/api';
+      
+      const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          amount: amount,
+          employeeNumber: employeeNumber,
+          fullName: fullName
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to process payment');
+      }
+
+      const result = await response.json();
+      
+      console.log('✅ M-Pesa payment initiated:', result);
+      
+      // DON'T send SMS here - wait for confirmation
+      // SMS will be sent after M-Pesa confirmation in processBulkMpesaPayment
+      
+      return result;
+    } catch (error) {
+      console.error('❌ M-Pesa payment error:', error);
+      
+      if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
+        console.warn('⚠️ Backend unavailable, using mock mode');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        return {
+          success: true,
+          message: 'Mock payment processed successfully',
+          transactionId: 'MOCK_' + Date.now()
+        };
+      }
+      
+      throw error;
+    }
+  };
+
+  // Enhanced payment processing with M-Pesa verification
+  const processBulkMpesaPayment = async (advancesData: any[]) => {
+    if (userRole === 'maker') {
+      throw new Error('Makers are not authorized to process payments directly');
+    }
+
+    const results = [];
+    
+    for (const advance of advancesData) {
+      try {
+        console.log(`💰 Processing payment for ${advance.full_name}, amount: ${advance.amount_requested}`);
+        
+        // Step 1: Process M-Pesa payment
+        const result = await processMpesaPayment(
+          advance.employee_number,
+          advance.amount_requested,
+          advance.full_name
+        );
+        
+        // Step 2: Wait for M-Pesa callback confirmation
+        const isPaymentConfirmed = await waitForMpesaConfirmation(
+          result.transactionId || advance.employee_number,
+          advance.amount_requested
+        );
+        
+        if (isPaymentConfirmed) {
+          // Step 3: Only update status to 'paid' after confirmation
+          const updateSuccess = await updateApplicationStatus(
+            advance.id,
+            'paid',
+            {
+              mpesa_transaction_id: result.transactionId || `MPESA_${Date.now()}`,
+              mpesa_result_desc: result.message || 'Payment processed successfully',
+              payment_confirmed: true,
+              payment_confirmed_at: new Date().toISOString()
+            }
+          );
+
+          if (!updateSuccess) {
+            throw new Error('Failed to update application status');
+          }
+
+          // Step 4: Send SMS confirmation after successful payment
+          await sendConfirmedSMS(
+            advance.employee_number,
+            advance.amount_requested,
+            advance.full_name,
+            result.transactionId
+          );
+
+          console.log(`✅ Payment confirmed and status updated for ${advance.full_name}`);
+          results.push({ success: true, advance, result });
+          toast.success(`Payment confirmed for ${advance.full_name}`);
+        } else {
+          throw new Error('M-Pesa payment not confirmed within timeout period');
+        }
+        
+      } catch (error) {
+        console.error(`❌ Failed to pay ${advance.full_name}:`, error);
+        results.push({ success: false, advance, error });
+        
+        // Update status to failed
+        await updateApplicationStatus(
+          advance.id,
+          'failed',
+          {
+            mpesa_result_desc: error.message || 'Payment failed',
+            payment_failed_at: new Date().toISOString()
+          }
+        );
+        
+        toast.error(`Failed to pay ${advance.full_name}: ${error.message}`);
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay between payments
+    }
+    
+    return results;
+  };
+
+  // Real-time status sync function
+  const syncPaymentStatuses = async () => {
+    try {
+      // Get applications that are marked as paid but might not have M-Pesa confirmation
+      const { data: applications, error } = await supabase
+        .from('salary_advance')
+        .select('*')
+        .eq('status', 'paid')
+        .is('payment_confirmed', null)
+        .gte('payment_date', new Date(Date.now() - 86400000).toISOString()); // Last 24 hours
+
+      if (error) throw error;
+
+      for (const app of applications) {
+        if (app.mpesa_transaction_id) {
+          const isConfirmed = await waitForMpesaConfirmation(app.mpesa_transaction_id, app["Amount Requested"]);
+          
+          if (isConfirmed) {
+            await supabase
+              .from('salary_advance')
+              .update({
+                payment_confirmed: true,
+                payment_confirmed_at: new Date().toISOString()
+              })
+              .eq('id', app.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing payment statuses:', error);
+    }
+  };
+
+  // Call this periodically
+  useEffect(() => {
+    const interval = setInterval(syncPaymentStatuses, 30000); // Every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   // BORROWED FROM LEAVE MANAGEMENT: Load area-town mapping and saved town
   useEffect(() => {
@@ -2904,11 +3331,10 @@ const SalaryAdvanceAdmin = () => {
     }).format(amount);
   };
 
-  // Format phone number for M-Pesa (254 format) - FIXED VERSION
   // Format phone number for M-Pesa (254 format)
-const formatPhoneNumber = (phone: string) => {
-  return SMSService.formatPhoneNumberForSMS(phone);
-};
+  const formatPhoneNumber = (phone: string) => {
+    return SMSService.formatPhoneNumberForSMS(phone);
+  };
 
   // Calculate total amount for selected applications
   const calculateTotalAmount = () => {
@@ -3079,7 +3505,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.admin_approval = true;
           updateData.admin_approval_date = new Date().toISOString();
           updateData.admin_notes = notes;
-          newStatus = 'approved'; // This should change from 'pending-admin' to 'approved'
+          newStatus = 'approved';
           updateData.approved_by = currentUser?.id;
           updateData.approved_by_email = currentUser?.email;
           break;
@@ -3089,7 +3515,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.admin_approval_date = new Date().toISOString();
           updateData.admin_notes = notes;
           updateData.admin_adjusted_amount = adjustedAmount;
-          newStatus = 'approved'; // This should change from 'pending-admin' to 'approved'
+          newStatus = 'approved';
           updateData.approved_by = currentUser?.id;
           updateData.approved_by_email = currentUser?.email;
           if (adjustedAmount) {
@@ -3101,7 +3527,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.admin_approval = false;
           updateData.admin_rejection_date = new Date().toISOString();
           updateData.admin_notes = notes;
-          newStatus = 'rejected'; // This should change from 'pending-admin' to 'rejected'
+          newStatus = 'rejected';
           updateData.rejected_by = currentUser?.id;
           updateData.rejected_by_email = currentUser?.email;
           break;
@@ -3188,107 +3614,6 @@ const formatPhoneNumber = (phone: string) => {
     }
   };
 
-  // Enhanced M-Pesa payment function with SMS notifications
-// Enhanced M-Pesa payment function with SMS notifications
-const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
-  try {
-    const mobileNumber = employeeMobileNumbers[employeeNumber];
-    if (!mobileNumber) {
-      throw new Error(`Mobile number not found for employee ${employeeNumber}`);
-    }
-
-    const formattedPhone = formatPhoneNumber(mobileNumber);
-    
-    if (!formattedPhone) {
-      throw new Error(`Invalid phone number format for ${employeeNumber}: ${mobileNumber}`);
-    }
-
-    console.log(`💰 Processing M-Pesa payment:`, {
-      employee: fullName,
-      employeeNumber,
-      amount,
-      originalPhone: mobileNumber,
-      formattedPhone
-    });
-    
-    const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
-      ? 'https://mpesa-22p0.onrender.com/api'
-      : 'http://localhost:3001/api';
-    
-    const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        phoneNumber: formattedPhone,
-        amount: amount,
-        employeeNumber: employeeNumber,
-        fullName: fullName
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to process payment');
-    }
-
-    const result = await response.json();
-    
-    console.log('✅ M-Pesa payment processed:', result);
-    
-    // Send SMS notification after successful payment
-    if (result.success) {
-      try {
-        const smsResult = await SMSService.sendDisbursementNotification(
-          fullName,
-          mobileNumber,
-          amount,
-          result.transactionId || 'N/A'
-        );
-        
-        if (smsResult.success) {
-          console.log(`✅ SMS notification sent to ${fullName} (${smsResult.recipient})`);
-        } else {
-          console.error(`❌ SMS failed for ${fullName}:`, smsResult.error);
-        }
-      } catch (smsError) {
-        console.error('❌ Failed to send SMS notification:', smsError);
-        // Don't throw error - payment was successful, just SMS failed
-      }
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('❌ M-Pesa payment error:', error);
-    
-    if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
-      console.warn('⚠️ Backend unavailable, using mock mode');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock SMS notification in development
-      try {
-        const mockTransactionId = 'MOCK_' + Date.now();
-        await SMSService.sendDisbursementNotification(
-          fullName,
-          employeeMobileNumbers[employeeNumber],
-          amount,
-          mockTransactionId
-        );
-      } catch (smsError) {
-        console.error('❌ Failed to send mock SMS:', smsError);
-      }
-      
-      return {
-        success: true,
-        message: 'Mock payment processed successfully',
-        transactionId: 'MOCK_' + Date.now()
-      };
-    }
-    
-    throw error;
-  }
-};
   // Create payment request function for maker-checker flow
   const createPaymentRequest = async (selectedAdvances, justification) => {
     try {
@@ -3324,55 +3649,6 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
       console.error('Error in createPaymentRequest:', error);
       throw error;
     }
-  };
-
-  // Enhanced payment processing with proper status updates and SMS notifications
-  const processBulkMpesaPayment = async (advancesData: any[]) => {
-    if (userRole === 'maker') {
-      throw new Error('Makers are not authorized to process payments directly');
-    }
-
-    const results = [];
-    
-    for (const advance of advancesData) {
-      try {
-        console.log(`💰 Processing payment for ${advance.full_name}, amount: ${advance.amount_requested}`);
-        
-        const result = await processMpesaPayment(
-          advance.employee_number,
-          advance.amount_requested,
-          advance.full_name
-        );
-        
-        results.push({ success: true, advance, result });
-        
-        // Use the enhanced status update function
-        const updateSuccess = await updateApplicationStatus(
-          advance.id,
-          'paid',
-          {
-            mpesa_transaction_id: result.transactionId || `MPESA_${Date.now()}`,
-            mpesa_result_desc: result.message || 'Payment processed successfully'
-          }
-        );
-
-        if (!updateSuccess) {
-          throw new Error('Failed to update application status');
-        }
-
-        console.log(`✅ Successfully updated ${advance.full_name} status to 'paid'`);
-        toast.success(`Payment sent to ${advance.full_name} and status updated to Paid`);
-        
-      } catch (error) {
-        console.error(`❌ Failed to pay ${advance.full_name}:`, error);
-        results.push({ success: false, advance, error });
-        toast.error(`Failed to pay ${advance.full_name}: ${error.message}`);
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-    
-    return results;
   };
 
   // Approve payment request function
@@ -4168,18 +4444,17 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           >
             Salary Advance Applications
           </button>
-                    <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
-          
-          <button
-            onClick={() => setActiveTab('callbacks')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'callbacks'
-                ? 'border-green-500 text-green-600'
-                : 'border-transparent text-blue-500 text-xs hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-               <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
-          </button>
+          <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
+            <button
+              onClick={() => setActiveTab('callbacks')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'callbacks'
+                  ? 'border-green-500 text-green-600'
+                  : 'border-transparent text-blue-500 text-xs hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
+            </button>
           </RoleButtonWrapper>
         </nav>
       </div>
@@ -4677,135 +4952,134 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
               </div>
 
               {/* Pagination Controls */}
-             {/* Pagination Controls */}
-{totalPages > 1 && (
-  <div className="flex items-center justify-center mt-6 px-4 py-4">
-    {/* Mobile pagination */}
-    <div className="flex items-center justify-between w-full sm:hidden">
-      <button
-        onClick={() => paginate(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        Previous
-      </button>
-      <span className="text-xs text-gray-700">
-        Page {currentPage} of {totalPages}
-      </span>
-      <button
-        onClick={() => paginate(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Next
-        <ChevronRight className="h-4 w-4 ml-1" />
-      </button>
-    </div>
-    
-    {/* Desktop pagination */}
-    <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-3">
-      <p className="text-xs text-gray-700">
-        Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-        <span className="font-medium">
-          {Math.min(indexOfLastItem, filteredApplications.length)}
-        </span>{' '}
-        of <span className="font-medium">{filteredApplications.length}</span> results
-      </p>
-      <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-        <button
-          onClick={() => paginate(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="sr-only">Previous</span>
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        
-        {/* Page numbers - show limited set for better layout */}
-        {(() => {
-          const maxVisible = 5;
-          let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-          let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-          
-          if (endPage - startPage < maxVisible - 1) {
-            startPage = Math.max(1, endPage - maxVisible + 1);
-          }
-          
-          const pages = [];
-          
-          // First page
-          if (startPage > 1) {
-            pages.push(
-              <button
-                key={1}
-                onClick={() => paginate(1)}
-                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
-              >
-                1
-              </button>
-            );
-            if (startPage > 2) {
-              pages.push(
-                <span key="dots1" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
-                  ...
-                </span>
-              );
-            }
-          }
-          
-          // Visible pages
-          for (let i = startPage; i <= endPage; i++) {
-            pages.push(
-              <button
-                key={i}
-                onClick={() => paginate(i)}
-                className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
-                  currentPage === i
-                    ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                } border`}
-              >
-                {i}
-              </button>
-            );
-          }
-          
-          // Last page
-          if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-              pages.push(
-                <span key="dots2" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
-                  ...
-                </span>
-              );
-            }
-            pages.push(
-              <button
-                key={totalPages}
-                onClick={() => paginate(totalPages)}
-                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
-              >
-                {totalPages}
-              </button>
-            );
-          }
-          
-          return pages;
-        })()}
-        
-        <button
-          onClick={() => paginate(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="sr-only">Next</span>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </nav>
-    </div>
-  </div>
-)}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center mt-6 px-4 py-4">
+                  {/* Mobile pagination */}
+                  <div className="flex items-center justify-between w-full sm:hidden">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </button>
+                    <span className="text-xs text-gray-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
+                  
+                  {/* Desktop pagination */}
+                  <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-3">
+                    <p className="text-xs text-gray-700">
+                      Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                      <span className="font-medium">
+                        {Math.min(indexOfLastItem, filteredApplications.length)}
+                      </span>{' '}
+                      of <span className="font-medium">{filteredApplications.length}</span> results
+                    </p>
+                    <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                      <button
+                        onClick={() => paginate(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      
+                      {/* Page numbers - show limited set for better layout */}
+                      {(() => {
+                        const maxVisible = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                        
+                        if (endPage - startPage < maxVisible - 1) {
+                          startPage = Math.max(1, endPage - maxVisible + 1);
+                        }
+                        
+                        const pages = [];
+                        
+                        // First page
+                        if (startPage > 1) {
+                          pages.push(
+                            <button
+                              key={1}
+                              onClick={() => paginate(1)}
+                              className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+                            >
+                              1
+                            </button>
+                          );
+                          if (startPage > 2) {
+                            pages.push(
+                              <span key="dots1" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                                ...
+                              </span>
+                            );
+                          }
+                        }
+                        
+                        // Visible pages
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => paginate(i)}
+                              className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
+                                currentPage === i
+                                  ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                              } border`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+                        
+                        // Last page
+                        if (endPage < totalPages) {
+                          if (endPage < totalPages - 1) {
+                            pages.push(
+                              <span key="dots2" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                                ...
+                              </span>
+                            );
+                          }
+                          pages.push(
+                            <button
+                              key={totalPages}
+                              onClick={() => paginate(totalPages)}
+                              className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+                            >
+                              {totalPages}
+                            </button>
+                          );
+                        }
+                        
+                        return pages;
+                      })()}
+                      
+                      <button
+                        onClick={() => paginate(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Next</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

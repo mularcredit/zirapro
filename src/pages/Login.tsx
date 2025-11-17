@@ -208,7 +208,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     'checker.superadmin@mularcredit.com',
     'titus1admin@mularcredit.co.ke',
     'ian3admin@mularcredit.co.ke',
-    'collins2admin@mularcredit.co.ke'
+    'collins2admin@mularcredit.co.ke',
+    'zira@zira.io'
 
   ];
 
