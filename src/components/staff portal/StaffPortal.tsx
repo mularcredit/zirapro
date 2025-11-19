@@ -62,6 +62,20 @@ interface NotificationItem {
   timestamp: Date;
   isRead: boolean;
 }
+interface TrainingDocument {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  category: string;
+  required: boolean;
+  order: number;
+  quiz_required: boolean;
+  created_at: string;
+}
 
 interface NotificationState {
   items: NotificationItem[];

@@ -388,7 +388,7 @@ const AdminVideoUpload = () => {
       }
 
       toast.success(`${contentType === 'video' ? 'Video' : 'Document'} uploaded successfully!`);
-      navigate('/admin/training');
+      navigate('/training');
 
     } catch (error) {
       console.error('Upload error:', error);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
@@ -21,28 +21,44 @@ import {
   User,
   Box,
   Shield,
-  X
+  X,
+  Download,
+  Search,
+  Filter,
+  BookOpen,
+  Video,
+  Image,
+  File
 } from 'lucide-react';
 
 // Types
-type TrainingVideo = {
+type TrainingDocument = {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   url: string;
-  duration: number; // in seconds
+  file_name: string;
+  file_size: number;
+  file_type: string;
+  category: string;
   required: boolean;
   order: number;
-  category: 'introduction' | 'product' | 'safety' | 'compliance' | 'soft-skills';
-  thumbnail_url?: string;
+  quiz_required: boolean;
+  created_at: string;
 };
 
 type UserProgress = {
-  video_id: string;
+  id: string;
+  document_id: string;
+  employee_number: string;
   completed: boolean;
-  progress: number; // 0-100
-  last_watched: string;
-  quiz_score?: number;
+  completed_at: string | null;
+  quiz_passed: boolean | null;
+  quiz_score: number | null;
+  time_spent: number;
+  last_accessed: string;
+  created_at: string;
+  updated_at: string;
 };
 
 type TrainingCategory = {
@@ -55,69 +71,34 @@ type TrainingCategory = {
 };
 
 const TrainingModule = () => {
-  const [videos, setVideos] = useState<TrainingVideo[]>([]);
+  const [documents, setDocuments] = useState<TrainingDocument[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<TrainingDocument[]>([]);
   const [progress, setProgress] = useState<Record<string, UserProgress>>({});
   const [loading, setLoading] = useState(true);
-  const [currentVideo, setCurrentVideo] = useState<TrainingVideo | null>(null);
-  const [videoProgress, setVideoProgress] = useState(0);
+  const [currentDocument, setCurrentDocument] = useState<TrainingDocument | null>(null);
+  const [documentProgress, setDocumentProgress] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
+  const [activeTab, setActiveTab] = useState<'all' | 'videos' | 'documents'>('all');
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const navigate = useNavigate();
 
-  // Categories with icons and colors
-  const categories: TrainingCategory[] = [
-    {
-      id: 'introduction',
-      name: 'Introductions',
-      description: 'Welcome messages and company overview',
-      icon: <User size={18} className="text-blue-600" />,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    },
-    {
-      id: 'product',
-      name: 'Product Training',
-      description: 'Detailed product knowledge',
-      icon: <Box size={18} className="text-emerald-600" />,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50'
-    },
-    {
-      id: 'safety',
-      name: 'Safety Procedures',
-      description: 'Workplace safety guidelines',
-      icon: <Shield size={18} className="text-amber-600" />,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50'
-    },
-    {
-      id: 'compliance',
-      name: 'Compliance',
-      description: 'Legal and regulatory training',
-      icon: <FileText size={18} className="text-violet-600" />,
-      color: 'text-violet-600',
-      bgColor: 'bg-violet-50'
-    },
-    {
-      id: 'soft-skills',
-      name: 'Soft Skills',
-      description: 'Communication and teamwork',
-      icon: <Users size={18} className="text-rose-600" />,
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-50'
-    }
-  ];
+  // Categories with icons and colors - dynamically generated from document categories
+  const [categories, setCategories] = useState<TrainingCategory[]>([]);
 
   // Sample quiz questions (in a real app, these would come from Supabase)
-  const quizQuestions = currentVideo ? [
+  const quizQuestions = currentDocument ? [
     {
       id: '1',
-      question: `What was the main point of "${currentVideo.title}"?`,
+      question: `What was the main point of "${currentDocument.title}"?`,
       options: [
         'Option A',
         'Option B',
@@ -128,7 +109,7 @@ const TrainingModule = () => {
     },
     {
       id: '2',
-      question: 'Which of these was NOT mentioned in the video?',
+      question: 'Which of these was NOT mentioned in the training material?',
       options: [
         'First concept',
         'Second concept',
@@ -150,134 +131,268 @@ const TrainingModule = () => {
     }
   ] : [];
 
-  // Fetch training videos from Supabase
+  // Fetch training documents from Supabase
   useEffect(() => {
-  const fetchTrainingData = async () => {
-    try {
-      setLoading(true);
-      
-      // Check authentication
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        throw new Error(authError?.message || 'User not authenticated');
+    const fetchTrainingData = async () => {
+      try {
+        setLoading(true);
+        
+        // Check authentication
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          throw new Error(authError?.message || 'User not authenticated');
+        }
+
+        // Get employee number
+        const { data: employeeData } = await supabase
+          .from('employees')
+          .select('"Employee Number"')
+          .eq('"Work Email"', user.email)
+          .single();
+
+        if (employeeData) {
+          setEmployeeNumber(employeeData["Employee Number"]);
+        }
+
+        // Fetch documents with error handling
+        const { data: documentsData, error: documentsError } = await supabase
+          .from('training_documents')
+          .select('*')
+          .order('order', { ascending: true })
+          .order('created_at', { ascending: false });
+
+        if (documentsError) throw documentsError;
+        if (!documentsData) throw new Error('No training materials found');
+
+        // Generate categories from documents
+        const uniqueCategories = [...new Set(documentsData.map(doc => doc.category))];
+        const generatedCategories = uniqueCategories.map((category, index) => {
+          const colors = [
+            { color: 'text-blue-600', bgColor: 'bg-blue-50' },
+            { color: 'text-emerald-600', bgColor: 'bg-emerald-50' },
+            { color: 'text-amber-600', bgColor: 'bg-amber-50' },
+            { color: 'text-violet-600', bgColor: 'bg-violet-50' },
+            { color: 'text-rose-600', bgColor: 'bg-rose-50' },
+            { color: 'text-cyan-600', bgColor: 'bg-cyan-50' },
+            { color: 'text-orange-600', bgColor: 'bg-orange-50' },
+            { color: 'text-lime-600', bgColor: 'bg-lime-50' }
+          ];
+          const colorSet = colors[index % colors.length];
+          
+          const icons = [<User size={18} />, <Box size={18} />, <Shield size={18} />, 
+                        <FileText size={18} />, <Users size={18} />, <BookOpen size={18} />];
+          
+          return {
+            id: category.toLowerCase().replace(/\s+/g, '-'),
+            name: category,
+            description: `${category} training materials`,
+            icon: icons[index % icons.length],
+            ...colorSet
+          };
+        });
+
+        setCategories(generatedCategories);
+        setDocuments(documentsData);
+
+        // Fetch user progress if employee number is available
+        if (employeeData?.["Employee Number"]) {
+          await fetchTrainingProgress(employeeData["Employee Number"]);
+        }
+        
+      } catch (error) {
+        console.error('Error fetching training data:', error);
+        toast.error('Failed to load training content');
+        if (error instanceof Error && error.message.includes('authentication')) {
+          navigate('/login');
+        }
+      } finally {
+        setLoading(false);
       }
+    };
 
-      // Fetch videos with error handling
-      const { data: videosData, error: videosError } = await supabase
-        .from('training_videos')
-        .select('*')
-        .order('order', { ascending: true });
+    fetchTrainingData();
+  }, [navigate]);
 
-      if (videosError) throw videosError;
-      if (!videosData) throw new Error('No videos found');
+  // Filter documents when search, category, or tab changes
+  useEffect(() => {
+    let filtered = documents;
 
-      // Fetch user progress
-      const { data: progressData, error: progressError } = await supabase
+    // Filter by type (video/document)
+    if (activeTab === 'videos') {
+      filtered = filtered.filter(doc => isVideoFile(doc.file_type) || doc.file_type.includes('video'));
+    } else if (activeTab === 'documents') {
+      filtered = filtered.filter(doc => !isVideoFile(doc.file_type) && !doc.file_type.includes('video'));
+    }
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(doc =>
+        doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        doc.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by category
+    if (activeCategory) {
+      const categoryName = categories.find(cat => cat.id === activeCategory)?.name;
+      if (categoryName) {
+        filtered = filtered.filter(doc => doc.category === categoryName);
+      }
+    }
+
+    setFilteredDocuments(filtered);
+  }, [documents, searchTerm, activeCategory, categories, activeTab]);
+
+  // Check if file is a video
+  const isVideoFile = (fileType: string) => {
+    return fileType.includes('video') || 
+           fileType.includes('mp4') || 
+           fileType.includes('avi') || 
+           fileType.includes('mov') ||
+           fileType.includes('wmv') ||
+           fileType.includes('flv') ||
+           fileType.includes('webm');
+  };
+
+  // Check if file is an image
+  const isImageFile = (fileType: string) => {
+    return fileType.includes('image') || 
+           fileType.includes('jpg') || 
+           fileType.includes('jpeg') || 
+           fileType.includes('png') ||
+           fileType.includes('gif') ||
+           fileType.includes('bmp');
+  };
+
+  // Check if file is a PDF
+  const isPDFFile = (fileType: string) => {
+    return fileType.includes('pdf') || fileType.includes('application/pdf');
+  };
+
+  const fetchTrainingProgress = async (empNumber: string) => {
+    try {
+      const { data, error } = await supabase
         .from('training_progress')
         .select('*')
-        .eq('user_id', user.id);
+        .eq('employee_number', empNumber);
 
-      if (progressError) throw progressError;
+      if (error) throw error;
 
       // Convert progress array to object
-      const progressObj = (progressData || []).reduce((acc, item) => {
-        acc[item.video_id] = item;
+      const progressObj = (data || []).reduce((acc, item) => {
+        acc[item.document_id] = item;
         return acc;
       }, {} as Record<string, UserProgress>);
 
-      setVideos(videosData);
       setProgress(progressObj);
-      
     } catch (error) {
-      console.error('Error fetching training data:', error);
-      toast.error('Failed to load training content');
-      // Optionally redirect to login if auth fails
-      if (error instanceof Error && error.message.includes('authentication')) {
-        navigate('/login');
-      }
-    } finally {
-      setLoading(false);
+      console.error('Error fetching training progress:', error);
     }
   };
 
-  fetchTrainingData();
-}, [navigate]); // Add navigate to dependencies
-
-  // Handle video progress updates
-  const updateVideoProgress = async (videoId: string, newProgress: number) => {
+  // Handle document progress updates
+  const updateDocumentProgress = async (documentId: string, newProgress: number) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!employeeNumber) return;
+
+      const isCompleted = newProgress >= 95;
+      const currentTime = new Date().toISOString();
 
       // Update local state first for immediate feedback
       setProgress(prev => ({
         ...prev,
-        [videoId]: {
-          ...prev[videoId],
-          progress: newProgress,
-          completed: newProgress >= 95, // Consider 95% as completed
-          last_watched: new Date().toISOString()
+        [documentId]: {
+          ...prev[documentId],
+          document_id: documentId,
+          employee_number: employeeNumber,
+          completed: isCompleted,
+          completed_at: isCompleted ? currentTime : prev[documentId]?.completed_at,
+          time_spent: (prev[documentId]?.time_spent || 0) + 1,
+          last_accessed: currentTime
         }
       }));
 
-      // Upsert to Supabase
+      // Upsert to Supabase - using your existing table structure
       const { error } = await supabase
         .from('training_progress')
         .upsert({
-          user_id: user.id,
-          video_id: videoId,
-          progress: newProgress,
-          completed: newProgress >= 95,
-          last_watched: new Date().toISOString()
+          document_id: documentId,
+          employee_number: employeeNumber,
+          completed: isCompleted,
+          completed_at: isCompleted ? currentTime : null,
+          time_spent: (progress[documentId]?.time_spent || 0) + 1,
+          last_accessed: currentTime,
+          updated_at: currentTime
+        }, {
+          onConflict: 'document_id,employee_number'
         });
 
       if (error) throw error;
 
     } catch (error) {
       console.error('Error updating progress:', error);
+      toast.error('Failed to update progress');
     }
   };
 
-  // Handle video selection
-  const handleSelectVideo = (video: TrainingVideo) => {
-    // Check if previous required videos are completed
-    if (video.required) {
-      const previousRequiredVideos = videos
-        .filter(v => v.required && v.order < video.order)
+  // Handle document selection
+  const handleSelectDocument = (document: TrainingDocument) => {
+    // Check if previous required documents are completed
+    if (document.required) {
+      const previousRequiredDocuments = documents
+        .filter(d => d.required && d.order < document.order)
         .sort((a, b) => a.order - b.order);
 
-      for (const prevVideo of previousRequiredVideos) {
-        if (!progress[prevVideo.id]?.completed) {
-          toast.error(`Please complete "${prevVideo.title}" first`);
+      for (const prevDoc of previousRequiredDocuments) {
+        if (!progress[prevDoc.id]?.completed) {
+          toast.error(`Please complete "${prevDoc.title}" first`);
           return;
         }
       }
     }
 
-    setCurrentVideo(video);
-    setVideoProgress(progress[video.id]?.progress || 0);
+    setCurrentDocument(document);
+    setDocumentProgress(progress[document.id]?.completed ? 100 : (progress[document.id]?.time_spent || 0));
     setShowQuiz(false);
     setQuizSubmitted(false);
     setQuizScore(null);
+    setIsVideoPlaying(false);
+    
+    // Update access time
+    updateDocumentProgress(document.id, progress[document.id]?.completed ? 100 : (progress[document.id]?.time_spent || 0));
   };
 
-  // Handle video completion
-  const handleVideoComplete = () => {
-    if (!currentVideo) return;
+  // Handle video play
+  const handleVideoPlay = () => {
+    setIsVideoPlaying(true);
+  };
+
+  // Handle video end
+  const handleVideoEnd = () => {
+    setIsVideoPlaying(false);
+    if (currentDocument) {
+      handleDocumentComplete();
+    }
+  };
+
+  // Handle document completion
+  const handleDocumentComplete = () => {
+    if (!currentDocument) return;
     
-    updateVideoProgress(currentVideo.id, 100);
+    updateDocumentProgress(currentDocument.id, 100);
     
-    // For required videos, show quiz
-    if (currentVideo.required) {
+    // For required documents, show quiz if required
+    if (currentDocument.required && currentDocument.quiz_required) {
       setShowQuiz(true);
     } else {
-      toast.success(`Completed: ${currentVideo.title}`);
+      toast.success(`Completed: ${currentDocument.title}`);
     }
   };
 
   // Handle quiz submission
-  const handleQuizSubmit = () => {
-    if (!currentVideo) return;
+  const handleQuizSubmit = async () => {
+    if (!currentDocument) return;
 
     // Calculate score
     const correctAnswers = quizQuestions.filter(q => 
@@ -290,44 +405,115 @@ const TrainingModule = () => {
 
     // Update progress with quiz score
     if (score >= 80) { // Passing score
-      updateVideoProgress(currentVideo.id, 100);
-      toast.success(`Quiz passed! Score: ${score}%`);
+      try {
+        const { error } = await supabase
+          .from('training_progress')
+          .upsert({
+            document_id: currentDocument.id,
+            employee_number: employeeNumber,
+            completed: true,
+            completed_at: new Date().toISOString(),
+            quiz_passed: true,
+            quiz_score: score,
+            time_spent: (progress[currentDocument.id]?.time_spent || 0) + 1,
+            last_accessed: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'document_id,employee_number'
+          });
+
+        if (error) throw error;
+
+        // Update local state
+        setProgress(prev => ({
+          ...prev,
+          [currentDocument.id]: {
+            ...prev[currentDocument.id],
+            completed: true,
+            completed_at: new Date().toISOString(),
+            quiz_passed: true,
+            quiz_score: score,
+            time_spent: (prev[currentDocument.id]?.time_spent || 0) + 1,
+            last_accessed: new Date().toISOString()
+          }
+        }));
+
+        toast.success(`Quiz passed! Score: ${score}%`);
+      } catch (error) {
+        console.error('Error updating quiz results:', error);
+        toast.error('Failed to save quiz results');
+      }
     } else {
       toast.error(`Quiz score ${score}% - please review and try again`);
     }
   };
 
-  // Get next/previous videos
-  const getAdjacentVideos = () => {
-    if (!currentVideo || videos.length === 0) return { prev: null, next: null };
+  // Get next/previous documents
+  const getAdjacentDocuments = () => {
+    if (!currentDocument || documents.length === 0) return { prev: null, next: null };
 
-    const currentIndex = videos.findIndex(v => v.id === currentVideo.id);
-    const prevVideo = currentIndex > 0 ? videos[currentIndex - 1] : null;
-    const nextVideo = currentIndex < videos.length - 1 ? videos[currentIndex + 1] : null;
+    const currentIndex = documents.findIndex(d => d.id === currentDocument.id);
+    const prevDocument = currentIndex > 0 ? documents[currentIndex - 1] : null;
+    const nextDocument = currentIndex < documents.length - 1 ? documents[currentIndex + 1] : null;
 
     return {
-      prev: prevVideo,
-      next: nextVideo
+      prev: prevDocument,
+      next: nextDocument
     };
   };
 
-  // Filter videos by category
-  const filteredVideos = activeCategory 
-    ? videos.filter(v => v.category === activeCategory)
-    : videos;
-
   // Calculate overall progress
-  const overallProgress = videos.length > 0
+  const overallProgress = documents.length > 0
     ? Math.round(
         (Object.values(progress).filter(p => p.completed).length / 
-        videos.filter(v => v.required).length) * 100
+        documents.filter(d => d.required).length) * 100
       )
     : 0;
+
+  // Format file size
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Get file icon based on file type
+  const getFileIcon = (fileType: string) => {
+    if (isVideoFile(fileType)) return <Video className="h-5 w-5" />;
+    if (isPDFFile(fileType)) return <FileText className="h-5 w-5" />;
+    if (isImageFile(fileType)) return <Image className="h-5 w-5" />;
+    return <File className="h-5 w-5" />;
+  };
+
+  // Get file type badge
+  const getFileTypeBadge = (fileType: string) => {
+    if (isVideoFile(fileType)) return { text: 'Video', color: 'bg-red-100 text-red-800' };
+    if (isPDFFile(fileType)) return { text: 'PDF', color: 'bg-red-100 text-red-800' };
+    if (isImageFile(fileType)) return { text: 'Image', color: 'bg-green-100 text-green-800' };
+    return { text: 'Document', color: 'bg-blue-100 text-blue-800' };
+  };
+
+  // Calculate progress percentage based on time spent
+  const calculateProgressPercentage = (documentId: string) => {
+    const docProgress = progress[documentId];
+    if (!docProgress) return 0;
+    
+    if (docProgress.completed) return 100;
+    
+    // Use time spent as a proxy for progress (each minute = 10% progress)
+    return Math.min(docProgress.time_spent * 10, 90);
+  };
+
+  // Count videos and documents
+  const videoCount = documents.filter(doc => isVideoFile(doc.file_type)).length;
+  const documentCount = documents.filter(doc => !isVideoFile(doc.file_type)).length;
 
   // Render loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center min-h-96">
         <div className="animate-pulse flex flex-col items-center">
           <div className="h-12 w-12 bg-gray-200 rounded-full mb-4"></div>
           <div className="h-4 bg-gray-200 rounded w-32"></div>
@@ -336,99 +522,122 @@ const TrainingModule = () => {
     );
   }
 
-  // Render video player view
-  if (currentVideo) {
+  // Render document viewer
+  if (currentDocument) {
+    const isVideo = isVideoFile(currentDocument.file_type);
+    const isImage = isImageFile(currentDocument.file_type);
+    const isPDF = isPDFFile(currentDocument.file_type);
+    const currentProgress = calculateProgressPercentage(currentDocument.id);
+    const fileTypeBadge = getFileTypeBadge(currentDocument.file_type);
+
     return (
       <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-        {/* Video header */}
+        {/* Document header */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-gray-50 to-white">
           <button
-            onClick={() => setCurrentVideo(null)}
+            onClick={() => setCurrentDocument(null)}
             className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ChevronLeft className="h-5 w-5 mr-2" />
             <span className="font-medium">Back to training</span>
           </button>
           <div className="flex items-center space-x-3">
-            <span className="text-xs font-medium text-gray-500">
-              {currentVideo.category.charAt(0).toUpperCase() + currentVideo.category.slice(1)} Training
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${fileTypeBadge.color}`}>
+              {fileTypeBadge.text}
             </span>
-            {currentVideo.required && (
+            <span className="text-xs font-medium text-gray-500">
+              {currentDocument.category} Training
+            </span>
+            {currentDocument.required && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                 Required
+              </span>
+            )}
+            {currentDocument.quiz_required && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                Quiz Required
               </span>
             )}
           </div>
         </div>
 
-        {/* Video player area */}
-       <div className="p-6">
-  <div className="aspect-w-16 aspect-h-9 bg-black rounded-xl overflow-hidden mb-6 shadow-md">
-    {/* Conditional rendering for video player or thumbnail */}
-    {isPlaying ? (
-      // Video player when playing
-      <video
-        controls
-        autoPlay
-        className="w-full h-[480px] object-contain bg-black"
-        onEnded={() => setIsPlaying(false)}
-      >
-        <source src={currentVideo.url} type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
-    ) : (
-      // Thumbnail with play button when paused
-      <div className="w-full h-[480px] bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center relative">
-        {currentVideo.thumbnail_url ? (
-          <>
-            <img 
-              src={currentVideo.thumbnail_url} 
-              alt={currentVideo.title}
-              className="w-full h-full object-cover opacity-70"
-            />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <button 
-                onClick={() => setIsPlaying(true)}
-                className="p-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full hover:bg-opacity-30 transition-all"
-              >
-                <PlayCircle className="h-16 w-16 text-white" strokeWidth={1.5} />
-              </button>
-            </div>
-          </>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <button 
-              onClick={() => setIsPlaying(true)}
-              className="p-4 bg-white bg-opacity-20 backdrop-blur-sm rounded-full hover:bg-opacity-30 transition-all"
-            >
-              <PlayCircle className="h-16 w-16 text-white" strokeWidth={1.5} />
-            </button>
+        <div className="p-6">
+          {/* Document preview area */}
+          <div className="bg-gray-900 rounded-xl overflow-hidden mb-6 shadow-md min-h-[400px] flex items-center justify-center">
+            {isVideo ? (
+              <div className="w-full max-w-4xl">
+                <video
+                  ref={videoRef}
+                  controls
+                  className="w-full max-h-[600px] object-contain"
+                  onPlay={handleVideoPlay}
+                  onEnded={handleVideoEnd}
+                >
+                  <source src={currentDocument.url} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            ) : isPDF ? (
+              <div className="w-full h-full flex flex-col items-center justify-center p-8">
+                <FileText className="h-24 w-24 text-white mb-4 opacity-50" />
+                <p className="text-white text-lg mb-4">PDF Document</p>
+                <a
+                  href={currentDocument.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors flex items-center"
+                >
+                  <Download className="h-5 w-5 mr-2" />
+                  Open PDF in New Tab
+                </a>
+              </div>
+            ) : isImage ? (
+              <img 
+                src={currentDocument.url} 
+                alt={currentDocument.title}
+                className="w-full h-full object-contain max-h-[600px]"
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center p-8">
+                <FileText className="h-24 w-24 text-white mb-4 opacity-50" />
+                <p className="text-white text-lg mb-4">{currentDocument.file_type.toUpperCase()} Document</p>
+                <a
+                  href={currentDocument.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors flex items-center"
+                >
+                  <Download className="h-5 w-5 mr-2" />
+                  Download File
+                </a>
+              </div>
+            )}
           </div>
-        )}
-        <div className="absolute bottom-6 left-6 right-6">
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div 
-              className="bg-emerald-500 h-2 rounded-full" 
-              style={{ width: `${videoProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      </div>
-    )}
-  </div>
-
 
           <div className="flex flex-col md:flex-row justify-between items-start mb-8 gap-6">
             <div className="flex-1">
-              <h2 className="text-2xl font-semibold text-gray-900">{currentVideo.title}</h2>
-              <p className="text-gray-600 mt-2">{currentVideo.description}</p>
+              <h2 className="text-2xl font-semibold text-gray-900">{currentDocument.title}</h2>
+              <p className="text-gray-600 mt-2">{currentDocument.description}</p>
+              <div className="flex flex-wrap gap-4 mt-4 text-xs text-gray-500">
+                <span className="flex items-center">
+                  <FileText className="h-4 w-4 mr-1" />
+                  {formatFileSize(currentDocument.file_size)}
+                </span>
+                <span>{currentDocument.file_type}</span>
+                <span className="flex items-center">
+                  <Filter className="h-4 w-4 mr-1" />
+                  {currentDocument.category}
+                </span>
+                {progress[currentDocument.id]?.time_spent > 0 && (
+                  <span className="flex items-center">
+                    <Clock className="h-4 w-4 mr-1" />
+                    {progress[currentDocument.id].time_spent} min spent
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-3">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                <Clock className="h-4 w-4 mr-1.5" />
-                {Math.floor(currentVideo.duration / 60)}m {currentVideo.duration % 60}s
-              </span>
-              {progress[currentVideo.id]?.completed && (
+              {progress[currentDocument.id]?.completed && (
                 <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   Completed
@@ -443,27 +652,35 @@ const TrainingModule = () => {
               <div className="w-full">
                 <div className="flex justify-between text-xs text-gray-600 mb-2">
                   <span className="font-medium">Your progress</span>
-                  <span className="font-semibold">{videoProgress}%</span>
+                  <span className="font-semibold">{currentProgress}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div 
                     className="bg-emerald-600 h-3 rounded-full" 
-                    style={{ width: `${videoProgress}%` }}
+                    style={{ width: `${currentProgress}%` }}
                   ></div>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  const newProgress = videoProgress >= 95 ? 100 : videoProgress + 5;
-                  setVideoProgress(newProgress);
-                  updateVideoProgress(currentVideo.id, newProgress);
-                  if (newProgress === 100) handleVideoComplete();
-                }}
-                className="px-6 py-3 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
-              >
-                {videoProgress >= 95 ? 'Mark Complete' : 'Add Progress +5%'}
-              </button>
+              {!isVideo && (
+                <button
+                  onClick={() => {
+                    if (currentProgress >= 90) {
+                      handleDocumentComplete();
+                    } else {
+                      updateDocumentProgress(currentDocument.id, currentProgress + 10);
+                    }
+                  }}
+                  className="px-6 py-3 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm whitespace-nowrap"
+                >
+                  {currentProgress >= 90 ? 'Mark Complete' : 'Add Progress +10%'}
+                </button>
+              )}
             </div>
+            {isVideo && (
+              <p className="text-xs text-gray-500 mt-3 text-center">
+                Video progress is automatically tracked when you watch the entire video
+              </p>
+            )}
           </div>
 
           {/* Quiz section */}
@@ -551,7 +768,7 @@ const TrainingModule = () => {
                       </button>
                     ) : (
                       <button
-                        onClick={() => setCurrentVideo(null)}
+                        onClick={() => setCurrentDocument(null)}
                         className="px-6 py-3 bg-emerald-600 text-white text-xs font-medium rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                       >
                         Continue Training
@@ -563,37 +780,37 @@ const TrainingModule = () => {
             </div>
           )}
 
-          {/* Navigation between videos */}
+          {/* Navigation between documents */}
           <div className="flex flex-col md:flex-row justify-between gap-4 border-t border-gray-200 pt-8 mt-8">
-            {getAdjacentVideos().prev ? (
+            {getAdjacentDocuments().prev ? (
               <button
-                onClick={() => handleSelectVideo(getAdjacentVideos().prev!)}
+                onClick={() => handleSelectDocument(getAdjacentDocuments().prev!)}
                 className="flex-1 flex items-center justify-start px-6 py-3 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <ChevronLeft className="h-5 w-5 mr-2" />
                 <div className="text-left">
                   <div className="text-xs text-gray-500">Previous</div>
-                  <div className="font-medium truncate max-w-xs">{getAdjacentVideos().prev?.title}</div>
+                  <div className="font-medium truncate max-w-xs">{getAdjacentDocuments().prev?.title}</div>
                 </div>
               </button>
             ) : (
               <div className="flex-1"></div>
             )}
 
-            {getAdjacentVideos().next ? (
+            {getAdjacentDocuments().next ? (
               <button
-                onClick={() => handleSelectVideo(getAdjacentVideos().next!)}
+                onClick={() => handleSelectDocument(getAdjacentDocuments().next!)}
                 className="flex-1 flex items-center justify-end px-6 py-3 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <div className="text-right">
                   <div className="text-xs text-gray-500">Next</div>
-                  <div className="font-medium truncate max-w-xs">{getAdjacentVideos().next?.title}</div>
+                  <div className="font-medium truncate max-w-xs">{getAdjacentDocuments().next?.title}</div>
                 </div>
                 <ChevronRight className="h-5 w-5 ml-2" />
               </button>
             ) : (
               <button
-                onClick={() => setCurrentVideo(null)}
+                onClick={() => setCurrentDocument(null)}
                 className="flex-1 flex items-center justify-center px-6 py-3 border border-transparent text-xs font-medium rounded-lg shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
               >
                 Finish Section
@@ -614,7 +831,7 @@ const TrainingModule = () => {
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Training Progress</h2>
             <p className="text-gray-600 mt-1">
-              Complete all required training modules to advance
+              Complete all required training materials to advance
             </p>
           </div>
           <div className="w-full md:w-80">
@@ -639,8 +856,8 @@ const TrainingModule = () => {
                 <Bookmark className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">Total Modules</p>
-                <p className="text-2xl font-semibold text-gray-900">{videos.length}</p>
+                <p className="text-xs font-medium text-gray-500">Total Materials</p>
+                <p className="text-2xl font-semibold text-gray-900">{documents.length}</p>
               </div>
             </div>
           </div>
@@ -660,182 +877,233 @@ const TrainingModule = () => {
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center">
               <div className="p-3 rounded-lg bg-amber-100 text-amber-600 mr-4">
-                <Clock className="h-5 w-5" />
+                <Video className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">In Progress</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {Object.values(progress).filter(p => p.progress > 0 && !p.completed).length}
-                </p>
+                <p className="text-xs font-medium text-gray-500">Videos</p>
+                <p className="text-2xl font-semibold text-gray-900">{videoCount}</p>
               </div>
             </div>
           </div>
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-gray-100 text-gray-600 mr-4">
-                <Lock className="h-5 w-5" />
+              <div className="p-3 rounded-lg bg-purple-100 text-purple-600 mr-4">
+                <FileText className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500">Locked</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {videos.filter(v => v.required && !progress[v.id]?.completed).length}
-                </p>
+                <p className="text-xs font-medium text-gray-500">Documents</p>
+                <p className="text-2xl font-semibold text-gray-900">{documentCount}</p>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Category tabs */}
-      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-        <div className="border-b border-gray-200">
-          <nav className="flex -mb-px overflow-x-auto">
+      {/* Search and Filter */}
+      <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <input
+                type="text"
+                placeholder="Search training materials..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
             <button
-              onClick={() => setActiveCategory(null)}
-              className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center ${
-                !activeCategory
-                  ? 'border-emerald-500 text-emerald-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors ${
+                activeTab === 'all' 
+                  ? 'bg-emerald-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <BarChart2 className="h-5 w-5 mr-2" />
-              All Training
+              All ({documents.length})
             </button>
-            {categories.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
-                className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center transition-colors ${
-                  activeCategory === cat.id
-                    ? `${cat.color} border-${cat.color.split('-')[1]}-500`
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                {cat.icon}
-                <span className="ml-2">{cat.name}</span>
-              </button>
-            ))}
-          </nav>
+            <button
+              onClick={() => setActiveTab('videos')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'videos' 
+                  ? 'bg-red-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <Video className="h-4 w-4" />
+              Videos ({videoCount})
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`px-4 py-2 text-xs font-medium rounded-lg transition-colors flex items-center gap-2 ${
+                activeTab === 'documents' 
+                  ? 'bg-blue-600 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <FileText className="h-4 w-4" />
+              Documents ({documentCount})
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Training modules list */}
-      {filteredVideos.length === 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-              <div className="p-6">
-                <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-lg mb-4 overflow-hidden">
-                  <div className="w-full h-48 bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                    <PlayCircle className="h-12 w-12 text-gray-400" />
-                  </div>
-                </div>
-                <div className="animate-pulse">
-                  <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
-                  <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-5/6 mb-4"></div>
-                  <div className="flex space-x-3">
-                    <div className="h-6 bg-gray-200 rounded w-20"></div>
-                    <div className="h-6 bg-gray-200 rounded w-20"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Category tabs */}
+      {categories.length > 0 && (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+          <div className="border-b border-gray-200">
+            <nav className="flex -mb-px overflow-x-auto">
+              <button
+                onClick={() => setActiveCategory(null)}
+                className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center ${
+                  !activeCategory
+                    ? 'border-emerald-500 text-emerald-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <BarChart2 className="h-5 w-5 mr-2" />
+                All Categories
+              </button>
+              {categories.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setActiveCategory(cat.id)}
+                  className={`whitespace-nowrap py-5 px-6 border-b-2 font-medium text-xs flex items-center transition-colors ${
+                    activeCategory === cat.id
+                      ? `${cat.color} border-${cat.color.split('-')[1]}-500`
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className={cat.color}>{cat.icon}</span>
+                  <span className="ml-2">{cat.name}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Training materials list */}
+      {filteredDocuments.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-200">
+          <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">No training materials found</h3>
+          <p className="mt-2 text-xs text-gray-500">
+            {documents.length === 0 
+              ? "No training materials have been added yet." 
+              : "No materials match your current filters."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredVideos.map((video) => {
-            const isCompleted = progress[video.id]?.completed;
-            const isLocked = video.required && 
-              videos.some(v => v.required && v.order < video.order && !progress[v.id]?.completed);
-            const category = categories.find(c => c.id === video.category);
+          {filteredDocuments.map((document) => {
+            const isCompleted = progress[document.id]?.completed;
+            const isLocked = document.required && 
+              documents.some(d => d.required && d.order < document.order && !progress[d.id]?.completed);
+            const category = categories.find(c => c.name === document.category);
+            const progressPercentage = calculateProgressPercentage(document.id);
+            const isVideo = isVideoFile(document.file_type);
+            const fileTypeBadge = getFileTypeBadge(document.file_type);
 
             return (
               <motion.div 
-                key={video.id}
+                key={document.id}
                 whileHover={{ y: -4 }}
                 className={`bg-white rounded-xl shadow-sm overflow-hidden border ${
                   isCompleted ? 'border-emerald-200' : 'border-gray-200'
                 } hover:shadow-md transition-shadow`}
               >
                 <div className="p-6">
-                  <div className="flex items-start">
-                    <div className={`p-3 rounded-lg mr-4 ${
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`p-2 rounded-lg ${
                       isCompleted 
                         ? 'bg-emerald-100 text-emerald-600' 
                         : isLocked
                           ? 'bg-gray-100 text-gray-400'
                           : category?.bgColor + ' ' + category?.color
                     }`}>
-                      {isLocked ? (
-                        <Lock className="h-5 w-5" />
-                      ) : (
-                        <PlayCircle className="h-5 w-5" />
-                      )}
+                      {getFileIcon(document.file_type)}
                     </div>
-                    <div className="flex-1">
-                      <h3 className={`text-lg font-semibold ${
-                        isCompleted ? 'text-emerald-800' : 'text-gray-900'
-                      }`}>
-                        {video.title}
-                      </h3>
-                      <p className="text-xs text-gray-600 mt-1">{video.description}</p>
-                      <div className="flex items-center mt-3 space-x-2">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {Math.floor(video.duration / 60)}m
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${fileTypeBadge.color}`}>
+                      {fileTypeBadge.text}
+                    </span>
+                  </div>
+                  
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold ${
+                      isCompleted ? 'text-emerald-800' : 'text-gray-900'
+                    }`}>
+                      {document.title}
+                    </h3>
+                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{document.description}</p>
+                    <div className="flex items-center mt-3 space-x-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        {formatFileSize(document.file_size)}
+                      </span>
+                      {document.required && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                          Required
                         </span>
-                        {video.required && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                            Required
-                          </span>
-                        )}
-                      </div>
+                      )}
+                      {document.quiz_required && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          Quiz
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <div className="mt-5">
                     <div className="flex justify-between text-xs text-gray-600 mb-1.5">
                       <span>Progress</span>
-                      <span className="font-medium">{progress[video.id]?.progress || 0}%</span>
+                      <span className="font-medium">{progressPercentage}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div 
                         className={`h-1.5 rounded-full ${
                           isCompleted ? 'bg-emerald-600' : 'bg-blue-600'
                         }`} 
-                        style={{ width: `${progress[video.id]?.progress || 0}%` }}
+                        style={{ width: `${progressPercentage}%` }}
                       ></div>
                     </div>
                   </div>
 
                   <div className="mt-5">
                     <button
-                      onClick={() => !isLocked && handleSelectVideo(video)}
+                      onClick={() => !isLocked && handleSelectDocument(document)}
                       disabled={isLocked}
                       className={`w-full flex justify-center items-center px-4 py-2.5 border ${
                         isLocked
                           ? 'border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed'
                           : isCompleted
                             ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                            : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+                            : isVideo
+                              ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100'
+                              : 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
                       } rounded-lg text-xs font-medium transition-colors`}
                     >
                       {isLocked ? (
                         <>
                           <Lock className="h-4 w-4 mr-2" />
-                          Complete previous modules
+                          Complete previous materials
                         </>
                       ) : isCompleted ? (
                         <>
                           <CheckCircle2 className="h-4 w-4 mr-2" />
-                          View Again
+                          Review Again
+                        </>
+                      ) : isVideo ? (
+                        <>
+                          <PlayCircle className="h-4 w-4 mr-2" />
+                          Watch Video
                         </>
                       ) : (
                         <>
-                          <PlayCircle className="h-4 w-4 mr-2" />
-                          {progress[video.id]?.progress ? 'Continue' : 'Start'}
+                          <BookOpen className="h-4 w-4 mr-2" />
+                          {progress[document.id]?.time_spent ? 'Continue' : 'Start'}
                         </>
                       )}
                     </button>
@@ -847,16 +1115,16 @@ const TrainingModule = () => {
         </div>
       )}
 
-      {/* Completion certificate (visible when all required videos are done) */}
-      {videos.length > 0 && 
-       videos.filter(v => v.required).length === 
+      {/* Completion certificate (visible when all required documents are done) */}
+      {documents.length > 0 && 
+       documents.filter(d => d.required).length === 
        Object.values(progress).filter(p => p.completed).length && (
         <div className="bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl shadow-lg p-8 border border-emerald-200">
           <div className="flex flex-col md:flex-row md:items-center gap-6">
             <div className="flex-1">
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Training Complete! 🎉</h2>
               <p className="text-gray-600">
-                Congratulations on completing all required training modules. Download your certificate below.
+                Congratulations on completing all required training materials. Download your certificate below.
               </p>
             </div>
             <div>

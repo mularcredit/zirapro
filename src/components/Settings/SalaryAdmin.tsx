@@ -1573,6 +1573,7 @@ const TownFilter = ({
 
 // MpesaCallbacks Component
 // MpesaCallbacks Component
+// Complete MpesaCallbacks Component with Export Functionality
 const MpesaCallbacks = () => {
   const [callbacks, setCallbacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1583,6 +1584,8 @@ const MpesaCallbacks = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   // Enhanced function to match M-Pesa transactions with employees
   const enhanceCallbackWithEmployeeData = async (callbacks) => {
@@ -1855,6 +1858,306 @@ const MpesaCallbacks = () => {
     return `KSh ${amount.toLocaleString()}`;
   };
 
+  // Export Modal Component for M-Pesa Statements
+  const ExportMpesaModal = ({ isOpen, onClose, onExport, isLoading }) => {
+    const [format, setFormat] = useState('csv');
+    const [dateRange, setDateRange] = useState('all');
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
+
+    if (!isOpen) return null;
+
+    const handleExport = () => {
+      onExport({
+        format,
+        dateRange,
+        customStartDate,
+        customEndDate
+      });
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+            <Download className="h-5 w-5 text-green-600" />
+            Export M-Pesa Statements
+          </h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Export Format
+              </label>
+              <select
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="csv">CSV (.csv)</option>
+                <option value="excel">Excel (.xlsx)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">
+                Date Range
+              </label>
+              <select
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+                <option value="last_month">Last Month</option>
+                <option value="last_3_months">Last 3 Months</option>
+                <option value="custom">Custom Range</option>
+              </select>
+            </div>
+
+            {dateRange === 'custom' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <p className="text-xs text-blue-800">
+                <strong>Exporting Columns:</strong> 
+              </p>
+              <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
+                <li>Transaction Date & Time</li>
+                <li>Transaction ID & Conversation IDs</li>
+                <li>Result Code & Description</li>
+                <li>Transaction Amount</li>
+                <li>Receiver Party Details</li>
+                <li>Employee Name & Number</li>
+                <li>Transaction Status</li>
+                <li>Processing Timestamp</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              disabled={isLoading}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleExport}
+              disabled={isLoading}
+              className="px-4 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Statement
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Enhanced export function with date filtering
+  const handleExportWithFilters = async (exportConfig) => {
+    try {
+      setIsExporting(true);
+      
+      let query = supabase
+        .from('mpesa_callbacks')
+        .select(`
+          id,
+          callback_date,
+          raw_response,
+          result_type,
+          result_code,
+          result_desc,
+          originator_conversation_id,
+          conversation_id,
+          transaction_id,
+          employee_number,
+          full_name,
+          amount,
+          status,
+          created_at,
+          processed_at
+        `)
+        .order('callback_date', { ascending: false });
+
+      // Apply status filter
+      if (filterStatus !== 'all') {
+        query = query.eq('status', filterStatus);
+      }
+
+      // Apply date range filter
+      if (exportConfig.dateRange !== 'all') {
+        const today = new Date();
+        let startDate = new Date();
+        
+        switch (exportConfig.dateRange) {
+          case 'today':
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case 'this_week':
+            startDate.setDate(today.getDate() - today.getDay());
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case 'this_month':
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            break;
+          case 'last_month':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            break;
+          case 'last_3_months':
+            startDate = new Date(today.getFullYear(), today.getMonth() - 3, 1);
+            break;
+          case 'custom':
+            if (exportConfig.customStartDate) {
+              startDate = new Date(exportConfig.customStartDate);
+            }
+            break;
+        }
+
+        if (exportConfig.dateRange !== 'custom' || exportConfig.customStartDate) {
+          query = query.gte('callback_date', startDate.toISOString());
+        }
+
+        if (exportConfig.dateRange === 'custom' && exportConfig.customEndDate) {
+          const endDate = new Date(exportConfig.customEndDate);
+          endDate.setHours(23, 59, 59, 999);
+          query = query.lte('callback_date', endDate.toISOString());
+        }
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Error fetching callbacks for export:', error);
+        toast.error('Failed to fetch data for export');
+        return;
+      }
+
+      // Enhance data with employee information
+      const enhancedData = await enhanceCallbackWithEmployeeData(data || []);
+      
+      // Remove duplicates
+      const uniqueCallbacks = removeDuplicateCallbacks(enhancedData);
+      
+      // Prepare data for export
+      const exportData = uniqueCallbacks.map(callback => {
+        const transactionData = extractTransactionData(callback);
+        const transactionAmount = transactionData?.TransactionAmount || callback.amount;
+        const receiverParty = transactionData?.ReceiverPartyPublicName || 'N/A';
+        
+        return {
+          'Transaction Date': callback.callback_date ? new Date(callback.callback_date).toLocaleString() : 'N/A',
+          'Transaction ID': callback.transaction_id || 'N/A',
+          'Conversation ID': callback.conversation_id || 'N/A',
+          'Originator Conversation ID': callback.originator_conversation_id || 'N/A',
+          'Result Code': callback.result_code,
+          'Result Description': callback.result_desc || 'N/A',
+          'Transaction Amount': transactionAmount ? `KSh ${Number(transactionAmount).toLocaleString()}` : 'N/A',
+          'Receiver Party': receiverParty,
+          'Employee Name': callback.full_name,
+          'Employee Number': callback.employee_number,
+          'Status': callback.status,
+          'Processed At': callback.processed_at ? new Date(callback.processed_at).toLocaleString() : 'N/A'
+        };
+      });
+
+      if (exportConfig.format === 'csv') {
+        // Convert to CSV
+        const headers = Object.keys(exportData[0] || {});
+        
+        const csvContent = [
+          headers.join(','),
+          ...exportData.map(row => 
+            headers.map(header => {
+              const value = row[header];
+              return `"${String(value || '').replace(/"/g, '""')}"`;
+            }).join(',')
+          )
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `mpesa_statements_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else {
+        // For Excel export - using tab-separated format
+        const headers = Object.keys(exportData[0] || {});
+        const excelContent = [
+          headers.join('\t'),
+          ...exportData.map(row => 
+            headers.map(header => {
+              const value = row[header];
+              return String(value || '');
+            }).join('\t')
+          )
+        ].join('\n');
+
+        const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `mpesa_statements_${new Date().toISOString().split('T')[0]}.xls`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      toast.success(`Exported ${exportData.length} M-Pesa transactions successfully`);
+      setShowExportModal(false);
+      
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('Failed to export M-Pesa statements');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex justify-between items-center mb-6">
@@ -1874,6 +2177,15 @@ const MpesaCallbacks = () => {
           </p>
         </div>
         <div className="flex items-center gap-4">
+          {/* Export Button */}
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+          >
+            <Download className="w-4 h-4" />
+            Statement
+          </button>
+
           {/* Search Input */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1883,7 +2195,7 @@ const MpesaCallbacks = () => {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1); // Reset to first page when searching
+                setCurrentPage(1);
               }}
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 w-80"
             />
@@ -2169,7 +2481,8 @@ const MpesaCallbacks = () => {
                 </div>
                 <div>
                   <p className="text-xs text-gray-600">Transaction ID</p>
-                  <p className="font-mono font-semibold text-sm">{selectedCallback.transaction_id || 'N/A'}</p>
+                  <p className="font-mono font-semibold text-sm">{selectedCallback.transaction_id || 'N/A'}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-gray-600">Conversation ID</p>
@@ -2274,6 +2587,14 @@ const MpesaCallbacks = () => {
           </div>
         </div>
       )}
+
+      {/* Export Modal */}
+      <ExportMpesaModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onExport={handleExportWithFilters}
+        isLoading={isExporting}
+      />
     </div>
   );
 };

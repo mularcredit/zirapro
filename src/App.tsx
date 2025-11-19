@@ -53,7 +53,6 @@ import StatutoryDeductionsReport from './components/Reports/statutory';
 
 interface User {
   email: string;
-  
   role: string;
   town?: string;
 }
@@ -160,6 +159,10 @@ function App() {
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   
+  // Inactivity timer refs (using refs instead of state for timers)
+  const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
   
   // Zoom meeting state
   const {
@@ -186,6 +189,146 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Inactivity timeout constants
+  const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
+  const WARNING_TIMEOUT = 60 * 1000; // 1 minute warning before logout
+
+  // Check if current route should be excluded from inactivity timer
+  const shouldExcludeFromInactivityTimer = useCallback(() => {
+    const excludedRoutes = ['/login', '/mfa', '/update-password'];
+    const isExcludedRoute = excludedRoutes.includes(location.pathname);
+    const isAuthProcess = sessionStorage.getItem('isPasswordRecovery') === 'true' || 
+                         sessionStorage.getItem('isMFAProcess') === 'true';
+    
+    return isExcludedRoute || isAuthProcess || !session || !user;
+  }, [location.pathname, session, user]);
+
+  // Clear all timers function
+  const clearAllTimers = useCallback(() => {
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    setShowInactivityWarning(false);
+    
+    // Clear any inactivity warning toast
+    toast.dismiss('inactivity-warning');
+  }, []);
+
+  // Reset inactivity timer
+  const resetInactivityTimer = useCallback(() => {
+    // Don't set timer if we're on excluded routes or during auth processes
+    if (shouldExcludeFromInactivityTimer()) {
+      clearAllTimers();
+      return;
+    }
+
+    // Clear existing timers first
+    clearAllTimers();
+
+    // Only set timer if user is logged in and not in excluded routes
+    if (session && user) {
+      // Set warning timer (9 minutes)
+      warningTimerRef.current = setTimeout(() => {
+        setShowInactivityWarning(true);
+        toast.error('You will be logged out due to inactivity in 1 minute.', {
+          duration: 60000,
+          id: 'inactivity-warning'
+        });
+      }, INACTIVITY_TIMEOUT - WARNING_TIMEOUT);
+
+      // Set logout timer (10 minutes)
+      inactivityTimerRef.current = setTimeout(() => {
+        handleAutoLogout();
+      }, INACTIVITY_TIMEOUT);
+    }
+  }, [session, user, shouldExcludeFromInactivityTimer, clearAllTimers]);
+
+  // Auto logout function
+  const handleAutoLogout = useCallback(async () => {
+    if (session && user) {
+      console.log('Auto-logging out due to inactivity');
+      
+      // Reset refs on auto logout
+      hasShownWelcomeToast.current = false;
+      lastAuthEvent.current = '';
+      navigationHandled.current = false;
+      
+      // Clear all timers
+      clearAllTimers();
+      
+      try {
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error('Auto-logout error:', error);
+        } else {
+          toast.success('Automatically logged out due to inactivity');
+        }
+        
+        setUser(null);
+        setSession(null);
+        setSelectedTown('');
+        setSelectedRegion('All Regions');
+        localStorage.removeItem('selectedTown');
+        
+        // Clear all auth flags
+        sessionStorage.removeItem('isPasswordRecovery');
+        sessionStorage.removeItem('isMFAProcess');
+        
+        navigate('/login', { replace: true });
+      } catch (error) {
+        console.error('Unexpected auto-logout error:', error);
+        setUser(null);
+        setSession(null);
+        setSelectedTown('');
+        setSelectedRegion('All Regions');
+        localStorage.removeItem('selectedTown');
+        sessionStorage.removeItem('isPasswordRecovery');
+        sessionStorage.removeItem('isMFAProcess');
+        navigate('/login', { replace: true });
+      }
+    }
+  }, [session, user, clearAllTimers, navigate]);
+
+  // Activity detection event handlers
+  const handleUserActivity = useCallback(() => {
+    if (session && user && !shouldExcludeFromInactivityTimer()) {
+      resetInactivityTimer();
+    }
+  }, [session, user, resetInactivityTimer, shouldExcludeFromInactivityTimer]);
+
+  // Set up activity event listeners - ONLY when user is properly authenticated
+  useEffect(() => {
+    // Only set up listeners if user is logged in and not in auth processes
+    if (session && user && !shouldExcludeFromInactivityTimer()) {
+      const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+      
+      events.forEach(event => {
+        document.addEventListener(event, handleUserActivity, true);
+      });
+
+      // Initialize the timer
+      resetInactivityTimer();
+
+      return () => {
+        events.forEach(event => {
+          document.removeEventListener(event, handleUserActivity, true);
+        });
+        
+        // Clear timers on cleanup
+        clearAllTimers();
+      };
+    } else {
+      // Clear timers if user is not properly authenticated or on excluded routes
+      clearAllTimers();
+    }
+  }, [session, user, handleUserActivity, resetInactivityTimer, shouldExcludeFromInactivityTimer, clearAllTimers]);
 
   const handleJoinMeeting = async (config: {
     topic: string;
@@ -320,10 +463,17 @@ function App() {
 
   const handleLogout = useCallback(async () => {
     try {
+      // Clear all timers first
+      clearAllTimers();
+      
       // Reset refs on logout
       hasShownWelcomeToast.current = false;
       lastAuthEvent.current = '';
       navigationHandled.current = false;
+      
+      // Clear MFA and recovery flags
+      sessionStorage.removeItem('isMFAProcess');
+      sessionStorage.removeItem('isPasswordRecovery');
       
       const loadingToast = toast.loading('Signing out...');
       const { error } = await supabase.auth.signOut();
@@ -351,7 +501,7 @@ function App() {
       localStorage.removeItem('selectedTown');
       navigate('/login', { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, clearAllTimers]);
 
  const handleLoginSuccess = useCallback((town: string, userRole: string) => {
   if (town) {
@@ -359,6 +509,11 @@ function App() {
   }
 
   hasShownWelcomeToast.current = true;
+
+  // Set MFA process flag for CHECKER role
+  if (userRole === 'CHECKER') {
+    sessionStorage.setItem('isMFAProcess', 'true');
+  }
 
   setTimeout(() => {
     // For CHECKER role, the MFA flow will handle navigation after verification
@@ -373,96 +528,95 @@ function App() {
 
 
   // Handle email confirmation redirect
-  // Handle email confirmation redirect
-useEffect(() => {
-  const handleEmailConfirmation = async () => {
-    const type = searchParams.get('type');
-    const token = searchParams.get('token');
-    const accessToken = searchParams.get('access_token');
-    
-    // Handle password recovery - this runs AFTER Supabase auto-login
-    if (type === 'recovery' && (token || accessToken)) {
-      console.log('Password recovery detected, setting flag...');
+  useEffect(() => {
+    const handleEmailConfirmation = async () => {
+      const type = searchParams.get('type');
+      const token = searchParams.get('token');
+      const accessToken = searchParams.get('access_token');
       
-      // Set flag to prevent normal auth flow
-      sessionStorage.setItem('isPasswordRecovery', 'true');
-      
-      // Clear the URL parameters to prevent loops
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
-      
-      // The user is already authenticated by Supabase at this point
-      // Just ensure we stay on the password reset page
-      if (location.pathname !== '/update-password') {
-        navigate('/update-password', { replace: true });
-      }
-      
-      return;
-    }
-    
-    // Handle signup confirmation as before (keep your existing code)
-    if (type === 'signup' && accessToken) {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+      // Handle password recovery - this runs AFTER Supabase auto-login
+      if (type === 'recovery' && (token || accessToken)) {
+        console.log('Password recovery detected, setting flag...');
         
-        if (error) {
-          navigate('/login', { replace: true });
-          return;
+        // Set flag to prevent normal auth flow and inactivity timer
+        sessionStorage.setItem('isPasswordRecovery', 'true');
+        
+        // Clear the URL parameters to prevent loops
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+        
+        // The user is already authenticated by Supabase at this point
+        // Just ensure we stay on the password reset page
+        if (location.pathname !== '/update-password') {
+          navigate('/update-password', { replace: true });
         }
-
-        if (session?.user) {
-          const userRole = session.user.user_metadata?.role || 'STAFF';
-          const userTown = session.user.user_metadata?.town || '';
-          
-          // Show email verification toast only once
-          if (!hasShownWelcomeToast.current) {
-            toast.success('Email verified successfully! Welcome to Zira HR.');
-            hasShownWelcomeToast.current = true;
-          }
-          
-          setSession(session);
-          setUser({
-            email: session.user.email || '',
-            role: userRole,
-            town: userTown,
-          });
-
-          if (userTown) {
-            setSelectedTown(userTown);
-            localStorage.setItem('selectedTown', userTown);
-            
-            // Find the region for this town
-            try {
-              const { data } = await supabase
-                .from('kenya_branches')
-                .select('"Area"')
-                .eq('"Branch Office"', userTown)
-                .single();
-
-              if (data) {
-                setSelectedRegion(data.Area);
-              }
-            } catch (error) {
-              console.error('Error finding region for town:', error);
-            }
-          }
-
-          const newUrl = window.location.pathname;
-          window.history.replaceState({}, '', newUrl);
-
-          const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
-          navigate(targetPath, { replace: true });
-        } else {
-          navigate('/login', { replace: true });
-        }
-      } catch (error) {
-        navigate('/login', { replace: true });
+        
+        return;
       }
-    }
-  };
+      
+      // Handle signup confirmation as before (keep your existing code)
+      if (type === 'signup' && accessToken) {
+        try {
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            navigate('/login', { replace: true });
+            return;
+          }
 
-  handleEmailConfirmation();
-}, [navigate, searchParams, location.pathname]);
+          if (session?.user) {
+            const userRole = session.user.user_metadata?.role || 'STAFF';
+            const userTown = session.user.user_metadata?.town || '';
+            
+            // Show email verification toast only once
+            if (!hasShownWelcomeToast.current) {
+              toast.success('Email verified successfully! Welcome to Zira HR.');
+              hasShownWelcomeToast.current = true;
+            }
+            
+            setSession(session);
+            setUser({
+              email: session.user.email || '',
+              role: userRole,
+              town: userTown,
+            });
+
+            if (userTown) {
+              setSelectedTown(userTown);
+              localStorage.setItem('selectedTown', userTown);
+              
+              // Find the region for this town
+              try {
+                const { data } = await supabase
+                  .from('kenya_branches')
+                  .select('"Area"')
+                  .eq('"Branch Office"', userTown)
+                  .single();
+
+                if (data) {
+                  setSelectedRegion(data.Area);
+                }
+              } catch (error) {
+                console.error('Error finding region for town:', error);
+              }
+            }
+
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+
+            const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
+            navigate(targetPath, { replace: true });
+          } else {
+            navigate('/login', { replace: true });
+          }
+        } catch (error) {
+          navigate('/login', { replace: true });
+        }
+      }
+    };
+
+    handleEmailConfirmation();
+  }, [navigate, searchParams, location.pathname]);
 
   // Main auth state management
   useEffect(() => {
@@ -523,7 +677,7 @@ useEffect(() => {
           setSelectedRegion('All Regions');
           localStorage.removeItem('selectedTown');
           
-          const publicPaths = ['/login', '/update-password'];
+          const publicPaths = ['/login', '/update-password', '/mfa'];
           const currentPath = location.pathname;
           
           if (!publicPaths.includes(currentPath)) {
@@ -541,96 +695,110 @@ useEffect(() => {
 
     initializeAuth();
 
-  // In your App.js file, find the onAuthStateChange section and REPLACE it with this:
-
-const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-  // Check if this is a password recovery session
-  const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
-  
-  console.log('Auth state change:', event, 'Is password recovery:', isPasswordRecovery);
-  
-  // Prevent duplicate handling of the same event
-  if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
-    return;
-  }
-  lastAuthEvent.current = event;
-
-  setSession(session);
-  setAuthChecked(true);
-
-  if (session?.user?.email) {
-    const userData = {
-      email: session.user.email,
-      role: session.user.user_metadata?.role || 'STAFF',
-      town: session.user.user_metadata?.town || ''
-    };
-    
-    setUser(userData);
-    
-    // If this is a password recovery session, don't do normal navigation
-    if (isPasswordRecovery) {
-      console.log('Skipping normal auth flow for password recovery');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Check if this is a password recovery session
+      const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+      const isMFAProcess = sessionStorage.getItem('isMFAProcess') === 'true';
       
-      // Make sure we're on the update password page
-      if (location.pathname !== '/update-password') {
-        navigate('/update-password', { replace: true });
+      console.log('Auth state change:', event, 'Is password recovery:', isPasswordRecovery, 'Is MFA process:', isMFAProcess);
+      
+      // Prevent duplicate handling of the same event
+      if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
+        return;
       }
-      return; // Exit early, don't do normal auth flow
-    }
-    
-    // Normal auth flow for regular logins (keep your existing code)...
-    if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
-      setSelectedTown(userData.town);
-      localStorage.setItem('selectedTown', userData.town);
-      
-      try {
-        const { data } = await supabase
-          .from('kenya_branches')
-          .select('"Area"')
-          .eq('"Branch Office"', userData.town)
-          .single();
+      lastAuthEvent.current = event;
 
-        if (data) {
-          setSelectedRegion(data.Area);
+      setSession(session);
+      setAuthChecked(true);
+
+      if (session?.user?.email) {
+        const userData = {
+          email: session.user.email,
+          role: session.user.user_metadata?.role || 'STAFF',
+          town: session.user.user_metadata?.town || ''
+        };
+        
+        setUser(userData);
+        
+        // If this is a password recovery session, don't do normal navigation
+        if (isPasswordRecovery) {
+          console.log('Skipping normal auth flow for password recovery');
+          
+          // Make sure we're on the update password page
+          if (location.pathname !== '/update-password') {
+            navigate('/update-password', { replace: true });
+          }
+          return; // Exit early, don't do normal auth flow
         }
-      } catch (error) {
-        console.error('Error finding region for town:', error);
+        
+        // Handle MFA process
+        if (isMFAProcess && userData.role === 'CHECKER') {
+          console.log('MFA process detected for CHECKER role');
+          
+          // Navigate to MFA page if not already there
+          if (location.pathname !== '/mfa') {
+            navigate('/mfa', { replace: true });
+          }
+          return; // Exit early, let MFA handle the rest
+        }
+        
+        // Normal auth flow for regular logins (keep your existing code)...
+        if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
+          setSelectedTown(userData.town);
+          localStorage.setItem('selectedTown', userData.town);
+          
+          try {
+            const { data } = await supabase
+              .from('kenya_branches')
+              .select('"Area"')
+              .eq('"Branch Office"', userData.town)
+              .single();
+
+            if (data) {
+              setSelectedRegion(data.Area);
+            }
+          } catch (error) {
+            console.error('Error finding region for town:', error);
+          }
+        }
+        
+        // Only show welcome toast and navigate for actual sign-in events, not token refreshes
+        if (event === 'SIGNED_IN' && !hasShownWelcomeToast.current) {
+          hasShownWelcomeToast.current = true;
+          toast.success(`Welcome back, ${userData.email}!`);
+          
+          const currentPath = location.pathname;
+          const publicPaths = ['/login', '/update-password', '/mfa'];
+          
+          if (publicPaths.includes(currentPath)) {
+            const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
+            navigate(targetPath, { replace: true });
+          }
+        }
+      } else {
+        setUser(null);
+        setSelectedTown('');
+        setSelectedRegion('All Regions');
+        localStorage.removeItem('selectedTown');
+        
+        if (event === 'SIGNED_OUT') {
+          hasShownWelcomeToast.current = false;
+          lastAuthEvent.current = '';
+          navigationHandled.current = false;
+          // Clear all auth flags on sign out
+          sessionStorage.removeItem('isPasswordRecovery');
+          sessionStorage.removeItem('isMFAProcess');
+          // Clear inactivity timers
+          clearAllTimers();
+          navigate('/login', { replace: true });
+        }
       }
-    }
-    
-    // Only show welcome toast and navigate for actual sign-in events, not token refreshes
-    if (event === 'SIGNED_IN' && !hasShownWelcomeToast.current) {
-      hasShownWelcomeToast.current = true;
-      toast.success(`Welcome back, ${userData.email}!`);
-      
-      const currentPath = location.pathname;
-      const publicPaths = ['/login', '/update-password'];
-      
-      if (publicPaths.includes(currentPath)) {
-        const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
-        navigate(targetPath, { replace: true });
-      }
-    }
-  } else {
-    setUser(null);
-    setSelectedTown('');
-    setSelectedRegion('All Regions');
-    localStorage.removeItem('selectedTown');
-    
-    if (event === 'SIGNED_OUT') {
-      hasShownWelcomeToast.current = false;
-      lastAuthEvent.current = '';
-      navigationHandled.current = false;
-      // Clear password recovery flag on sign out
-      sessionStorage.removeItem('isPasswordRecovery');
-      navigate('/login', { replace: true });
-    }
-  }
-});
+    });
+
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, searchParams, branches]);
+  }, [navigate, location.pathname, searchParams, branches, clearAllTimers]);
 
   // Reset navigation flag when location changes
   useEffect(() => {
@@ -670,9 +838,26 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
          <UpdateNotification />
         <Routes>
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-           <Route path="/mfa" element={<MFAVerification/>} />
+          <Route 
+            path="/mfa" 
+            element={
+              <MFAVerification 
+                onSuccess={() => {
+                  // Clear MFA flag and navigate to appropriate page
+                  sessionStorage.removeItem('isMFAProcess');
+                  const targetPath = user?.role === 'STAFF' ? '/staff' : '/dashboard';
+                  navigate(targetPath, { replace: true });
+                }}
+                onFailure={() => {
+                  // Clear MFA flag and redirect to login
+                  sessionStorage.removeItem('isMFAProcess');
+                  navigate('/login', { replace: true });
+                }}
+              />
+            } 
+          />
           <Route path="/update-password" element={<UpdatePasswordPage/>} />
-           <Route path="/teams" element={<ChatLayout/>} />
+          <Route path="/teams" element={<ChatLayout/>} />
           <Route 
             path="/staff" 
             element={session ? <StaffPortalLanding /> : <Login onLoginSuccess={handleLoginSuccess} />} 
@@ -735,16 +920,14 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
-            
-                              
-                               <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/reports" element={<ReportsList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                               <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                               <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                                <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                               <Route path="/teams" element={<ChatLayout/>} />
+                              <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
+                              <Route path="/teams" element={<ChatLayout/>} />
                               <Route path="/staffcheck" element={<WarningModule/>} />
                               <Route 
                                 path="/payroll" 
