@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
 import toast, { Toaster } from 'react-hot-toast';
 import { CSSProperties } from 'react';
+import { UpdateNotification } from '../src/components/Settings/update';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import AdminVideoUpload from './components/training/Training';
@@ -666,6 +667,7 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event,
     <UserProvider>
     <ErrorBoundary>
       <div className="min-h-screen bg-white overflow-x-hidden">
+         <UpdateNotification />
         <Routes>
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
            <Route path="/mfa" element={<MFAVerification/>} />
