@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
+import jsPDF from 'jspdf'; 
 import 'jspdf-autotable';
 import html2pdf from 'html2pdf.js';
 import GlowButton from '../UI/GlowButton';
