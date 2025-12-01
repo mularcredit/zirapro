@@ -3327,7 +3327,7 @@ const calculateAdvanceDeduction = (employeeNumber) => {
     if (settings) { // Only fetch when settings are loaded
       fetchEmployees();
     }
-  }, [actualPeriod, settings, overrideStatutoryChecks]);
+  }, [actualPeriod, settings, overrideStatutoryChecks,salaryAdvances]);
 
   const applyAdditionalFilters = (records) => {
     return records.filter(record => {
