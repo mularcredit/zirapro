@@ -261,7 +261,7 @@ const MPesaSpreadsheetFullPage = ({ onBack, userRole }) => {
         throw new Error(`Invalid phone number for ${row.employee_name}`);
       }
 
-      const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
+      const response = await fetch('https://mpesa-22p0.onrender.com/api/mpesa/b2c', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
