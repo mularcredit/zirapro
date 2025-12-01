@@ -99,7 +99,16 @@ interface AttendanceLog {
   status: 'logged_in' | 'logged_out';
   created_at?: string;
 }
-
+interface TrainingProgress {
+  document_id: string;
+  employee_number: string;
+  completed: boolean;
+  completed_at: string | null;
+  quiz_passed: boolean | null;
+  quiz_score: number | null;
+  time_spent: number; // in minutes
+  last_accessed: string;
+}
 // SidebarNavItem Component
 const SidebarNavItem = ({ 
   icon, 

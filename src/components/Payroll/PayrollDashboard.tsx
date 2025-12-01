@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1, Clock, CheckCircle, XCircle, Eye, AlertTriangle, Settings, RefreshCw, Info, ToggleLeft, ToggleRight } from 'lucide-react';
+import { DollarSign, Calculator, FileText, Download, Calendar, TrendingUp, Plus, Edit, Trash2, Users, Upload, X, ChevronDown, ChevronUp, Printer, Share2, ArrowLeft, ArrowRight, Search, Filter, Smartphone, TabletSmartphone, Send, FileSpreadsheet, FileImage, Loader, Box, CircleDot, Tally1, Clock, CheckCircle, XCircle, Eye, AlertTriangle, Settings, RefreshCw, Info, ToggleLeft, ToggleRight, MessageSquare } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
@@ -203,251 +203,66 @@ const smsTemplates = {
     `Dear ${employeeName}, M-PESA payment failed for reference ${reference}. Please contact HR.`
 };
 
-// Wallet Balance Component
-const WalletBalance = ({ 
-  currentBalance = 0, 
-  pendingBalance = 0,
-  onRequestLoan,
-  isLoading = false 
+// Comment Modal Component
+const CommentModal = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  title = "Add Comment",
+  submitText = "Submit"
 }) => {
-  const [showLoanModal, setShowLoanModal] = useState(false);
-  const [loanAmount, setLoanAmount] = useState('');
-  const [loanPurpose, setLoanPurpose] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [comment, setComment] = useState('');
 
-  const handleLoanRequest = async () => {
-    if (!loanAmount || !loanPurpose) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      console.log('Loan request:', { amount: parseFloat(loanAmount), purpose: loanPurpose });
-      
-      toast.success('Loan request submitted successfully!');
-      setShowLoanModal(false);
-      setLoanAmount('');
-      setLoanPurpose('');
-      
-      if (onRequestLoan) {
-        onRequestLoan({ amount: parseFloat(loanAmount), purpose: loanPurpose });
-      }
-    } catch (error) {
-      toast.error('Failed to submit loan request');
-    } finally {
-      setIsSubmitting(false);
+  const handleSubmit = () => {
+    if (comment.trim()) {
+      onSubmit(comment);
+      setComment('');
+      onClose();
+    } else {
+      toast.error('Please enter a comment');
     }
   };
 
+  if (!isOpen) return null;
+
   return (
-    <>
-      <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl shadow-xl p-6 text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="absolute -right-10 -top-10 w-24 h-24 bg-white/10 rounded-full"></div>
-        <div className="absolute -right-5 -bottom-5 w-16 h-16 bg-white/5 rounded-full"></div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-blue-600" />
+          {title}
+        </h3>
         
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-sm font-medium text-blue-100 mb-1">Wallet Balance</h3>
-              <p className="text-xs text-blue-200">Available for employee payments</p>
-            </div>
-            <div className="p-2 bg-white/20 rounded-lg">
-              <img src='/crypto-wallet.png' className='w-12 h-12'></img>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-blue-200 text-sm">Current Balance</p>
-                <p className="text-sm font-bold mt-1">
-                  {isLoading ? (
-                    <div className="animate-pulse bg-white/20 rounded h-8 w-32"></div>
-                  ) : (
-                    `KSh ${currentBalance.toLocaleString()}`
-                  )}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-blue-200 text-xs">Pending</p>
-                <p className="text-sm font-semibold">
-                  {isLoading ? (
-                    <div className="animate-pulse bg-white/20 rounded h-5 w-16 ml-auto"></div>
-                  ) : (
-                    `KSh ${pendingBalance.toLocaleString()}`
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-blue-200">Balance Usage</span>
-                <span className="text-blue-100">
-                  {currentBalance > 0 ? Math.min(100, Math.round((pendingBalance / currentBalance) * 100)) : 0}%
-                </span>
-              </div>
-              <div className="w-full bg-white/20 rounded-full h-2">
-                <div 
-                  className="bg-green-400 h-2 rounded-full transition-all duration-500"
-                  style={{ 
-                    width: `${currentBalance > 0 ? Math.min(100, (pendingBalance / currentBalance) * 100) : 0}%` 
-                  }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button 
-                onClick={() => setShowLoanModal(true)}
-                disabled={isLoading}
-                className="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-200 border border-white/20 hover:border-white/30 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                <TrendingUp className="w-4 h-4" />
-                Request Loan
-              </button>
-              <button 
-                onClick={() => toast.success('Wallet refresh initiated')}
-                disabled={isLoading}
-                className="px-4 bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border border-white/10 hover:border-white/20 disabled:opacity-50"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            Comment <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Enter your comment here..."
+            rows={4}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">This comment will be recorded in the audit trail.</p>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            {submitText}
+          </button>
         </div>
       </div>
-
-      {showLoanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-                Request Wallet Loan
-              </h3>
-              <button
-                onClick={() => setShowLoanModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={isSubmitting}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2 text-blue-800 mb-2">
-                  <Info className="w-4 h-4" />
-                  <span className="text-sm font-medium">Loan Information</span>
-                </div>
-                <p className="text-xs text-blue-700">
-                  Request a loan to top up your wallet for employee payments. Loans are subject to approval and terms apply.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Loan Amount (KSh)
-                </label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="number"
-                    value={loanAmount}
-                    onChange={(e) => setLoanAmount(e.target.value)}
-                    placeholder="Enter amount"
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Purpose of Loan
-                </label>
-                <select
-                  value={loanPurpose}
-                  onChange={(e) => setLoanPurpose(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  disabled={isSubmitting}
-                >
-                  <option value="">Select purpose</option>
-                  <option value="salary_payments">Salary Payments</option>
-                  <option value="bonus_payments">Bonus Payments</option>
-                  <option value="emergency_payments">Emergency Payments</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              {loanPurpose === 'other' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Specify Purpose
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Please specify"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    disabled={isSubmitting}
-                  />
-                </div>
-              )}
-
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <h4 className="text-sm font-medium text-gray-900 mb-2">Loan Terms</h4>
-                <div className="space-y-2 text-xs text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Interest Rate:</span>
-                    <span className="font-medium">15%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Repayment Period:</span>
-                    <span className="font-medium">3 months</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Processing Fee:</span>
-                    <span className="font-medium">1% of loan amount</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowLoanModal(false)}
-                className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLoanRequest}
-                disabled={isSubmitting || !loanAmount || !loanPurpose}
-                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Submit Request
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+    </div>
   );
 };
 
@@ -504,16 +319,27 @@ const StatusBadge = ({ status }) => {
 };
 
 // Pending Payment Card Component
-const PendingPaymentCard = ({ payment, onApprove, onReject, onViewDetails, userRole }) => {
+const PendingPaymentCard = ({ payment, onApprove, onReject, onViewDetails, userRole, isSelected, onSelect }) => {
   const isChecker = userRole === 'checker' || userRole === 'credit_analyst_officer';
   const totalAmount = payment.type === 'bulk' 
     ? payment.employees_data?.reduce((sum, emp) => sum + (emp.net_pay || 0), 0) || 0
     : payment.employee_data?.net_pay || 0;
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+    <div className={`bg-white rounded-lg border ${isSelected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'} p-4 hover:shadow-md transition-shadow`}>
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
+          {onSelect && (
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={(e) => {
+                e.stopPropagation();
+                onSelect(payment.id, e.target.checked);
+              }}
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            />
+          )}
           <div className="p-2 bg-orange-100 rounded-lg">
             {payment.type === 'bulk' ? (
               <Users className="w-5 h-5 text-orange-600" />
@@ -662,6 +488,9 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span>Approved by {payment.approved_by_email}</span>
                   <span className="text-gray-500">{new Date(payment.approved_at).toLocaleString()}</span>
+                  {payment.approval_comment && (
+                    <span className="text-green-600">- {payment.approval_comment}</span>
+                  )}
                 </div>
               )}
               {payment.rejected_by_email && (
@@ -765,6 +594,8 @@ const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
       onConfirm(reason);
       setReason('');
       onClose();
+    } else {
+      toast.error('Please enter a reason for rejection');
     }
   };
 
@@ -2580,19 +2411,25 @@ export default function PayrollDashboard() {
   const [paymentToReject, setPaymentToReject] = useState(null);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
   
-  const [walletData, setWalletData] = useState({
-    currentBalance: 150000,
-    pendingBalance: 45000,
-    isLoading: false
+  // NEW: Bulk approval states
+  const [selectedPayments, setSelectedPayments] = useState(new Set());
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentModalConfig, setCommentModalConfig] = useState({
+    title: '',
+    submitText: '',
+    onSubmit: null
   });
+  const [showClearQueueModal, setShowClearQueueModal] = useState(false);
 
+  // SMS balance state
   const [smsBalance, setSmsBalance] = useState(null);
   const [sendingSMS, setSendingSMS] = useState(false);
   const [smsSendingStatus, setSmsSendingStatus] = useState({});
-
+  // Add this with your other state declarations
+const [salaryAdvances, setSalaryAdvances] = useState([]);
   const [currentView, setCurrentView] = useState('dashboard');
   
-  // NEW: Statutory override state
+  // Statutory override state
   const [overrideStatutoryChecks, setOverrideStatutoryChecks] = useState(true);
 
   const itemsPerPage = 5;
@@ -2607,6 +2444,81 @@ export default function PayrollDashboard() {
     reloadSettings
   } = useStatutorySettings();
 
+  // Add this useEffect - fetches salary advances once when component loads
+useEffect(() => {
+  const fetchAllSalaryAdvances = async () => {
+    try {
+      console.log('Fetching ALL salary advances...');
+      
+      const { data, error } = await supabase
+        .from('salary_advance')
+        .select('"Employee Number", "Amount Requested", payment_processed, status')
+        .eq('payment_processed', 'true')
+        .eq('status', 'paid')
+        .order('time_added', { ascending: false });
+      
+      if (error) {
+        console.warn('Salary advances fetch error:', error.message);
+        setSalaryAdvances([]);
+        return;
+      }
+      
+      console.log(`Loaded ${data?.length || 0} salary advances for payroll`);
+      setSalaryAdvances(data || []);
+      
+    } catch (error) {
+      console.warn('Failed to load salary advances:', error.message);
+      setSalaryAdvances([]);
+    }
+  };
+  
+  fetchAllSalaryAdvances();
+}, []); // Empty dependency array = runs once when component mounts
+// Fetch salary advances - CORRECT VERSION FOR YOUR TABLE STRUCTURE
+// Fetch salary advances - SIMPLE AND WORKING VERSION
+
+  
+// Updated: Just searches in already-loaded data (NO database call)
+const calculateAdvanceDeduction = (employeeNumber) => {
+  console.log('=== DEBUG: Looking for advance for employee:', employeeNumber);
+  
+  if (!employeeNumber) {
+    console.log('No employee number provided');
+    return 0;
+  }
+  
+  console.log('Total salary advances loaded:', salaryAdvances.length);
+  
+  // Find ALL advances for this employee (not just first one)
+  const employeeAdvances = salaryAdvances.filter(adv => {
+    const advanceEmpNumber = adv["Employee Number"];
+    console.log('Comparing:', {
+      advanceEmpNumber: advanceEmpNumber,
+      employeeNumber: employeeNumber,
+      match: advanceEmpNumber == employeeNumber,
+      exactMatch: advanceEmpNumber === employeeNumber
+    });
+    
+    // Try both loose and strict comparison
+    return advanceEmpNumber == employeeNumber;
+  });
+  
+  console.log('Found', employeeAdvances.length, 'advances for this employee');
+  
+  if (employeeAdvances.length === 0) {
+    return 0;
+  }
+  
+  // Sum ALL advances for this employee
+  const totalAmount = employeeAdvances.reduce((sum, adv) => {
+    const amount = parseFloat(adv["Amount Requested"]) || 0;
+    console.log('Adding advance amount:', amount);
+    return sum + amount;
+  }, 0);
+  
+  console.log('Total advance deduction:', totalAmount);
+  return totalAmount;
+};
   // Enhanced SMS notification functions
   const sendPayslipNotification = async (employee) => {
     if (!employee.employeeNu) {
@@ -2711,21 +2623,113 @@ export default function PayrollDashboard() {
     return results;
   };
 
-  const handleLoanRequest = async (loanData) => {
-    console.log('Processing loan request:', loanData);
+  // NEW: Clear payment queue function
+  const clearPaymentQueue = async () => {
+    try {
+      setIsLoadingRequests(true);
+      
+      // Filter only pending payments that can be cleared
+      const pendingPayments = paymentRequests.filter(p => p.status === 'pending');
+      
+      if (pendingPayments.length === 0) {
+        toast.info('No pending payments to clear');
+        return;
+      }
+
+      // Delete pending payments from the database
+      const paymentIds = pendingPayments.map(p => p.id);
+      
+      const { error } = await supabase
+        .from('payment_flows')
+        .delete()
+        .in('id', paymentIds);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setPaymentRequests(prev => prev.filter(p => p.status !== 'pending'));
+      setSelectedPayments(new Set());
+      
+      toast.success(`Successfully cleared ${pendingPayments.length} pending payments from the queue`);
+      setShowClearQueueModal(false);
+    } catch (error) {
+      console.error('Error clearing payment queue:', error);
+      toast.error('Failed to clear payment queue');
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
+  // NEW: Bulk approve payments function
+  const bulkApprovePayments = async (comment) => {
+    if (selectedPayments.size === 0) {
+      toast.error('No payments selected for approval');
+      return;
+    }
+
+    setIsLoadingRequests(true);
+    const results = [];
+    const selectedPaymentIds = Array.from(selectedPayments);
     
-    setWalletData(prev => ({
-      ...prev,
-      isLoading: true
-    }));
-    
-    setTimeout(() => {
-      setWalletData(prev => ({
-        currentBalance: prev.currentBalance + loanData.amount,
-        pendingBalance: prev.pendingBalance,
-        isLoading: false
-      }));
-    }, 1000);
+    for (const paymentId of selectedPaymentIds) {
+      const payment = paymentRequests.find(p => p.id === paymentId);
+      if (payment && payment.status === 'pending') {
+        try {
+          // Approve with comment
+          await approvePayment(payment, comment);
+          results.push({ paymentId, success: true });
+        } catch (error) {
+          results.push({ paymentId, success: false, error: error.message });
+        }
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const totalCount = results.length;
+
+    if (successCount === totalCount) {
+      toast.success(`All ${totalCount} payments approved successfully!`);
+    } else if (successCount > 0) {
+      toast.success(`${successCount} of ${totalCount} payments approved successfully`);
+      
+      const failed = results.filter(r => !r.success);
+      if (failed.length > 0) {
+        console.log('Failed approvals:', failed);
+        toast.error(`${failed.length} approvals failed. Check console for details.`);
+      }
+    } else {
+      toast.error('All approvals failed');
+    }
+
+    setSelectedPayments(new Set());
+    setIsLoadingRequests(false);
+  };
+
+  // NEW: Select/deselect all payments
+  const toggleSelectAllPayments = () => {
+    if (selectedPayments.size === pendingPayments.length) {
+      // Deselect all
+      setSelectedPayments(new Set());
+    } else {
+      // Select all pending payments
+      const allPendingIds = paymentRequests
+        .filter(p => p.status === 'pending')
+        .map(p => p.id);
+      setSelectedPayments(new Set(allPendingIds));
+    }
+  };
+
+  // NEW: Toggle selection for a single payment
+  const togglePaymentSelection = (paymentId, isSelected) => {
+    const newSelected = new Set(selectedPayments);
+    if (isSelected) {
+      newSelected.add(paymentId);
+    } else {
+      newSelected.delete(paymentId);
+    }
+    setSelectedPayments(newSelected);
   };
 
   const getCurrentPeriod = () => {
@@ -2875,10 +2879,14 @@ export default function PayrollDashboard() {
 
     if (error) throw error;
 
+    // Show success message
+    toast.success('Payment request submitted successfully! Please wait for approval.');
+
     return { ...data, created_by_email: user.email };
   };
 
-  const approvePayment = async (payment) => {
+  // UPDATED: Approve payment with comment
+  const approvePayment = async (payment, comment = '') => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
@@ -2895,19 +2903,27 @@ export default function PayrollDashboard() {
                 status: 'approved',
                 approved_by: user.id,
                 approved_at: new Date().toISOString(),
-                approved_by_email: user.email
+                approved_by_email: user.email,
+                approval_comment: comment
               }
             : req
         )
       );
 
+      const updateData = {
+        status: 'approved',
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      };
+
+      // Add comment if provided
+      if (comment) {
+        updateData.approval_comment = comment;
+      }
+
       const { data, error } = await supabase
         .from('payment_flows')
-        .update({
-          status: 'approved',
-          approved_by: user.id,
-          approved_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', payment.id)
         .select('*')
         .single();
@@ -2960,6 +2976,31 @@ export default function PayrollDashboard() {
       console.error('Payment approval error:', error);
       toast.error('Failed to approve payment request');
     }
+  };
+
+  // UPDATED: Single approval with comment prompt
+  const handleSingleApprove = (payment) => {
+    setCommentModalConfig({
+      title: 'Approve Payment Request',
+      submitText: 'Approve',
+      onSubmit: (comment) => approvePayment(payment, comment)
+    });
+    setShowCommentModal(true);
+  };
+
+  // NEW: Bulk approve handler
+  const handleBulkApprove = () => {
+    if (selectedPayments.size === 0) {
+      toast.error('Please select at least one payment to approve');
+      return;
+    }
+
+    setCommentModalConfig({
+      title: `Approve ${selectedPayments.size} Selected Payments`,
+      submitText: 'Approve All',
+      onSubmit: (comment) => bulkApprovePayments(comment)
+    });
+    setShowCommentModal(true);
   };
 
   const rejectPayment = async (payment, reason) => {
@@ -3093,7 +3134,12 @@ export default function PayrollDashboard() {
 
   const handleConfirmSinglePayment = async (justification) => {
     if (userRole === 'credit_analyst_officer') {
-      await processSingleMpesaPayment(selectedEmployeeForMpesa);
+      try {
+        await processSingleMpesaPayment(selectedEmployeeForMpesa);
+        toast.success('Payment sent successfully!');
+      } catch (error) {
+        console.error('Payment error:', error);
+      }
     } else {
       await createPaymentRequest(selectedEmployeeForMpesa, 'single', justification);
     }
@@ -3101,13 +3147,18 @@ export default function PayrollDashboard() {
 
   const handleConfirmBulkPayment = async (selectedEmployees, justification) => {
     if (userRole === 'credit_analyst_officer') {
-      await processBulkMpesaPayment(selectedEmployees);
+      try {
+        await processBulkMpesaPayment(selectedEmployees);
+        toast.success('Bulk payment processed successfully!');
+      } catch (error) {
+        console.error('Bulk payment error:', error);
+      }
     } else {
       await createPaymentRequest(null, 'bulk', justification, selectedEmployees);
     }
   };
 
-  // UPDATED: Enhanced payroll calculation with statutory override
+  // UPDATED: Enhanced payroll calculation with salary advance deduction
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
@@ -3134,8 +3185,8 @@ export default function PayrollDashboard() {
             ...uniqueBranches.map(branch => ({ value: branch, label: branch }))
           ]);
 
-          // Enhanced payroll calculation with statutory override
-          const payrollData = data.map(employee => {
+          // Process each employee with salary advance deduction
+          const payrollData = await Promise.all(data.map(async (employee) => {
             const basicSalary = employee['Basic Salary'] || 0;
             const employeeId = employee['Employee Number'] || '';
             const jobGroup = employee['Job Group'] || '';
@@ -3180,7 +3231,7 @@ export default function PayrollDashboard() {
             let nssfDeduction = 0;
             let housingLevy = 0;
             
-            // UPDATED: Apply statutory deductions based on override setting
+            // Apply statutory deductions based on override setting
             if (overrideStatutoryChecks || nhifNumber) {
               nhifDeduction = calculateNHIF(taxableGross);
             }
@@ -3202,16 +3253,17 @@ export default function PayrollDashboard() {
             if (overrideStatutoryChecks || taxPin) {
               payeTax = calculatePAYE(taxableIncomeForPAYE);
               taxRelief = Math.min(payeTax, 2400);
-              
             }
             
-            // REMOVED VOLUNTARY DEDUCTIONS - set all to 0
+            // Calculate salary advance deduction
+            const advanceDeduction = calculateAdvanceDeduction(employeeId);
+            
+            // REMOVED VOLUNTARY DEDUCTIONS - set all to 0 except advance
             const loanDeduction = 0;
-            const advanceDeduction = 0;
             const welfareDeduction = 300;
             const otherDeductions = 0;
 
-            // Total deductions now only include statutory (voluntary are 0)
+            // Total deductions include statutory and advance deduction
             const totalDeductions = payeTax + 
                                    nhifDeduction + 
                                    nssfDeduction + 
@@ -3222,22 +3274,6 @@ export default function PayrollDashboard() {
                                    otherDeductions;
 
             const netPay = grossPay - totalDeductions;
-            if (basicSalary === 80000) {
-    console.log('🔍 HIDDEN DEDUCTIONS DEBUG:');
-    console.log('Basic Salary:', basicSalary);
-    console.log('Gross Pay:', grossPay);
-    console.log('Per Diem:', perDiem);
-    console.log('Taxable Gross (after per diem):', taxableGross);
-    console.log('NHIF:', nhifDeduction);
-    console.log('NSSF:', nssfDeduction);
-    console.log('Housing Levy:', housingLevy);
-    console.log('Loan Deduction:', loanDeduction);
-    console.log('Advance Deduction:', advanceDeduction);
-    console.log('Welfare Deduction:', welfareDeduction);
-    console.log('Other Deductions:', otherDeductions);
-    console.log('FINAL Taxable for PAYE:', taxableIncomeForPAYE);
-    console.log('CALCULATED PAYE:', payeTax);
-  }
 
             return {
               id: employee.id || '',
@@ -3276,7 +3312,7 @@ export default function PayrollDashboard() {
               bank_name: '',
               account_number: ''
             };
-          });
+          }));
 
           setPayrollRecords(payrollData);
           setFilteredRecords(payrollData);
@@ -3291,7 +3327,7 @@ export default function PayrollDashboard() {
     if (settings) { // Only fetch when settings are loaded
       fetchEmployees();
     }
-  }, [actualPeriod, settings, overrideStatutoryChecks]); // Added overrideStatutoryChecks as dependency
+  }, [actualPeriod, settings, overrideStatutoryChecks]);
 
   const applyAdditionalFilters = (records) => {
     return records.filter(record => {
@@ -3363,10 +3399,12 @@ export default function PayrollDashboard() {
   const totalNSSF = finalFilteredRecords.reduce((sum, record) => sum + record.nssf_deduction, 0);
   const totalHousingLevy = finalFilteredRecords.reduce((sum, record) => sum + record.housing_levy, 0);
   const totalPerDiem = finalFilteredRecords.reduce((sum, record) => sum + (record.per_diem || 0), 0);
+  const totalAdvanceDeductions = finalFilteredRecords.reduce((sum, record) => sum + (record.advance_deduction || 0), 0);
 
   const pendingCount = paymentRequests.filter(p => p.status === 'pending').length;
   const approvedCount = paymentRequests.filter(p => p.status === 'approved').length;
   const rejectedCount = paymentRequests.filter(p => p.status === 'rejected').length;
+  const pendingPayments = paymentRequests.filter(p => p.status === 'pending');
 
   const paymentMethods = ['all', 'Bank Transfer', 'M-Pesa', 'Airtel Money', 'Cash'];
   const payPeriods = [
@@ -3415,6 +3453,34 @@ export default function PayrollDashboard() {
         ? 'Statutory PIN checks enabled' 
         : 'Statutory override enabled - all deductions will be applied'
     );
+  };
+
+  // NEW: Refresh button handler
+  const handleRefresh = async () => {
+    setIsLoading(true);
+    try {
+      await fetchPaymentRequests();
+      
+      // Refresh SMS balance
+      const balance = await checkSMSBalance();
+      setSmsBalance(balance);
+      
+      // Refresh employees and payroll data
+      const { data } = await supabase
+        .from('employees')
+        .select('*');
+      
+      if (data) {
+        setEmployees(data);
+      }
+      
+      toast.success('Dashboard refreshed successfully!');
+    } catch (error) {
+      console.error('Error refreshing:', error);
+      toast.error('Failed to refresh data');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (currentView === 'mpesa-spreadsheet') {
@@ -3527,6 +3593,16 @@ export default function PayrollDashboard() {
               Quick Actions
             </GlowButtonss>
 
+            {/* NEW: Refresh Button */}
+            <GlowButtonss 
+              icon={RefreshCw} 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isLoading}
+            >
+              Refresh
+            </GlowButtonss>
+
             <RoleButtonWrapper allowedRoles={['CHECKER']}>
               <select
                 value={userRole}
@@ -3542,50 +3618,13 @@ export default function PayrollDashboard() {
         </div>
       </div>
 
-      {/* NEW: Statutory Override Toggle */}
+      {/* Statutory Override Toggle */}
       <StatutoryOverrideToggle 
         isEnabled={overrideStatutoryChecks}
         onToggle={toggleStatutoryOverride}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <WalletBalance 
-            currentBalance={walletData.currentBalance}
-            pendingBalance={walletData.pendingBalance}
-            onRequestLoan={handleLoanRequest}
-            isLoading={walletData.isLoading}
-          />
-        </div>
-
-        <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <SummaryCard 
-            label="Total Gross Pay" 
-            value={totalGrossPay} 
-            icon={DollarSign} 
-            color="emerald"
-          />
-          <SummaryCard 
-            label="Total Deductions" 
-            value={totalDeductions} 
-            icon={Box} 
-            color="red"
-          />
-          <SummaryCard 
-            label="Total Net Pay" 
-            value={totalNetPay} 
-            icon={Calculator} 
-            color="blue"
-          />
-          <SummaryCard 
-            label="Employee Count" 
-            value={finalFilteredRecords.length} 
-            icon={Users} 
-            color="purple" 
-            isCount={true}
-          />
-        </div>
-      </div>
+      {/* WALLET UI REMOVED - Commented out as requested */}
 
       {showApprovalQueue && (userRole === 'checker' || userRole === 'credit_analyst_officer') && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -3597,13 +3636,68 @@ export default function PayrollDashboard() {
                 <Loader className="w-4 h-4 animate-spin text-gray-400" />
               )}
             </h2>
-            <button
-              onClick={() => setShowApprovalQueue(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex gap-2">
+              {/* NEW: Bulk Action Buttons */}
+              {selectedPayments.size > 0 && (
+                <>
+                  <button
+                    onClick={handleBulkApprove}
+                    className="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center gap-2"
+                    disabled={isLoadingRequests}
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    Approve Selected ({selectedPayments.size})
+                  </button>
+                  <button
+                    onClick={() => setSelectedPayments(new Set())}
+                    className="px-3 py-1 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                    disabled={isLoadingRequests}
+                  >
+                    Clear Selection
+                  </button>
+                </>
+              )}
+              
+              {/* NEW: Clear Queue Button */}
+              <button
+                onClick={() => setShowClearQueueModal(true)}
+                className="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center gap-2"
+                disabled={isLoadingRequests || pendingCount === 0}
+              >
+                <Trash2 className="w-4 h-4" />
+                Clear Queue ({pendingCount})
+              </button>
+              
+              <button
+                onClick={() => setShowApprovalQueue(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
+
+          {/* NEW: Bulk Selection Controls */}
+          {pendingCount > 0 && (
+            <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedPayments.size === pendingPayments.length && pendingPayments.length > 0}
+                    onChange={toggleSelectAllPayments}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className="text-xs font-medium text-blue-800">
+                    {selectedPayments.size} of {pendingPayments.length} payments selected
+                  </span>
+                </div>
+                <div className="text-xs text-blue-600">
+                  Select payments for bulk approval
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
             <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
@@ -3650,7 +3744,9 @@ export default function PayrollDashboard() {
                   key={payment.id}
                   payment={payment}
                   userRole={userRole}
-                  onApprove={() => approvePayment(payment)}
+                  isSelected={selectedPayments.has(payment.id)}
+                  onSelect={(paymentId, isSelected) => togglePaymentSelection(paymentId, isSelected)}
+                  onApprove={() => handleSingleApprove(payment)}
                   onReject={() => {
                     setPaymentToReject(payment);
                     setShowRejectionModal(true);
@@ -3862,6 +3958,12 @@ export default function PayrollDashboard() {
             <div>
               <h2 className="text-lg font-semibold text-gray-900">Payroll Report</h2>
               <p className="text-gray-600 text-xs">{finalFilteredRecords.length} records found</p>
+              {/* NEW: Show total advance deductions */}
+              {totalAdvanceDeductions > 0 && (
+                <p className="text-xs text-orange-600">
+                  Total Salary Advance Deductions: KSh {totalAdvanceDeductions.toLocaleString()}
+                </p>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               <GlowButtonss 
@@ -3916,6 +4018,7 @@ export default function PayrollDashboard() {
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">SHIF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">NSSF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">AHL</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Advance</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Total Deductions</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Net Pay</th>
                 <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-center text-gray-700 font-semibold">Actions</th>
@@ -3970,6 +4073,9 @@ export default function PayrollDashboard() {
                       </td>
                       <td className="px-4 py-4 text-right text-yellow-600">
                         KSh {record.housing_levy.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 text-right text-orange-600">
+                        KSh {record.advance_deduction?.toLocaleString() || '0'}
                       </td>
                       <td className="px-4 py-4 text-right font-bold text-red-600">
                         KSh {record.total_deductions.toLocaleString()}
@@ -4033,7 +4139,7 @@ export default function PayrollDashboard() {
                     
                     {isExpanded && (
                       <tr className="bg-gray-50">
-                        <td colSpan={11} className="px-4 py-4">
+                        <td colSpan={12} className="px-4 py-4">
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                             <div className="space-y-2">
                               <h4 className="font-medium text-gray-900">Earnings</h4>
@@ -4157,10 +4263,7 @@ export default function PayrollDashboard() {
         payment={selectedPaymentForDetails}
         isOpen={showPaymentDetails}
         onClose={() => setShowPaymentDetails(false)}
-        onApprove={() => {
-          approvePayment(selectedPaymentForDetails);
-          setShowPaymentDetails(false);
-        }}
+        onApprove={() => handleSingleApprove(selectedPaymentForDetails)}
         onReject={() => {
           setPaymentToReject(selectedPaymentForDetails);
           setShowRejectionModal(true);
@@ -4177,6 +4280,58 @@ export default function PayrollDashboard() {
           setPaymentToReject(null);
         }}
       />
+
+      {/* NEW: Comment Modal */}
+      <CommentModal
+        isOpen={showCommentModal}
+        onClose={() => setShowCommentModal(false)}
+        title={commentModalConfig.title}
+        submitText={commentModalConfig.submitText}
+        onSubmit={commentModalConfig.onSubmit}
+      />
+
+      {/* NEW: Clear Queue Confirmation Modal */}
+      {showClearQueueModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              Clear Payment Queue
+            </h3>
+            
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <div className="flex items-start gap-2 text-red-800">
+                <AlertTriangle className="w-4 h-4 mt-0.5" />
+                <div>
+                  <p className="font-medium text-sm">Warning: This action cannot be undone</p>
+                  <p className="text-xs mt-1">
+                    You are about to clear {pendingCount} pending payments from the queue. 
+                    This will permanently delete all pending payment requests.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowClearQueueModal(false)}
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+                disabled={isLoadingRequests}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={clearPaymentQueue}
+                className="px-4 py-2 text-xs font-medium text-white bg-red-600 rounded-md hover:bg-red-700 flex items-center gap-2"
+                disabled={isLoadingRequests}
+              >
+                <Trash2 className="w-4 h-4" />
+                {isLoadingRequests ? 'Clearing...' : 'Clear Queue'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <P9FormGenerator
         isOpen={showP9Modal}

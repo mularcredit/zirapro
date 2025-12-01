@@ -51,9 +51,8 @@ interface SalaryAdvanceData {
   branch: string;
   application_date?: string;
   application_time?: string;
-  amount_applied?: number;
-  amount_disbursed?: number;
-  status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Deducted';
+  "Amount Requested"?: number;  // Correct field name from your table
+  status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Deducted' | 'paid';
   mpesa_code?: string;
   disbursement_date?: string;
   disbursement_time?: string;
@@ -191,6 +190,7 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
         case 'Disbursed':
           return { color: 'bg-green-50 text-green-700 border-green-200' };
         case 'Deducted':
+        case 'paid':  // Add 'paid' status
           return { color: 'bg-purple-50 text-purple-700 border-purple-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
@@ -408,8 +408,10 @@ const BaseReport: React.FC<BaseReportProps> = ({
       };
     }
     acc[empId].advances.push(advance);
-    acc[empId].totalApplied += advance.amount_applied || 0;
-    acc[empId].totalDisbursed += advance.amount_disbursed || 0;
+    // FIXED: Use "Amount Requested" with quotes
+    const amount = advance["Amount Requested"] || 0;
+    acc[empId].totalApplied += amount;
+    acc[empId].totalDisbursed += amount; // Same amount since we only have Amount Requested
     acc[empId].advanceCount += 1;
     return acc;
   }, {} as Record<string, any>);
@@ -466,9 +468,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
 
         // Fetch salary advances
         const { data: advancesData } = await supabase
-          .from('salary_advances')
+          .from('salary_advance')
           .select('*')
-          .order('application_date', { ascending: false });
+          .order('time_added', { ascending: false });
 
         if (employeesData) {
           // Combine employee data with their advances
@@ -492,8 +494,8 @@ const BaseReport: React.FC<BaseReportProps> = ({
                   phone_number: emp['Mobile Number'] || '',
                   application_date: advance.application_date,
                   application_time: advance.application_time,
-                  amount_applied: advance.amount_applied,
-                  amount_disbursed: advance.amount_disbursed,
+                  // FIXED: Use "Amount Requested" with quotes
+                  "Amount Requested": advance["Amount Requested"],
                   status: advance.status,
                   mpesa_code: advance.mpesa_code,
                   disbursement_date: advance.disbursement_date,
@@ -525,8 +527,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
                 phone_number: emp['Mobile Number'] || '',
                 application_date: undefined,
                 application_time: undefined,
-                amount_applied: undefined,
-                amount_disbursed: undefined,
+                "Amount Requested": undefined,
                 status: undefined,
                 mpesa_code: undefined,
                 disbursement_date: undefined,
@@ -579,9 +580,9 @@ const BaseReport: React.FC<BaseReportProps> = ({
     // Update report data with filtered employees and their advances
     const fetchFilteredData = async () => {
       const { data: advancesData } = await supabase
-        .from('salary_advances')
+        .from('salary_advance')
         .select('*')
-        .order('application_date', { ascending: false });
+        .order('time_added', { ascending: false });
 
       const filteredReportData: SalaryAdvanceData[] = [];
       
@@ -602,8 +603,8 @@ const BaseReport: React.FC<BaseReportProps> = ({
               phone_number: emp['Mobile Number'] || '',
               application_date: advance.application_date,
               application_time: advance.application_time,
-              amount_applied: advance.amount_applied,
-              amount_disbursed: advance.amount_disbursed,
+              // FIXED: Use "Amount Requested" with quotes
+              "Amount Requested": advance["Amount Requested"],
               status: advance.status,
               mpesa_code: advance.mpesa_code,
               disbursement_date: advance.disbursement_date,
@@ -634,8 +635,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
             phone_number: emp['Mobile Number'] || '',
             application_date: undefined,
             application_time: undefined,
-            amount_applied: undefined,
-            amount_disbursed: undefined,
+            "Amount Requested": undefined,
             status: undefined,
             mpesa_code: undefined,
             disbursement_date: undefined,
@@ -712,8 +712,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
       'Phone Number',
       'Application Date',
       'Application Time',
-      'Amount Applied',
-      'Amount Disbursed',
+      'Amount Requested',
       'Status',
       'M-Pesa Code',
       'Disbursement Date',
@@ -745,8 +744,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
           `"${row.phone_number}"`,
           row.application_date || '',
           row.application_time || '',
-          row.amount_applied || '',
-          row.amount_disbursed || '',
+          row["Amount Requested"] || '',
           row.status || '',
           `"${row.mpesa_code}"` || '',
           row.disbursement_date || '',
@@ -819,7 +817,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
         </div>
 
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
-          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Applied</p>
+          <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Requested</p>
           <p className="text-xl font-bold text-gray-900 mt-1">{formatCurrency(totalApplied)}</p>
           <p className="text-xs text-gray-500 mt-1">Amount requested</p>
         </div>
@@ -915,7 +913,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     {advanceCount > 0 ? (
                       <div className="space-y-2">
                         <div className="text-sm">
-                          <div className="text-gray-600 text-xs">Total Applied</div>
+                          <div className="text-gray-600 text-xs">Total Requested</div>
                           <div className="font-semibold text-gray-900">
                             {formatCurrency(totalApplied)}
                           </div>
