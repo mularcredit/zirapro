@@ -3062,7 +3062,7 @@ const calculateAdvanceDeduction = (employeeNumber) => {
 
       const formattedPhone = formatPhoneNumber(phoneNumber);
       
-      const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
+      const response = await fetch('https://mpesa-22p0.onrender.com/api/mpesa/b2c', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -3101,7 +3101,7 @@ const calculateAdvanceDeduction = (employeeNumber) => {
     for (const employee of selectedEmployees) {
       try {
         const result = await processSingleMpesaPayment(employee);
-        results.push({ success: true, employee, result });
+        results.push({ success: true, employee, result }); 
         
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
