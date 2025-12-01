@@ -2279,7 +2279,7 @@ const P10FormGenerator = ({ isOpen, onClose, calculatePAYE, calculateNSSF, calcu
       <div className="bg-white rounded-lg max-w-md w-full p-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-gray-900 flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+            <img src='kra.png' className='w-5'></img>
             Generate P10 Form (Employer Return)
           </h3>
           <button

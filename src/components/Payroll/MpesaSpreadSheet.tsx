@@ -727,7 +727,8 @@ const MPesaSpreadsheetFullPage = ({ onBack, userRole }) => {
         {filteredRows.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-gray-200 rounded flex items-center justify-center mx-auto mb-4">
-              <FileSpreadsheet className="w-6 h-6 text-gray-400" />
+              
+              <img src='logo (2).png' className="w-6"></img>
             </div>
             <h3 className="text-sm font-bold text-gray-900 mb-2">No payment records yet</h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto text-xs">
