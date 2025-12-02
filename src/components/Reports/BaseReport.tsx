@@ -235,7 +235,7 @@ const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
-                <img src='mobile-transfer.png' className='w-9'></img>
+                <img src='/public/mobile-transfer.png' className='w-9'/>
                 Transaction Details
               </h2>
               <div className="flex items-center gap-4 text-blue-100">
