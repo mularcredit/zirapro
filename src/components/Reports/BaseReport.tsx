@@ -18,7 +18,19 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
-  ChevronsRight
+  ChevronsRight,
+  Eye,
+  Receipt,
+  UserCheck,
+  CreditCard,
+  FileDown,
+  Printer,
+  Share2,
+  Copy,
+  ExternalLink,
+  MoreVertical,
+  Archive,
+  AlertCircle
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import { TownProps } from '../../types/supabase';
@@ -51,7 +63,7 @@ interface SalaryAdvanceData {
   branch: string;
   application_date?: string;
   application_time?: string;
-  "Amount Requested"?: number;  // Correct field name from your table
+  amount_requested?: number;
   status?: 'Pending' | 'Approved' | 'Rejected' | 'Disbursed' | 'Deducted' | 'paid';
   mpesa_code?: string;
   disbursement_date?: string;
@@ -70,9 +82,557 @@ interface SalaryAdvanceData {
   remarks?: string;
   created_at?: string;
   updated_at?: string;
+  // Additional fields from your table
+  basic_salary?: string;
+  net_salary?: string;
+  region?: string;
+  office_branch?: string;
+  reason_for_advance?: string;
+  admin_notes?: string;
+  mpesa_conversation_id?: string;
+  mpesa_transaction_id?: string;
+  mpesa_result_desc?: string;
 }
 
-// Searchable Dropdown Component (unchanged)
+// Transaction Details Modal Component
+interface TransactionDetailsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  transactions: SalaryAdvanceData[];
+  employeeName: string;
+  employeeNumber: string;
+}
+
+const TransactionDetailsModal: React.FC<TransactionDetailsModalProps> = ({
+  isOpen,
+  onClose,
+  transactions,
+  employeeName,
+  employeeNumber
+}) => {
+  if (!isOpen) return null;
+
+  const totalAmount = transactions.reduce((sum, t) => sum + (t.amount_requested || 0), 0);
+  const totalTransactions = transactions.length;
+
+  const handleDownloadReport = () => {
+    const headers = [
+      'Transaction ID',
+      'Application Date',
+      'Application Time',
+      'Amount Requested',
+      'Status',
+      'M-Pesa Code',
+      'Disbursement Date',
+      'Disbursement Time',
+      'Approved By',
+      'Approval Date',
+      'Reason',
+      'Remarks'
+    ];
+    
+    const csvContent = [
+      headers.join(','),
+      ...transactions.map(t => 
+        [
+          t.id,
+          t.application_date || '',
+          t.application_time || '',
+          t.amount_requested || '',
+          t.status || '',
+          t.mpesa_code || '',
+          t.disbursement_date || '',
+          t.disbursement_time || '',
+          t.approved_by || '',
+          t.approval_date || '',
+          t.reason ? `"${t.reason}"` : '',
+          t.remarks ? `"${t.remarks}"` : ''
+        ].join(',')
+      )
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transactions-${employeeNumber}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Transaction Report - ${employeeName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .summary { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #4f46e5; color: white; }
+            .total { font-weight: bold; color: #059669; }
+            @media print {
+              body { margin: 0; padding: 10px; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h2>Transaction Report</h2>
+            <p><strong>Employee:</strong> ${employeeName} (${employeeNumber})</p>
+            <p><strong>Generated:</strong> ${new Date().toLocaleDateString()}</p>
+          </div>
+          
+          <div class="summary">
+            <p><strong>Total Transactions:</strong> ${totalTransactions}</p>
+            <p><strong>Total Amount:</strong> KES ${totalAmount.toLocaleString()}</p>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>M-Pesa Code</th>
+                <th>Approved By</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transactions.map(t => `
+                <tr>
+                  <td>${t.application_date || 'N/A'}</td>
+                  <td>KES ${t.amount_requested?.toLocaleString() || '0'}</td>
+                  <td>${t.status || 'N/A'}</td>
+                  <td>${t.mpesa_code || 'N/A'}</td>
+                  <td>${t.approved_by || 'N/A'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 500);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden transform transition-all duration-300 scale-100">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6">
+          <div className="flex justify-between items-start">
+            <div>
+              <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-3">
+                <img src='mobile-transfer.png' className='w-9'></img>
+                Transaction Details
+              </h2>
+              <div className="flex items-center gap-4 text-blue-100">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" />
+                  <span className="font-medium">{employeeName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span className="font-mono">{employeeNumber}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:text-gray-200 transition-colors p-2 hover:bg-white/10 rounded-full"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="p-6 bg-gradient-to-b from-gray-50 to-white">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-blue-50 rounded-lg">
+                  <Receipt className="w-5 h-5 text-blue-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-500">Transactions</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{totalTransactions}</p>
+            </div>
+            
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-green-50 rounded-lg">
+                  <DollarSign className="w-5 h-5 text-green-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-500">Total Amount</span>
+              </div>
+              <p className="text-2xl font-bold text-green-600">
+                KES {totalAmount.toLocaleString()}
+              </p>
+            </div>
+            
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-2">
+                <div className="p-2 bg-purple-50 rounded-lg">
+                  <Clock className="w-5 h-5 text-purple-600" />
+                </div>
+                <span className="text-xs font-medium text-gray-500">Last Transaction</span>
+              </div>
+              <p className="text-sm font-medium text-gray-900">
+                {transactions[0]?.application_date ? 
+                  new Date(transactions[0].application_date).toLocaleDateString() : 
+                  'N/A'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-3 mb-6">
+            <button
+              onClick={handleDownloadReport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm"
+            >
+              <FileDown className="w-4 h-4" />
+              Download Report
+            </button>
+            <button
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm"
+            >
+              <Printer className="w-4 h-4" />
+              Print Report
+            </button>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  transactions.map(t => 
+                    `${t.application_date}: KES ${t.amount_requested} - ${t.status}`
+                  ).join('\n')
+                );
+                alert('Transaction details copied to clipboard!');
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-all hover:scale-105 active:scale-95 shadow-sm"
+            >
+              <Copy className="w-4 h-4" />
+              Copy Summary
+            </button>
+          </div>
+        </div>
+
+        {/* Transaction Table */}
+        <div className="px-6 pb-6 overflow-auto max-h-[50vh]">
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <h3 className="font-medium text-gray-900 flex items-center gap-2">
+                <FileText className="w-4 h-4" />
+                All Transactions
+              </h3>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Date & Time
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Reference
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {transactions.map((transaction, index) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-medium text-gray-900">
+                          {transaction.application_date || 'N/A'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {transaction.application_time || ''}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-bold text-gray-900">
+                          KES {transaction.amount_requested?.toLocaleString() || '0'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          transaction.status === 'Approved' || transaction.status === 'Disbursed' || transaction.status === 'paid'
+                            ? 'bg-green-100 text-green-800'
+                            : transaction.status === 'Pending'
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : transaction.status === 'Rejected'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {transaction.status || 'Unknown'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm font-mono text-blue-600">
+                          {transaction.mpesa_code || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              const details = `
+                                Employee: ${employeeName}
+                                Amount: KES ${transaction.amount_requested}
+                                Date: ${transaction.application_date}
+                                Status: ${transaction.status}
+                                Reference: ${transaction.mpesa_code}
+                                Reason: ${transaction.reason || 'N/A'}
+                              `;
+                              alert(details);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(transaction.id);
+                              alert('Transaction ID copied!');
+                            }}
+                            className="p-1.5 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                            title="Copy ID"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          {transactions.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center">
+                <AlertCircle className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No Transactions Found</h3>
+              <p className="text-gray-600">This employee has no salary advance transactions.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-gray-600">
+              Showing {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleDownloadReport}
+                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export All
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Bulk Download Modal Component
+interface BulkDownloadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onDownload: (format: 'csv' | 'excel' | 'pdf', includeAll: boolean) => void;
+  selectedCount: number;
+  totalCount: number;
+}
+
+const BulkDownloadModal: React.FC<BulkDownloadModalProps> = ({
+  isOpen,
+  onClose,
+  onDownload,
+  selectedCount,
+  totalCount
+}) => {
+  const [includeAll, setIncludeAll] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async (format: 'csv' | 'excel' | 'pdf') => {
+    setIsDownloading(true);
+    try {
+      await onDownload(format, includeAll);
+    } finally {
+      setIsDownloading(false);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-6 rounded-t-2xl">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+                <Download className="w-5 h-5" />
+                Download Reports
+              </h2>
+              <p className="text-purple-100 text-sm">Export transaction data in multiple formats</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-white hover:text-gray-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div>
+                <p className="text-sm font-medium text-blue-900">Download Scope</p>
+                <p className="text-xs text-blue-700">
+                  {selectedCount} employee{selectedCount !== 1 ? 's' : ''} selected
+                </p>
+              </div>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={includeAll}
+                  onChange={(e) => setIncludeAll(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-gray-700">Include all {totalCount} employees</span>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={() => handleDownload('excel')}
+                disabled={isDownloading}
+                className="flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 border border-green-200 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <FileDown className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">Excel Format (.xlsx)</p>
+                    <p className="text-xs text-gray-600">Best for data analysis</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => handleDownload('csv')}
+                disabled={isDownloading}
+                className="flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">CSV Format (.csv)</p>
+                    <p className="text-xs text-gray-600">Universal data format</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+
+              <button
+                onClick={() => handleDownload('pdf')}
+                disabled={isDownloading}
+                className="flex items-center justify-between p-4 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-all hover:scale-[1.02] disabled:opacity-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-red-100 rounded-lg">
+                    <Printer className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-medium text-gray-900">PDF Report (.pdf)</p>
+                    <p className="text-xs text-gray-600">Print-ready format</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-gray-500 mt-0.5" />
+              <p className="text-xs text-gray-600">
+                Files will be downloaded in ZIP format containing individual reports for each employee.
+                Each report includes complete transaction history and summary.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl">
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-600">
+              {includeAll ? totalCount : selectedCount} report{includeAll || selectedCount !== 1 ? 's' : ''} to generate
+            </span>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Searchable Dropdown Component
 interface SearchableDropdownProps {
   options: { value: string; label: string }[];
   value: string;
@@ -168,7 +728,7 @@ const SearchableDropdown: React.FC<SearchableDropdownProps> = ({
   );
 };
 
-// Accounting Status Badge Component - No icons
+// Accounting Status Badge Component
 const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repayment' }> = ({ status, type }) => {
   if (!status) {
     return (
@@ -190,7 +750,7 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
         case 'Disbursed':
           return { color: 'bg-green-50 text-green-700 border-green-200' };
         case 'Deducted':
-        case 'paid':  // Add 'paid' status
+        case 'paid':
           return { color: 'bg-purple-50 text-purple-700 border-purple-200' };
         default:
           return { color: 'bg-gray-50 text-gray-600 border-gray-300' };
@@ -218,13 +778,13 @@ const AccountingStatusBadge: React.FC<{ status?: string; type: 'status' | 'repay
   );
 };
 
-// Format currency for accounting
+// Format currency
 const formatCurrency = (amount?: number) => {
   if (!amount) return 'KES 0.00';
   return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-// Format date for accounting reports
+// Format date
 const formatAccountingDate = (dateString?: string, timeString?: string) => {
   if (!dateString) return '-';
   
@@ -246,7 +806,7 @@ const formatAccountingDate = (dateString?: string, timeString?: string) => {
   return timeString ? `${formattedDate} ${formattedTime}` : formattedDate;
 };
 
-// Pagination Component (unchanged)
+// Pagination Component
 interface PaginationProps {
   currentPage: number;
   totalPages: number;
@@ -395,7 +955,14 @@ const BaseReport: React.FC<BaseReportProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
-  // Calculate totals for accounting summary - now grouped by employee
+  // Modal states
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [selectedEmployeeTransactions, setSelectedEmployeeTransactions] = useState<SalaryAdvanceData[]>([]);
+  const [selectedEmployeeDetails, setSelectedEmployeeDetails] = useState<{name: string, number: string}>({name: '', number: ''});
+  const [showBulkDownloadModal, setShowBulkDownloadModal] = useState(false);
+  const [selectedEmployees, setSelectedEmployees] = useState<Set<string>>(new Set());
+
+  // Calculate totals for accounting summary
   const employeeAdvances = reportData.reduce((acc, advance) => {
     const empId = advance.employee_number;
     if (!acc[empId]) {
@@ -408,10 +975,10 @@ const BaseReport: React.FC<BaseReportProps> = ({
       };
     }
     acc[empId].advances.push(advance);
-    // FIXED: Use "Amount Requested" with quotes
-    const amount = advance["Amount Requested"] || 0;
+    
+    const amount = advance.amount_requested || 0;
     acc[empId].totalApplied += amount;
-    acc[empId].totalDisbursed += amount; // Same amount since we only have Amount Requested
+    acc[empId].totalDisbursed += amount;
     acc[empId].advanceCount += 1;
     return acc;
   }, {} as Record<string, any>);
@@ -422,14 +989,14 @@ const BaseReport: React.FC<BaseReportProps> = ({
   const totalEmployees = employeeAdvanceArray.length;
   const totalAdvances = reportData.length;
 
-  // Calculate paginated data for employee groups
+  // Calculate paginated data
   const totalItems = employeeAdvanceArray.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedEmployeeData = employeeAdvanceArray.slice(startIndex, endIndex);
 
-  // Reset to first page when filters change or data updates
+  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [filters.town, filters.employeeNumber, reportData]);
@@ -467,56 +1034,67 @@ const BaseReport: React.FC<BaseReportProps> = ({
           .order('"First Name"');
 
         // Fetch salary advances
-        const { data: advancesData } = await supabase
+        const { data: advancesData, error: advancesError } = await supabase
           .from('salary_advance')
           .select('*')
           .order('time_added', { ascending: false });
 
+        console.log('Advances fetch error:', advancesError);
+        console.log('Advances data sample:', advancesData?.[0]);
+
         if (employeesData) {
-          // Combine employee data with their advances
           const employeeTableData: SalaryAdvanceData[] = [];
           
           employeesData.forEach(emp => {
             const employeeAdvances = advancesData?.filter(
-              advance => advance.employee_number === emp['Employee Number']
+              advance => advance["Employee Number"] === emp['Employee Number']
             ) || [];
 
             if (employeeAdvances.length > 0) {
               // Create an entry for each advance
               employeeAdvances.forEach(advance => {
+                const advanceAmount = advance["Amount Requested"] ? parseFloat(advance["Amount Requested"]) : 0;
+
                 employeeTableData.push({
                   id: `${emp['Employee Number']}-${advance.id}`,
-                  employee_number: emp['Employee Number'],
+                  employee_number: advance["Employee Number"] || emp['Employee Number'],
                   first_name: emp['First Name'] || '',
                   last_name: emp['Last Name'] || '',
-                  town: emp.Town || '',
-                  branch: emp.Branch || '',
+                  town: advance["Town"] || emp.Town || '',
+                  branch: advance["Office Branch"] || emp.Branch || '',
                   phone_number: emp['Mobile Number'] || '',
-                  application_date: advance.application_date,
-                  application_time: advance.application_time,
-                  // FIXED: Use "Amount Requested" with quotes
-                  "Amount Requested": advance["Amount Requested"],
-                  status: advance.status,
-                  mpesa_code: advance.mpesa_code,
-                  disbursement_date: advance.disbursement_date,
-                  disbursement_time: advance.disbursement_time,
-                  repayment_date: advance.repayment_date,
-                  repayment_time: advance.repayment_time,
-                  repayment_status: advance.repayment_status,
+                  application_date: advance.time_added?.split('T')[0],
+                  application_time: advance.time_added?.split('T')[1]?.substring(0, 8),
+                  amount_requested: advanceAmount,
+                  status: advance.status || 'Pending',
+                  mpesa_code: advance.mpesa_transaction_id,
+                  disbursement_date: advance.payment_date?.split('T')[0],
+                  disbursement_time: advance.payment_date?.split('T')[1]?.substring(0, 8),
+                  repayment_date: null,
+                  repayment_time: null,
+                  repayment_status: null,
                   approved_by: advance.approved_by,
-                  approval_date: advance.approval_date,
-                  approval_time: advance.approval_time,
-                  reason: advance.reason,
-                  bank_account: advance.bank_account,
-                  bank_name: advance.bank_name,
-                  deduction_month: advance.deduction_month,
-                  remarks: advance.remarks,
-                  created_at: advance.created_at,
-                  updated_at: advance.updated_at
+                  approval_date: advance.admin_approval_date?.split('T')[0],
+                  approval_time: advance.admin_approval_date?.split('T')[1]?.substring(0, 8),
+                  reason: advance["Reason for Advance"],
+                  bank_account: null,
+                  bank_name: null,
+                  deduction_month: null,
+                  remarks: advance.admin_notes,
+                  created_at: advance.time_added,
+                  updated_at: advance.last_updated,
+                  basic_salary: advance["Basic Salary"],
+                  net_salary: advance["Net Salary"],
+                  region: advance["Region"],
+                  office_branch: advance["Office Branch"],
+                  reason_for_advance: advance["Reason for Advance"],
+                  admin_notes: advance.admin_notes,
+                  mpesa_conversation_id: advance.mpesa_conversation_id,
+                  mpesa_result_desc: advance.mpesa_result_desc
                 });
               });
             } else {
-              // Employee with no advances - show basic info
+              // Employee with no advances
               employeeTableData.push({
                 id: emp['Employee Number'],
                 employee_number: emp['Employee Number'],
@@ -527,7 +1105,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
                 phone_number: emp['Mobile Number'] || '',
                 application_date: undefined,
                 application_time: undefined,
-                "Amount Requested": undefined,
+                amount_requested: 0,
                 status: undefined,
                 mpesa_code: undefined,
                 disbursement_date: undefined,
@@ -549,6 +1127,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
             }
           });
 
+          console.log('Final report data:', employeeTableData.slice(0, 3));
           setEmployees(employeesData);
           setFilteredEmployees(employeesData);
           setReportData(employeeTableData);
@@ -588,40 +1167,41 @@ const BaseReport: React.FC<BaseReportProps> = ({
       
       filtered.forEach(emp => {
         const employeeAdvances = advancesData?.filter(
-          advance => advance.employee_number === emp['Employee Number']
+          advance => advance["Employee Number"] === emp['Employee Number']
         ) || [];
 
         if (employeeAdvances.length > 0) {
           employeeAdvances.forEach(advance => {
+            const advanceAmount = advance["Amount Requested"] ? parseFloat(advance["Amount Requested"]) : 0;
+
             filteredReportData.push({
               id: `${emp['Employee Number']}-${advance.id}`,
-              employee_number: emp['Employee Number'],
+              employee_number: advance["Employee Number"] || emp['Employee Number'],
               first_name: emp['First Name'] || '',
               last_name: emp['Last Name'] || '',
-              town: emp.Town || '',
-              branch: emp.Branch || '',
+              town: advance["Town"] || emp.Town || '',
+              branch: advance["Office Branch"] || emp.Branch || '',
               phone_number: emp['Mobile Number'] || '',
-              application_date: advance.application_date,
-              application_time: advance.application_time,
-              // FIXED: Use "Amount Requested" with quotes
-              "Amount Requested": advance["Amount Requested"],
-              status: advance.status,
-              mpesa_code: advance.mpesa_code,
-              disbursement_date: advance.disbursement_date,
-              disbursement_time: advance.disbursement_time,
-              repayment_date: advance.repayment_date,
-              repayment_time: advance.repayment_time,
-              repayment_status: advance.repayment_status,
+              application_date: advance.time_added?.split('T')[0],
+              application_time: advance.time_added?.split('T')[1]?.substring(0, 8),
+              amount_requested: advanceAmount,
+              status: advance.status || 'Pending',
+              mpesa_code: advance.mpesa_transaction_id,
+              disbursement_date: advance.payment_date?.split('T')[0],
+              disbursement_time: advance.payment_date?.split('T')[1]?.substring(0, 8),
+              repayment_date: null,
+              repayment_time: null,
+              repayment_status: null,
               approved_by: advance.approved_by,
-              approval_date: advance.approval_date,
-              approval_time: advance.approval_time,
-              reason: advance.reason,
-              bank_account: advance.bank_account,
-              bank_name: advance.bank_name,
-              deduction_month: advance.deduction_month,
-              remarks: advance.remarks,
-              created_at: advance.created_at,
-              updated_at: advance.updated_at
+              approval_date: advance.admin_approval_date?.split('T')[0],
+              approval_time: advance.admin_approval_date?.split('T')[1]?.substring(0, 8),
+              reason: advance["Reason for Advance"],
+              bank_account: null,
+              bank_name: null,
+              deduction_month: null,
+              remarks: advance.admin_notes,
+              created_at: advance.time_added,
+              updated_at: advance.last_updated
             });
           });
         } else {
@@ -635,7 +1215,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
             phone_number: emp['Mobile Number'] || '',
             application_date: undefined,
             application_time: undefined,
-            "Amount Requested": undefined,
+            amount_requested: 0,
             status: undefined,
             mpesa_code: undefined,
             disbursement_date: undefined,
@@ -744,7 +1324,7 @@ const BaseReport: React.FC<BaseReportProps> = ({
           `"${row.phone_number}"`,
           row.application_date || '',
           row.application_time || '',
-          row["Amount Requested"] || '',
+          row.amount_requested || '',
           row.status || '',
           `"${row.mpesa_code}"` || '',
           row.disbursement_date || '',
@@ -799,10 +1379,42 @@ const BaseReport: React.FC<BaseReportProps> = ({
     setCurrentPage(1);
   };
 
-  // Accounting-style render function with support for multiple advances
+  // Handle view transaction details
+  const handleViewTransactions = (employeeGroup: any) => {
+    const { employee, advances } = employeeGroup;
+    setSelectedEmployeeTransactions(advances);
+    setSelectedEmployeeDetails({
+      name: `${employee.first_name} ${employee.last_name}`,
+      number: employee.employee_number
+    });
+    setShowTransactionModal(true);
+  };
+
+  // Handle bulk download
+  const handleBulkDownload = async (format: 'csv' | 'excel' | 'pdf', includeAll: boolean) => {
+    const employeesToDownload = includeAll 
+      ? employeeAdvanceArray 
+      : employeeAdvanceArray.filter(emp => selectedEmployees.has(emp.employee.employee_number));
+    
+    alert(`Downloading ${employeesToDownload.length} reports in ${format.toUpperCase()} format...`);
+    // Implement actual download logic here
+  };
+
+  // Toggle employee selection
+  const toggleEmployeeSelection = (employeeNumber: string) => {
+    const newSelected = new Set(selectedEmployees);
+    if (newSelected.has(employeeNumber)) {
+      newSelected.delete(employeeNumber);
+    } else {
+      newSelected.add(employeeNumber);
+    }
+    setSelectedEmployees(newSelected);
+  };
+
+  // Accounting-style render function
   const renderAccountingReportData = (employeeData: any[]) => (
     <>
-      {/* Traditional Accounting Summary Cards - No Icons */}
+      {/* Accounting Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 p-4 bg-gray-50 border-b border-gray-300">
         <div className="bg-white p-3 rounded border border-gray-300 shadow-sm">
           <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">Total Employees</p>
@@ -829,11 +1441,55 @@ const BaseReport: React.FC<BaseReportProps> = ({
         </div>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedEmployees.size > 0 && (
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-blue-100 rounded-lg">
+              <Download className="w-4 h-4 text-blue-600" />
+            </div>
+            <span className="text-sm font-medium text-blue-800">
+              {selectedEmployees.size} employee{selectedEmployees.size !== 1 ? 's' : ''} selected
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedEmployees(new Set())}
+              className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Clear Selection
+            </button>
+            <button
+              onClick={() => setShowBulkDownloadModal(true)}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Download className="w-3 h-3" />
+              Download Selected
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Accounting Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-300">
           <thead className="bg-gray-75 border-b border-gray-300">
             <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
+                <input
+                  type="checkbox"
+                  checked={selectedEmployees.size === employeeData.length && employeeData.length > 0}
+                  onChange={() => {
+                    if (selectedEmployees.size === employeeData.length) {
+                      setSelectedEmployees(new Set());
+                    } else {
+                      const allIds = employeeData.map(emp => emp.employee.employee_number);
+                      setSelectedEmployees(new Set(allIds));
+                    }
+                  }}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+              </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider border-r border-gray-300">
                 Employee Details
               </th>
@@ -847,20 +1503,32 @@ const BaseReport: React.FC<BaseReportProps> = ({
                 Financial Overview
               </th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Status Summary
+                Actions
               </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-300">
             {employeeData.map((employeeGroup: any) => {
               const { employee, advances, totalApplied, totalDisbursed, advanceCount } = employeeGroup;
-              const recentAdvance = advances[0]; // Most recent advance
+              const recentAdvance = advances[0];
+              const isSelected = selectedEmployees.has(employee.employee_number);
 
               return (
                 <tr key={employee.employee_number} className="hover:bg-gray-50 border-b border-gray-200">
-                  {/* Employee Details */}
+                  {/* Selection Checkbox */}
                   <td className="px-4 py-3 border-r border-gray-300">
-                    <div className="text-sm font-semibold text-gray-900">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleEmployeeSelection(employee.employee_number)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </td>
+
+                  {/* Employee Details with clickable link */}
+                  <td className="px-4 py-3 border-r border-gray-300">
+                    <div className="text-sm font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
+                         onClick={() => handleViewTransactions(employeeGroup)}>
                       {employee.first_name} {employee.last_name}
                     </div>
                     <div className="text-xs text-gray-600 font-mono">{employee.employee_number}</div>
@@ -924,6 +1592,14 @@ const BaseReport: React.FC<BaseReportProps> = ({
                             {formatCurrency(totalDisbursed)}
                           </div>
                         </div>
+                        {recentAdvance?.amount_requested && (
+                          <div className="text-sm">
+                            <div className="text-gray-600 text-xs">Latest Amount</div>
+                            <div className="font-semibold text-blue-700">
+                              {formatCurrency(recentAdvance.amount_requested)}
+                            </div>
+                          </div>
+                        )}
                         {recentAdvance?.mpesa_code && (
                           <div className="text-xs font-mono text-blue-700 bg-blue-50 px-2 py-1 rounded border border-blue-200">
                             Ref: {recentAdvance.mpesa_code}
@@ -935,28 +1611,59 @@ const BaseReport: React.FC<BaseReportProps> = ({
                     )}
                   </td>
 
-                  {/* Status Summary */}
+                  {/* Actions */}
                   <td className="px-4 py-3">
-                    {recentAdvance ? (
-                      <div className="space-y-2">
-                        <div>
-                          <div className="text-xs text-gray-600 mb-1">Current Status</div>
-                          <AccountingStatusBadge status={recentAdvance.status} type="status" />
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-600 mb-1">Repayment</div>
-                          <AccountingStatusBadge status={recentAdvance.repayment_status} type="repayment" />
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          <div>Approved by: {recentAdvance.approved_by || 'Pending'}</div>
-                          <div className="text-gray-400">
-                            {formatAccountingDate(recentAdvance.approval_date, recentAdvance.approval_time)}
-                          </div>
-                        </div>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleViewTransactions(employeeGroup)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                      >
+                        <Eye className="w-3 h-3" />
+                        View Transactions
+                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            // Download individual report
+                            const employeeTransactions = reportData.filter(
+                              t => t.employee_number === employee.employee_number
+                            );
+                            const csvContent = [
+                              ['Transaction ID', 'Date', 'Amount', 'Status', 'Reference'].join(','),
+                              ...employeeTransactions.map(t => 
+                                [
+                                  t.id,
+                                  t.application_date || '',
+                                  t.amount_requested || '',
+                                  t.status || '',
+                                  t.mpesa_code || ''
+                                ].join(',')
+                              )
+                            ].join('\n');
+                            
+                            const blob = new Blob([csvContent], { type: 'text/csv' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `transactions-${employee.employee_number}.csv`;
+                            a.click();
+                            window.URL.revokeObjectURL(url);
+                          }}
+                          className="flex-1 px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors"
+                        >
+                          Download
+                        </button>
+                        <button
+                          onClick={() => {
+                            alert(`Printing report for ${employee.first_name} ${employee.last_name}`);
+                            // Add print logic here
+                          }}
+                          className="flex-1 px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 transition-colors"
+                        >
+                          Print
+                        </button>
                       </div>
-                    ) : (
-                      <div className="text-sm text-gray-400 italic">No status data</div>
-                    )}
+                    </div>
                   </td>
                 </tr>
               );
@@ -1043,13 +1750,24 @@ const BaseReport: React.FC<BaseReportProps> = ({
               </button>
               
               {reportData.length > 0 && (
-                <button
-                  onClick={handleExport}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium shadow-sm transition-colors"
-                >
-                  <Download className="w-3 h-3" />
-                  Export to Excel
-                </button>
+                <>
+                  <button
+                    onClick={handleExport}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium shadow-sm transition-colors"
+                  >
+                    <Download className="w-3 h-3" />
+                    Export All Data
+                  </button>
+                  
+                  <button
+                    onClick={() => setShowBulkDownloadModal(true)}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded text-xs font-medium shadow-sm transition-colors"
+                    disabled={selectedEmployees.size === 0}
+                  >
+                    <Download className="w-3 h-3" />
+                    Bulk Download ({selectedEmployees.size})
+                  </button>
+                </>
               )}
             </div>
 
@@ -1149,6 +1867,24 @@ const BaseReport: React.FC<BaseReportProps> = ({
           )}
         </div>
       </div>
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        isOpen={showTransactionModal}
+        onClose={() => setShowTransactionModal(false)}
+        transactions={selectedEmployeeTransactions}
+        employeeName={selectedEmployeeDetails.name}
+        employeeNumber={selectedEmployeeDetails.number}
+      />
+
+      {/* Bulk Download Modal */}
+      <BulkDownloadModal
+        isOpen={showBulkDownloadModal}
+        onClose={() => setShowBulkDownloadModal(false)}
+        onDownload={handleBulkDownload}
+        selectedCount={selectedEmployees.size}
+        totalCount={employeeAdvanceArray.length}
+      />
     </div>
   );
 };
