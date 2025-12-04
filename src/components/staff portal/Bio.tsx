@@ -56,6 +56,45 @@ const kraPinRegex = /^[A-Z]{1}[0-9]{9}[A-Z]{1}$/;
 const nitaRegex = /^[A-Za-z0-9]{6,12}$/;
 const helbRegex = /^[A-Za-z0-9]{6,12}$/;
 
+// List of fields that should be READ-ONLY for employees
+const READ_ONLY_FIELDS = [
+  // Employee Identification & System Fields
+  'Employee Number',
+  'Work Email',
+  'Work Mobile', // Added: Company-provided mobile number
+  
+  // Employment Status & Contract Fields
+  'Employee Type',
+  'Start Date',
+  'Termination Date',
+  'Probation Start Date',
+  'Probation End Date',
+  'Contract Start Date',
+  'Contract End Date',
+  
+  // Job & Position Information
+  'Job Title',
+  'Job Level',
+  'Job Group',
+  'Department',
+  
+  // Organizational Structure
+  'Branch',
+  'Town',
+  'Manager',
+  'Leave Approver',
+  'Alternate Approver',
+  
+  // Financial & Compensation
+  'Basic Salary',
+  'Currency',
+  'payment_method',
+  'Bank',
+  'Account Number',
+  'account_number_name',
+  'Bank Branch'
+];
+
 const EmployeeBioPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -82,7 +121,21 @@ const EmployeeBioPage = () => {
   const [statutoryDeductions, setStatutoryDeductions] = useState<StatutoryDeduction[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isEditMode, setIsEditMode] = useState(false);
+  const [userRole, setUserRole] = useState<string>('employee'); // Track user role
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if a field should be editable based on user role
+  const canEditField = (fieldName: string): boolean => {
+    // HR/Admin can edit everything
+    if (userRole === 'hr' || userRole === 'admin') return true;
+    
+    // Employees can only edit non-read-only fields
+    if (isEditMode) {
+      return !READ_ONLY_FIELDS.includes(fieldName);
+    }
+    
+    return false;
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -90,22 +143,33 @@ const EmployeeBioPage = () => {
         setLoading(true);
         setError(null);
 
-         const { data: { user } } = await supabase.auth.getUser();
-              if (!user?.email) return;
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user?.email) return;
 
-          const { data: employeeData } = await supabase
-                .from('employees')
-                .select('"Employee Number"')
-                .eq('"Work Email"', user.email)
-                .single();
+        // Fetch user role
+        const { data: userProfile } = await supabase
+          .from('user_profiles') // Adjust to your actual table name
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
         
-              if (!employeeData) return;
+        if (userProfile?.role) {
+          setUserRole(userProfile.role);
+        }
+
+        const { data: employeeData } = await supabase
+          .from('employees')
+          .select('"Employee Number"')
+          .eq('"Work Email"', user.email)
+          .single();
+        
+        if (!employeeData) return;
         
         // Fetch employee data
         const { data: empData, error: empError } = await supabase
           .from('employees')
           .select('*')
-           .eq('"Employee Number"', employeeData["Employee Number"])
+          .eq('"Employee Number"', employeeData["Employee Number"])
           .single();
 
         if (empError) throw empError;
@@ -251,31 +315,6 @@ const EmployeeBioPage = () => {
             error = 'Invalid passport number format';
           }
           break;
-        // case 'SHIF Number':
-        //   if (value && !nhifRegex.test(String(value))) {
-        //     error = 'Invalid SHIF Number (8-10 digits)';
-        //   }
-        //   break;
-        // case 'NSSF Number':
-        //   if (value && !nssfRegex.test(String(value))) {
-        //     error = 'Invalid NSSF number (9 digits)';
-        //   }
-        //   break;
-        // case 'Tax PIN':
-        //   if (value && !kraPinRegex.test(String(value))) {
-        //     error = 'Invalid KRA PIN format (e.g., A123456789Z)';
-        //   }
-        //   break;
-        // case 'NITA':
-        //   if (value && !nitaRegex.test(String(value))) {
-        //     error = 'Invalid NITA number format';
-        //   }
-        //   break;
-        // case 'HELB':
-        //   if (value && !helbRegex.test(String(value))) {
-        //     error = 'Invalid HELB number format';
-        //   }
-        //   break;
       }
     }
     
@@ -302,6 +341,12 @@ const EmployeeBioPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Only allow editing if field is editable for this user
+    if (!canEditField(name) && userRole !== 'hr' && userRole !== 'admin') {
+      return;
+    }
+    
     setEmployee(prev => ({
       ...prev,
       [name]: value
@@ -312,6 +357,11 @@ const EmployeeBioPage = () => {
   };
 
   const handleDateChange = (name: string, value: string) => {
+    // Only allow editing if field is editable for this user
+    if (!canEditField(name) && userRole !== 'hr' && userRole !== 'admin') {
+      return;
+    }
+    
     setEmployee(prev => ({
       ...prev,
       [name]: value || null
@@ -493,17 +543,36 @@ const EmployeeBioPage = () => {
         imageUrl = publicUrl;
       }
 
+      // Prepare update data, preserving read-only fields for non-HR/Admin users
+      let updateData = { ...employee };
+      
+      // If user is not HR/Admin, don't update read-only fields
+      if (userRole !== 'hr' && userRole !== 'admin') {
+        READ_ONLY_FIELDS.forEach(field => {
+          delete updateData[field];
+        });
+      }
+      
+      // Always update profile image and statutory deductions
+      updateData['Profile Image'] = imageUrl;
+      
+      // Update statutory deductions
+      const shifNumber = statutoryDeductions.find(d => d.name === 'SHIF Number')?.number || null;
+      const nssfNumber = statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null;
+      const taxPin = statutoryDeductions.find(d => d.name === 'Tax PIN')?.number || null;
+      const nita = statutoryDeductions.find(d => d.name === 'NITA')?.number || null;
+      const helb = statutoryDeductions.find(d => d.name === 'HELB')?.number || null;
+
       // Update employee data
       const { error: employeeError } = await supabase
         .from('employees')
         .update({
-          ...employee,
-          'Profile Image': imageUrl,
-          'SHIF Number': statutoryDeductions.find(d => d.name === 'SHIF Number')?.number || null,
-          'NSSF Number': statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null,
-          'Tax PIN': statutoryDeductions.find(d => d.name === 'Tax PIN')?.number || null,
-          'NITA': statutoryDeductions.find(d => d.name === 'NITA')?.number || null,
-          'HELB': statutoryDeductions.find(d => d.name === 'HELB')?.number || null
+          ...updateData,
+          'SHIF Number': shifNumber,
+          'NSSF Number': nssfNumber,
+          'Tax PIN': taxPin,
+          'NITA': nita,
+          'HELB': helb
         })
         .eq('"Employee Number"', id);
       
@@ -561,7 +630,7 @@ const EmployeeBioPage = () => {
       }
       
       setIsEditMode(false);
-      navigate(`/employees`, { state: { success: true } });
+      navigate(`/staff`, { state: { success: true } });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update employee');
     } finally {
@@ -572,8 +641,6 @@ const EmployeeBioPage = () => {
   const handleEditToggle = () => {
     if (isEditMode) {
       // If canceling edit mode, reset form to original values
-      // This would require storing original data or refetching
-      // For simplicity, we'll just toggle the mode
       setIsEditMode(false);
       setErrors({});
     } else {
@@ -656,7 +723,7 @@ const EmployeeBioPage = () => {
       exit={{ opacity: 0 }}
       className="p-4 md:p-6 max-w-6xl mx-auto text-xs"
     >
-      {/* <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => navigate(`/staff`)}
           className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group text-xs"
@@ -693,11 +760,11 @@ const EmployeeBioPage = () => {
               icon={PencilLine}
               className="bg-green-600 hover:blue-100 text-white"
             >
-              Edit Employee
+              update details
             </GlowButton>
           )}
         </div>
-      </div> */}
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         {/* Header */}
@@ -754,6 +821,7 @@ const EmployeeBioPage = () => {
                 </h1>
                 <p className="text-white mt-1">
                   <span className="font-medium">Employee ID:</span> {employee['Employee Number']}
+                  {userRole === 'hr' || userRole === 'admin' ? ' (HR/Admin View)' : ' (Employee View)'}
                 </p>
               </div>
             </div>
@@ -820,7 +888,7 @@ const EmployeeBioPage = () => {
           {/* Personal Information Tab */}
           {activeTab === 'personal' && (
             <div className="space-y-8">
-              {/* Profile Image Section */}
+              {/* Profile Image Section - ALWAYS editable for employees */}
               {isEditMode && (
                 <div>
                   <SectionHeader 
@@ -935,7 +1003,7 @@ const EmployeeBioPage = () => {
                       label="Date of Birth"
                       name="Date of Birth"
                       type="date"
-                                            value={employee['Date of Birth'] || ''}
+                      value={employee['Date of Birth'] || ''}
                       onChange={(e) => handleDateChange('Date of Birth', e.target.value)}
                       disabled={!isEditMode}
                     />
@@ -1042,7 +1110,9 @@ const EmployeeBioPage = () => {
                     value={employee['Employee Type'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.employmentTypes}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Employee Type')}
+                    readOnly={!canEditField('Employee Type')}
+                    isReadOnly={!canEditField('Employee Type')}
                   />
                   <FormField
                     label="Employment Start Date"
@@ -1050,7 +1120,9 @@ const EmployeeBioPage = () => {
                     type="date"
                     value={employee['Start Date'] || ''}
                     onChange={(e) => handleDateChange('Start Date', e.target.value)}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Start Date')}
+                    readOnly={!canEditField('Start Date')}
+                    isReadOnly={!canEditField('Start Date')}
                   />
                   {employee['Termination Date'] && (
                     <FormField
@@ -1059,7 +1131,9 @@ const EmployeeBioPage = () => {
                       type="date"
                       value={employee['Termination Date'] || ''}
                       onChange={(e) => handleDateChange('Termination Date', e.target.value)}
-                      disabled={!isEditMode}
+                      disabled={!isEditMode || !canEditField('Termination Date')}
+                      readOnly={!canEditField('Termination Date')}
+                      isReadOnly={!canEditField('Termination Date')}
                     />
                   )}
                   <FormField
@@ -1069,7 +1143,9 @@ const EmployeeBioPage = () => {
                     value={employee['Job Level'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobLevels}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Job Level')}
+                    readOnly={!canEditField('Job Level')}
+                    isReadOnly={!canEditField('Job Level')}
                   />
                   <FormField
                     label="Job Title"
@@ -1078,7 +1154,9 @@ const EmployeeBioPage = () => {
                     value={employee['Job Title'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobTitles}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Job Title')}
+                    readOnly={!canEditField('Job Title')}
+                    isReadOnly={!canEditField('Job Title')}
                   />
                   <FormField
                     label="Job Group"
@@ -1087,7 +1165,9 @@ const EmployeeBioPage = () => {
                     value={employee['Job Group'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.jobGroup}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Job Group')}
+                    readOnly={!canEditField('Job Group')}
+                    isReadOnly={!canEditField('Job Group')}
                   />
                   <FormField
                     label="Branch"
@@ -1096,7 +1176,9 @@ const EmployeeBioPage = () => {
                     value={employee.Branch || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.branches}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Branch')}
+                    readOnly={!canEditField('Branch')}
+                    isReadOnly={!canEditField('Branch')}
                   />
                   <FormField
                     label="Office Location"
@@ -1105,7 +1187,9 @@ const EmployeeBioPage = () => {
                     value={employee.Town || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.office}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Town')}
+                    readOnly={!canEditField('Town')}
+                    isReadOnly={!canEditField('Town')}
                   />
                 </div>
               </div>
@@ -1124,7 +1208,9 @@ const EmployeeBioPage = () => {
                       value={employee['Manager'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
-                      disabled={!isEditMode}
+                      disabled={!isEditMode || !canEditField('Manager')}
+                      readOnly={!canEditField('Manager')}
+                      isReadOnly={!canEditField('Manager')}
                     />
                     <FormField
                       label="Work Email"
@@ -1133,7 +1219,9 @@ const EmployeeBioPage = () => {
                       value={employee['Work Email'] || ''}
                       onChange={handleInputChange}
                       error={errors['Work Email']}
-                      disabled={!isEditMode}
+                      disabled={!isEditMode || !canEditField('Work Email')}
+                      readOnly={!canEditField('Work Email')}
+                      isReadOnly={!canEditField('Work Email')}
                     />
                   </div>
                 </div>
@@ -1151,7 +1239,9 @@ const EmployeeBioPage = () => {
                       value={employee["Leave Approver"] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
-                      disabled={!isEditMode}
+                      disabled={!isEditMode || !canEditField('Leave Approver')}
+                      readOnly={!canEditField('Leave Approver')}
+                      isReadOnly={!canEditField('Leave Approver')}
                     />
                     <FormField
                       label="Alternate Leave Approver"
@@ -1160,7 +1250,9 @@ const EmployeeBioPage = () => {
                       value={employee['Alternate Approver'] || ''}
                       onChange={handleInputChange}
                       options={dropdownOptions.supervisors}
-                      disabled={!isEditMode}
+                      disabled={!isEditMode || !canEditField('Alternate Approver')}
+                      readOnly={!canEditField('Alternate Approver')}
+                      isReadOnly={!canEditField('Alternate Approver')}
                     />
                   </div>
                 </div>
@@ -1178,7 +1270,9 @@ const EmployeeBioPage = () => {
                     type="date"
                     value={employee['Probation Start Date'] || ''}
                     onChange={(e) => handleDateChange('Probation Start Date', e.target.value)}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Probation Start Date')}
+                    readOnly={!canEditField('Probation Start Date')}
+                    isReadOnly={!canEditField('Probation Start Date')}
                   />
                   <FormField
                     label="Probation End Date"
@@ -1186,7 +1280,9 @@ const EmployeeBioPage = () => {
                     type="date"
                     value={employee['Probation End Date'] || ''}
                     onChange={(e) => handleDateChange('Probation End Date', e.target.value)}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Probation End Date')}
+                    readOnly={!canEditField('Probation End Date')}
+                    isReadOnly={!canEditField('Probation End Date')}
                   />
                   <FormField
                     label="Contract Start Date"
@@ -1194,7 +1290,9 @@ const EmployeeBioPage = () => {
                     type="date"
                     value={employee['Contract Start Date'] || ''}
                     onChange={(e) => handleDateChange('Contract Start Date', e.target.value)}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Contract Start Date')}
+                    readOnly={!canEditField('Contract Start Date')}
+                    isReadOnly={!canEditField('Contract Start Date')}
                   />
                   <FormField
                     label="Contract End Date"
@@ -1202,7 +1300,9 @@ const EmployeeBioPage = () => {
                     type="date"
                     value={employee['Contract End Date'] || ''}
                     onChange={(e) => handleDateChange('Contract End Date', e.target.value)}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Contract End Date')}
+                    readOnly={!canEditField('Contract End Date')}
+                    isReadOnly={!canEditField('Contract End Date')}
                   />
                 </div>
               </div>
@@ -1246,8 +1346,10 @@ const EmployeeBioPage = () => {
                     value={employee['Work Mobile'] || ''}
                     onChange={handleInputChange}
                     error={errors['Work Mobile']}
-                    disabled={!isEditMode}
-                    placeholder="Optional work mobile"
+                    disabled={!isEditMode || !canEditField('Work Mobile')}
+                    readOnly={!canEditField('Work Mobile')}
+                    isReadOnly={!canEditField('Work Mobile')}
+                    placeholder="Company-provided mobile"
                   />
                   <FormField
                     label="Personal Mobile Number"
@@ -1323,28 +1425,36 @@ const EmployeeBioPage = () => {
                     name="Bank"
                     value={employee['Bank'] || ''}
                     onChange={handleInputChange}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Bank')}
+                    readOnly={!canEditField('Bank')}
+                    isReadOnly={!canEditField('Bank')}
                   />
                   <FormField
                     label="Account Number"
                     name="Account Number"
                     value={employee['Account Number'] || ''}
                     onChange={handleInputChange}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Account Number')}
+                    readOnly={!canEditField('Account Number')}
+                    isReadOnly={!canEditField('Account Number')}
                   />
                   <FormField
                     label="Account Name"
                     name="account_number_name"
                     value={employee.account_number_name || ''}
                     onChange={handleInputChange}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('account_number_name')}
+                    readOnly={!canEditField('account_number_name')}
+                    isReadOnly={!canEditField('account_number_name')}
                   />
                   <FormField
                     label="Bank Branch"
                     name="Bank Branch"
                     value={employee['Bank Branch'] || ''}
                     onChange={handleInputChange}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Bank Branch')}
+                    readOnly={!canEditField('Bank Branch')}
+                    isReadOnly={!canEditField('Bank Branch')}
                   />
                   <FormField
                     label="Payment Method"
@@ -1353,7 +1463,9 @@ const EmployeeBioPage = () => {
                     value={employee['payment_method'] || ''}
                     onChange={handleInputChange}
                     options={dropdownOptions.paymentMethods}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('payment_method')}
+                    readOnly={!canEditField('payment_method')}
+                    isReadOnly={!canEditField('payment_method')}
                   />
                 </div>
               </div>
@@ -1376,7 +1488,9 @@ const EmployeeBioPage = () => {
                         "Basic Salary": numValue
                       }));
                     }}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Basic Salary')}
+                    readOnly={!canEditField('Basic Salary')}
+                    isReadOnly={!canEditField('Basic Salary')}
                   />
                   <FormField
                     label="Currency"
@@ -1385,7 +1499,9 @@ const EmployeeBioPage = () => {
                     value={employee['Currency'] || 'KES'}
                     onChange={handleInputChange}
                     options={['KES', 'USD', 'EUR', 'GBP']}
-                    disabled={!isEditMode}
+                    disabled={!isEditMode || !canEditField('Currency')}
+                    readOnly={!canEditField('Currency')}
+                    isReadOnly={!canEditField('Currency')}
                   />
                 </div>
               </div>
@@ -1404,6 +1520,7 @@ const EmployeeBioPage = () => {
                             type="button"
                             className={`w-6 h-6 rounded flex items-center justify-center border ${deduction.isActive ? 'bg-emerald-500 border-emerald-500' : 'border-gray-300'}`}
                             onClick={() => handleStatutoryDeductionChange(index, 'isActive', !deduction.isActive)}
+                            disabled={!isEditMode}
                           >
                             {deduction.isActive && <Check className="w-4 h-4 text-white" />}
                           </button>
@@ -1644,7 +1761,7 @@ const SectionHeader = ({ title, icon: Icon }: {
   </div>
 );
 
-// Reusable Form Field Component
+// Reusable Form Field Component with read-only support
 const FormField = ({
   label,
   value,
@@ -1654,6 +1771,8 @@ const FormField = ({
   required = false,
   options = [],
   disabled = false,
+  readOnly = false,
+  isReadOnly = false,
   error = '',
   placeholder = '',
 }: {
@@ -1665,44 +1784,60 @@ const FormField = ({
   required?: boolean;
   options?: string[];
   disabled?: boolean;
+  readOnly?: boolean;
+  isReadOnly?: boolean;
   error?: string;
   placeholder?: string;
-}) => (
-  <div className="space-y-1">
-    <label className="block font-medium text-gray-700">
-      {label}
-      {required && <span className="text-red-500 ml-1">*</span>}
-    </label>
-    {type === 'select' ? (
-      <select
-        name={name}
-        value={value}
-        onChange={onChange}
-        required={required}
-        disabled={disabled}
-        className={`w-full h-11 ${disabled ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
-      >
-        <option value="">Select {label}</option>
-        {options.map(option => (
-          <option key={option} value={option}>{option}</option>
-        ))}
-      </select>
-    ) : (
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        required={required}
-        disabled={disabled}
-        placeholder={placeholder}
-        className={`w-full h-11 ${disabled ? 'bg-gray-100 border-gray-200' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm ${disabled ? 'opacity-70 cursor-not-allowed' : ''}`}
-      />
-    )}
-    {error && (
-      <p className="mt-1 text-xs text-red-500">{error}</p>
-    )}
-  </div>
-);
+}) => {
+  const fieldId = `field-${name || label.toLowerCase().replace(/\s+/g, '-')}`;
+  
+  return (
+    <div className="space-y-1">
+      <label htmlFor={fieldId} className="block font-medium text-gray-700">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+        {isReadOnly && (
+          <span className="ml-2 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+            Read-only
+          </span>
+        )}
+      </label>
+      {type === 'select' ? (
+        <select
+          id={fieldId}
+          name={name}
+          value={value}
+          onChange={onChange}
+          required={required}
+          disabled={disabled || readOnly}
+          className={`w-full h-11 ${disabled || readOnly ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+          style={readOnly ? { pointerEvents: 'none' } : {}}
+        >
+          <option value="">Select {label}</option>
+          {options.map(option => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      ) : (
+        <input
+          id={fieldId}
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          required={required}
+          disabled={disabled || readOnly}
+          readOnly={readOnly}
+          placeholder={placeholder}
+          className={`w-full h-11 ${disabled || readOnly ? 'bg-gray-50 border-gray-200 cursor-not-allowed' : 'bg-white border-gray-300'} rounded-lg px-4 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200 shadow-sm`}
+          style={readOnly ? { pointerEvents: 'none' } : {}}
+        />
+      )}
+      {error && (
+        <p className="mt-1 text-xs text-red-500">{error}</p>
+      )}
+    </div>
+  );
+};
 
 export default EmployeeBioPage;

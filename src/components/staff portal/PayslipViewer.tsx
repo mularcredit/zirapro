@@ -17,12 +17,13 @@ import {
   Calculator,
   Eye,
   Box,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import html2pdf from 'html2pdf.js';
 
-// HARDCODED STATUTORY SETTINGS - No database dependency
+// HARDCODED STATUTORY SETTINGS - Updated to match payroll dashboard
 const statutorySettings = {
   payeBrackets: [
     { threshold: 24000, rate: 0.10 },
@@ -38,10 +39,11 @@ const statutorySettings = {
   nssfMaximum: 4320,
   nhifRate: 0.0275, // Flat rate system - 2.75%
   housingLevyRate: 0.015,
-  currency: 'KSh'
+  currency: 'KSh',
+  welfareDeduction: 300
 };
 
-// HARDCODED calculation functions
+// UPDATED calculation functions to match payroll dashboard
 const statutoryCalculations = {
   calculatePAYE: (taxableIncome) => {
     if (!taxableIncome || taxableIncome <= 0) return 0;
@@ -63,7 +65,6 @@ const statutoryCalculations = {
       }
     }
 
-    tax = Math.max(0, tax - statutorySettings.personalRelief);
     return Number(tax.toFixed(2));
   },
 
@@ -87,21 +88,21 @@ const statutoryCalculations = {
 
   calculateNHIF: (grossPay) => {
     if (!grossPay || grossPay <= 0) return 0;
-
-    // HARDCODED FLAT RATE - 2.75%
+    
+    // UPDATED: Use taxable gross instead of gross pay (minus per diem)
     const nhif = grossPay * statutorySettings.nhifRate;
     return Number(nhif.toFixed(2));
   },
 
-  calculateHousingLevy: (grossSalary, hasTaxPIN) => {
-    if (!grossSalary || grossSalary <= 0 || !hasTaxPIN) return 0;
+  calculateHousingLevy: (grossSalary) => {
+    if (!grossSalary || grossSalary <= 0) return 0;
     const levy = grossSalary * statutorySettings.housingLevyRate;
     return Number(levy.toFixed(2));
   }
 };
 
-// EXACT SAME calculation logic as payroll dashboard
-const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
+// UPDATED: EXACT SAME calculation logic as payroll dashboard with salary advances
+const calculatePayrollValues = (employee, overrideStatutoryChecks = true, salaryAdvances = []) => {
   const basicSalary = parseFloat(employee["Basic Salary"] || employee.basic_salary || 0);
   const houseAllowance = parseFloat(employee["House Allowance"] || employee.house_allowance || 0);
   const transportAllowance = parseFloat(employee["Transport Allowance"] || employee.transport_allowance || 0);
@@ -124,9 +125,10 @@ const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
                   commission + bonus;
 
   // Get employee info for statutory checks
-  const nhifNumber = employee["NHIF Number"] || employee.nhif_number || '';
+  const nhifNumber = employee["NHIF Number"] || employee.nhif_number || employee["SHIF Number"] || '';
   const nssfNumber = employee["NSSF Number"] || employee.nssf_number || '';
   const taxPin = employee["Tax PIN"] || employee.tax_pin || '';
+  const employeeId = employee["Employee ID"] || employee.employee_id || employee["Employee Number"] || '';
   
   // EXACT SAME: Taxable amount EXCLUDES the per diem portion
   const taxableGross = grossPay - perDiem;
@@ -145,11 +147,11 @@ const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
   }
   
   if (overrideStatutoryChecks || taxPin) {
-    housingLevy = statutoryCalculations.calculateHousingLevy(taxableGross, true);
+    housingLevy = statutoryCalculations.calculateHousingLevy(taxableGross);
   }
   
   // EXACT SAME: Calculate taxable income for PAYE AFTER deducting NSSF and Housing Levy
-  const taxableIncomeForPAYE = taxableGross - nssfDeduction - housingLevy;
+  const taxableIncomeForPAYE = taxableGross - nssfDeduction - housingLevy; 
   
   let payeTax = 0;
   let taxRelief = 0;
@@ -157,12 +159,33 @@ const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
   if (overrideStatutoryChecks || taxPin) {
     payeTax = statutoryCalculations.calculatePAYE(taxableIncomeForPAYE);
     taxRelief = Math.min(payeTax, statutorySettings.personalRelief);
-    payeTax = payeTax - taxRelief;
+    payeTax = Math.max(0, payeTax - taxRelief);
   }
 
-  // EXACT SAME: Voluntary deductions set to 0
+  // UPDATED: Calculate salary advance deduction
+  const calculateAdvanceDeduction = (employeeNumber) => {
+    if (!employeeNumber || !salaryAdvances || salaryAdvances.length === 0) return 0;
+    
+    // Find ALL advances for this employee
+    const employeeAdvances = salaryAdvances.filter(adv => {
+      const advanceEmpNumber = adv["Employee Number"];
+      return advanceEmpNumber == employeeNumber;
+    });
+    
+    if (employeeAdvances.length === 0) return 0;
+    
+    // Sum ALL advances for this employee
+    const totalAmount = employeeAdvances.reduce((sum, adv) => {
+      return sum + (parseFloat(adv["Amount Requested"]) || 0);
+    }, 0);
+    
+    return totalAmount;
+  };
+
+  const advanceDeduction = calculateAdvanceDeduction(employeeId);
+  
+  // EXACT SAME: Voluntary deductions set to 0 except welfare
   const loanDeduction = 0;
-  const advanceDeduction = 0;
   const welfareDeduction = 300; // Fixed welfare deduction
   const otherDeductions = 0;
 
@@ -203,11 +226,12 @@ const calculatePayrollValues = (employee, overrideStatutoryChecks = true) => {
     totalDeductions,
     netPay,
     taxableGross,
-    taxableIncomeForPAYE
+    taxableIncomeForPAYE,
+    employeeId
   };
 };
 
-// Summary Card Component
+// Summary Card Component (Updated to show advance deductions)
 const SummaryCard = ({
   label,
   value,
@@ -220,7 +244,8 @@ const SummaryCard = ({
     red: 'bg-red-100 text-red-600',
     blue: 'bg-blue-100 text-blue-600',
     purple: 'bg-purple-100 text-purple-600',
-    yellow: 'bg-yellow-100 text-yellow-600'
+    yellow: 'bg-yellow-100 text-yellow-600',
+    orange: 'bg-orange-100 text-orange-600'
   };
 
   return (
@@ -307,15 +332,17 @@ const GlowButton = ({
   );
 };
 
-// PayslipModal Component
+// PayslipModal Component (Updated with advance deduction)
 const PayslipModal = ({
   record,
   onClose,
   onPrevious,
   onNext,
-  companyInfo
+  companyInfo,
+  overrideStatutoryChecks = true,
+  salaryAdvances = []
 }) => {
-  const calculated = calculatePayrollValues(record, true);
+  const calculated = calculatePayrollValues(record, overrideStatutoryChecks, salaryAdvances);
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
@@ -775,11 +802,40 @@ const PayslipViewer = () => {
   const [companyInfo, setCompanyInfo] = useState(null);
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [showSummary, setShowSummary] = useState(false);
+  const [overrideStatutoryChecks, setOverrideStatutoryChecks] = useState(true);
+  const [salaryAdvances, setSalaryAdvances] = useState([]);
 
   useEffect(() => {
     fetchPayslips();
     fetchCompanyInfo();
+    fetchSalaryAdvances();
   }, []);
+
+  const fetchSalaryAdvances = async () => {
+    try {
+      console.log('Fetching salary advances for payslip viewer...');
+      
+      const { data, error } = await supabase
+        .from('salary_advance')
+        .select('"Employee Number", "Amount Requested", payment_processed, status')
+        .eq('payment_processed', 'true')
+        .eq('status', 'paid')
+        .order('time_added', { ascending: false });
+      
+      if (error) {
+        console.warn('Salary advances fetch error:', error.message);
+        setSalaryAdvances([]);
+        return;
+      }
+      
+      console.log(`Loaded ${data?.length || 0} salary advances for payslip viewer`);
+      setSalaryAdvances(data || []);
+      
+    } catch (error) {
+      console.warn('Failed to load salary advances:', error.message);
+      setSalaryAdvances([]);
+    }
+  };
 
  const fetchPayslips = async () => {
   try {
@@ -796,21 +852,19 @@ const PayslipViewer = () => {
 
     if (!employeeData) return;
 
-    // GET DATA FROM THE CURRENT VIEW INSTEAD OF TABLES
-    let data = [];
-    let error = null;
-
     // Try to get data from the current view first
     const { data: currentData, error: currentError } = await supabase
-      .from('payroll_records_current')  // Changed to the view name
+      .from('payroll_records_current')
       .select('*')
       .eq('"Employee ID"', employeeData["Employee Number"])
       .order('"Pay Period"', { ascending: false });
 
+    let data = [];
+
     if (!currentError && currentData) {
       data = currentData;
     } else {
-      // Fallback to payroll_records table if view doesn't exist
+      // Fallback to payroll_records table
       const { data: recordsData, error: recordsError } = await supabase
         .from('payroll_records')
         .select('*')
@@ -830,12 +884,10 @@ const PayslipViewer = () => {
         if (!payrollError && payrollData) {
           data = payrollData;
         } else {
-          error = currentError || recordsError || payrollError;
+          throw currentError || recordsError || payrollError;
         }
       }
     }
-
-    if (error) throw error;
 
     setPayslips(data || []);
   } catch (error) {
@@ -897,10 +949,10 @@ const PayslipViewer = () => {
     });
   };
 
-  // Calculate summary totals
+  // Calculate summary totals including advance deductions
   const calculateSummaryTotals = () => {
     const totals = filteredPayslips.reduce((acc, payslip) => {
-      const calculated = calculatePayrollValues(payslip, true);
+      const calculated = calculatePayrollValues(payslip, overrideStatutoryChecks, salaryAdvances);
       return {
         totalGrossPay: acc.totalGrossPay + calculated.grossPay,
         totalDeductions: acc.totalDeductions + calculated.totalDeductions,
@@ -909,6 +961,7 @@ const PayslipViewer = () => {
         totalNHIF: acc.totalNHIF + calculated.nhifDeduction,
         totalNSSF: acc.totalNSSF + calculated.nssfDeduction,
         totalHousingLevy: acc.totalHousingLevy + calculated.housingLevy,
+        totalAdvanceDeductions: acc.totalAdvanceDeductions + calculated.advanceDeduction,
       };
     }, {
       totalGrossPay: 0,
@@ -918,6 +971,7 @@ const PayslipViewer = () => {
       totalNHIF: 0,
       totalNSSF: 0,
       totalHousingLevy: 0,
+      totalAdvanceDeductions: 0,
     });
 
     return totals;
@@ -961,21 +1015,26 @@ const PayslipViewer = () => {
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-1">My Payslips</h1>
             <p className="text-gray-600 text-xs">View and download your payroll payslips</p>
+            {summaryTotals.totalAdvanceDeductions > 0 && (
+              <p className="text-xs text-orange-600 mt-1">
+                Total Salary Advance Deductions: KSh {summaryTotals.totalAdvanceDeductions.toLocaleString()}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
-            <GlowButton 
+            {/* <GlowButton 
               icon={showSummary ? ChevronUp : ChevronDown} 
               size="sm" 
               onClick={() => setShowSummary(!showSummary)}
             >
               {showSummary ? 'Hide Summary' : 'Show Summary'}
-            </GlowButton>
+            </GlowButton> */}
           </div>
         </div>
       </div>
 
       {/* System Info */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-xs">
+      {/* <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-xs">
         <div className="flex items-center gap-2 mb-2">
           <Calculator className="w-4 h-4 text-green-600" />
           <span className="font-semibold text-green-800">Current System: HARDCODED FLAT RATE</span>
@@ -983,10 +1042,12 @@ const PayslipViewer = () => {
         <div className="grid grid-cols-2 gap-2 text-green-700">
           <div><strong>NHIF Rate:</strong> 2.75%</div>
           <div><strong>SHIF Calculation:</strong> Taxable Gross × 2.75%</div>
+          <div><strong>Statutory Override:</strong> {overrideStatutoryChecks ? 'Enabled' : 'Disabled'}</div>
+          <div><strong>Welfare Deduction:</strong> KSh 300</div>
         </div>
-      </div>
+      </div> */}
 
-      {/* Summary Cards */}
+      {/* Summary Cards - Updated with advance deductions */}
       {showSummary && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <SummaryCard 
@@ -1008,11 +1069,10 @@ const PayslipViewer = () => {
             color="blue"
           />
           <SummaryCard 
-            label="Payslip Count" 
-            value={filteredPayslips.length} 
-            icon={Users} 
-            color="purple" 
-            isCount={true}
+            label="Advance Deductions" 
+            value={summaryTotals.totalAdvanceDeductions} 
+            icon={AlertTriangle} 
+            color="orange"
           />
         </div>
       )}
@@ -1072,7 +1132,7 @@ const PayslipViewer = () => {
         </div>
       </div>
 
-      {/* Payslips Table */}
+      {/* Payslips Table - Updated with advance deduction column */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -1095,6 +1155,7 @@ const PayslipViewer = () => {
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">SHIF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">NSSF</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">AHL</th>
+                <th className="px-4 py-3 text-right text-gray-700 font-semibold">Advance</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Total Deductions</th>
                 <th className="px-4 py-3 text-right text-gray-700 font-semibold">Net Pay</th>
                 <th className="sticky right-0 z-10 bg-gray-50 px-4 py-3 text-center text-gray-700 font-semibold">Actions</th>
@@ -1103,14 +1164,14 @@ const PayslipViewer = () => {
             <tbody>
               {filteredPayslips.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-8 text-center text-gray-500">
+                  <td colSpan={12} className="px-4 py-8 text-center text-gray-500">
                     No payslips found. {payslips.length === 0 ? 'You have no payslip records yet.' : 'Try adjusting your search filters.'}
                   </td>
                 </tr>
               ) : (
                 filteredPayslips.map((payslip, index) => {
                   const isExpanded = expandedRows.has(payslip.id);
-                  const calculated = calculatePayrollValues(payslip, true);
+                  const calculated = calculatePayrollValues(payslip, overrideStatutoryChecks, salaryAdvances);
                   
                   return (
                     <React.Fragment key={payslip.id}>
@@ -1127,12 +1188,37 @@ const PayslipViewer = () => {
                                 <ChevronDown className="w-4 h-4" />
                               )}
                             </button>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {payslip["Pay Period"] || payslip.pay_period ? 
-                                  new Date((payslip["Pay Period"] || payslip.pay_period) + '-01').toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'N/A'}
-                              </div>
-                            </div>
+                           <div>
+  <div className="font-medium text-gray-900">
+    {payslip["Pay Period"] || payslip.pay_period ? 
+      (() => {
+        const period = payslip["Pay Period"] || payslip.pay_period;
+        const [year, month] = period.split('-').map(Number);
+        
+        // Calculate previous month
+        let prevMonth = month - 1;
+        let prevYear = year;
+        
+        if (prevMonth === 0) {
+          prevMonth = 12;
+          prevYear = year - 1;
+        }
+        
+        const prevMonthDate = new Date(prevYear, prevMonth - 1, 1);
+        
+        // Show both period and previous month
+        const currentMonth = new Date(year, month - 1, 1).toLocaleDateString('en-US', { 
+          month: 'long', 
+          year: 'numeric' 
+        });
+        
+        return `${prevMonthDate.toLocaleDateString('en-US', { 
+          month: 'long', 
+          year: 'numeric' 
+        })} `;
+      })() : 'N/A'}
+  </div>
+</div>
                           </div>
                         </td>
                         <td className="px-4 py-4">
@@ -1159,6 +1245,9 @@ const PayslipViewer = () => {
                         <td className="px-4 py-4 text-right text-yellow-600">
                           KSh {calculated.housingLevy.toLocaleString()}
                         </td>
+                        <td className="px-4 py-4 text-right text-orange-600">
+                          KSh {calculated.advanceDeduction.toLocaleString()}
+                        </td>
                         <td className="px-4 py-4 text-right font-bold text-red-600">
                           KSh {calculated.totalDeductions.toLocaleString()}
                         </td>
@@ -1179,7 +1268,7 @@ const PayslipViewer = () => {
                       
                       {isExpanded && (
                         <tr className="bg-gray-50">
-                          <td colSpan={11} className="px-4 py-4">
+                          <td colSpan={12} className="px-4 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                               <div className="space-y-2">
                                 <h4 className="font-medium text-gray-900">Earnings</h4>
@@ -1226,14 +1315,18 @@ const PayslipViewer = () => {
                               </div>
                               
                               <div className="space-y-2">
-                                <h4 className="font-medium text-gray-900">Tax Relief & Other</h4>
-                                <div className="flex justify-between text-green-600">
-                                  <span>Tax Relief:</span>
-                                  <span>KSh -{calculated.taxRelief.toLocaleString()}</span>
+                                <h4 className="font-medium text-gray-900">Other Deductions</h4>
+                                <div className="flex justify-between">
+                                  <span>Advance Deduction:</span>
+                                  <span className="text-red-600">KSh {calculated.advanceDeduction.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span>Welfare:</span>
-                                  <span className="text-red-600">KSh {300}</span>
+                                  <span className="text-red-600">KSh {calculated.welfareDeduction.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between text-green-600">
+                                  <span>Tax Relief:</span>
+                                  <span>KSh -{calculated.taxRelief.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between font-medium">
                                   <span>Total Deductions:</span>
@@ -1263,6 +1356,8 @@ const PayslipViewer = () => {
           onNext={currentPayslipIndex !== null && currentPayslipIndex < filteredPayslips.length - 1 ? 
             () => handleNavigatePayslip('next') : undefined}
           companyInfo={companyInfo}
+          overrideStatutoryChecks={overrideStatutoryChecks}
+          salaryAdvances={salaryAdvances}
         />
       )}
     </div>
