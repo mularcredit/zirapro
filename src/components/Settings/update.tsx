@@ -29,7 +29,7 @@ export const UpdateNotification: React.FC = () => {
               </h3>
               
               <p className="text-gray-600 mb-6">
-                A new version of the application has been deployed. 
+              
                 Please update to continue using the latest features.
               </p>
               
