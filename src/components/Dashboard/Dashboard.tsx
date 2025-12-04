@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Users, CalendarDays, Wallet, NotepadText, Phone, AlertCircle, Settings, HelpCircle, MapPin, RefreshCw, Cake, Video, BookOpen, FileText, TrendingUp, ChevronRight, Crown, Trophy, Star, Award } from "lucide-react";
+import { Users, CalendarDays, Wallet, NotepadText, Phone, AlertCircle, Settings, HelpCircle, MapPin, RefreshCw, Cake, Video, BookOpen, FileText, TrendingUp, ChevronRight, Crown, Trophy, Star, Award, Send, Smartphone } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase"
 import { TownProps } from '../../types/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import toast from 'react-hot-toast';
 
 interface AreaTownMapping {
   [area: string]: string[];
@@ -54,48 +55,182 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
   const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
   const [darkMode, setDarkMode] = useState(true);
   const [isNewsLoading, setIsNewsLoading] = useState(true);
+  const [isSendingBirthdaySMS, setIsSendingBirthdaySMS] = useState(false);
   
   const navigate = useNavigate();
+
+  // Phone formatting function for SMS
+  const formatPhoneNumberForSMS = (phone: string): string => {
+    if (!phone) return '';
+    
+    let cleaned = phone.replace(/\D/g, '');
+    
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      cleaned = '254' + cleaned.substring(1);
+    } else if (cleaned.startsWith('7') && cleaned.length === 9) {
+      cleaned = '254' + cleaned;
+    } else if (cleaned.startsWith('254') && cleaned.length === 12) {
+      // Keep as is
+    } else if (cleaned.startsWith('+254') && cleaned.length === 13) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    if (cleaned.length === 12 && cleaned.startsWith('254')) {
+      return cleaned;
+    }
+    
+    return '';
+  };
+
+  // Send birthday SMS function
+  const sendBirthdaySMS = async (employeeName: string, phoneNumber: string) => {
+    try {
+      const formattedPhone = formatPhoneNumberForSMS(phoneNumber);
+      
+      if (!formattedPhone) {
+        throw new Error(`Invalid phone number: ${phoneNumber}`);
+      }
+
+      const birthdayMessage = `Happy Birthday ${employeeName}! 🎉 Wishing you a fantastic year ahead from Mular Credit Team`;
+      const apiKey = '17323514aa8ce2613e358ee029e65d99';
+      const partnerID = '928';
+      const shortcode = 'MularCredit';
+      const encodedMessage = encodeURIComponent(birthdayMessage);
+      
+      const url = `https://isms.celcomafrica.com/api/services/sendsms/?apikey=${apiKey}&partnerID=${partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
+      
+      console.log('Sending birthday SMS to:', formattedPhone);
+      
+      await fetch(url, {
+        method: 'GET',
+        mode: 'no-cors'
+      });
+      
+      // Log to database
+      await supabase.from('sms_logs').insert({
+        recipient_phone: formattedPhone,
+        message: birthdayMessage,
+        status: 'sent',
+        sender_id: shortcode,
+        created_at: new Date().toISOString()
+      });
+      
+      return { success: true, message: 'SMS sent successfully' };
+      
+    } catch (error) {
+      console.error('SMS Error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Send birthday SMS to all today's birthdays
+  const sendAllBirthdaySMS = async () => {
+    setIsSendingBirthdaySMS(true);
+    
+    try {
+      // Find birthday employees
+      const { data: employees } = await supabase
+        .from('employees')
+        .select('"First Name", "Last Name", "Mobile Number", "Personal Mobile", "Work Mobile", "Date of Birth"')
+        .not('Date of Birth', 'is', null);
+
+      const today = new Date();
+      const currentMonth = today.getMonth() + 1;
+      const currentDay = today.getDate();
+      
+      const birthdayEmployees = employees?.filter(emp => {
+        if (!emp['Date of Birth']) return false;
+        try {
+          const birthDate = new Date(emp['Date of Birth']);
+          return birthDate.getMonth() + 1 === currentMonth && 
+                 birthDate.getDate() === currentDay;
+        } catch (e) {
+          return false;
+        }
+      }).map(emp => {
+        const rawPhone = emp['Mobile Number'] || emp['Personal Mobile'] || emp['Work Mobile'] || '';
+        const phone = formatPhoneNumberForSMS(rawPhone);
+        const fullName = `${emp['First Name'] || ''} ${emp['Last Name'] || ''}`.trim();
+        
+        return { name: fullName, phone: phone };
+      }).filter(emp => emp.phone && emp.phone.length === 12 && emp.phone.startsWith('254'));
+      
+      if (!birthdayEmployees || birthdayEmployees.length === 0) {
+        toast.error('No birthdays with valid phone numbers today');
+        setIsSendingBirthdaySMS(false);
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (let i = 0; i < birthdayEmployees.length; i++) {
+        const employee = birthdayEmployees[i];
+        
+        try {
+          const result = await sendBirthdaySMS(employee.name, employee.phone);
+          
+          if (result.success) {
+            successCount++;
+            toast.success(`Sent to ${employee.name}`, { duration: 1500 });
+          } else {
+            failCount++;
+          }
+          
+          // Wait between SMS
+          if (i < birthdayEmployees.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        } catch (error) {
+          failCount++;
+        }
+      }
+      
+      if (successCount > 0) {
+        toast.success(`🎉 Sent ${successCount} birthday SMS successfully!`);
+      }
+      if (failCount > 0) {
+        toast.error(`Failed to send ${failCount} SMS`);
+      }
+      
+    } catch (error) {
+      toast.error('Error sending birthday SMS');
+      console.error(error);
+    } finally {
+      setIsSendingBirthdaySMS(false);
+      // Refresh news
+      fetchBirthdayNews();
+    }
+  };
 
   // Fetch birthday news from employees table
   const fetchBirthdayNews = async () => {
     setIsNewsLoading(true);
     try {
-      // Get current date and date for the next 7 days
       const today = new Date();
-      const nextWeek = new Date();
-      nextWeek.setDate(today.getDate() + 7);
+      const currentMonth = today.getMonth() + 1;
+      const currentDay = today.getDate();
       
-      // Format dates for comparison (MM-DD format to ignore year)
-      const formatDateForComparison = (date: Date) => {
-        return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      };
-
-      const todayFormatted = formatDateForComparison(today);
-      const nextWeekFormatted = formatDateForComparison(nextWeek);
-
-      // Fetch all employees with their date of birth
       const { data: employees, error } = await supabase
         .from('employees')
-        .select('"First Name", "Last Name", "Date of Birth", Town, Branch');
+        .select('"First Name", "Last Name", "Mobile Number", "Date of Birth", Town, Branch');
 
       if (error) {
         console.error('Error fetching employees for birthdays:', error);
         return;
       }
 
-      // Filter employees with birthdays in the next 7 days
-      const upcomingBirthdays = employees?.filter(employee => {
+      // Filter employees with birthdays today
+      const todaysBirthdays = employees?.filter(employee => {
         if (!employee['Date of Birth']) return false;
         
         try {
           const birthDate = new Date(employee['Date of Birth']);
-          const birthMonthDay = formatDateForComparison(birthDate);
+          const birthMonth = birthDate.getMonth() + 1;
+          const birthDay = birthDate.getDate();
           
-          // Check if birthday is between today and next week
-          return birthMonthDay >= todayFormatted && birthMonthDay <= nextWeekFormatted;
+          return birthMonth === currentMonth && birthDay === currentDay;
         } catch (e) {
-          console.error('Invalid date format:', employee['Date of Birth']);
           return false;
         }
       }) || [];
@@ -104,17 +239,45 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
       const birthdayNewsItem: NewsItem = {
         id: 1,
         type: 'birthday',
+        title: 'Today\'s Birthdays',
+        description: todaysBirthdays.length > 0 
+          ? `${todaysBirthdays.slice(0, 3).map(emp => `${emp['First Name']} ${emp['Last Name']}`).join(', ')}${todaysBirthdays.length > 3 ? ` and ${todaysBirthdays.length - 3} others` : ''}`
+          : 'No birthdays today',
+        date: 'Today',
+        time: 'All day'
+      };
+
+      // Check for upcoming birthdays (next 7 days)
+      const upcomingBirthdays = employees?.filter(employee => {
+        if (!employee['Date of Birth']) return false;
+        
+        try {
+          const birthDate = new Date(employee['Date of Birth']);
+          const nextWeek = new Date();
+          nextWeek.setDate(today.getDate() + 7);
+          
+          const birthDateThisYear = new Date(today.getFullYear(), birthDate.getMonth(), birthDate.getDate());
+          
+          return birthDateThisYear > today && birthDateThisYear <= nextWeek;
+        } catch (e) {
+          return false;
+        }
+      }) || [];
+
+      const upcomingNewsItem: NewsItem = {
+        id: 2,
+        type: 'birthday',
         title: 'Upcoming Birthdays',
         description: upcomingBirthdays.length > 0 
-          ? `${upcomingBirthdays.slice(0, 3).map(emp => `${emp['First Name']} ${emp['Last Name']}`).join(', ')}${upcomingBirthdays.length > 3 ? ` and ${upcomingBirthdays.length - 3} others` : ''} have birthdays this week`
-          : 'No upcoming birthdays this week',
-        date: 'This week'
+          ? `${upcomingBirthdays.length} employees have birthdays next week`
+          : 'No upcoming birthdays',
+        date: 'Next week'
       };
 
       // Other static news items
       const otherNewsItems: NewsItem[] = [
         {
-          id: 2,
+          id: 3,
           type: 'conference',
           title: 'Quarterly Review Meeting',
           description: 'All managers required to attend the virtual conference',
@@ -122,7 +285,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
           time: '10:00 AM'
         },
         {
-          id: 3,
+          id: 4,
           type: 'training',
           title: 'New Safety Training',
           description: 'Mandatory training session for all employees',
@@ -130,22 +293,15 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
           time: '2:00 PM'
         },
         {
-          id: 4,
+          id: 5,
           type: 'payslip',
           title: 'Payslips Available',
           description: 'March payroll processed and available for download',
           date: 'Available now'
-        },
-        {
-          id: 5,
-          type: 'report',
-          title: 'Performance Reports',
-          description: 'Q1 performance reports are ready for review',
-          date: 'New'
         }
       ];
 
-      setNewsItems([birthdayNewsItem, ...otherNewsItems]);
+      setNewsItems([birthdayNewsItem, upcomingNewsItem, ...otherNewsItems]);
 
     } catch (error) {
       console.error('Error in fetchBirthdayNews:', error);
@@ -154,19 +310,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
     }
   };
 
-  // Load news when component mounts
-  useEffect(() => {
-    fetchBirthdayNews();
-  }, []);
-
-  // Reload news when town changes
-  useEffect(() => {
-    if (currentTown) {
-      fetchBirthdayNews();
-    }
-  }, [currentTown]);
-
-  // Mock top performers data - replace with actual API calls
+  // Mock top performers data
   useEffect(() => {
     const mockTopPerformers: TopPerformer[] = [
       {
@@ -235,26 +379,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         });
         
         setAreaTownMapping(mapping);
-        
-        // Fetch branch-area mapping from kenya_branches
-        const { data: branchesData, error: branchesError } = await supabase
-          .from('kenya_branches')
-          .select('"Branch Office", "Area"');
-        
-        if (branchesError) {
-          console.error("Error loading branch-area mapping:", branchesError);
-          return;
-        }
-        
-        // Convert the data to a mapping object
-        const branchMapping: BranchAreaMapping = {};
-        branchesData?.forEach(item => {
-          if (item['Branch Office'] && item['Area']) {
-            branchMapping[item['Branch Office']] = item['Area'];
-          }
-        });
-        
-        setBranchAreaMapping(branchMapping);
         setDebugInfo("Mappings loaded successfully");
       } catch (error) {
         console.error("Error in loadMappings:", error);
@@ -300,250 +424,244 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
     }
   }, [currentTown, townsInArea, isArea]);
 
-  // Function to get branch from town using the reference table
-  const getBranchFromTown = async (town: string): Promise<string | null> => {
-    try {
-      const { data, error } = await supabase
-        .from('kenya_branches')
-        .select('"Branch Office"')
-        .ilike('Area', `%${town}%`)
-        .limit(1);
+  // Load news when component mounts
+  useEffect(() => {
+    fetchBirthdayNews();
+  }, []);
 
-      if (error) {
-        console.error("Error fetching branch from town:", error);
-        return null;
-      }
-
-      if (data && data.length > 0) {
-        return data[0]['Branch Office'];
-      }
-
-      return null;
-    } catch (error) {
-      console.error("Error in getBranchFromTown:", error);
-      return null;
-    }
-  };
-
+  // Fetch ALL data for dashboard
   const fetchDashboardData = async () => {
     setIsLoading(true);
+    console.log('🔍 Fetching data for:', currentTown);
     
-    if (isArea && townsInArea.length > 0) {
-      setDebugInfo(`Fetching data for area "${currentTown}" with towns: ${townsInArea.join(', ')}`);
-      await fetchDataForArea();
-    } else {
-      setDebugInfo(`Fetching data for town: "${currentTown}"`);
-      await fetchDataForTown();
+    try {
+      // If ADMIN_ALL or no town selected, fetch all data
+      if (currentTown === 'ADMIN_ALL' || !currentTown) {
+        await fetchAllData();
+      } else if (isArea && townsInArea.length > 0) {
+        await fetchDataForArea();
+      } else {
+        await fetchDataForTown();
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setDebugInfo(`Error: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  // Fetch all data (admin view)
+  const fetchAllData = async () => {
+    try {
+      // Fetch all counts
+      const [
+        { count: employeesCount },
+        { count: leaveRequestsCount },
+        { count: salaryAdvancesCount },
+        { count: expensesCount }
+      ] = await Promise.all([
+        supabase.from('employees').select('*', { count: 'exact', head: true }),
+        supabase.from('leave_application').select('*', { count: 'exact', head: true }),
+        supabase.from('salary_advance').select('*', { count: 'exact', head: true }),
+        supabase.from('expenses').select('*', { count: 'exact', head: true })
+      ]);
+
+      setStats({
+        employees: employeesCount || 0,
+        leaveRequests: leaveRequestsCount || 0,
+        salaryAdvances: salaryAdvancesCount || 0,
+        jobApplications: expensesCount || 0
+      });
+
+      setDebugInfo(`Showing ALL data | Employees: ${employeesCount} | Leaves: ${leaveRequestsCount} | Advances: ${salaryAdvancesCount} | Expenses: ${expensesCount}`);
+    } catch (error) {
+      console.error('Error fetching all data:', error);
+      throw error;
+    }
+  };
+
+  // Fetch data for specific town
   const fetchDataForTown = async () => {
     try {
-      // First, let's check if the currentTown exists in the Town column
-      let { count: townCount, error: townError } = await supabase
+      console.log('Fetching data for town:', currentTown);
+      
+      // Try multiple approaches to filter data
+      let employeesCount = 0;
+      let leaveRequestsCount = 0;
+      let salaryAdvancesCount = 0;
+      let expensesCount = 0;
+
+      // 1. Try exact match in Town column
+      let { count: townEmployees, error: townError } = await supabase
         .from('employees')
         .select('*', { count: 'exact', head: true })
         .eq('Town', currentTown);
 
-      // If not found in Town column, check Area column
-      let columnToUse = 'Town';
-      if ((townCount === 0 || townError) && currentTown !== 'ADMIN_ALL') {
-        const { count: areaCount, error: areaError } = await supabase
+      if (!townError && townEmployees > 0) {
+        console.log('Found employees by Town column:', townEmployees);
+        employeesCount = townEmployees;
+        
+        // Try to find branch for this town
+        const { data: branchData } = await supabase
+          .from('kenya_branches')
+          .select('"Branch Office"')
+          .ilike('Area', `%${currentTown}%`)
+          .limit(1);
+        
+        const branch = branchData?.[0]?.['Branch Office'];
+        
+        if (branch) {
+          console.log('Using branch for filtering:', branch);
+          
+          const [
+            { count: leaves },
+            { count: advances },
+            { count: exp }
+          ] = await Promise.all([
+            supabase.from('leave_application').select('*', { count: 'exact', head: true }).eq('Office Branch', branch),
+            supabase.from('salary_advance').select('*', { count: 'exact', head: true }).eq('Office Branch', branch),
+            supabase.from('expenses').select('*', { count: 'exact', head: true }).eq('branch', branch)
+          ]);
+          
+          leaveRequestsCount = leaves || 0;
+          salaryAdvancesCount = advances || 0;
+          expensesCount = exp || 0;
+        }
+      }
+      // 2. Try Branch column if Town didn't work
+      else {
+        console.log('Trying Branch column...');
+        const { count: branchEmployees, error: branchError } = await supabase
           .from('employees')
           .select('*', { count: 'exact', head: true })
           .eq('Branch', currentTown);
-        
-        if (areaCount > 0 && !areaError) {
-          columnToUse = 'Branch';
-          setDebugInfo(`Using "Area" column for filtering with value: ${currentTown}`);
-        } else {
-          setDebugInfo(`"${currentTown}" not found in Town or Area columns, showing all data`);
+
+        if (!branchError && branchEmployees > 0) {
+          console.log('Found employees by Branch column:', branchEmployees);
+          employeesCount = branchEmployees;
+          
+          const [
+            { count: leaves },
+            { count: advances },
+            { count: exp }
+          ] = await Promise.all([
+            supabase.from('leave_application').select('*', { count: 'exact', head: true }).ilike('Office Branch', `%${currentTown}%`),
+            supabase.from('salary_advance').select('*', { count: 'exact', head: true }).ilike('Office Branch', `%${currentTown}%`),
+            supabase.from('expenses').select('*', { count: 'exact', head: true }).ilike('branch', `%${currentTown}%`)
+          ]);
+          
+          leaveRequestsCount = leaves || 0;
+          salaryAdvancesCount = advances || 0;
+          expensesCount = exp || 0;
         }
-      } else if (currentTown === 'ADMIN_ALL') {
-        setDebugInfo(`Admin view: Showing data for all towns`);
-      } else {
-        setDebugInfo(`Using "Town" column for filtering with value: ${currentTown}`);
+        // 3. Try partial match as last resort
+        else {
+          console.log('Trying partial match...');
+          const { count: partialEmployees, error: partialError } = await supabase
+            .from('employees')
+            .select('*', { count: 'exact', head: true })
+            .ilike('Town', `%${currentTown}%`);
+
+          if (!partialError) {
+            employeesCount = partialEmployees || 0;
+            
+            const [
+              { count: leaves },
+              { count: advances },
+              { count: exp }
+            ] = await Promise.all([
+              supabase.from('leave_application').select('*', { count: 'exact', head: true }).ilike('Office Branch', `%${currentTown}%`),
+              supabase.from('salary_advance').select('*', { count: 'exact', head: true }).ilike('Office Branch', `%${currentTown}%`),
+              supabase.from('expenses').select('*', { count: 'exact', head: true }).ilike('branch', `%${currentTown}%`)
+            ]);
+            
+            leaveRequestsCount = leaves || 0;
+            salaryAdvancesCount = advances || 0;
+            expensesCount = exp || 0;
+          }
+        }
       }
 
-      // Fetch employees count
-      let employeesQuery = supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown && currentTown !== 'ADMIN_ALL') {
-        employeesQuery = employeesQuery.eq(columnToUse, currentTown);
+      // If everything is 0, fetch all data
+      if (employeesCount === 0 && leaveRequestsCount === 0 && salaryAdvancesCount === 0 && expensesCount === 0) {
+        console.log('No data found for town, fetching all data...');
+        await fetchAllData();
+        return;
       }
-      
-      const { count: employeesCount, error: employeesError } = await employeesQuery;
-      
-      // Fetch leave requests count - use branch lookup for town
-      let leaveRequestsQuery = supabase
-        .from('leave_application')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown && currentTown !== 'ADMIN_ALL') {
-        // Try to find the branch for this town
-        const branchForTown = branchAreaMapping[currentTown] || await getBranchFromTown(currentTown);
-        
-        if (branchForTown) {
-          leaveRequestsQuery = leaveRequestsQuery.eq('Office Branch', branchForTown);
-          setDebugInfo(`Using branch "${branchForTown}" for town "${currentTown}" in leave requests`);
-        } else {
-          // If no branch found, try to match by town name directly
-          leaveRequestsQuery = leaveRequestsQuery.ilike('Office Branch', `%${currentTown}%`);
-          setDebugInfo(`No branch found for town "${currentTown}", trying direct match`);
-        }
-      }
-      
-      const { count: leaveRequestsCount, error: leaveRequestsError } = await leaveRequestsQuery;
-      
-      // Fetch salary advances count - use branch lookup for town
-      let salaryAdvancesQuery = supabase
-        .from('salary_advance')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown && currentTown !== 'ADMIN_ALL') {
-        // Try to find the branch for this town
-        const branchForTown = branchAreaMapping[currentTown] || await getBranchFromTown(currentTown);
-        
-        if (branchForTown) {
-          salaryAdvancesQuery = salaryAdvancesQuery.eq('Office Branch', branchForTown);
-          setDebugInfo(`Using branch "${branchForTown}" for town "${currentTown}" in salary advances`);
-        } else {
-          // If no branch found, try to match by town name directly
-          salaryAdvancesQuery = salaryAdvancesQuery.ilike('Office Branch', `%${currentTown}%`);
-          setDebugInfo(`No branch found for town "${currentTown}", trying direct match`);
-        }
-      }
-      
-      const { count: salaryAdvancesCount, error: salaryAdvancesError } = await salaryAdvancesQuery;
-      
-      // Fetch expenses count - use branch lookup for town
-      let expensesQuery = supabase
-        .from('expenses')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown && currentTown !== 'ADMIN_ALL') {
-        // Try to find the branch for this town
-        const branchForTown = branchAreaMapping[currentTown] || await getBranchFromTown(currentTown);
-        
-        if (branchForTown) {
-          expensesQuery = expensesQuery.eq('branch', branchForTown);
-          setDebugInfo(`Using branch "${branchForTown}" for town "${currentTown}" in expenses`);
-        } else {
-          // If no branch found, try to match by town name directly
-          expensesQuery = expensesQuery.ilike('branch', `%${currentTown}%`);
-          setDebugInfo(`No branch found for town "${currentTown}", trying direct match`);
-        }
-      }
-      
-      const { count: expensesCount, error: expensesError } = await expensesQuery;
 
       setStats({
-        employees: employeesCount || 0,
-        leaveRequests: leaveRequestsCount || 0,
-        salaryAdvances: salaryAdvancesCount || 0,
-        jobApplications: expensesCount || 0
+        employees: employeesCount,
+        leaveRequests: leaveRequestsCount,
+        salaryAdvances: salaryAdvancesCount,
+        jobApplications: expensesCount
       });
 
-      setDebugInfo(
-        `Filtering by: "${currentTown}" | ` +
-        `Employees: ${employeesCount} | ` +
-        `Leaves: ${leaveRequestsCount} | ` +
-        `Advances: ${salaryAdvancesCount} | ` +
-        `Expenses: ${expensesCount}`
-      );
+      setDebugInfo(`Town: "${currentTown}" | Employees: ${employeesCount} | Leaves: ${leaveRequestsCount} | Advances: ${salaryAdvancesCount} | Expenses: ${expensesCount}`);
+      
     } catch (error) {
-      console.error("Error in fetchDataForTown:", error);
-      setDebugInfo(`Error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Error in fetchDataForTown:', error);
+      // On error, try to fetch all data
+      await fetchAllData();
     }
   };
 
+  // Fetch data for area
   const fetchDataForArea = async () => {
     try {
-      // Fetch employees count for all towns in the area
-      let employeesQuery = supabase
+      console.log('Fetching data for area:', currentTown, 'Towns:', townsInArea);
+      
+      if (!townsInArea.length) {
+        await fetchAllData();
+        return;
+      }
+
+      // Fetch employees for all towns in area
+      const { count: employeesCount } = await supabase
         .from('employees')
-        .select('*', { count: 'exact', head: true });
+        .select('*', { count: 'exact', head: true })
+        .in('Town', townsInArea);
+
+      // For other tables, we need to find branches for these towns
+      const { data: branchesData } = await supabase
+        .from('kenya_branches')
+        .select('"Branch Office"')
+        .in('Area', townsInArea);
+
+      const branches = branchesData?.map(b => b['Branch Office']).filter(Boolean) || [];
       
-      if (currentTown !== 'ADMIN_ALL') {
-        employeesQuery = employeesQuery.in('Town', townsInArea);
-      }
-      
-      const { count: employeesCount, error: employeesError } = await employeesQuery;
-      
-      // For leave requests, salary advances, and expenses, we need to get branches for all towns in the area
-      let branchesForArea: string[] = [];
-      
-      if (currentTown !== 'ADMIN_ALL') {
-        // Get unique branches for all towns in the area
-        const branchPromises = townsInArea.map(async (town) => {
-          return branchAreaMapping[town] || await getBranchFromTown(town);
-        });
+      let leaveRequestsCount = 0;
+      let salaryAdvancesCount = 0;
+      let expensesCount = 0;
+
+      if (branches.length > 0) {
+        const [
+          { count: leaves },
+          { count: advances },
+          { count: exp }
+        ] = await Promise.all([
+          supabase.from('leave_application').select('*', { count: 'exact', head: true }).in('Office Branch', branches),
+          supabase.from('salary_advance').select('*', { count: 'exact', head: true }).in('Office Branch', branches),
+          supabase.from('expenses').select('*', { count: 'exact', head: true }).in('branch', branches)
+        ]);
         
-        const branches = await Promise.all(branchPromises);
-        branchesForArea = branches.filter(branch => branch !== null) as string[];
-        
-        // Remove duplicates
-        branchesForArea = [...new Set(branchesForArea)];
-        
-        setDebugInfo(`Found branches for area: ${branchesForArea.join(', ')}`);
+        leaveRequestsCount = leaves || 0;
+        salaryAdvancesCount = advances || 0;
+        expensesCount = exp || 0;
       }
-      
-      // Fetch leave requests count for all branches in the area
-      let leaveRequestsQuery = supabase
-        .from('leave_application')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown !== 'ADMIN_ALL' && branchesForArea.length > 0) {
-        leaveRequestsQuery = leaveRequestsQuery.in('Office Branch', branchesForArea);
-      }
-      
-      const { count: leaveRequestsCount, error: leaveRequestsError } = await leaveRequestsQuery;
-      
-      // Fetch salary advances count for all branches in the area
-      let salaryAdvancesQuery = supabase
-        .from('salary_advance')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown !== 'ADMIN_ALL' && branchesForArea.length > 0) {
-        salaryAdvancesQuery = salaryAdvancesQuery.in('Office Branch', branchesForArea);
-      }
-      
-      const { count: salaryAdvancesCount, error: salaryAdvancesError } = await salaryAdvancesQuery;
-      
-      // Fetch expenses count for all branches in the area
-      let expensesQuery = supabase
-        .from('expenses')
-        .select('*', { count: 'exact', head: true });
-      
-      if (currentTown !== 'ADMIN_ALL' && branchesForArea.length > 0) {
-        expensesQuery = expensesQuery.in('branch', branchesForArea);
-      }
-      
-      const { count: expensesCount, error: expensesError } = await expensesQuery;
 
       setStats({
         employees: employeesCount || 0,
-        leaveRequests: leaveRequestsCount || 0,
-        salaryAdvances: salaryAdvancesCount || 0,
-        jobApplications: expensesCount || 0
+        leaveRequests: leaveRequestsCount,
+        salaryAdvances: salaryAdvancesCount,
+        jobApplications: expensesCount
       });
 
-      setDebugInfo(
-        `Filtering by area: "${currentTown}" (${townsInArea.length} towns, ${branchesForArea.length} branches) | ` +
-        `Employees: ${employeesCount} | ` +
-        `Leaves: ${leaveRequestsCount} | ` +
-        `Advances: ${salaryAdvancesCount} | ` +
-        `Expenses: ${expensesCount}`
-      );
+      setDebugInfo(`Area: "${currentTown}" (${townsInArea.length} towns) | Employees: ${employeesCount} | Leaves: ${leaveRequestsCount} | Advances: ${salaryAdvancesCount} | Expenses: ${expensesCount}`);
+      
     } catch (error) {
-      console.error("Error in fetchDataForArea:", error);
-      setDebugInfo(`Error: ${error.message}`);
-    } finally {
-      setIsLoading(false);
+      console.error('Error in fetchDataForArea:', error);
+      await fetchAllData();
     }
   };
 
@@ -620,22 +738,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
     }
   };
 
-  // Get performance color based on score
-  const getPerformanceColor = (score: number) => {
-    if (score >= 90) return 'text-green-600';
-    if (score >= 80) return 'text-blue-600';
-    if (score >= 70) return 'text-yellow-600';
-    return 'text-gray-600';
-  };
-
-  // Get performance badge color
-  const getPerformanceBadgeColor = (score: number) => {
-    if (score >= 90) return 'bg-green-100 text-green-700';
-    if (score >= 80) return 'bg-blue-100 text-blue-700';
-    if (score >= 70) return 'bg-yellow-100 text-yellow-700';
-    return 'bg-gray-100 text-gray-700';
-  };
-
   return (
     <div className="min-h-screen p-6" style={{
       background: darkMode 
@@ -644,24 +746,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
       fontFamily: "'Geist', sans-serif"
     }}>
       <style jsx global>{`
-        @keyframes wave {
-          0% { transform: rotate(0deg); }
-          25% { transform: rotate(5deg); }
-          50% { transform: rotate(0deg); }
-          75% { transform: rotate(-5deg); }
-          100% { transform: rotate(0deg); }
-        }
-        .wave-animation { animation: wave 8s ease-in-out infinite; }
-        .glow-effect {
-          transition: box-shadow 0.3s ease;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        .card-hover {
-          transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .card-hover:hover {
-          transform: translateY(-2px);
-        }
         .popup {
           position: fixed;
           top: 20px;
@@ -682,11 +766,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         .support-popup {
           background-color: #10b981;
         }
-        @keyframes pulse-gold {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.1); }
-        }
-        .pulse-gold { animation: pulse-gold 2s ease-in-out infinite; }
       `}</style>
 
       {/* Popup Messages */}
@@ -708,10 +787,10 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
         </div>
       )}
 
-      {/* Welcome Section - Current Design Preserved */}
+      {/* Welcome Section */}
       <div className="mb-8">
         <motion.div 
-          className="rounded-2xl p-6 relative overflow-hidden card-hover glow-effect"
+          className="rounded-2xl p-6 relative overflow-hidden"
           style={{
             background: darkMode 
               ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
@@ -741,8 +820,8 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                 </div>
               </div>
               
-              {/* Action buttons - All functionality preserved */}
-              <div className="flex space-x-2">
+              {/* Action buttons */}
+              <div className="flex space-x-2 flex-wrap gap-2">
                 <motion.button 
                   onClick={handleSupportClick}
                   className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-300 backdrop-blur-sm border border-white/20"
@@ -756,6 +835,25 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   <HelpCircle className="w-3 h-3 inline mr-1" />
                   Support
                 </motion.button>
+                
+                <motion.button 
+                  onClick={sendAllBirthdaySMS}
+                  disabled={isSendingBirthdaySMS}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-white transition-all duration-300 flex items-center shadow-lg"
+                  style={{
+                    background: 'linear-gradient(135deg, #ec4899, #f97316)'
+                  }}
+                  whileHover={{ scale: 1.05, boxShadow: '0 0 20px rgba(236, 72, 153, 0.4)' }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {isSendingBirthdaySMS ? (
+                    <RefreshCw className="w-3 h-3 inline mr-1 animate-spin" />
+                  ) : (
+                    <Cake className="w-3 h-3 inline mr-1" />
+                  )}
+                  {isSendingBirthdaySMS ? 'Sending...' : 'Send Birthday SMS'}
+                </motion.button>
+                
                 <motion.button 
                   onClick={handleRefresh}
                   disabled={isLoading}
@@ -770,6 +868,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   <RefreshCw className={`w-3 h-3 inline mr-1 ${isLoading ? 'animate-spin' : ''}`} />
                   Refresh
                 </motion.button>
+                
                 <motion.button 
                   onClick={handleSettingsClick}
                   className="px-4 py-2 rounded-xl text-xs font-medium text-white transition-all duration-300 flex items-center shadow-lg"
@@ -786,6 +885,11 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
             </div>
           </div>
         </motion.div>
+      </div>
+
+      {/* Debug info */}
+      <div className="mb-4 p-3 bg-slate-100 rounded-lg">
+        <p className="text-xs text-slate-600 font-mono">{debugInfo}</p>
       </div>
 
       {/* Dashboard Tabs */}
@@ -825,7 +929,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
           <div className="lg:col-span-2">
             {/* Best Performing Employees Board */}
             <motion.div 
-              className="rounded-2xl p-6 card-hover glow-effect mb-6"
+              className="rounded-2xl p-6 mb-6"
               style={{
                 background: darkMode 
                   ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
@@ -865,17 +969,6 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                     whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
                     transition={{ duration: 0.2 }}
                   >
-                    {employee.isOverall && (
-                      <motion.div 
-                        className="absolute -top-2 -left-2"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500 }}
-                      >
-                        {/* Overall Best badge commented out as in your design */}
-                      </motion.div>
-                    )}
-                    
                     <div className="flex items-center space-x-4">
                       {/* Rank Badge */}
                       <motion.div 
@@ -903,7 +996,11 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                             <p className="text-xs text-gray-900 font-medium">{employee.position}</p>
                           </div>
                           <motion.div 
-                            className={`text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm ${getPerformanceBadgeColor(employee.performance)}`}
+                            className={`text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm ${
+                              employee.performance >= 90 ? 'bg-green-100 text-green-700' :
+                              employee.performance >= 80 ? 'bg-blue-100 text-blue-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}
                             whileHover={{ scale: 1.05 }}
                           >
                             {employee.performance}%
@@ -927,12 +1024,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                     {/* Performance Bar */}
                     <div className="mt-3 w-full bg-white/20 rounded-full h-1.5 backdrop-blur-sm">
                       <motion.div 
-                        className={`h-1.5 rounded-full ${
-                          employee.performance >= 90 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 
-                          employee.performance >= 80 ? 'bg-gradient-to-r from-blue-500 to-purple-500' : 
-                          employee.performance >= 70 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' : 
-                          'bg-gradient-to-r from-gray-500 to-gray-600'
-                        }`}
+                        className={`h-1.5 rounded-full bg-white`} // WHITE PROGRESS BAR
                         initial={{ width: 0 }}
                         animate={{ width: `${employee.performance}%` }}
                         transition={{ duration: 1, delay: index * 0.1 }}
@@ -941,24 +1033,9 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   </motion.div>
                 ))}
               </div>
-              
-              <div className="mt-6 pt-4 border-t border-white/20">
-                <motion.button 
-                  className="w-full text-xs text-gray-900 hover:text-gray-800 font-bold py-3 rounded-xl transition-all duration-300 flex items-center justify-center backdrop-blur-sm"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.15)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)'
-                  }}
-                  whileHover={{ scale: 1.02, background: 'rgba(255, 255, 255, 0.25)' }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <TrendingUp className="w-3 h-3 mr-2" />
-                  View Full Performance Report
-                </motion.button>
-              </div>
             </motion.div>
 
-            {/* Stats Cards - All real data from Supabase */}
+            {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {[
                 { 
@@ -967,7 +1044,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   value: stats.employees, 
                   icon: Users,
                   color: 'from-blue-500 to-purple-500',
-                  progress: 96
+                  progress: stats.employees > 0 ? Math.min(96, (stats.employees / 100) * 100) : 0
                 },
                 { 
                   key: 'leaveRequests', 
@@ -975,7 +1052,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   value: stats.leaveRequests, 
                   icon: CalendarDays,
                   color: 'from-green-500 to-emerald-500',
-                  progress: 89
+                  progress: stats.leaveRequests > 0 ? Math.min(89, (stats.leaveRequests / 50) * 100) : 0
                 },
                 { 
                   key: 'salaryAdvances', 
@@ -983,7 +1060,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   value: stats.salaryAdvances, 
                   icon: Wallet,
                   color: 'from-orange-500 to-red-500',
-                  progress: 88
+                  progress: stats.salaryAdvances > 0 ? Math.min(88, (stats.salaryAdvances / 30) * 100) : 0
                 },
                 { 
                   key: 'jobApplications', 
@@ -991,12 +1068,12 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   value: stats.jobApplications, 
                   icon: NotepadText,
                   color: 'from-indigo-500 to-blue-500',
-                  progress: 100
+                  progress: stats.jobApplications > 0 ? Math.min(100, (stats.jobApplications / 20) * 100) : 0
                 }
               ].map((stat, index) => (
                 <motion.div 
                   key={stat.key}
-                  className="rounded-2xl p-5 card-hover glow-effect"
+                  className="rounded-2xl p-5"
                   style={{
                     background: darkMode 
                       ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
@@ -1024,11 +1101,11 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                   <div className="mt-4 pt-4 border-t border-white/20">
                     <div className="flex justify-between text-xs text-gray-900 font-medium mb-2">
                       <span>Progress</span>
-                      <span>{stat.progress}%</span>
+                      <span>{stat.progress.toFixed(0)}%</span>
                     </div>
                     <div className="w-full bg-white/20 rounded-full h-1.5 backdrop-blur-sm">
                       <motion.div 
-                        className={`h-1.5 rounded-full bg-gradient-to-r ${stat.color}`}
+                        className="h-1.5 rounded-full bg-white" // WHITE PROGRESS BAR
                         initial={{ width: 0 }}
                         animate={{ width: `${stat.progress}%` }}
                         transition={{ duration: 1, delay: index * 0.2 }}
@@ -1043,7 +1120,7 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
           {/* Right Column - News Section */}
           <div className="lg:col-span-1">
             <motion.div 
-              className="rounded-2xl p-6 card-hover glow-effect"
+              className="rounded-2xl p-6"
               style={{
                 background: darkMode 
                   ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.15) 0%, rgba(0, 252, 76, 0.1) 50%, rgba(255, 255, 255, 0.05) 100%)'
@@ -1099,7 +1176,19 @@ export default function DashboardMain({ selectedTown, onTownChange, selectedRegi
                             <h3 className="text-sm font-bold text-gray-900 truncate">
                               {item.title}
                             </h3>
-                            <ChevronRight className="w-3 h-3 text-gray-900 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5" />
+                            {item.type === 'birthday' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sendAllBirthdaySMS();
+                                }}
+                                disabled={isSendingBirthdaySMS}
+                                className="text-xs text-pink-600 hover:text-pink-700 font-medium flex items-center"
+                              >
+                                <Send className="w-3 h-3 mr-1" />
+                                Send
+                              </button>
+                            )}
                           </div>
                           {item.description && (
                             <p className="text-xs text-gray-900 font-medium line-clamp-2 mb-2">
