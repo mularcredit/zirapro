@@ -27,7 +27,8 @@ import {
   Slack,
   Sparkles,
   Zap,
-  KeyRound
+  KeyRound,
+  Box
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -41,6 +42,7 @@ const menuItems = [
   { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
   { id: 'advanced', label: 'Sallary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN','CHECKER'] },
   { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
+  { id: 'asset', label: 'Assets', icon: Box, path: '/asset' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
   { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },

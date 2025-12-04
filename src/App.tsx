@@ -50,6 +50,8 @@ import BaseReport from './components/Reports/BaseReport';
 import ReportsList from './components/Reports/ReportLists';
 import StaffLoansReport from './components/Reports/staffloans';
 import StatutoryDeductionsReport from './components/Reports/statutory';
+import AssetManagement from './components/Asset/Asset';
+import QRScanner from './components/Asset/scan';
 
 interface User {
   email: string;
@@ -920,6 +922,8 @@ function App() {
                               <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                               <Route path="/employee-added" element={<SuccessPage />} />
                               <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
+                              <Route path="/asset" element={<AssetManagement/>} />
+                               <Route path="/asset/scan" element={<QRScanner/>} />
                               <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
                               <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />

@@ -67,6 +67,7 @@
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.9",
     "html2pdf.js": "^0.10.3",
+    "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
     "jose": "^6.0.12",
     "jsonwebtoken": "^9.0.2",
