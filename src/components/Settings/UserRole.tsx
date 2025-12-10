@@ -19,7 +19,8 @@ import {
   Key,
   Mail,
   RefreshCw,
-  AlertTriangle
+  AlertTriangle,
+  MapPin
 } from 'lucide-react';
 import { supabaseAdmin } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
@@ -32,22 +33,22 @@ const ROLES = {
     icon: <Shield className="w-4 h-4 text-purple-500" />,
     requiresLocation: false
   },
+  REGIONAL: {
+    label: 'Regional Manager',
+    description: 'Can manage users across multiple locations or regions',
+    icon: <MapPin className="w-4 h-4 text-violet-500" />,
+    requiresLocation: true
+  },
   MANAGER: {
     label: 'Manager',
     description: 'Can manage users and content for specific locations',
     icon: <Settings className="w-4 h-4 text-blue-500" />,
     requiresLocation: true
   },
-   REGIONAL: {
-    label: 'Regional',
-    description: 'Can manage users and content for specific locations',
-    icon: <Settings className="w-4 h-4 text-blue-500" />,
-    requiresLocation: true
-  },
-   OPERATIONS: {
+  OPERATIONS: {
     label: 'Operations',
-    description: 'Can manage users and content for specific locations',
-    icon: <Settings className="w-4 h-4 text-blue-500" />,
+    description: 'Can manage operational tasks for specific locations',
+    icon: <Settings className="w-4 h-4 text-indigo-500" />,
     requiresLocation: true
   },
   STAFF: {
@@ -62,13 +63,16 @@ const ROLES = {
     icon: <Eye className="w-4 h-4 text-gray-500" />,
     requiresLocation: true
   },
-   CHECKER: {
-    label: 'CHECKER',
+  CHECKER: {
+    label: 'Checker',
     description: 'Read-only access to location-specific features',
-    icon: <Eye className="w-4 h-4 text-gray-500" />,
+    icon: <Eye className="w-4 h-4 text-orange-500" />,
     requiresLocation: true
   }
 };
+
+// Valid roles for Mular Credit emails
+const MULAR_CREDIT_ROLES = ['MANAGER', 'REGIONAL'];
 
 const StatusBadge = ({ active }: { active: boolean }) => {
   return (
@@ -86,10 +90,10 @@ const RoleBadge = ({ role }: { role: keyof typeof ROLES }) => {
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
       role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+      role === 'REGIONAL' ? 'bg-violet-100 text-violet-800' :
       role === 'MANAGER' ? 'bg-blue-100 text-blue-800' :
       role === 'CHECKER' ? 'bg-orange-100 text-orange-800' :
-       role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-800' :
-      role === 'REGIONAL' ? 'bg-violet-100 text-violet-800' :
+      role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-800' :
       role === 'STAFF' ? 'bg-green-100 text-green-800' :
       'bg-gray-100 text-gray-800'
     }`}>
@@ -113,7 +117,7 @@ const UserCard = ({
   const [showDropdown, setShowDropdown] = useState(false);
   
   const isMularCreditEmail = user.email.toLowerCase().endsWith('@mularcredit.com');
-  const needsRoleUpdate = isMularCreditEmail && user.role !== 'MANAGER';
+  const needsRoleUpdate = isMularCreditEmail && !MULAR_CREDIT_ROLES.includes(user.role);
   
   return (
     <div className={`bg-white rounded-lg border p-4 shadow-sm hover:shadow-md transition-shadow ${
@@ -323,10 +327,10 @@ const RoleToggle = ({
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${
           role === 'ADMIN' ? 'bg-purple-100 text-purple-600' :
-          role === 'MANAGER' ? 'bg-blue-100 text-blue-600' :
-           role === 'CHECKER' ? 'bg-orange-100 text-orange-600' :
-           role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-600' :
           role === 'REGIONAL' ? 'bg-violet-100 text-violet-600' :
+          role === 'MANAGER' ? 'bg-blue-100 text-blue-600' :
+          role === 'CHECKER' ? 'bg-orange-100 text-orange-600' :
+          role === 'OPERATIONS' ? 'bg-indigo-100 text-indigo-600' :
           role === 'STAFF' ? 'bg-green-100 text-green-600' :
           'bg-gray-100 text-gray-600'
         }`}>
@@ -376,10 +380,13 @@ const UserEditModal = ({
     }
   }, [user]);
   
-  // Auto-detect Mular Credit domain and set role to MANAGER
+  // Auto-detect Mular Credit domain and set role to MANAGER by default
   useEffect(() => {
     if (editedUser.email && editedUser.email.toLowerCase().endsWith('@mularcredit.com')) {
-      setEditedUser(prev => ({ ...prev, role: 'MANAGER' }));
+      // Only auto-set if not already a valid Mular Credit role
+      if (!MULAR_CREDIT_ROLES.includes(editedUser.role)) {
+        setEditedUser(prev => ({ ...prev, role: 'MANAGER' }));
+      }
     }
   }, [editedUser.email]);
 
@@ -425,6 +432,7 @@ const UserEditModal = ({
   };
   
   const isMularCreditEmail = editedUser.email.toLowerCase().endsWith('@mularcredit.com');
+  const currentRoleIsValidForMular = isMularCreditEmail && MULAR_CREDIT_ROLES.includes(editedUser.role);
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -455,7 +463,7 @@ const UserEditModal = ({
             {isMularCreditEmail && (
               <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                 <Mail className="w-3 h-3" />
-                Mular Credit email detected. Role automatically set to Manager.
+                Mular Credit email detected. Must be Manager or Regional Manager.
               </p>
             )}
           </div>
@@ -506,30 +514,37 @@ const UserEditModal = ({
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Role</label>
             <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(ROLES) as Array<keyof typeof ROLES>).map((role) => (
-                <button
-                  key={role}
-                  onClick={() => handleRoleChange(role)}
-                  className={`p-2 border rounded-lg text-xs font-medium ${
-                    editedUser.role === role ? 
-                    (role === 'ADMIN' ? 'border-purple-500 bg-purple-50 text-purple-700' :
-                     role === 'MANAGER' ? 'border-blue-500 bg-blue-50 text-blue-700' :
-                      role === 'CHECKER' ? 'border-orange-500 bg-orange-50 text-orange-700' :
-                     role === 'REGIONAL' ? 'border-violet-500 bg-violet-50 text-blue-700' :
-                     role === 'OPERATIONS' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' :
-                     role === 'STAFF' ? 'border-green-500 bg-green-50 text-green-700' :
-                     'border-gray-500 bg-gray-50 text-gray-700') :
-                    'border-gray-200 hover:bg-gray-50'
-                  } ${isMularCreditEmail && role !== 'MANAGER' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={isMularCreditEmail && role !== 'MANAGER'}
-                >
-                  {ROLES[role].label}
-                </button>
-              ))}
+              {(Object.keys(ROLES) as Array<keyof typeof ROLES>).map((role) => {
+                const roleInfo = ROLES[role];
+                const isMularCreditRole = MULAR_CREDIT_ROLES.includes(role);
+                const isAllowedForMular = !isMularCreditEmail || isMularCreditRole;
+                
+                return (
+                  <button
+                    key={role}
+                    onClick={() => handleRoleChange(role)}
+                    disabled={!isAllowedForMular}
+                    className={`p-2 border rounded-lg text-xs font-medium ${
+                      editedUser.role === role ? 
+                      (role === 'ADMIN' ? 'border-purple-500 bg-purple-50 text-purple-700' :
+                       role === 'REGIONAL' ? 'border-violet-500 bg-violet-50 text-violet-700' :
+                       role === 'MANAGER' ? 'border-blue-500 bg-blue-50 text-blue-700' :
+                       role === 'CHECKER' ? 'border-orange-500 bg-orange-50 text-orange-700' :
+                       role === 'OPERATIONS' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' :
+                       role === 'STAFF' ? 'border-green-500 bg-green-50 text-green-700' :
+                       'border-gray-500 bg-gray-50 text-gray-700') :
+                      'border-gray-200 hover:bg-gray-50'
+                    } ${!isAllowedForMular ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={!isAllowedForMular ? 'Mular Credit emails must be Manager or Regional Manager' : ''}
+                  >
+                    {roleInfo.label}
+                  </button>
+                );
+              })}
             </div>
             {isMularCreditEmail && (
               <p className="text-xs text-gray-500 mt-1">
-                Mular Credit emails are automatically assigned the Manager role and cannot be changed.
+                Mular Credit emails must be assigned either Manager or Regional Manager role.
               </p>
             )}
           </div>
@@ -562,7 +577,12 @@ const UserEditModal = ({
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs flex items-center gap-2"
+            disabled={isMularCreditEmail && !currentRoleIsValidForMular}
+            className={`px-4 py-2 rounded-lg text-xs flex items-center gap-2 ${
+              isMularCreditEmail && !currentRoleIsValidForMular
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700 text-white'
+            }`}
           >
             <Check className="w-4 h-4" />
             {user ? 'Save Changes' : 'Create User'}
@@ -753,6 +773,8 @@ const BulkUpdateModal = ({
   onClose: () => void; 
   onConfirm: () => void 
 }) => {
+  const [selectedRole, setSelectedRole] = useState<'MANAGER' | 'REGIONAL'>('MANAGER');
+  
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-lg w-full max-w-2xl">
@@ -771,8 +793,49 @@ const BulkUpdateModal = ({
         <div className="p-4 space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-xs text-blue-700">
-              This will update {usersToUpdate.length} user(s) with @mularcredit.com emails to the MANAGER role.
+              This will update {usersToUpdate.length} user(s) with @mularcredit.com emails to the selected role.
             </p>
+          </div>
+          
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-2">Select Role for Bulk Update</label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="bulkRole"
+                  value="MANAGER"
+                  checked={selectedRole === 'MANAGER'}
+                  onChange={() => setSelectedRole('MANAGER')}
+                  className="text-green-600 focus:ring-green-500"
+                />
+                <div className="flex items-center gap-2">
+                  <RoleBadge role="MANAGER" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">Manager</p>
+                    <p className="text-xs text-gray-500">Single location management</p>
+                  </div>
+                </div>
+              </label>
+              
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                <input
+                  type="radio"
+                  name="bulkRole"
+                  value="REGIONAL"
+                  checked={selectedRole === 'REGIONAL'}
+                  onChange={() => setSelectedRole('REGIONAL')}
+                  className="text-green-600 focus:ring-green-500"
+                />
+                <div className="flex items-center gap-2">
+                  <RoleBadge role="REGIONAL" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-900">Regional Manager</p>
+                    <p className="text-xs text-gray-500">Multiple locations/regions</p>
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
           
           <div className="max-h-60 overflow-y-auto">
@@ -790,7 +853,7 @@ const BulkUpdateModal = ({
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-500">→</span>
-                    <RoleBadge role="MANAGER" />
+                    <RoleBadge role={selectedRole} />
                   </div>
                 </div>
               ))}
@@ -813,11 +876,11 @@ const BulkUpdateModal = ({
             Cancel
           </button>
           <button
-            onClick={onConfirm}
+            onClick={() => onConfirm(selectedRole)}
             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs flex items-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
-            Update {usersToUpdate.length} Users
+            Update {usersToUpdate.length} Users to {selectedRole === 'MANAGER' ? 'Manager' : 'Regional Manager'}
           </button>
         </div>
       </div>
@@ -851,7 +914,7 @@ export default function UserRolesSettings() {
 
   // Get users that need role updates
   const usersNeedingUpdate = users.filter(user => 
-    user.email.toLowerCase().endsWith('@mularcredit.com') && user.role !== 'MANAGER'
+    user.email.toLowerCase().endsWith('@mularcredit.com') && !MULAR_CREDIT_ROLES.includes(user.role)
   );
 
   // Early return if no admin client
@@ -999,10 +1062,18 @@ export default function UserRolesSettings() {
 
   const handleSaveUser = async (userData: any) => {
     try {
-      // Auto-detect Mular Credit domain and enforce MANAGER role
+      // Auto-detect Mular Credit domain and enforce valid role
+      let finalRole = userData.role;
+      if (userData.email.toLowerCase().endsWith('@mularcredit.com')) {
+        // Ensure it's a valid Mular Credit role
+        if (!MULAR_CREDIT_ROLES.includes(userData.role)) {
+          finalRole = 'MANAGER'; // Default fallback
+        }
+      }
+
       const finalUserData = {
         ...userData,
-        role: userData.email.toLowerCase().endsWith('@mularcredit.com') ? 'MANAGER' : userData.role
+        role: finalRole
       };
 
       if (editingUser) {
@@ -1067,7 +1138,7 @@ export default function UserRolesSettings() {
     }
   };
 
-  const handleBulkUpdate = async () => {
+  const handleBulkUpdate = async (selectedRole: 'MANAGER' | 'REGIONAL') => {
     try {
       setLoading(true);
       setError(null);
@@ -1078,7 +1149,7 @@ export default function UserRolesSettings() {
           {
             user_metadata: { 
               ...user.user_metadata,
-              role: 'MANAGER'
+              role: selectedRole
             }
           }
         );
@@ -1091,13 +1162,13 @@ export default function UserRolesSettings() {
       
       // Update local state
       setUsers(users.map(user => 
-        user.email.toLowerCase().endsWith('@mularcredit.com') 
-          ? { ...user, role: 'MANAGER' }
+        user.email.toLowerCase().endsWith('@mularcredit.com') && !MULAR_CREDIT_ROLES.includes(user.role)
+          ? { ...user, role: selectedRole }
           : user
       ));
       
       setShowBulkUpdateModal(false);
-      setSuccess(`Successfully updated ${usersNeedingUpdate.length} users to MANAGER role`);
+      setSuccess(`Successfully updated ${usersNeedingUpdate.length} users to ${selectedRole === 'MANAGER' ? 'Manager' : 'Regional Manager'} role`);
     } catch (err: any) {
       console.error('Error in bulk update:', err);
       setError(err.message || 'Failed to update users in bulk');
@@ -1179,7 +1250,7 @@ export default function UserRolesSettings() {
                 </div>
                 <div className="ml-3">
                   <p className="text-xs text-orange-700">
-                    <strong>{usersNeedingUpdate.length} user(s)</strong> with @mularcredit.com emails need to be updated to MANAGER role.
+                    <strong>{usersNeedingUpdate.length} user(s)</strong> with @mularcredit.com emails need to be updated to Manager or Regional Manager role.
                   </p>
                 </div>
               </div>
@@ -1284,11 +1355,11 @@ export default function UserRolesSettings() {
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Admins</p>
-                <p className="text-xl font-bold text-gray-900">{users.filter(u => u.role === 'ADMIN').length}</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Mular Credit Users</p>
+                <p className="text-xl font-bold text-gray-900">{users.filter(u => u.email.toLowerCase().endsWith('@mularcredit.com')).length}</p>
               </div>
-              <div className="p-2 rounded-lg bg-purple-100 text-purple-600">
-                <Shield className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-blue-100 text-blue-600">
+                <Mail className="w-5 h-5" />
               </div>
             </div>
           </div>
@@ -1347,15 +1418,24 @@ export default function UserRolesSettings() {
         {/* Role Permissions Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Role Permissions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {(Object.keys(ROLES) as Array<keyof typeof ROLES>).map((role) => (
-              <RoleToggle 
-                key={role}
-                role={role}
-                active={true} // This would come from your permissions config
-                onChange={(r, a) => console.log(`Role ${r} active: ${a}`)}
-              />
-            ))}
+          <div className="space-y-4">
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-700 font-medium">Note for Mular Credit Users</p>
+              <p className="text-xs text-blue-600 mt-1">
+                Users with @mularcredit.com emails must be assigned either <strong>Manager</strong> or <strong>Regional Manager</strong> role.
+                Other roles are not permitted for Mular Credit domain.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(Object.keys(ROLES) as Array<keyof typeof ROLES>).map((role) => (
+                <RoleToggle 
+                  key={role}
+                  role={role}
+                  active={true} // This would come from your permissions config
+                  onChange={(r, a) => console.log(`Role ${r} active: ${a}`)}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>

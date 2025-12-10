@@ -28,7 +28,8 @@ import {
   Sparkles,
   Zap,
   KeyRound,
-  Box
+  Box,
+  PhoneCall
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -40,21 +41,23 @@ const menuItems = [
   { id: 'ai-assistant', label: 'AI Assistant', icon: Bot, path: '/ai-assistant' },
   { id: 'task-manager', label: 'Task Manager', icon: Blocks, path: '/tasks' },
   { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
-  { id: 'advanced', label: 'Sallary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN','CHECKER'] },
+  { id: 'advanced', label: 'Sallary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN', 'CHECKER'] },
+  { id: 'incident-reports', label: 'Incident Reports', icon: Siren, path: '/incident-reports', allowedRoles: ['ADMIN', 'CHECKER', 'MANAGER'] },
+  { id: 'phone-approvals', label: 'Phone Approvals', icon: PhoneCall, path: '/phone-approvals', allowedRoles: ['ADMIN', 'CHECKER', 'HR'] },
   { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
   { id: 'asset', label: 'Assets', icon: Box, path: '/asset' },
   { id: 'employees', label: 'Employees', icon: Users, path: '/employees' },
-  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
+  { id: 'recruitment', label: 'Recruitment', icon: UserPlus, path: '/recruitment', allowedRoles: ['ADMIN', 'HR', 'OPERATIONS', 'CHECKER'] },
   { id: 'leaves', label: 'Leave Management', icon: Calendar, path: '/leaves' },
-  { id: 'payroll', label: 'Payroll', icon: Wallet, path: '/payroll', allowedRoles: ['ADMIN','CHECKER'] },
-  { id: 'email admin', label: 'Email Admin', icon: KeyRound, path: '/adminconfirm', allowedRoles: ['ADMIN','CHECKER','HR'] },
-  { id: 'performance', label: 'Performance', icon: BarChart3 , path: '/performance' },
-  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR','OPERATIONS','MANAGER','REGIONAL','CHECKER'] },
-  { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses',allowedRoles: ['ADMIN', 'OPERATIONS','MANAGER','REGIONAL','CHECKER'] },
-  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck', allowedRoles: ['ADMIN', 'HR','OPERATIONS','CHECKER'] },
+  { id: 'payroll', label: 'Payroll', icon: Wallet, path: '/payroll', allowedRoles: ['ADMIN', 'CHECKER'] },
+  { id: 'email admin', label: 'Email Admin', icon: KeyRound, path: '/adminconfirm', allowedRoles: ['ADMIN', 'CHECKER', 'HR'] },
+  { id: 'performance', label: 'Performance', icon: BarChart3, path: '/performance' },
+  { id: 'training', label: 'Training', icon: GraduationCap, path: '/training', allowedRoles: ['ADMIN', 'HR', 'OPERATIONS', 'CHECKER'] },
+  { id: 'reports', label: 'Reports', icon: FileText, path: '/reports', allowedRoles: ['ADMIN', 'HR', 'OPERATIONS', 'MANAGER', 'REGIONAL', 'CHECKER'] },
+  { id: 'expense', label: 'Expense', icon: HandCoins, path: '/expenses', allowedRoles: ['ADMIN', 'OPERATIONS', 'MANAGER', 'REGIONAL', 'CHECKER'] },
+  { id: 'staffcheck', label: 'Disciplinary', icon: Siren, path: '/staffcheck', allowedRoles: ['ADMIN', 'HR', 'OPERATIONS', 'CHECKER'] },
   { id: 'conferencing', label: 'Conferencing', icon: Video, path: '/videocall' },
-  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings', allowedRoles: ['ADMIN','CHECKER'] },
+  { id: 'settings', label: 'Settings', icon: Settings, path: '/settings', allowedRoles: ['ADMIN', 'CHECKER'] },
 ];
 
 export default function Sidebar() {
@@ -80,11 +83,10 @@ export default function Sidebar() {
     <div className="relative">
       {/* Enhanced Floating Container */}
       <motion.div
-        className={`min-h-[95vh] text-gray-900 flex-shrink-0 relative z-20 font-poppins mx-4 my-4 ${
-          isCollapsed ? 'w-16' : 'w-64'
-        }`}
+        className={`min-h-[95vh] text-gray-900 flex-shrink-0 relative z-20 font-poppins mx-4 my-4 ${isCollapsed ? 'w-16' : 'w-64'
+          }`}
         style={{
-          background: darkMode 
+          background: darkMode
             ? 'linear-gradient(135deg, rgba(0, 221, 255, 0.25) 0%, rgba(0, 252, 76, 0.2) 50%, rgba(255, 255, 255, 0.1) 100%)'
             : 'linear-gradient(135deg, #d2f9dc 0%, #b6a6ff 50%, #85ffa7 100%)',
           fontFamily: "'Poppins', sans-serif",
@@ -98,7 +100,7 @@ export default function Sidebar() {
           `,
         }}
         initial={{ width: 64 }}
-        animate={{ 
+        animate={{
           width: isHovered && isCollapsed ? 256 : isCollapsed ? 64 : 256
         }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -109,14 +111,14 @@ export default function Sidebar() {
         <motion.button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className="absolute -right-3 top-24 z-30 bg-white/90 p-2 rounded-full shadow-lg border border-green-300/50 backdrop-blur-sm"
-          whileHover={{ 
-            scale: 1.1, 
+          whileHover={{
+            scale: 1.1,
             boxShadow: "0 0 20px rgba(72, 187, 120, 0.6)",
             y: -1,
             rotate: isCollapsed ? 180 : -180
           }}
           whileTap={{ scale: 0.9 }}
-          style={{ 
+          style={{
             color: darkMode ? '#0d3b29' : '#0d966c'
           }}
         >
@@ -129,50 +131,49 @@ export default function Sidebar() {
 
         <div className="px-4 pb-6 pt-6 h-full flex flex-col">
           {/* Fixed Logo Section - Background only when expanded */}
-          <motion.div 
-            className={`flex items-center mb-8 rounded-2xl transition-all duration-300 ${
-              isCollapsed && !isHovered 
-                ? 'p-0 justify-center bg-transparent border-none' 
-                : 'px-3 py-4 justify-start bg-white/10 backdrop-blur-sm border border-white/20'
-            }`}
-            animate={{ 
-              justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start' 
+          <motion.div
+            className={`flex items-center mb-8 rounded-2xl transition-all duration-300 ${isCollapsed && !isHovered
+              ? 'p-0 justify-center bg-transparent border-none'
+              : 'px-3 py-4 justify-start bg-white/10 backdrop-blur-sm border border-white/20'
+              }`}
+            animate={{
+              justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start'
             }}
-            whileHover={{ 
+            whileHover={{
               scale: (isCollapsed && !isHovered) ? 1 : 1.02,
               backgroundColor: (isCollapsed && !isHovered) ? 'transparent' : 'rgba(255, 255, 255, 0.15)'
             }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
           >
             {/* Logo Container - Always centered within its space */}
-            <motion.div 
+            <motion.div
               className="flex items-center justify-center"
               animate={{
                 width: isCollapsed && !isHovered ? '100%' : 'auto',
               }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
             >
-              <motion.div 
+              <motion.div
                 className="flex-shrink-0 rounded-2xl bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center shadow-lg w-10 h-10"
-                whileHover={{ 
+                whileHover={{
                   rotate: [0, -5, 5, 0],
                   scale: 1.1,
                   transition: { duration: 0.5 }
                 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <motion.img 
-                  src={solo} 
-                  alt="Logo" 
+                <motion.img
+                  src={solo}
+                  alt="Logo"
                   className="w-6 h-6 filter brightness-110 drop-shadow-sm"
                   whileHover={{ rotate: 360 }}
                   transition={{ duration: 0.8, ease: "easeInOut" }}
                 />
               </motion.div>
-              
+
               {/* Text Section - Only appears when expanded */}
               <AnimatePresence mode="wait">
-                {(isHovered || !isCollapsed) && ( 
+                {(isHovered || !isCollapsed) && (
                   <motion.div
                     className="ml-3"
                     initial={{ opacity: 0, x: -10 }}
@@ -180,7 +181,7 @@ export default function Sidebar() {
                     exit={{ opacity: 0, x: -10 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
                   >
-                    <motion.h1 
+                    <motion.h1
                       className="text-lg font-bold text-gray-900 tracking-tight"
                       style={{ fontFamily: "'Poppins', sans-serif" }}
                       whileHover={{ scale: 1.05 }}
@@ -193,7 +194,7 @@ export default function Sidebar() {
                       >
                       </motion.span>
                     </motion.h1>
-                    <motion.p 
+                    <motion.p
                       className="text-gray-900 text-xs font-medium mt-1"
                       style={{ fontFamily: "'Poppins', sans-serif" }}
                       initial={{ opacity: 0 }}
@@ -214,24 +215,22 @@ export default function Sidebar() {
               const isActive = currentPath === item.path;
               const hasGlow = activeGlow === item.id;
               const isCollapsedState = isCollapsed && !isHovered;
-              
+
               const ButtonComponent = (
                 <motion.button
                   onClick={() => navigate(item.path)}
-                  className={`flex items-center rounded-2xl transition-all duration-300 relative overflow-hidden group ${
-                    isCollapsedState ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
-                  } ${
-                    isActive
-                      ? isCollapsedState 
-                        ? 'bg-white/20 shadow-md' 
+                  className={`flex items-center rounded-2xl transition-all duration-300 relative overflow-hidden group ${isCollapsedState ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
+                    } ${isActive
+                      ? isCollapsedState
+                        ? 'bg-white/20 shadow-md'
                         : 'bg-white/30 text-gray-900 shadow-lg'
                       : 'text-gray-900 hover:text-gray-900 hover:bg-white/15'
-                  }`}
-                  style={{ 
+                    }`}
+                  style={{
                     fontFamily: "'Poppins', sans-serif",
                     height: '44px'
                   }}
-                  whileHover={{ 
+                  whileHover={{
                     scale: isCollapsedState ? 1.05 : 1.02,
                     x: isCollapsedState ? 0 : 4,
                     transition: { duration: 0.2 }
@@ -251,26 +250,23 @@ export default function Sidebar() {
 
                   <div className={`flex items-center ${isCollapsedState ? 'justify-center' : 'justify-between w-full'}`}>
                     <div className="flex items-center">
-                      <motion.div 
-                        className={`relative rounded-xl ${
-                          isCollapsedState ? 'p-2.5' : 'p-2'
-                        } ${
-                          isActive 
-                            ? 'bg-white/25 shadow-md' 
+                      <motion.div
+                        className={`relative rounded-xl ${isCollapsedState ? 'p-2.5' : 'p-2'
+                          } ${isActive
+                            ? 'bg-white/25 shadow-md'
                             : 'bg-white/10 group-hover:bg-white/20'
-                        }`}
-                        whileHover={{ 
+                          }`}
+                        whileHover={{
                           rotate: isCollapsedState ? 0 : 5,
                           scale: 1.1
                         }}
                         transition={{ type: "spring", stiffness: 400, damping: 10 }}
                       >
                         <item.icon
-                          className={`flex-shrink-0 w-4 h-4 ${
-                            isActive 
-                              ? 'text-gray-900 drop-shadow-sm' 
-                              : 'text-gray-900 group-hover:text-gray-900'
-                          }`}
+                          className={`flex-shrink-0 w-4 h-4 ${isActive
+                            ? 'text-gray-900 drop-shadow-sm'
+                            : 'text-gray-900 group-hover:text-gray-900'
+                            }`}
                         />
                       </motion.div>
                       <AnimatePresence>
@@ -297,10 +293,10 @@ export default function Sidebar() {
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0, opacity: 0 }}
                         style={{
-                          backgroundColor: 
-                            item.badge === 'NEW' ? '#ef4444' : 
-                            item.badge === '↑' ? '#22c55e' : 
-                            '#3b82f6',
+                          backgroundColor:
+                            item.badge === 'NEW' ? '#ef4444' :
+                              item.badge === '↑' ? '#22c55e' :
+                                '#3b82f6',
                           color: 'white'
                         }}
                       >
@@ -308,10 +304,10 @@ export default function Sidebar() {
                       </motion.span>
                     )}
                   </div>
-                  
+
                   {/* Enhanced Hover Effect */}
                   {!isActive && (
-                    <motion.div 
+                    <motion.div
                       className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100"
                       transition={{ duration: 0.4 }}
                     />
@@ -331,7 +327,7 @@ export default function Sidebar() {
 
               if (item.allowedRoles) {
                 return (
-                  <RoleButtonWrapper 
+                  <RoleButtonWrapper
                     key={item.id}
                     allowedRoles={item.allowedRoles}
                     fallback={null}
@@ -354,17 +350,15 @@ export default function Sidebar() {
             {/* Theme Toggle */}
             <motion.button
               onClick={() => setDarkMode(!darkMode)}
-              className={`flex items-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all duration-300 group ${
-                isCollapsed && !isHovered ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
-              }`}
+              className={`flex items-center rounded-2xl bg-white/10 hover:bg-white/20 transition-all duration-300 group ${isCollapsed && !isHovered ? 'w-12 justify-center px-0 mx-auto' : 'w-full px-2'
+                }`}
               style={{ height: '44px' }}
               whileHover={{ scale: isCollapsed && !isHovered ? 1.05 : 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <motion.div
-                className={`rounded-xl bg-white/15 ${
-                  isCollapsed && !isHovered ? 'p-2.5' : 'p-2'
-                }`}
+                className={`rounded-xl bg-white/15 ${isCollapsed && !isHovered ? 'p-2.5' : 'p-2'
+                  }`}
                 whileHover={{ rotate: isCollapsed && !isHovered ? 0 : 180 }}
                 transition={{ duration: 0.5 }}
               >
@@ -389,24 +383,22 @@ export default function Sidebar() {
             </motion.button>
 
             {/* Enhanced User Area */}
-            <motion.div 
-              className={`rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 ${
-                isCollapsed && !isHovered ? 'p-3 justify-center' : 'px-3 py-4 justify-start'
-              }`}
+            <motion.div
+              className={`rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 ${isCollapsed && !isHovered ? 'p-3 justify-center' : 'px-3 py-4 justify-start'
+                }`}
               animate={{
                 justifyContent: isCollapsed && !isHovered ? 'center' : 'flex-start'
               }}
-              whileHover={{ 
+              whileHover={{
                 scale: 1.02,
                 backgroundColor: 'rgba(255, 255, 255, 0.15)'
               }}
             >
               <div className="flex items-center">
-                <motion.div 
-                  className={`flex-shrink-0 rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center shadow-lg ${
-                    isCollapsed && !isHovered ? 'w-8 h-8' : 'w-10 h-10'
-                  }`}
-                  whileHover={{ 
+                <motion.div
+                  className={`flex-shrink-0 rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center shadow-lg ${isCollapsed && !isHovered ? 'w-8 h-8' : 'w-10 h-10'
+                    }`}
+                  whileHover={{
                     scale: 1.1,
                     rotate: [0, -5, 5, 0]
                   }}
@@ -425,7 +417,7 @@ export default function Sidebar() {
                       <p className="text-xs font-bold text-gray-900" style={{ fontFamily: "'Poppins', sans-serif" }}>
                         Welcome Back!
                       </p>
-                      <motion.p 
+                      <motion.p
                         className="text-xs text-gray-900 mt-1"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}

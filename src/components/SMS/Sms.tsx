@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-import { 
-  MessageSquare, Send, Upload, FileText, CreditCard, 
+import {
+  MessageSquare, Send, Upload, FileText, CreditCard,
   CheckCircle, AlertCircle, Info, Package, Receipt,
   Building, User, Phone, Mail, Download, Clock,
   Calendar, Users, UserCheck, FileEdit, Trash2,
@@ -104,9 +104,9 @@ const CELCOM_AFRICA_CONFIG = {
 // Phone Number Formatting for Celcom Africa
 const formatPhoneNumberForSMS = (phone: string): string => {
   if (!phone) return '';
-  
+
   let cleaned = phone.replace(/\D/g, '');
-  
+
   if (cleaned.startsWith('0') && cleaned.length === 10) {
     cleaned = '254' + cleaned.substring(1);
   } else if (cleaned.startsWith('7') && cleaned.length === 9) {
@@ -116,11 +116,11 @@ const formatPhoneNumberForSMS = (phone: string): string => {
   } else if (cleaned.startsWith('+254') && cleaned.length === 13) {
     cleaned = cleaned.substring(1);
   }
-  
+
   if (cleaned.length === 12 && cleaned.startsWith('254')) {
     return cleaned;
   }
-  
+
   return '';
 };
 
@@ -136,7 +136,7 @@ export const SMSService = {
   }> {
     try {
       const formattedPhone = formatPhoneNumberForSMS(phoneNumber);
-      
+
       if (!formattedPhone) {
         throw new Error(`Invalid phone number format: ${phoneNumber}`);
       }
@@ -147,7 +147,7 @@ export const SMSService = {
 
       // URL encode the message as per documentation
       const encodedMessage = encodeURIComponent(message.trim());
-      
+
       // Construct GET URL - using the exact format from Celcom Africa docs
       const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
 
@@ -166,7 +166,7 @@ export const SMSService = {
 
       // Log the SMS to database as sent
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       await this.logSMS(
         formattedPhone,
         message,
@@ -184,10 +184,10 @@ export const SMSService = {
         messageId: messageId,
         cost: 0
       };
-      
+
     } catch (error) {
       console.error('❌ SMS sending error:', error);
-      
+
       // Even if there's an error, the SMS might still be sent
       // Log it as failed but note it might have gone through
       await this.logSMS(
@@ -197,9 +197,9 @@ export const SMSService = {
         shortcode,
         (error as Error).message
       );
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: (error as Error).message
       };
     }
@@ -207,41 +207,41 @@ export const SMSService = {
 
   // Send SMS with retry logic - SIMPLIFIED and FASTER
   async sendSMSWithRetry(
-    phoneNumber: string, 
-    message: string, 
-    shortcode: string, 
+    phoneNumber: string,
+    message: string,
+    shortcode: string,
     maxRetries = 1 // Only 1 retry since we're using no-cors
   ): Promise<{ success: boolean; error?: string; messageId?: string; cost?: number }> {
-    
+
     console.log(`📤 Sending SMS to ${phoneNumber}`);
-    
+
     // Just send once - no-cors mode is reliable
     const result = await this.sendSMS(phoneNumber, message, shortcode);
-    
+
     if (result.success) {
       console.log(`✅ SMS sent successfully to ${phoneNumber}`);
       return result;
     }
-    
+
     // If first attempt fails, wait 1 second and try once more
     console.log('🔄 First attempt failed, retrying...');
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     const retryResult = await this.sendSMS(phoneNumber, message, shortcode);
-    
+
     if (retryResult.success) {
       console.log(`✅ SMS sent successfully on retry to ${phoneNumber}`);
     } else {
       console.log(`❌ SMS failed after retry to ${phoneNumber}`);
     }
-    
+
     return retryResult;
   },
 
   // Bulk send SMS - OPTIMIZED for speed
   async sendBulkSMS(
-    phoneNumbers: string[], 
-    message: string, 
+    phoneNumbers: string[],
+    message: string,
     shortcode: string
   ): Promise<{
     success: boolean;
@@ -259,7 +259,7 @@ export const SMSService = {
     const promises = phoneNumbers.map(async (phoneNumber, index) => {
       // Small delay to avoid overwhelming the API (50ms between requests)
       await new Promise(resolve => setTimeout(resolve, index * 50));
-      
+
       try {
         const result = await this.sendSMS(phoneNumber, message, shortcode);
         if (result.success) {
@@ -377,7 +377,7 @@ export const SMSService = {
   async getSenderIDConfig(): Promise<SenderIDConfig | null> {
     try {
       const userId = 'current-user-id';
-      
+
       const { data, error } = await supabase
         .from('sender_id_configs')
         .select('*')
@@ -415,7 +415,7 @@ export const SMSService = {
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-      
+
       const { error } = await supabase.storage
         .from(bucket)
         .upload(fileName, file);
@@ -446,26 +446,35 @@ const checkSMSBalance = async (): Promise<string> => {
 };
 
 // Function to replace template variables with ACTUAL employee data
-const replaceTemplateVariables = (template: string, employee: Employee, additionalData?: any): string => {
+const replaceTemplateVariables = (
+  template: string,
+  employee: Employee,
+  additionalData?: any,
+  personalizationType: 'none' | 'firstname' | 'fullname' = 'fullname'
+): string => {
   let message = template;
-  
-  // Replace with ACTUAL employee data
-  message = message.replace(/{name}/gi, employee.employee_name || 'Employee');
+
+  // Replace with ACTUAL employee data - handle personalization type
+  const employeeName = personalizationType === 'firstname'
+    ? employee.employee_name.split(' ')[0] // First name only
+    : employee.employee_name; // Full name
+
+  message = message.replace(/{name}/gi, employeeName || 'Employee');
   message = message.replace(/{employee_id}/gi, employee.employee_id || '');
   message = message.replace(/{department}/gi, employee.department || '');
   message = message.replace(/{position}/gi, employee.position || '');
   message = message.replace(/{phone}/gi, employee.phone_number || '');
   message = message.replace(/{town}/gi, employee.town || '');
-  
+
   // Replace company variable
   message = message.replace(/{company}/gi, 'Mular Credit');
-  
+
   // Replace current date variables
   const now = new Date();
   message = message.replace(/{date}/gi, now.toLocaleDateString());
   message = message.replace(/{month}/gi, now.toLocaleDateString('en-US', { month: 'long' }));
   message = message.replace(/{year}/gi, now.getFullYear().toString());
-  
+
   // Replace additional data variables
   if (additionalData) {
     Object.keys(additionalData).forEach(key => {
@@ -473,7 +482,7 @@ const replaceTemplateVariables = (template: string, employee: Employee, addition
       message = message.replace(placeholder, additionalData[key] || '');
     });
   }
-  
+
   return message;
 };
 
@@ -511,7 +520,7 @@ const smsPackages: SMSPackage[] = [
 ];
 
 // Function to parse CSV file
-const parseCSV = (file: File): Promise<{phone_number: string, message: string}[]> => {
+const parseCSV = (file: File): Promise<{ phone_number: string, message: string }[]> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -519,14 +528,14 @@ const parseCSV = (file: File): Promise<{phone_number: string, message: string}[]
         const content = e.target?.result as string;
         const lines = content.split('\n').filter(line => line.trim());
         const results = [];
-        
+
         for (let i = 1; i < lines.length; i++) {
           const [phone_number, message] = lines[i].split(',').map(field => field.trim());
           if (phone_number && message) {
             results.push({ phone_number, message });
           }
         }
-        
+
         resolve(results);
       } catch (error) {
         reject(error);
@@ -554,6 +563,8 @@ export function SMSCenter() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedTown, setSelectedTown] = useState('all');
+  const [selectedJobTitle, setSelectedJobTitle] = useState('all');
+  const [personalizationType, setPersonalizationType] = useState<'none' | 'firstname' | 'fullname'>('none');
   const [smsStats, setSmsStats] = useState<SMSStats>({
     sentThisMonth: 0,
     remaining: 0,
@@ -562,16 +573,16 @@ export function SMSCenter() {
     balance: 'Loading...'
   });
   const [isSending, setIsSending] = useState(false);
-  const [sendingProgress, setSendingProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
+  const [sendingProgress, setSendingProgress] = useState<{ current: number, total: number }>({ current: 0, total: 0 });
   const [selectedPackage, setSelectedPackage] = useState<string>('standard');
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [bulkUploads, setBulkUploads] = useState<BulkUpload[]>([]);
   const [showNewTemplateModal, setShowNewTemplateModal] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({name: '', category: 'Business', content: ''});
+  const [newTemplate, setNewTemplate] = useState({ name: '', category: 'Business', content: '' });
   const [additionalVariables, setAdditionalVariables] = useState<Record<string, string>>({});
   const [showAdditionalVariablesModal, setShowAdditionalVariablesModal] = useState(false);
-  
+
   // Sender ID State
   const [senderIdConfig, setSenderIdConfig] = useState<SenderIDConfig>({
     user_id: 'current-user-id',
@@ -689,7 +700,7 @@ export function SMSCenter() {
           .map(emp => {
             const rawPhone = emp['Mobile Number'] || emp['Personal Mobile'] || emp['Work Mobile'] || '';
             const phone_number = formatPhoneNumberForSMS(rawPhone);
-            
+
             const firstName = emp['First Name'] || '';
             const middleName = emp['Middle Name'] || '';
             const lastName = emp['Last Name'] || '';
@@ -698,7 +709,7 @@ export function SMSCenter() {
             const position = emp['Job Title'] || 'Unknown';
             const town = emp['Town'] || 'Unknown';
             const employeeId = emp['Employee Number'] || `emp-${Math.random().toString(36).substr(2, 9)}`;
-            
+
             return {
               id: employeeId,
               employee_id: employeeId,
@@ -730,14 +741,47 @@ export function SMSCenter() {
   const loadSMSStats = async () => {
     try {
       const balance = await checkSMSBalance();
-      setSmsStats(prev => ({
-        ...prev,
-        balance: balance,
-        sentThisMonth: 1250,
-        remaining: 28750,
-        deliveryRate: 94.2,
-        failed: 75
-      }));
+
+      // Get current month start date
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      // Fetch real SMS stats from database
+      const { data: logs, error } = await supabase
+        .from('sms_logs')
+        .select('status, cost, created_at')
+        .gte('created_at', monthStart.toISOString());
+
+      if (error) {
+        console.error('Error loading SMS stats:', error);
+        setSmsStats(prev => ({
+          ...prev,
+          balance: balance,
+          sentThisMonth: 0,
+          remaining: 0,
+          deliveryRate: 0,
+          failed: 0
+        }));
+        return;
+      }
+
+      // Calculate stats from real data
+      const sentCount = logs?.filter(log => log.status === 'sent').length || 0;
+      const failedCount = logs?.filter(log => log.status === 'failed').length || 0;
+      const totalCount = sentCount + failedCount;
+      const deliveryRate = totalCount > 0 ? ((sentCount / totalCount) * 100).toFixed(1) : 0;
+
+      // Calculate remaining (you can adjust this based on your package)
+      const packageLimit = 30000; // Default package limit
+      const remaining = Math.max(0, packageLimit - sentCount);
+
+      setSmsStats({
+        sentThisMonth: sentCount,
+        remaining: remaining,
+        deliveryRate: parseFloat(deliveryRate.toString()),
+        failed: failedCount,
+        balance: balance
+      });
     } catch (error) {
       console.error('Error loading SMS stats:', error);
       setSmsStats(prev => ({ ...prev, balance: 'Error loading balance' }));
@@ -761,7 +805,7 @@ export function SMSCenter() {
     fetchEmployees();
     loadSMSStats();
     loadSenderIDConfig();
-    
+
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setScheduleDate(tomorrow.toISOString().split('T')[0]);
@@ -770,27 +814,31 @@ export function SMSCenter() {
 
   useEffect(() => {
     let filtered = employees;
-    
+
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.employee_name.toLowerCase().includes(searchLower) ||
         emp.employee_id.toLowerCase().includes(searchLower) ||
         emp.department.toLowerCase().includes(searchLower) ||
         emp.town.toLowerCase().includes(searchLower)
       );
     }
-    
+
     if (selectedDepartment !== 'all') {
       filtered = filtered.filter(emp => emp.department === selectedDepartment);
     }
-    
+
     if (selectedTown !== 'all') {
       filtered = filtered.filter(emp => emp.town === selectedTown);
     }
-    
+
+    if (selectedJobTitle !== 'all') {
+      filtered = filtered.filter(emp => emp.position === selectedJobTitle);
+    }
+
     setFilteredEmployees(filtered);
-  }, [searchTerm, selectedDepartment, selectedTown, employees]);
+  }, [searchTerm, selectedDepartment, selectedTown, selectedJobTitle, employees]);
 
   const departments = useMemo(() => {
     const depts = [...new Set(employees.map(emp => emp.department))].filter(Boolean);
@@ -802,9 +850,14 @@ export function SMSCenter() {
     return ['all', ...townsList];
   }, [employees]);
 
+  const jobTitles = useMemo(() => {
+    const titles = [...new Set(employees.map(emp => emp.position))].filter(Boolean);
+    return ['all', ...titles];
+  }, [employees]);
+
   const handleEmployeeSelect = (employeeId: string) => {
-    setSelectedEmployees(prev => 
-      prev.includes(employeeId) 
+    setSelectedEmployees(prev =>
+      prev.includes(employeeId)
         ? prev.filter(id => id !== employeeId)
         : [...prev, employeeId]
     );
@@ -823,12 +876,12 @@ export function SMSCenter() {
     const template = templates.find(t => t.id === templateId);
     if (template) {
       setSelectedTemplate(templateId);
-      
+
       // Show preview with ACTUAL selected employee data
       if (selectedEmployees.length > 0) {
         const firstEmployee = employees.find(emp => emp.id === selectedEmployees[0]);
         if (firstEmployee) {
-          const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables);
+          const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables, personalizationType);
           setMessage(previewMessage);
           setCharacterCount(previewMessage.length);
         }
@@ -836,7 +889,7 @@ export function SMSCenter() {
         setMessage(template.content);
         setCharacterCount(template.content.length);
       }
-      
+
       // Check if we need additional variables
       const additionalVarsNeeded = getAdditionalVariablesNeeded(template);
       if (additionalVarsNeeded.length > 0) {
@@ -878,7 +931,7 @@ export function SMSCenter() {
       const template = templates.find(t => t.id === selectedTemplate);
       const firstEmployee = employees.find(emp => emp.id === selectedEmployees[0]);
       if (template && firstEmployee) {
-        const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables);
+        const previewMessage = replaceTemplateVariables(template.content, firstEmployee, additionalVariables, personalizationType);
         setMessage(previewMessage);
         setCharacterCount(previewMessage.length);
       }
@@ -901,7 +954,7 @@ export function SMSCenter() {
 
     const selectedEmployeeData = employees.filter(emp => selectedEmployees.includes(emp.id));
     const currentShortcode = getCurrentShortcode();
-    
+
     setIsSending(true);
     setSendingProgress({ current: 0, total: selectedEmployeeData.length });
 
@@ -913,22 +966,22 @@ export function SMSCenter() {
         for (let i = 0; i < selectedEmployeeData.length; i++) {
           const employee = selectedEmployeeData[i];
           setSendingProgress({ current: i + 1, total: selectedEmployeeData.length });
-          
+
           try {
             // Create PERSONALIZED message for EACH employee
             let personalizedMessage = message;
-            
+
             // If using a template, replace variables with ACTUAL employee data
             if (selectedTemplate) {
-              personalizedMessage = replaceTemplateVariables(message, employee, additionalVariables);
+              personalizedMessage = replaceTemplateVariables(message, employee, additionalVariables, personalizationType);
             }
-            
+
             const result = await SMSService.sendSMSWithRetry(
-              employee.phone_number, 
-              personalizedMessage, 
+              employee.phone_number,
+              personalizedMessage,
               currentShortcode
             );
-            
+
             if (result.success) {
               successCount++;
               // Log successful SMS
@@ -968,7 +1021,7 @@ export function SMSCenter() {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
-        
+
         if (successCount > 0) {
           toast.success(`SMS sent to ${successCount} employees`);
         }
@@ -1001,7 +1054,7 @@ export function SMSCenter() {
       setCharacterCount(0);
       setSelectedTemplate('');
       setAdditionalVariables({});
-      
+
     } catch (error) {
       console.error('SMS sending process failed:', error);
       toast.error('Failed to send SMS: ' + (error as Error).message);
@@ -1015,35 +1068,35 @@ export function SMSCenter() {
     try {
       const testNumbers = ['254716431987', '0716431987'];
       const currentShortcode = getCurrentShortcode();
-      
+
       let success = false;
-      
+
       for (const testPhone of testNumbers) {
         const formatted = formatPhoneNumberForSMS(testPhone);
-        
+
         if (!formatted) continue;
-        
+
         const result = await SMSService.sendSMSWithRetry(
-          formatted, 
-          'Test SMS from Mular Credit SMS Center - Please ignore', 
+          formatted,
+          'Test SMS from Mular Credit SMS Center - Please ignore',
           currentShortcode
         );
-        
+
         if (result.success) {
           toast.success(`Test SMS sent successfully to ${formatted}!`);
           success = true;
           break;
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
-      
+
       if (!success) {
         toast.error('All test SMS attempts failed.');
       }
-      
+
       await loadSMSStats();
-      
+
     } catch (error) {
       toast.error('Test SMS error: ' + (error as Error).message);
     }
@@ -1054,7 +1107,7 @@ export function SMSCenter() {
     if (file) {
       if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
         setUploadedFile(file);
-        
+
         const uploadRecord: BulkUpload = {
           id: Date.now().toString(),
           filename: file.name,
@@ -1063,7 +1116,7 @@ export function SMSCenter() {
           status: 'processing',
           uploadedAt: new Date().toISOString()
         };
-        
+
         setBulkUploads(prev => [uploadRecord, ...prev]);
         toast.success('CSV file uploaded successfully.');
       } else {
@@ -1100,11 +1153,11 @@ export function SMSCenter() {
           const formattedPhone = formatPhoneNumberForSMS(record.phone_number);
           if (formattedPhone) {
             const result = await SMSService.sendSMSWithRetry(
-              formattedPhone, 
-              record.message, 
+              formattedPhone,
+              record.message,
               currentShortcode
             );
-            
+
             if (result.success) {
               successCount++;
               await SMSService.logSMS(
@@ -1140,8 +1193,8 @@ export function SMSCenter() {
           );
         }
 
-        setBulkUploads(prev => prev.map(upload => 
-          upload.filename === uploadedFile.name 
+        setBulkUploads(prev => prev.map(upload =>
+          upload.filename === uploadedFile.name
             ? { ...upload, processed: i + 1, totalRecipients: records.length }
             : upload
         ));
@@ -1151,8 +1204,8 @@ export function SMSCenter() {
         }
       }
 
-      setBulkUploads(prev => prev.map(upload => 
-        upload.filename === uploadedFile.name 
+      setBulkUploads(prev => prev.map(upload =>
+        upload.filename === uploadedFile.name
           ? { ...upload, status: 'completed' }
           : upload
       ));
@@ -1168,9 +1221,9 @@ export function SMSCenter() {
     } catch (error) {
       console.error('Bulk upload error:', error);
       toast.error('Failed to process bulk upload');
-      
-      setBulkUploads(prev => prev.map(upload => 
-        upload.filename === uploadedFile.name 
+
+      setBulkUploads(prev => prev.map(upload =>
+        upload.filename === uploadedFile.name
           ? { ...upload, status: 'failed' }
           : upload
       ));
@@ -1186,8 +1239,8 @@ export function SMSCenter() {
   };
 
   const cancelScheduledSMS = (id: string) => {
-    setScheduledMessages(prev => 
-      prev.map(msg => 
+    setScheduledMessages(prev =>
+      prev.map(msg =>
         msg.id === id ? { ...msg, status: 'cancelled' } : msg
       )
     );
@@ -1305,21 +1358,21 @@ export function SMSCenter() {
             <p className="text-xl font-base text-slate-900">{smsStats.sentThisMonth.toLocaleString()}</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div>
             <p className="text-xs text-slate-600 mb-1">Remaining SMS</p>
             <p className="text-xl font-base text-slate-900">{smsStats.remaining.toLocaleString()}</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div>
             <p className="text-xs text-slate-600 mb-1">Delivery Rate</p>
             <p className="text-xl font-base text-slate-900">{smsStats.deliveryRate}%</p>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <div>
             <p className="text-xs text-slate-600 mb-1">Failed SMS</p>
@@ -1343,11 +1396,10 @@ export function SMSCenter() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-xs ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
-                  }`}
+                  className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-xs ${activeTab === tab.id
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    }`}
                 >
                   <IconComponent className="w-4 h-4" />
                   {tab.name}
@@ -1388,9 +1440,8 @@ export function SMSCenter() {
                         placeholder="Type your message here... (Max 160 characters)"
                         maxLength={160}
                       />
-                      <div className={`absolute bottom-2 right-2 text-xs ${
-                        characterCount > 160 ? 'text-red-500' : 'text-slate-500'
-                      }`}>
+                      <div className={`absolute bottom-2 right-2 text-xs ${characterCount > 160 ? 'text-red-500' : 'text-slate-500'
+                        }`}>
                         {characterCount}/160
                       </div>
                     </div>
@@ -1482,6 +1533,92 @@ export function SMSCenter() {
                           ))}
                         </select>
                       </div>
+
+                      {/* Job Title Filter */}
+                      <div className="mt-3">
+                        <select
+                          value={selectedJobTitle}
+                          onChange={(e) => setSelectedJobTitle(e.target.value)}
+                          className="w-full border border-slate-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs"
+                        >
+                          {jobTitles.map(title => (
+                            <option key={title} value={title}>
+                              {title === 'all' ? 'All Job Titles' : title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Personalization Options */}
+                      <div className="mt-3 bg-slate-50 rounded-lg p-3">
+                        <label className="block text-xs font-medium text-slate-700 mb-2">
+                          Message Personalization
+                        </label>
+                        <div className="space-y-2">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="radio"
+                              name="personalization"
+                              value="none"
+                              checked={personalizationType === 'none'}
+                              onChange={(e) => setPersonalizationType(e.target.value as any)}
+                              className="mr-2"
+                            />
+                            <span className="text-xs text-slate-700">No personalization</span>
+                          </label>
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="radio"
+                              name="personalization"
+                              value="firstname"
+                              checked={personalizationType === 'firstname'}
+                              onChange={(e) => setPersonalizationType(e.target.value as any)}
+                              className="mr-2"
+                            />
+                            <span className="text-xs text-slate-700">
+                              First name only <span className="text-slate-500">(e.g., "Hi John")</span>
+                            </span>
+                          </label>
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="radio"
+                              name="personalization"
+                              value="fullname"
+                              checked={personalizationType === 'fullname'}
+                              onChange={(e) => setPersonalizationType(e.target.value as any)}
+                              className="mr-2"
+                            />
+                            <span className="text-xs text-slate-700">
+                              Full name <span className="text-slate-500">(e.g., "Hi John Doe")</span>
+                            </span>
+                          </label>
+                        </div>
+                        {personalizationType !== 'none' && (
+                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">
+                            💡 Use <code className="bg-green-100 px-1 rounded">{'{name}'}</code> in your message
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Recipient Count */}
+                      <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-medium text-blue-900">
+                              {filteredEmployees.length} Recipients Filtered
+                            </p>
+                            <p className="text-xs text-blue-700">
+                              {selectedEmployees.length} selected
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-blue-900">
+                              KES {(selectedEmployees.length * 1).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-blue-700">Est. cost</p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="border border-slate-200 rounded-lg max-h-80 overflow-y-auto">
@@ -1540,10 +1677,10 @@ export function SMSCenter() {
                         </span>
                       </div>
                       <div className="w-full bg-blue-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ 
-                            width: `${(sendingProgress.current / sendingProgress.total) * 100}%` 
+                          style={{
+                            width: `${(sendingProgress.current / sendingProgress.total) * 100}%`
                           }}
                         ></div>
                       </div>
@@ -1566,7 +1703,7 @@ export function SMSCenter() {
                       )}
                       {isSending ? 'Sending...' : 'Send Now'}
                     </button>
-                    
+
                     <button
                       onClick={() => handleSendSMS(false)}
                       disabled={!message.trim() || selectedEmployees.length === 0 || isSending}
@@ -1611,7 +1748,7 @@ export function SMSCenter() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-slate-900">SMS Templates</h3>
-                <button 
+                <button
                   onClick={() => setShowNewTemplateModal(true)}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium"
                 >
@@ -1634,7 +1771,7 @@ export function SMSCenter() {
                         <button className="p-1 hover:bg-slate-100 rounded">
                           <FileEdit className="w-4 h-4 text-slate-600" />
                         </button>
-                        <button 
+                        <button
                           onClick={() => deleteTemplate(template.id)}
                           className="p-1 hover:bg-slate-100 rounded"
                         >
@@ -1654,7 +1791,7 @@ export function SMSCenter() {
                       <span className="text-xs text-slate-500">
                         {template.variables.length} variables
                       </span>
-                      <button 
+                      <button
                         onClick={() => handleTemplateSelect(template.id)}
                         className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                       >
@@ -1670,7 +1807,7 @@ export function SMSCenter() {
           {activeTab === 'scheduled' && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-slate-900">Scheduled Messages</h3>
-              
+
               {scheduledMessages.length === 0 ? (
                 <div className="text-center py-12">
                   <Clock className="w-12 h-12 text-slate-300 mx-auto mb-4" />
@@ -1684,13 +1821,12 @@ export function SMSCenter() {
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              sms.status === 'scheduled' 
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : sms.status === 'sent'
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${sms.status === 'scheduled'
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : sms.status === 'sent'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}>
+                              }`}>
                               {sms.status.charAt(0).toUpperCase() + sms.status.slice(1)}
                             </span>
                             <span className="text-xs text-slate-500">
@@ -1723,7 +1859,7 @@ export function SMSCenter() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-900">Bulk SMS Upload</h3>
-                  
+
                   <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
                     <Upload className="w-8 h-8 text-slate-400 mx-auto mb-3" />
                     <p className="text-sm text-slate-600 mb-2">Upload CSV file with phone numbers</p>
@@ -1775,13 +1911,12 @@ export function SMSCenter() {
                                 {upload.processed}/{upload.totalRecipients} recipients
                               </p>
                             </div>
-                            <span className={`px-2 py-1 rounded text-xs ${
-                              upload.status === 'completed' 
-                                ? 'bg-green-100 text-green-800'
-                                : upload.status === 'processing'
+                            <span className={`px-2 py-1 rounded text-xs ${upload.status === 'completed'
+                              ? 'bg-green-100 text-green-800'
+                              : upload.status === 'processing'
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}>
+                              }`}>
                               {upload.status}
                             </span>
                           </div>
@@ -1793,16 +1928,15 @@ export function SMSCenter() {
 
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-900">SMS Packages</h3>
-                  
+
                   <div className="space-y-3">
                     {smsPackages.map(pkg => (
                       <div
                         key={pkg.id}
-                        className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${
-                          selectedPackage === pkg.id
-                            ? 'border-blue-500 ring-2 ring-blue-100'
-                            : 'border-slate-200 hover:border-slate-300'
-                        } ${pkg.popular ? 'relative' : ''}`}
+                        className={`bg-white border rounded-lg p-4 cursor-pointer transition-all ${selectedPackage === pkg.id
+                          ? 'border-blue-500 ring-2 ring-blue-100'
+                          : 'border-slate-200 hover:border-slate-300'
+                          } ${pkg.popular ? 'relative' : ''}`}
                         onClick={() => setSelectedPackage(pkg.id)}
                       >
                         {pkg.popular && (
@@ -1842,7 +1976,7 @@ export function SMSCenter() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-900">Sender ID Settings</h3>
-                  
+
                   <div className="space-y-4">
                     <div>
                       <label className="block text-xs font-medium text-slate-700 mb-2">
@@ -1978,7 +2112,7 @@ export function SMSCenter() {
 
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-900">Current Configuration</h3>
-                  
+
                   <div className="bg-slate-50 rounded-lg p-4">
                     <div className="space-y-3">
                       <div>
@@ -1987,14 +2121,14 @@ export function SMSCenter() {
                           {senderIdConfig.sender_id_type}
                         </p>
                       </div>
-                      
+
                       <div>
                         <p className="text-xs text-slate-600">Current Sender ID</p>
                         <p className="text-sm font-medium text-slate-900">
                           {getCurrentShortcode()}
                         </p>
                       </div>
-                      
+
                       {senderIdConfig.sender_id_type === 'custom' && (
                         <>
                           <div>
@@ -2003,16 +2137,15 @@ export function SMSCenter() {
                               {senderIdConfig.provider}
                             </p>
                           </div>
-                          
+
                           <div>
                             <p className="text-xs text-slate-600">Status</p>
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                              senderIdConfig.status === 'approved' 
-                                ? 'bg-green-100 text-green-800'
-                                : senderIdConfig.status === 'pending'
+                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${senderIdConfig.status === 'approved'
+                              ? 'bg-green-100 text-green-800'
+                              : senderIdConfig.status === 'pending'
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-red-100 text-red-800'
-                            }`}>
+                              }`}>
                               {senderIdConfig.status}
                             </span>
                           </div>
@@ -2054,12 +2187,12 @@ export function SMSCenter() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <p className="text-sm text-slate-600">
                 The selected template requires some additional information that will be used for all recipients:
               </p>
-              
+
               {Object.keys(additionalVariables).map(variable => (
                 <div key={variable}>
                   <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -2077,7 +2210,7 @@ export function SMSCenter() {
                   />
                 </div>
               ))}
-              
+
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowAdditionalVariablesModal(false)}
@@ -2110,7 +2243,7 @@ export function SMSCenter() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
@@ -2119,19 +2252,19 @@ export function SMSCenter() {
                 <input
                   type="text"
                   value={newTemplate.name}
-                  onChange={(e) => setNewTemplate(prev => ({...prev, name: e.target.value}))}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter template name"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Category
                 </label>
                 <select
                   value={newTemplate.category}
-                  onChange={(e) => setNewTemplate(prev => ({...prev, category: e.target.value}))}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, category: e.target.value }))}
                   className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="Business">Business</option>
@@ -2139,14 +2272,14 @@ export function SMSCenter() {
                   <option value="Custom">Custom</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 mb-1">
                   Template Content
                 </label>
                 <textarea
                   value={newTemplate.content}
-                  onChange={(e) => setNewTemplate(prev => ({...prev, content: e.target.value}))}
+                  onChange={(e) => setNewTemplate(prev => ({ ...prev, content: e.target.value }))}
                   rows={4}
                   className="w-full border border-slate-300 rounded-lg p-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 resize-none"
                   placeholder="Enter template content (use {variable} for dynamic fields)"
@@ -2155,7 +2288,7 @@ export function SMSCenter() {
                   Use {'{variable}'} for dynamic fields. Employee data: {'{name}'}, {'{department}'}, {'{position}'}, {'{town}'}, {'{phone}'}
                 </p>
               </div>
-              
+
               <button
                 onClick={createNewTemplate}
                 className="w-full py-3 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
@@ -2179,7 +2312,7 @@ export function SMSCenter() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="bg-slate-50 rounded-lg p-4">
                 <h4 className="font-medium text-slate-900 text-sm">

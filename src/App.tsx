@@ -31,11 +31,13 @@ import AuthRoute from './components/ProtectedRoutes/AuthRoute';
 import NotFound from './components/NOT FOUND/NotFound';
 import UpdatePasswordPage from './pages/UpdatePassword';
 import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
+import IncidentReportsManagement from './components/Settings/IncidentReportsManagement';
+import PhoneNumberApprovals from './components/Settings/PhoneNumberApprovals';
 import VideoConferenceComponent from '../src/components/staff portal/VideoConf'
 import { ApplicationsTable } from './components/Recruitment/components/ApplicationsTable';
 
 import WarningModule from './components/Warning/StaffCheck'
-import {MeetingRoom} from './components/zoom/MeetingRoom';
+import { MeetingRoom } from './components/zoom/MeetingRoom';
 import { useZoomSDK } from '../src/hooks/useZoom';
 import { createMeetingConfig } from '../backend/zoomAuth';
 import React from 'react';
@@ -126,7 +128,7 @@ class ErrorBoundaryClass extends React.Component<
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h1>
             <p className="text-gray-600 mb-4">Please refresh the page to continue</p>
-            <button 
+            <button
               onClick={() => {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
@@ -160,12 +162,12 @@ function App() {
   const [filteredTowns, setFilteredTowns] = useState<string[]>([]);
   const [isFetchingBranches, setIsFetchingBranches] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  
+
   // Inactivity timer refs (using refs instead of state for timers)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-  
+
   // Zoom meeting state
   const {
     isInMeeting,
@@ -187,7 +189,7 @@ function App() {
   const hasShownWelcomeToast = useRef(false);
   const lastAuthEvent = useRef<string>('');
   const navigationHandled = useRef(false);
-  
+
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -200,9 +202,9 @@ function App() {
   const shouldExcludeFromInactivityTimer = useCallback(() => {
     const excludedRoutes = ['/login', '/mfa', '/update-password'];
     const isExcludedRoute = excludedRoutes.includes(location.pathname);
-    const isAuthProcess = sessionStorage.getItem('isPasswordRecovery') === 'true' || 
-                         sessionStorage.getItem('isMFAProcess') === 'true';
-    
+    const isAuthProcess = sessionStorage.getItem('isPasswordRecovery') === 'true' ||
+      sessionStorage.getItem('isMFAProcess') === 'true';
+
     return isExcludedRoute || isAuthProcess || !session || !user;
   }, [location.pathname, session, user]);
 
@@ -217,7 +219,7 @@ function App() {
       warningTimerRef.current = null;
     }
     setShowInactivityWarning(false);
-    
+
     // Clear any inactivity warning toast
     toast.dismiss('inactivity-warning');
   }, []);
@@ -255,34 +257,34 @@ function App() {
   const handleAutoLogout = useCallback(async () => {
     if (session && user) {
       console.log('Auto-logging out due to inactivity');
-      
+
       // Reset refs on auto logout
       hasShownWelcomeToast.current = false;
       lastAuthEvent.current = '';
       navigationHandled.current = false;
-      
+
       // Clear all timers
       clearAllTimers();
-      
+
       try {
         const { error } = await supabase.auth.signOut();
-        
+
         if (error) {
           console.error('Auto-logout error:', error);
         } else {
           toast.success('Automatically logged out due to inactivity');
         }
-        
+
         setUser(null);
         setSession(null);
         setSelectedTown('');
         setSelectedRegion('All Regions');
         localStorage.removeItem('selectedTown');
-        
+
         // Clear all auth flags
         sessionStorage.removeItem('isPasswordRecovery');
         sessionStorage.removeItem('isMFAProcess');
-        
+
         navigate('/login', { replace: true });
       } catch (error) {
         console.error('Unexpected auto-logout error:', error);
@@ -310,7 +312,7 @@ function App() {
     // Only set up listeners if user is logged in and not in auth processes
     if (session && user && !shouldExcludeFromInactivityTimer()) {
       const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-      
+
       events.forEach(event => {
         document.addEventListener(event, handleUserActivity, true);
       });
@@ -322,7 +324,7 @@ function App() {
         events.forEach(event => {
           document.removeEventListener(event, handleUserActivity, true);
         });
-        
+
         // Clear timers on cleanup
         clearAllTimers();
       };
@@ -345,7 +347,7 @@ function App() {
   useEffect(() => {
     const fetchBranchesAndRegions = async () => {
       if (isFetchingBranches) return;
-      
+
       setIsFetchingBranches(true);
       try {
         const { data, error } = await supabase
@@ -354,25 +356,25 @@ function App() {
           .order('"Branch Office"', { ascending: true });
 
         if (error) throw error;
-        
+
         // Extract unique towns
         const branchNames = data?.map((item: Branch) => item['Branch Office']).filter(Boolean) || [];
         setBranches(branchNames);
-        
+
         // Extract unique regions from Area column
         const uniqueRegions = Array.from(
           new Set(data?.map((item: Branch) => item['Area']).filter(Boolean))
         ) as string[];
-        
+
         // Add "All Regions" option
         setRegions(['All Regions', ...uniqueRegions.sort()]);
         setFilteredTowns(branchNames); // Initially show all towns
-        
+
       } catch (error) {
         console.error('Error fetching branches:', error);
         const fallbackTowns = ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika'];
         const fallbackRegions = ['All Regions', 'HQ', 'Coastal', 'Western', 'Rift Valley'];
-        
+
         setBranches(fallbackTowns);
         setRegions(fallbackRegions);
         setFilteredTowns(fallbackTowns);
@@ -388,12 +390,12 @@ function App() {
   // Handler for region change
   const handleRegionChange = useCallback(async (regionName: string) => {
     setSelectedRegion(regionName);
-    
+
     if (regionName === 'All Regions') {
       setFilteredTowns(branches);
       return;
     }
-    
+
     try {
       // Fetch towns for the selected region
       const { data, error } = await supabase
@@ -403,15 +405,15 @@ function App() {
         .order('"Branch Office"', { ascending: true });
 
       if (error) throw error;
-      
+
       const townsInRegion = data?.map((item: { "Branch Office": string }) => item['Branch Office']).filter(Boolean) || [];
       setFilteredTowns(townsInRegion);
-      
+
       // If current selected town is not in the new region, reset it
       if (selectedTown && !townsInRegion.includes(selectedTown)) {
         setSelectedTown('');
         localStorage.removeItem('selectedTown');
-        
+
         // Also update user metadata if logged in
         if (session?.user) {
           await supabase.auth.updateUser({
@@ -419,7 +421,7 @@ function App() {
           });
         }
       }
-      
+
     } catch (error) {
       console.error('Error filtering towns by region:', error);
       toast.error('Failed to filter towns by region');
@@ -428,10 +430,10 @@ function App() {
 
   const handleTownChange = useCallback(async (town: string) => {
     if (town === selectedTown) return;
-    
+
     setSelectedTown(town);
     localStorage.setItem('selectedTown', town);
-    
+
     // If a specific town is selected, find its region
     if (town) {
       try {
@@ -448,7 +450,7 @@ function App() {
         console.error('Error finding region for town:', error);
       }
     }
-    
+
     if (session?.user) {
       supabase.auth.updateUser({
         data: { town }
@@ -467,27 +469,27 @@ function App() {
     try {
       // Clear all timers first
       clearAllTimers();
-      
+
       // Reset refs on logout
       hasShownWelcomeToast.current = false;
       lastAuthEvent.current = '';
       navigationHandled.current = false;
-      
+
       // Clear MFA and recovery flags
       sessionStorage.removeItem('isMFAProcess');
       sessionStorage.removeItem('isPasswordRecovery');
-      
+
       const loadingToast = toast.loading('Signing out...');
       const { error } = await supabase.auth.signOut();
       toast.dismiss(loadingToast);
-      
+
       if (error) {
         console.error('Logout error:', error);
         toast.error('Error signing out: ' + error.message);
       } else {
         toast.success('Signed out successfully');
       }
-      
+
       setUser(null);
       setSession(null);
       setSelectedTown('');
@@ -505,28 +507,28 @@ function App() {
     }
   }, [navigate, clearAllTimers]);
 
- const handleLoginSuccess = useCallback((town: string, userRole: string) => {
-  if (town) {
-    handleTownChange(town);
-  }
-
-  hasShownWelcomeToast.current = true;
-
-  // Set MFA process flag for CHECKER role
-  if (userRole === 'CHECKER') {
-    sessionStorage.setItem('isMFAProcess', 'true');
-  }
-
-  setTimeout(() => {
-    // For CHECKER role, the MFA flow will handle navigation after verification
-    // For other roles, navigate immediately
-    if (userRole !== 'CHECKER') {
-      const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
-      navigate(targetPath, { replace: true });
+  const handleLoginSuccess = useCallback((town: string, userRole: string) => {
+    if (town) {
+      handleTownChange(town);
     }
-    // CHECKER role will be handled by MFA verification success callback
-  }, 100);
-}, [navigate, handleTownChange]);
+
+    hasShownWelcomeToast.current = true;
+
+    // Set MFA process flag for CHECKER role
+    if (userRole === 'CHECKER') {
+      sessionStorage.setItem('isMFAProcess', 'true');
+    }
+
+    setTimeout(() => {
+      // For CHECKER role, the MFA flow will handle navigation after verification
+      // For other roles, navigate immediately
+      if (userRole !== 'CHECKER') {
+        const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
+        navigate(targetPath, { replace: true });
+      }
+      // CHECKER role will be handled by MFA verification success callback
+    }, 100);
+  }, [navigate, handleTownChange]);
 
 
   // Handle email confirmation redirect
@@ -535,32 +537,32 @@ function App() {
       const type = searchParams.get('type');
       const token = searchParams.get('token');
       const accessToken = searchParams.get('access_token');
-      
+
       // Handle password recovery - this runs AFTER Supabase auto-login
       if (type === 'recovery' && (token || accessToken)) {
         console.log('Password recovery detected, setting flag...');
-        
+
         // Set flag to prevent normal auth flow and inactivity timer
         sessionStorage.setItem('isPasswordRecovery', 'true');
-        
+
         // Clear the URL parameters to prevent loops
         const newUrl = window.location.pathname;
         window.history.replaceState({}, '', newUrl);
-        
+
         // The user is already authenticated by Supabase at this point
         // Just ensure we stay on the password reset page
         if (location.pathname !== '/update-password') {
           navigate('/update-password', { replace: true });
         }
-        
+
         return;
       }
-      
+
       // Handle signup confirmation as before (keep your existing code)
       if (type === 'signup' && accessToken) {
         try {
           const { data: { session }, error } = await supabase.auth.getSession();
-          
+
           if (error) {
             navigate('/login', { replace: true });
             return;
@@ -569,13 +571,13 @@ function App() {
           if (session?.user) {
             const userRole = session.user.user_metadata?.role || 'STAFF';
             const userTown = session.user.user_metadata?.town || '';
-            
+
             // Show email verification toast only once
             if (!hasShownWelcomeToast.current) {
               toast.success('Email verified successfully! Welcome to Zira HR.');
               hasShownWelcomeToast.current = true;
             }
-            
+
             setSession(session);
             setUser({
               email: session.user.email || '',
@@ -586,7 +588,7 @@ function App() {
             if (userTown) {
               setSelectedTown(userTown);
               localStorage.setItem('selectedTown', userTown);
-              
+
               // Find the region for this town
               try {
                 const { data } = await supabase
@@ -625,7 +627,7 @@ function App() {
     const initializeAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        
+
         if (error) {
           setAuthChecked(true);
           setIsInitializing(false);
@@ -640,14 +642,14 @@ function App() {
             role: session.user.user_metadata?.role || 'STAFF',
             town: session.user.user_metadata?.town || ''
           };
-          
+
           setUser(userData);
-          
-          const savedTown = localStorage.getItem('selectedTown') || 
-                            session.user.user_metadata?.town || '';
+
+          const savedTown = localStorage.getItem('selectedTown') ||
+            session.user.user_metadata?.town || '';
           if (savedTown && branches.length > 0 && branches.includes(savedTown)) {
             setSelectedTown(savedTown);
-            
+
             // Find the region for this town
             try {
               const { data } = await supabase
@@ -666,7 +668,7 @@ function App() {
 
           const currentPath = location.pathname;
           const isEmailConfirmation = searchParams.has('type') && searchParams.has('access_token');
-          
+
           // Only navigate on initial load, not on subsequent auth checks
           if ((currentPath === '/' || currentPath === '/login') && !isEmailConfirmation && !navigationHandled.current) {
             const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
@@ -678,10 +680,10 @@ function App() {
           setSelectedTown('');
           setSelectedRegion('All Regions');
           localStorage.removeItem('selectedTown');
-          
+
           const publicPaths = ['/login', '/update-password', '/mfa'];
           const currentPath = location.pathname;
-          
+
           if (!publicPaths.includes(currentPath)) {
             navigate('/login', { replace: true });
           }
@@ -701,9 +703,9 @@ function App() {
       // Check if this is a password recovery session
       const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
       const isMFAProcess = sessionStorage.getItem('isMFAProcess') === 'true';
-      
+
       console.log('Auth state change:', event, 'Is password recovery:', isPasswordRecovery, 'Is MFA process:', isMFAProcess);
-      
+
       // Prevent duplicate handling of the same event
       if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
         return;
@@ -719,36 +721,36 @@ function App() {
           role: session.user.user_metadata?.role || 'STAFF',
           town: session.user.user_metadata?.town || ''
         };
-        
+
         setUser(userData);
-        
+
         // If this is a password recovery session, don't do normal navigation
         if (isPasswordRecovery) {
           console.log('Skipping normal auth flow for password recovery');
-          
+
           // Make sure we're on the update password page
           if (location.pathname !== '/update-password') {
             navigate('/update-password', { replace: true });
           }
           return; // Exit early, don't do normal auth flow
         }
-        
+
         // Handle MFA process
         if (isMFAProcess && userData.role === 'CHECKER') {
           console.log('MFA process detected for CHECKER role');
-          
+
           // Navigate to MFA page if not already there
           if (location.pathname !== '/mfa') {
             navigate('/mfa', { replace: true });
           }
           return; // Exit early, let MFA handle the rest
         }
-        
+
         // Normal auth flow for regular logins (keep your existing code)...
         if (userData.town && branches.length > 0 && branches.includes(userData.town)) {
           setSelectedTown(userData.town);
           localStorage.setItem('selectedTown', userData.town);
-          
+
           try {
             const { data } = await supabase
               .from('kenya_branches')
@@ -763,15 +765,15 @@ function App() {
             console.error('Error finding region for town:', error);
           }
         }
-        
+
         // Only show welcome toast and navigate for actual sign-in events, not token refreshes
         if (event === 'SIGNED_IN' && !hasShownWelcomeToast.current) {
           hasShownWelcomeToast.current = true;
           toast.success(`Welcome back, ${userData.email}!`);
-          
+
           const currentPath = location.pathname;
           const publicPaths = ['/login', '/update-password', '/mfa'];
-          
+
           if (publicPaths.includes(currentPath)) {
             const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
             navigate(targetPath, { replace: true });
@@ -782,7 +784,7 @@ function App() {
         setSelectedTown('');
         setSelectedRegion('All Regions');
         localStorage.removeItem('selectedTown');
-        
+
         if (event === 'SIGNED_OUT') {
           hasShownWelcomeToast.current = false;
           lastAuthEvent.current = '';
@@ -835,207 +837,216 @@ function App() {
   // Main render
   return (
     <UserProvider>
-    <ErrorBoundary>
-      <div className="min-h-screen bg-white overflow-x-hidden">
-         <UpdateNotification />
-        <Routes>
-          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
-          <Route 
-            path="/mfa" 
-            element={
-              <MFAVerification 
-                onSuccess={() => {
-                  // Clear MFA flag and navigate to appropriate page
-                  sessionStorage.removeItem('isMFAProcess');
-                  const targetPath = user?.role === 'STAFF' ? '/staff' : '/dashboard';
-                  navigate(targetPath, { replace: true });
-                }}
-                onFailure={() => {
-                  // Clear MFA flag and redirect to login
-                  sessionStorage.removeItem('isMFAProcess');
-                  navigate('/login', { replace: true });
-                }}
-              />
-            } 
-          />
-          <Route path="/update-password" element={<UpdatePasswordPage/>} />
-          <Route path="/teams" element={<ChatLayout/>} />
-          <Route 
-            path="/staff" 
-            element={session ? <StaffPortalLanding /> : <Login onLoginSuccess={handleLoginSuccess} />} 
-          />
-          
-          <Route 
-            path="/*" 
-            element={
-              !session || !user ? (
-                <Login onLoginSuccess={handleLoginSuccess} />
-              ) : (
-                <div className="flex flex-col min-h-screen bg-gray-50">
-                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-100/30 via-transparent to-transparent"></div>
-                  <div className="relative flex flex-1 w-full overflow-x-hidden">
-                    <Sidebar selectedTown={selectedTown} selectedRegion={selectedRegion} />
-                    <div className="flex-1 min-w-0 flex flex-col">
-                      <Header 
-                        user={user} 
-                        onLogout={handleLogout} 
-                        selectedTown={selectedTown}
-                        onTownChange={handleTownChange}
-                        selectedRegion={selectedRegion}
-                        onRegionChange={handleRegionChange}
-                        towns={filteredTowns}
-                        regions={regions}
-                        allTowns={branches}
-                      />
-                      <main className="flex-1 overflow-x-hidden p-4">
-                        <AnimatePresence mode="wait">
-                          <motion.div
-                            key={location.pathname}
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -20 }}
-                            transition={{ duration: 0.3 }}
-                            className="w-full h-full"
-                          >
-                            <Routes>
-                              <Route 
-                                path="/" 
-                                element={
-                                  user?.role === 'STAFF' ? 
-                                    <StaffPortalLanding /> : 
-                                    <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','CHECKER']}>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-white overflow-x-hidden">
+          <UpdateNotification />
+          <Routes>
+            <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
+            <Route
+              path="/mfa"
+              element={
+                <MFAVerification
+                  onSuccess={() => {
+                    // Clear MFA flag and navigate to appropriate page
+                    sessionStorage.removeItem('isMFAProcess');
+                    const targetPath = user?.role === 'STAFF' ? '/staff' : '/dashboard';
+                    navigate(targetPath, { replace: true });
+                  }}
+                  onFailure={() => {
+                    // Clear MFA flag and redirect to login
+                    sessionStorage.removeItem('isMFAProcess');
+                    navigate('/login', { replace: true });
+                  }}
+                />
+              }
+            />
+            <Route path="/update-password" element={<UpdatePasswordPage />} />
+            <Route path="/teams" element={<ChatLayout />} />
+            <Route
+              path="/staff"
+              element={session ? <StaffPortalLanding /> : <Login onLoginSuccess={handleLoginSuccess} />}
+            />
+
+            <Route
+              path="/*"
+              element={
+                !session || !user ? (
+                  <Login onLoginSuccess={handleLoginSuccess} />
+                ) : (
+                  <div className="flex flex-col min-h-screen bg-gray-50">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-green-100/30 via-transparent to-transparent"></div>
+                    <div className="relative flex flex-1 w-full overflow-x-hidden">
+                      <Sidebar selectedTown={selectedTown} selectedRegion={selectedRegion} />
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        <Header
+                          user={user}
+                          onLogout={handleLogout}
+                          selectedTown={selectedTown}
+                          onTownChange={handleTownChange}
+                          selectedRegion={selectedRegion}
+                          onRegionChange={handleRegionChange}
+                          towns={filteredTowns}
+                          regions={regions}
+                          allTowns={branches}
+                        />
+                        <main className="flex-1 overflow-x-hidden p-4">
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={location.pathname}
+                              initial={{ opacity: 0, x: 20 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -20 }}
+                              transition={{ duration: 0.3 }}
+                              className="w-full h-full"
+                            >
+                              <Routes>
+                                <Route
+                                  path="/"
+                                  element={
+                                    user?.role === 'STAFF' ?
+                                      <StaffPortalLanding /> :
+                                      <AuthRoute allowedRoles={['ADMIN', 'MANAGER', 'HR', 'CHECKER']}>
+                                        <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/dashboard"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'MANAGER', 'HR', 'REGIONAL', 'OPERATIONS', 'CHECKER']}>
                                       <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                     </AuthRoute>
-                                } 
-                              />
-                              <Route 
-                                path="/dashboard" 
-                                element={
-                                  <AuthRoute allowedRoles={['ADMIN','MANAGER','HR','REGIONAL','OPERATIONS','CHECKER']}>
-                                    <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
-                                  </AuthRoute>
-                                } 
-                              />
-                              <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                              <Route path="/add-employee" element={<AddEmployeePage />} />
-                              <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
-                              <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
-                              <Route path="/employee-added" element={<SuccessPage />} />
-                              <Route path="/loanadmin" element={<LoanRequestsAdmin/>} />
-                              <Route path="/asset" element={<AssetManagement/>} />
-                               <Route path="/asset/scan" element={<QRScanner/>} />
-                              <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="/reports" element={<ReportsList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="/teams" element={<ChatLayout/>} />
-                              <Route path="/staffcheck" element={<WarningModule/>} />
-                              <Route 
-                                path="/payroll" 
-                                element={
-                                  <AuthRoute allowedRoles={['ADMIN','CHECKER']}>
-                                    <PayrollDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
-                                  </AuthRoute>
-                                } 
-                              />
-                              <Route 
-                                path="/settings" 
-                                element={
-                                  <AuthRoute allowedRoles={['ADMIN','CHECKER']}>
-                                    <UserRolesSettings />
-                                  </AuthRoute>
-                                } 
-                              />
-                              <Route 
-                                path="/salaryadmin" 
-                                element={
-                                  <AuthRoute allowedRoles={['ADMIN','CHECKER','MANAGER','REGIONAL']}>
-                                    <SalaryAdvanceAdmin  selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>
-                                  </AuthRoute>
-                                } 
-                              />
-                              <Route 
-                                path="/adminconfirm" 
-                                element={
-                                  <AuthRoute allowedRoles={['ADMIN','OPERATIONS','CHECKER','HR']}>
-                                    <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>
-                                  </AuthRoute>
-                                } 
-                              />
-                              <Route path="/recruitment" 
-                              element={
-                              <AuthRoute allowedRoles={['ADMIN','HR','OPERATIONS','CHECKER']}>
-                                <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} /> 
-                                   </AuthRoute>  } />
-                              <Route path="/applications" element={<ApplicationsTable />} />
-                              <Route path="/performance" element={
-                                <PerformanceDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                  }
+                                />
+                                <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/add-employee" element={<AddEmployeePage />} />
+                                <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
+                                <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
+                                <Route path="/employee-added" element={<SuccessPage />} />
+                                <Route path="/loanadmin" element={<LoanRequestsAdmin />} />
+                                <Route path="/asset" element={<AssetManagement />} />
+                                <Route path="/asset/scan" element={<QRScanner />} />
+                                <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/reports" element={<ReportsList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/teams" element={<ChatLayout />} />
+                                <Route path="/staffcheck" element={<WarningModule />} />
+                                <Route
+                                  path="/payroll"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'CHECKER']}>
+                                      <PayrollDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/settings"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'CHECKER']}>
+                                      <UserRolesSettings />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/salaryadmin"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'CHECKER', 'MANAGER', 'REGIONAL']}>
+                                      <SalaryAdvanceAdmin selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/incident-reports"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'CHECKER', 'MANAGER']}>
+                                      <IncidentReportsManagement />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/adminconfirm"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'OPERATIONS', 'CHECKER', 'HR']}>
+                                      <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route path="/recruitment"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'HR', 'OPERATIONS', 'CHECKER']}>
+                                      <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                    </AuthRoute>} />
+                                <Route path="/applications" element={<ApplicationsTable />} />
+                                <Route path="/performance" element={
+                                  <PerformanceDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
                                 } />
-                              <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                              <Route path="/training" element={<AdminVideoUpload/>} />
-                              <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} /> 
-                              
-                              <Route 
-                                path="/videocall" 
-                                element={
-                                  <VideoConferenceComponent 
-                                    onJoinMeeting={handleJoinMeeting} 
-                                    isConnecting={connectionStatus === 'connecting'} 
-                                  />
-                                } 
-                              />
-                              <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches}/>} />
-                              <Route path="*" element={<NotFound />} />
-                            </Routes>
-                          </motion.div>
-                        </AnimatePresence>
-                      </main>
-                      <Footer />
+                                <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/training" element={<AdminVideoUpload />} />
+                                <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+
+                                <Route
+                                  path="/videocall"
+                                  element={
+                                    <VideoConferenceComponent
+                                      onJoinMeeting={handleJoinMeeting}
+                                      isConnecting={connectionStatus === 'connecting'}
+                                    />
+                                  }
+                                />
+                                <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/teams" element={<ChatLayout />} />
+                                <Route path="*" element={<NotFound />} />
+                              </Routes>
+                            </motion.div>
+                          </AnimatePresence>
+                        </main>
+                        <Footer />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            } 
+                )
+              }
+            />
+          </Routes>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#1f2937',
+                color: '#fff',
+                border: '1px solid #374151',
+                borderRadius: '8px',
+                fontSize: '14px',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: '#fff',
+                },
+                duration: 3000,
+              },
+              error: {
+                iconTheme: {
+                  primary: '#ef4444',
+                  secondary: '#fff',
+                },
+                duration: 5000,
+              },
+              loading: {
+                iconTheme: {
+                  primary: '#3b82f6',
+                  secondary: '#fff',
+                },
+              },
+            }}
           />
-        </Routes>
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: '#1f2937',
-              color: '#fff',
-              border: '1px solid #374151',
-              borderRadius: '8px',
-              fontSize: '14px',
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#fff',
-              },
-              duration: 3000,
-            },
-            error: {
-              iconTheme: {
-                primary: '#ef4444',
-                secondary: '#fff',
-              },
-              duration: 5000,
-            },
-            loading: {
-              iconTheme: {
-                primary: '#3b82f6',
-                secondary: '#fff',
-              },
-            },
-          }}
-        />
-      </div>
-    </ErrorBoundary>
+        </div>
+      </ErrorBoundary>
     </UserProvider>
   );
 }

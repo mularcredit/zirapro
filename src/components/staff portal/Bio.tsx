@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { X, Save, PrinterIcon, Download, ArrowLeft, Plus, Upload, AlertCircle, Users, Check,PencilLine } from 'lucide-react';
+import { X, Save, PrinterIcon, Download, ArrowLeft, Plus, Upload, AlertCircle, Users, Check, PencilLine, Bell } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
@@ -62,7 +62,8 @@ const READ_ONLY_FIELDS = [
   'Employee Number',
   'Work Email',
   'Work Mobile', // Added: Company-provided mobile number
-  
+  'Mobile Number', // Added: Primary mobile number requires admin approval to change
+
   // Employment Status & Contract Fields
   'Employee Type',
   'Start Date',
@@ -71,20 +72,20 @@ const READ_ONLY_FIELDS = [
   'Probation End Date',
   'Contract Start Date',
   'Contract End Date',
-  
+
   // Job & Position Information
   'Job Title',
   'Job Level',
   'Job Group',
   'Department',
-  
+
   // Organizational Structure
   'Branch',
   'Town',
   'Manager',
   'Leave Approver',
   'Alternate Approver',
-  
+
   // Financial & Compensation
   'Basic Salary',
   'Currency',
@@ -124,16 +125,23 @@ const EmployeeBioPage = () => {
   const [userRole, setUserRole] = useState<string>('employee'); // Track user role
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Phone number change request state
+  const [pendingPhoneRequest, setPendingPhoneRequest] = useState<any>(null);
+  const [showPhoneRequestModal, setShowPhoneRequestModal] = useState(false);
+  const [requestedPhone, setRequestedPhone] = useState('');
+  const [phoneChangeReason, setPhoneChangeReason] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+
   // Check if a field should be editable based on user role
   const canEditField = (fieldName: string): boolean => {
     // HR/Admin can edit everything
     if (userRole === 'hr' || userRole === 'admin') return true;
-    
+
     // Employees can only edit non-read-only fields
     if (isEditMode) {
       return !READ_ONLY_FIELDS.includes(fieldName);
     }
-    
+
     return false;
   };
 
@@ -152,7 +160,7 @@ const EmployeeBioPage = () => {
           .select('role')
           .eq('user_id', user.id)
           .single();
-        
+
         if (userProfile?.role) {
           setUserRole(userProfile.role);
         }
@@ -162,9 +170,9 @@ const EmployeeBioPage = () => {
           .select('"Employee Number"')
           .eq('"Work Email"', user.email)
           .single();
-        
+
         if (!employeeData) return;
-        
+
         // Fetch employee data
         const { data: empData, error: empError } = await supabase
           .from('employees')
@@ -252,7 +260,7 @@ const EmployeeBioPage = () => {
         }));
 
         setEmployee(empData);
-        
+
         // Set single emergency contact
         setEmergencyContact(
           contacts ? {
@@ -286,7 +294,7 @@ const EmployeeBioPage = () => {
 
   const validateField = (name: string, value: string | number | null | undefined) => {
     let error = '';
-    
+
     if (typeof value === 'string' && !value.trim() && ['First Name', 'Last Name'].includes(name)) {
       error = 'This field is required';
     } else {
@@ -317,7 +325,7 @@ const EmployeeBioPage = () => {
           break;
       }
     }
-    
+
     setErrors(prev => ({ ...prev, [name]: error }));
     return !error;
   };
@@ -341,17 +349,17 @@ const EmployeeBioPage = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
+
     // Only allow editing if field is editable for this user
     if (!canEditField(name) && userRole !== 'hr' && userRole !== 'admin') {
       return;
     }
-    
+
     setEmployee(prev => ({
       ...prev,
       [name]: value
     }));
-    
+
     // Validate on change
     if (isEditMode) validateField(name, value);
   };
@@ -361,7 +369,7 @@ const EmployeeBioPage = () => {
     if (!canEditField(name) && userRole !== 'hr' && userRole !== 'admin') {
       return;
     }
-    
+
     setEmployee(prev => ({
       ...prev,
       [name]: value || null
@@ -373,7 +381,7 @@ const EmployeeBioPage = () => {
       ...prev,
       [field]: value
     }));
-    
+
     // Validate on change
     if (isEditMode) {
       if (field === 'phone') {
@@ -400,7 +408,7 @@ const EmployeeBioPage = () => {
       [field]: value
     };
     setStatutoryDeductions(updatedDeductions);
-    
+
     // Validate on change if it's the number field
     if (field === 'number' && updatedDeductions[index].isActive && isEditMode) {
       validateField(`deduction${updatedDeductions[index].name}`, String(value));
@@ -424,7 +432,7 @@ const EmployeeBioPage = () => {
 
     let isValid = true;
     const newErrors: Record<string, string> = {};
-    
+
     // Required fields validation
     if (!employee['First Name']) {
       newErrors['First Name'] = 'First Name is required';
@@ -448,7 +456,7 @@ const EmployeeBioPage = () => {
       newErrors['Personal Email'] = 'Invalid email format';
       isValid = false;
     }
-    
+
     // Emergency contact validation
     if (emergencyContact.name && !emergencyContact.phone) {
       newErrors['emergencyContactPhone'] = 'Emergency contact phone is required';
@@ -457,7 +465,7 @@ const EmployeeBioPage = () => {
       newErrors['emergencyContactPhone'] = 'Invalid emergency contact phone format';
       isValid = false;
     }
-    
+
     // Statutory deductions validation
     statutoryDeductions.forEach((deduction) => {
       if (deduction.isActive && !deduction.number) {
@@ -498,7 +506,7 @@ const EmployeeBioPage = () => {
         }
       }
     });
-    
+
     setErrors(newErrors);
     return isValid;
   };
@@ -511,7 +519,7 @@ const EmployeeBioPage = () => {
     try {
       setSaving(true);
       setError(null);
-      
+
       let imageUrl = employee['Profile Image'] || null;
       if (profileImage) {
         const fileExt = profileImage.name.split('.').pop();
@@ -523,7 +531,7 @@ const EmployeeBioPage = () => {
           const { error: deleteError } = await supabase.storage
             .from('employeeavatar')
             .remove([filePath]);
-          
+
           if (deleteError && deleteError.message !== 'Object not found') {
             throw deleteError;
           }
@@ -545,17 +553,17 @@ const EmployeeBioPage = () => {
 
       // Prepare update data, preserving read-only fields for non-HR/Admin users
       let updateData = { ...employee };
-      
+
       // If user is not HR/Admin, don't update read-only fields
       if (userRole !== 'hr' && userRole !== 'admin') {
         READ_ONLY_FIELDS.forEach(field => {
           delete updateData[field];
         });
       }
-      
+
       // Always update profile image and statutory deductions
       updateData['Profile Image'] = imageUrl;
-      
+
       // Update statutory deductions
       const shifNumber = statutoryDeductions.find(d => d.name === 'SHIF Number')?.number || null;
       const nssfNumber = statutoryDeductions.find(d => d.name === 'NSSF Number')?.number || null;
@@ -575,9 +583,9 @@ const EmployeeBioPage = () => {
           'HELB': helb
         })
         .eq('"Employee Number"', id);
-      
+
       if (employeeError) throw employeeError;
-      
+
       // Update emergency contact (single contact using upsert)
       if (emergencyContact.name.trim()) {
         const { error: contactsError } = await supabase
@@ -628,7 +636,7 @@ const EmployeeBioPage = () => {
 
         if (dependentsError) throw dependentsError;
       }
-      
+
       setIsEditMode(false);
       navigate(`/staff`, { state: { success: true } });
     } catch (err) {
@@ -733,11 +741,11 @@ const EmployeeBioPage = () => {
           </div>
           <span className="ml-2 font-medium hidden sm:inline">Back to View</span>
         </button>
-        
+
         <div className="flex space-x-2">
           {isEditMode ? (
             <>
-              <GlowButton 
+              <GlowButton
                 onClick={handleEditToggle}
                 variant="secondary"
                 className="mr-2"
@@ -745,7 +753,7 @@ const EmployeeBioPage = () => {
               >
                 Cancel
               </GlowButton>
-              <GlowButton 
+              <GlowButton
                 onClick={handleSave}
                 icon={Save}
                 loading={saving}
@@ -755,7 +763,7 @@ const EmployeeBioPage = () => {
               </GlowButton>
             </>
           ) : (
-            <GlowButton 
+            <GlowButton
               onClick={handleEditToggle}
               icon={PencilLine}
               className="bg-green-600 hover:blue-100 text-white"
@@ -773,24 +781,24 @@ const EmployeeBioPage = () => {
             <div className="flex items-start space-x-4">
               <div className="relative">
                 {isEditMode ? (
-                  <div 
+                  <div
                     className="bg-gradient-to-br from-green-100 to-emerald-200 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-emerald-800 cursor-pointer"
                     onClick={triggerFileInput}
                   >
                     {previewImage ? (
-                      <img 
-                        src={previewImage} 
-                        alt="Profile" 
+                      <img
+                        src={previewImage}
+                        alt="Profile"
                         className="absolute inset-0 w-16 h-16 rounded-full object-cover"
                       />
                     ) : (
                       <>
                         {employee['First Name']?.[0]}
                         {employee['Last Name']?.[0]}
-                        <input 
+                        <input
                           ref={fileInputRef}
-                          type="file" 
-                          className="hidden" 
+                          type="file"
+                          className="hidden"
                           accept="image/*"
                           onChange={handleImageUpload}
                         />
@@ -800,9 +808,9 @@ const EmployeeBioPage = () => {
                 ) : (
                   <div className="bg-white w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold text-black relative">
                     {previewImage ? (
-                      <img 
-                        src={previewImage} 
-                        alt="Profile" 
+                      <img
+                        src={previewImage}
+                        alt="Profile"
                         className="absolute inset-0 w-16 h-16 rounded-full object-cover"
                       />
                     ) : (
@@ -825,11 +833,10 @@ const EmployeeBioPage = () => {
                 </p>
               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${
-              employee['Termination Date'] 
-                ? 'bg-red-100 text-red-800 border border-red-200' 
-                : 'bg-green-100 text-green-800 border border-green-200'
-            }`}>
+            <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${employee['Termination Date']
+              ? 'bg-red-100 text-red-800 border border-red-200'
+              : 'bg-green-100 text-green-800 border border-green-200'
+              }`}>
               {employee['Termination Date'] ? 'Inactive' : 'Active'}
             </div>
           </div>
@@ -891,22 +898,22 @@ const EmployeeBioPage = () => {
               {/* Profile Image Section - ALWAYS editable for employees */}
               {isEditMode && (
                 <div>
-                  <SectionHeader 
-                    title="Profile Image" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Profile Image"
+                    icon={User}
                   />
                   <div className="mt-4 flex flex-col md:flex-row items-start gap-8">
                     {/* Photo Upload Card */}
                     <div className="w-full md:w-auto">
                       <div className="relative group">
-                        <div 
+                        <div
                           className="relative w-40 h-40 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer transition-all duration-300 hover:border-emerald-300 hover:shadow-md"
                           onClick={triggerFileInput}
                         >
                           {previewImage ? (
-                            <img 
-                              src={previewImage} 
-                              alt="Profile preview" 
+                            <img
+                              src={previewImage}
+                              alt="Profile preview"
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -927,17 +934,17 @@ const EmployeeBioPage = () => {
                             </div>
                           </div>
                         </div>
-                        <input 
+                        <input
                           ref={fileInputRef}
-                          type="file" 
-                          className="hidden" 
+                          type="file"
+                          className="hidden"
                           accept="image/*"
                           onChange={handleImageUpload}
                         />
                       </div>
-                      
+
                       <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                        <button 
+                        <button
                           onClick={triggerFileInput}
                           className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                         >
@@ -945,7 +952,7 @@ const EmployeeBioPage = () => {
                           <span className="text-xs">{previewImage ? 'Change' : 'Upload'}</span>
                         </button>
                         {previewImage && (
-                          <button 
+                          <button
                             onClick={() => {
                               setPreviewImage(null);
                               setProfileImage(null);
@@ -969,9 +976,9 @@ const EmployeeBioPage = () => {
               {/* Personal Information Sections */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <SectionHeader 
-                    title="Personal Information" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Personal Information"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1042,9 +1049,9 @@ const EmployeeBioPage = () => {
                   </div>
                 </div>
                 <div>
-                  <SectionHeader 
-                    title="Additional Details" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Additional Details"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1098,9 +1105,9 @@ const EmployeeBioPage = () => {
           {activeTab === 'employment' && (
             <div className="space-y-8">
               <div>
-                <SectionHeader 
-                  title="Employment Information" 
-                  icon={Briefcase} 
+                <SectionHeader
+                  title="Employment Information"
+                  icon={Briefcase}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   <FormField
@@ -1196,9 +1203,9 @@ const EmployeeBioPage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <SectionHeader 
-                    title="Supervisor Information" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Supervisor Information"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1227,9 +1234,9 @@ const EmployeeBioPage = () => {
                 </div>
 
                 <div>
-                  <SectionHeader 
-                    title="Leave Approvers" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Leave Approvers"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1259,9 +1266,9 @@ const EmployeeBioPage = () => {
               </div>
 
               <div>
-                <SectionHeader 
-                  title="Contract Dates" 
-                  icon={Briefcase} 
+                <SectionHeader
+                  title="Contract Dates"
+                  icon={Briefcase}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   <FormField
@@ -1313,9 +1320,9 @@ const EmployeeBioPage = () => {
           {activeTab === 'contact' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <SectionHeader 
-                  title="Contact Information" 
-                  icon={Phone} 
+                <SectionHeader
+                  title="Contact Information"
+                  icon={Phone}
                 />
                 <div className="grid grid-cols-1 gap-6 mt-4">
                   <FormField
@@ -1373,9 +1380,9 @@ const EmployeeBioPage = () => {
                 </div>
               </div>
               <div>
-                <SectionHeader 
-                  title="Address Information" 
-                  icon={MapPin} 
+                <SectionHeader
+                  title="Address Information"
+                  icon={MapPin}
                 />
                 <div className="grid grid-cols-1 gap-6 mt-4">
                   <FormField
@@ -1415,9 +1422,9 @@ const EmployeeBioPage = () => {
           {activeTab === 'financial' && (
             <div className="space-y-8">
               <div>
-                <SectionHeader 
-                  title="Banking Information" 
-                  icon={CreditCard} 
+                <SectionHeader
+                  title="Banking Information"
+                  icon={CreditCard}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   <FormField
@@ -1471,9 +1478,9 @@ const EmployeeBioPage = () => {
               </div>
 
               <div>
-                <SectionHeader 
-                  title="Salary Information" 
-                  icon={CreditCard} 
+                <SectionHeader
+                  title="Salary Information"
+                  icon={CreditCard}
                 />
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                   <FormField
@@ -1507,9 +1514,9 @@ const EmployeeBioPage = () => {
               </div>
 
               <div>
-                <SectionHeader 
-                  title="Statutory Deductions" 
-                  icon={CreditCard} 
+                <SectionHeader
+                  title="Statutory Deductions"
+                  icon={CreditCard}
                 />
                 <div className="grid grid-cols-1 gap-6 mt-4">
                   {statutoryDeductions.map((deduction, index) => (
@@ -1563,12 +1570,12 @@ const EmployeeBioPage = () => {
           {/* Emergency Contact Tab */}
           {activeTab === 'emergency' && (
             <div>
-              <SectionHeader 
-                title="Emergency Contact" 
-                icon={AlertCircle} 
+              <SectionHeader
+                title="Emergency Contact"
+                icon={AlertCircle}
               />
               <p className="text-gray-600 mb-6">Primary emergency contact for this employee</p>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1635,12 +1642,12 @@ const EmployeeBioPage = () => {
           {/* Dependents Tab */}
           {activeTab === 'dependents' && (
             <div>
-              <SectionHeader 
-                title="Dependents" 
-                icon={Users} 
+              <SectionHeader
+                title="Dependents"
+                icon={Users}
               />
               <p className="text-gray-600 mb-6">List of dependents for this employee (spouse, children, etc.)</p>
-              
+
               <div className="space-y-6">
                 {dependents.map((dependent, index) => (
                   <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -1692,7 +1699,7 @@ const EmployeeBioPage = () => {
                   </div>
                 ))}
               </div>
-              
+
               {isEditMode && (
                 <button
                   onClick={addDependent}
@@ -1725,14 +1732,14 @@ const EmployeeBioPage = () => {
         {isEditMode && (
           <div className="p-6 border-t border-gray-300 bg-gray-50">
             <div className="flex justify-end space-x-3">
-              <GlowButton 
+              <GlowButton
                 onClick={handleEditToggle}
                 variant="secondary"
                 disabled={saving}
               >
                 Cancel
               </GlowButton>
-              <GlowButton 
+              <GlowButton
                 onClick={handleSave}
                 icon={Save}
                 loading={saving}
@@ -1749,8 +1756,8 @@ const EmployeeBioPage = () => {
 };
 
 // Reusable Section Header Component
-const SectionHeader = ({ title, icon: Icon }: { 
-  title: string; 
+const SectionHeader = ({ title, icon: Icon }: {
+  title: string;
   icon: React.ComponentType<{ className?: string }>;
 }) => (
   <div className="flex items-center mb-2">
@@ -1790,7 +1797,7 @@ const FormField = ({
   placeholder?: string;
 }) => {
   const fieldId = `field-${name || label.toLowerCase().replace(/\s+/g, '-')}`;
-  
+
   return (
     <div className="space-y-1">
       <label htmlFor={fieldId} className="block font-medium text-gray-700">

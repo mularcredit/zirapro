@@ -295,47 +295,57 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   const fetchBranchFromEmail = async (email: string) => {
-    const isValidDomain = email.endsWith('@mularcredit.co.ke') || email.endsWith('@mularcredit.com');
+  const lowerEmail = email.toLowerCase();
+  
+  // Keep your existing domain/admin checks
+  const isValidDomain = lowerEmail.endsWith('@mularcredit.co.ke') || lowerEmail.endsWith('@mularcredit.com');
+  if (!isValidDomain || isAdminEmail(lowerEmail)) {
+    setIsBranchAutoPopulated(false);
+    return;
+  }
+
+  try {
+    console.log('🔍 Searching for email:', lowerEmail);
     
-    if (!isValidDomain || isAdminEmail(email)) {
-      console.log('❌ Failed: Invalid domain or admin email');
-      setIsBranchAutoPopulated(false);
+    // FIRST: Check manager_email column for branch managers
+    console.log('1. Checking manager_email column...');
+    const { data: managerData, error: managerError } = await supabase
+      .from('employees')
+      .select('Town, manager_email')
+      .ilike('manager_email', lowerEmail)
+      .maybeSingle();
+
+    if (managerData && managerData.Town) {
+      console.log('✅ Found branch manager in manager_email column:', managerData.Town);
+      setSelectedBranch(managerData.Town);
+      setIsBranchAutoPopulated(true);
+      return; // Stop here if found
+    }
+
+    // SECOND: If not found, check "Work Email" column for staff
+    console.log('2. Checking "Work Email" column...');
+    const { data: employeeData, error: employeeError } = await supabase
+      .from('employees')
+      .select('Town, "Work Email"')
+      .ilike('"Work Email"', lowerEmail)
+      .maybeSingle();
+
+    if (employeeData && employeeData.Town) {
+      console.log('✅ Found staff in "Work Email" column:', employeeData.Town);
+      setSelectedBranch(employeeData.Town);
+      setIsBranchAutoPopulated(true);
       return;
     }
 
-    try {
-      console.log('🔍 Searching for email:', email);
-      
-      const { data: employeeData, error: employeeError } = await supabase
-        .from('employees')
-        .select('Town, "Work Email"')
-        .eq('Work Email', email)
-        .single();
-
-      console.log('Query result:', { employeeData, employeeError });
-
-      if (employeeError) {
-        console.log('❌ Database error:', employeeError);
-        setIsBranchAutoPopulated(false);
-        return;
-      }
-
-      if (employeeData && employeeData.Town) {
-        console.log('✅ SUCCESS: Found Town:', employeeData.Town);
-        setSelectedBranch(employeeData.Town);
-        setIsBranchAutoPopulated(true);
-      } else if (employeeData) {
-        console.log('❌ FAILED: Employee found but Town is empty/null');
-        setIsBranchAutoPopulated(false);
-      } else {
-        console.log('❌ FAILED: No employee record found for this email');
-        setIsBranchAutoPopulated(false);
-      }
-    } catch (error) {
-      console.error('🚨 Unexpected error:', error);
-      setIsBranchAutoPopulated(false);
-    }
-  };
+    // If neither column has the email
+    console.log('❌ Email not found in manager_email or "Work Email" columns');
+    setIsBranchAutoPopulated(false);
+    
+  } catch (error) {
+    console.error('🚨 Unexpected error:', error);
+    setIsBranchAutoPopulated(false);
+  }
+};
 
   // Get phone number from mfa_numbers table
   const getPhoneNumberForMFA = async (email: string): Promise<string | null> => {

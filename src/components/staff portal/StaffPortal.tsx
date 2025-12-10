@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 import { IoMailOutline } from 'react-icons/io5';
-import { 
-  FileText, 
-  FileSignature, 
+import {
+  FileText,
+  FileSignature,
   MessageSquare,
-  UserCog, 
+  UserCog,
   BookOpen,
   UploadCloud,
   Home,
@@ -31,7 +31,10 @@ import {
   Bell,
   Mail,
   PhoneCall,
-  Lock
+  Lock,
+  AlertTriangle,
+  Shield,
+  Briefcase
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -45,6 +48,8 @@ import PasswordResetModal from './PasswordRestModal';
 import DocumentsUploadPage from './Documents';
 import PayslipViewer from './PayslipViewer';
 import EmployeeBioPage from './Bio';
+import IncidentReport from './IncidentReport';
+import JobApplications from './JobApplications';
 import solo from '../../../public/solo.png';
 
 interface CompanyProfile {
@@ -110,28 +115,27 @@ interface TrainingProgress {
   last_accessed: string;
 }
 // SidebarNavItem Component
-const SidebarNavItem = ({ 
-  icon, 
-  label, 
-  active, 
+const SidebarNavItem = ({
+  icon,
+  label,
+  active,
   onClick,
   hasSubmenu = false,
   isExpanded = false
-}: { 
-  icon: React.ReactNode, 
-  label: string, 
-  active: boolean, 
+}: {
+  icon: React.ReactNode,
+  label: string,
+  active: boolean,
   onClick: () => void,
   hasSubmenu?: boolean,
   isExpanded?: boolean
 }) => (
   <button
     onClick={onClick}
-    className={`flex items-center justify-between w-full px-4 py-3 text-xs font-medium rounded-lg transition-colors ${
-      active 
-        ? 'bg-[#42fcff]/60 text-green-700'
-        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-    }`}
+    className={`flex items-center justify-between w-full px-4 py-3 text-xs font-medium rounded-lg transition-colors ${active
+      ? 'bg-[#42fcff]/60 text-green-700'
+      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+      }`}
   >
     <div className="flex items-center">
       <span className="mr-3">{icon}</span>
@@ -146,18 +150,18 @@ const SidebarNavItem = ({
 // PasswordResetModal Component
 
 // GeolocationWarningModal Component
-const GeolocationWarningModal = ({ 
-  isOpen, 
-  onConfirm 
-}: { 
-  isOpen: boolean, 
-  onConfirm: () => void 
+const GeolocationWarningModal = ({
+  isOpen,
+  onConfirm
+}: {
+  isOpen: boolean,
+  onConfirm: () => void
 }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md"
@@ -165,16 +169,16 @@ const GeolocationWarningModal = ({
         <div className="flex justify-center mb-4">
           <AlertCircle className="h-12 w-12 text-red-500" />
         </div>
-        
+
         <h3 className="text-lg font-medium text-gray-900 text-center mb-2">
           Geolocation Required
         </h3>
-        
+
         <p className="text-xs text-gray-600 text-center mb-6">
-          You must enable geolocation to log in and use the staff portal. 
+          You must enable geolocation to log in and use the staff portal.
           Your location will be used to verify your attendance and working hours.
         </p>
-        
+
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg mb-4">
           <div className="flex">
             <div className="ml-3">
@@ -230,7 +234,7 @@ const getCurrentPosition = (): Promise<GeolocationPosition> => {
 const logLoginTime = async (employeeNumber: string): Promise<boolean> => {
   try {
     let position: GeolocationPosition | null = null;
-    
+
     try {
       position = await getCurrentPosition();
     } catch (error) {
@@ -276,13 +280,13 @@ const checkExistingLogin = async (employeeNumber: string): Promise<boolean> => {
 };
 
 // Header Status Component
-const HeaderStatus = ({ 
-  isLoggedIn, 
+const HeaderStatus = ({
+  isLoggedIn,
   lastLogin,
   geolocationStatus,
   userName
-}: { 
-  isLoggedIn: boolean; 
+}: {
+  isLoggedIn: boolean;
   lastLogin: string | null;
   geolocationStatus: 'granted' | 'denied' | 'prompt';
   userName: string;
@@ -301,7 +305,7 @@ const HeaderStatus = ({
           {geolocationStatus === 'granted' ? 'Location Enabled' : 'Location Disabled'}
         </span>
       </div>
-      
+
       <div className="flex items-center text-xs">
         <Clock className="h-4 w-4 text-gray-500 mr-1" />
         {isLoggedIn ? (
@@ -337,13 +341,13 @@ const ComingSoon = ({ title }: { title: string }) => (
 );
 
 // PortalCard Component
-const PortalCard = ({ icon, title, description, onClick }: { 
-  icon: React.ReactNode, 
-  title: string, 
-  description: string, 
-  onClick: () => void 
+const PortalCard = ({ icon, title, description, onClick }: {
+  icon: React.ReactNode,
+  title: string,
+  description: string,
+  onClick: () => void
 }) => (
-  <motion.div 
+  <motion.div
     whileHover={{ y: -2 }}
     className="bg-white border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-gray-300 transition-colors"
     onClick={onClick}
@@ -387,7 +391,7 @@ const LeaveApplicationForm = () => {
   useEffect(() => {
     const fetchEmployeeData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user?.email) {
         try {
           const { data, error } = await supabase
@@ -397,7 +401,7 @@ const LeaveApplicationForm = () => {
             .single();
 
           if (error) throw error;
-          
+
           if (data) {
             const officeBranch = data["Town"] || '';
             setFormData(prev => ({
@@ -424,9 +428,9 @@ const LeaveApplicationForm = () => {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
+
       console.log('Checking leave rules for:', { employeeNumber, officeBranch });
-      
+
       // Only check for monthly leaves from same branch
       const { data: activeMonthlyLeaves, error } = await supabase
         .from('leave_application')
@@ -466,7 +470,7 @@ const LeaveApplicationForm = () => {
         .lte('time_added', lastDayOfMonth.toISOString());
 
       setUserLeavesThisMonth(userLeaves?.length || 0);
-      
+
       const types = userLeaves?.map(leave => leave["Leave Type"]) || [];
       setUserLeaveTypesThisMonth(types);
 
@@ -531,21 +535,21 @@ const LeaveApplicationForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Check leave rules - only restrict for monthly leave type
     if (formData["Leave Type"] === "month") {
       if (existingLeave) {
         toast.error(`Cannot submit monthly leave application. ${existingLeave.Name} from your office branch (${existingLeave["Office Branch"]}) already has an active monthly leave.`);
         return;
       }
-      
+
       // Allow multiple leaves per month but only one monthly leave per month
       if (userLeaveTypesThisMonth.includes("month")) {
         toast.error('You have already applied for monthly leave this month.');
         return;
       }
     }
-    
+
     // For non-monthly leaves, check if user is trying to apply for the same type again
     if (formData["Leave Type"] !== "month" && userLeaveTypesThisMonth.includes(formData["Leave Type"])) {
       toast.error(`You have already applied for ${formData["Leave Type"]} leave this month.`);
@@ -588,10 +592,10 @@ const LeaveApplicationForm = () => {
       if (error) throw error;
 
       toast.success('Leave application submitted successfully!');
-      
+
       // Redirect to leave history
       navigate('/staff?tab=leave-history');
-      
+
       setFormData(prev => ({
         ...prev,
         "Leave Type": 'month',
@@ -615,23 +619,23 @@ const LeaveApplicationForm = () => {
   // Check if submit should be disabled - FIXED LOGIC
   const isSubmitDisabled = () => {
     if (isSubmitting) return true;
-    
+
     // For monthly leave, check restrictions
     if (formData["Leave Type"] === "month") {
       if (existingLeave) return true;
       if (userLeaveTypesThisMonth.includes("month")) return true;
     }
-    
+
     // For other leave types, only disable if already applied this month
     if (formData["Leave Type"] !== "month" && userLeaveTypesThisMonth.includes(formData["Leave Type"])) {
       return true;
     }
-    
+
     // Basic form validation
     if (!formData["Start Date"] || !formData["End Date"] || !formData["Reason"]) {
       return true;
     }
-    
+
     return false;
   };
 
@@ -660,7 +664,7 @@ const LeaveApplicationForm = () => {
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
           <p className="text-xs text-green-600">Staff members accrue two leave days each calendar month.</p>
         </div>
-        
+
         {/* Show warning messages */}
         {existingLeave && formData["Leave Type"] === "month" && (
           <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -674,7 +678,7 @@ const LeaveApplicationForm = () => {
             </div>
           </div>
         )}
-        
+
         {userLeaveTypesThisMonth.includes("month") && formData["Leave Type"] === "month" && (
           <div className="mt-4 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
             <div className="flex">
@@ -704,13 +708,13 @@ const LeaveApplicationForm = () => {
         {/* Debug information */}
         <div className="mt-4 bg-gray-50 p-3 rounded-lg">
           <p className="text-xs text-gray-600">
-            <strong>Info:</strong> Branch: {formData["Office Branch"]} | 
-            Existing Leave: {existingLeave ? 'Yes' : 'No'} | 
+            <strong>Info:</strong> Branch: {formData["Office Branch"]} |
+            Existing Leave: {existingLeave ? 'Yes' : 'No'} |
             User Monthly Leaves: {userLeaveTypesThisMonth.includes("month") ? 'Yes' : 'No'}
           </p>
         </div>
       </div>
-      
+
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -755,7 +759,7 @@ const LeaveApplicationForm = () => {
                 onChange={handleChange}
                 className="w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                 required
-              >  
+              >
                 <option value="month">Monthly Leave</option>
                 <option value="sick">Sick Leave</option>
                 <option value="maternity">Maternity Leave</option>
@@ -866,11 +870,10 @@ const LeaveApplicationForm = () => {
             <button
               type="submit"
               disabled={isSubmitDisabled()}
-              className={`w-full py-3 px-4 rounded-lg text-xs font-medium transition-colors flex items-center justify-center ${
-                isSubmitDisabled() 
-                  ? 'bg-gray-400 text-white opacity-70 cursor-not-allowed' 
-                  : 'bg-green-600 text-white hover:bg-green-700'
-              }`}
+              className={`w-full py-3 px-4 rounded-lg text-xs font-medium transition-colors flex items-center justify-center ${isSubmitDisabled()
+                ? 'bg-gray-400 text-white opacity-70 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
             >
               {isSubmitting ? (
                 <>
@@ -902,7 +905,7 @@ const LeaveApplicationsList = () => {
   useEffect(() => {
     const fetchLeaveApplications = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user?.email) {
         try {
           const { data: employeeData, error: employeeError } = await supabase
@@ -1080,11 +1083,11 @@ const SalaryAdvanceForm = () => {
     const day = today.getDate();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    
+
     // Define application period: 13th to 16th
     const applicationStart = new Date(currentYear, currentMonth, 13);
     const applicationEnd = new Date(currentYear, currentMonth, 16);
-    
+
     return today >= applicationStart && today <= applicationEnd;
   };
 
@@ -1093,10 +1096,10 @@ const SalaryAdvanceForm = () => {
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    
+
     let nextMonth = currentMonth;
     let nextYear = currentYear;
-    
+
     if (today.getDate() > 16) {
       nextMonth = currentMonth + 1;
       if (nextMonth > 11) {
@@ -1104,10 +1107,10 @@ const SalaryAdvanceForm = () => {
         nextYear = currentYear + 1;
       }
     }
-    
+
     const nextStart = new Date(nextYear, nextMonth, 13);
     const nextEnd = new Date(nextYear, nextMonth, 16);
-    
+
     return {
       start: nextStart,
       end: nextEnd
@@ -1197,7 +1200,7 @@ const SalaryAdvanceForm = () => {
 
     // Check the basic status field as fallback
     const basicStatus = app.status?.toLowerCase() || 'pending';
-    
+
     switch (basicStatus) {
       case 'paid':
         return {
@@ -1249,14 +1252,14 @@ const SalaryAdvanceForm = () => {
         <div className="text-xs text-gray-600 leading-tight">
           {enhancedStatus.description}
         </div>
-        
+
         {/* Show payment details if available */}
         {app.mpesa_transaction_id && (
           <div className="text-xs text-green-700 bg-green-50 p-1 rounded border border-green-200">
             <strong>M-Pesa ID:</strong> {app.mpesa_transaction_id}
           </div>
         )}
-        
+
         {/* Show approval dates if available */}
         {(app.branch_manager_approval_date || app.regional_manager_approval_date || app.admin_approval_date) && (
           <div className="text-xs text-gray-500 space-y-1">
@@ -1281,7 +1284,7 @@ const SalaryAdvanceForm = () => {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
+
       const { data, error } = await supabase
         .from('salary_advance')
         .select('*')
@@ -1309,7 +1312,7 @@ const SalaryAdvanceForm = () => {
 
     const fetchEmployeeData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user?.email) {
         try {
           const { data, error } = await supabase
@@ -1319,7 +1322,7 @@ const SalaryAdvanceForm = () => {
             .single();
 
           if (error) throw error;
-          
+
           if (data) {
             const basicSalary = data["Basic Salary"] || '0';
             setFormData(prev => ({
@@ -1425,14 +1428,14 @@ const SalaryAdvanceForm = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     if (name === "Amount Requested") {
       const maxAdvance = calculateMaxAdvance();
       const numericValue = parseFloat(value) || 0;
-      
+
       // Check amount validity
       checkAmountValidity(value);
-      
+
       // If the entered value exceeds the max, cap it at the max
       if (numericValue > maxAdvance) {
         setFormData(prev => ({
@@ -1511,9 +1514,9 @@ const SalaryAdvanceForm = () => {
       if (error) throw error;
 
       toast.success('Salary advance application submitted successfully!');
-      
+
       setView('list');
-      
+
       setFormData(prev => ({
         ...prev,
         "Amount Requested": '',
@@ -1537,16 +1540,15 @@ const SalaryAdvanceForm = () => {
   const renderSubmitButton = () => {
     const isApplicationPeriod = isAdvancePeriod();
     const isDisabled = isSubmitting || !isApplicationPeriod || amountExceeded || !formData["Amount Requested"] || !formData["Reason for Advance"] || hasAppliedThisMonth;
-    
+
     return (
       <button
         type="submit"
         disabled={isDisabled}
-        className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white flex items-center ${
-          isDisabled 
-            ? 'bg-gray-400 cursor-not-allowed opacity-70' 
-            : 'bg-green-600 hover:bg-green-700'
-        }`}
+        className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white flex items-center ${isDisabled
+          ? 'bg-gray-400 cursor-not-allowed opacity-70'
+          : 'bg-green-600 hover:bg-green-700'
+          }`}
       >
         {isSubmitting ? (
           <>
@@ -1587,9 +1589,8 @@ const SalaryAdvanceForm = () => {
             <button
               onClick={refreshApplications}
               disabled={isRefreshing}
-              className={`px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center ${
-                isRefreshing ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
+              className={`px-4 py-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 flex items-center ${isRefreshing ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
             >
               {isRefreshing ? (
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1705,7 +1706,7 @@ const SalaryAdvanceForm = () => {
           <div className="h-1 w-8 bg-green-500 rounded-full mr-2"></div>
           <p className="text-xs text-green-600">Submit your request for a salary advance (up to 20% of your basic salary)</p>
         </div>
-        
+
         {/* Application Schedule Information */}
         {isApplicationPeriod ? (
           <div className="mt-3 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
@@ -1724,14 +1725,14 @@ const SalaryAdvanceForm = () => {
               <Calendar className="h-5 w-5 text-blue-500" />
               <div className="ml-3">
                 <p className="text-xs text-blue-700">
-                  <strong>Application Schedule:</strong> Salary advance applications are only accepted from <strong>13th to 16th</strong> of each month. 
+                  <strong>Application Schedule:</strong> Salary advance applications are only accepted from <strong>13th to 16th</strong> of each month.
                   {` Next application period: ${nextPeriod.start.toLocaleDateString()} to ${nextPeriod.end.toLocaleDateString()}`}
                 </p>
               </div>
             </div>
           </div>
         )}
-        
+
         {/* Monthly Application Restriction Warning */}
         {hasAppliedThisMonth && (
           <div className="mt-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
@@ -1739,12 +1740,12 @@ const SalaryAdvanceForm = () => {
               <AlertCircle className="h-5 w-5 text-red-500" />
               <div className="ml-3">
                 <p className="text-xs text-red-700">
-                  <strong>Monthly Application Limit:</strong> You have already applied for a salary advance this month. 
+                  <strong>Monthly Application Limit:</strong> You have already applied for a salary advance this month.
                   Only one salary advance application is allowed per calendar month.
                 </p>
                 {currentMonthApplication && (
                   <p className="text-xs text-red-600 mt-1">
-                    Your current application status: <strong>{getEnhancedStatus(currentMonthApplication).label}</strong> - 
+                    Your current application status: <strong>{getEnhancedStatus(currentMonthApplication).label}</strong> -
                     Submitted on {new Date(currentMonthApplication.time_added).toLocaleDateString()}
                   </p>
                 )}
@@ -1753,7 +1754,7 @@ const SalaryAdvanceForm = () => {
           </div>
         )}
       </div>
-      
+
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1811,9 +1812,8 @@ const SalaryAdvanceForm = () => {
                   name="Amount Requested"
                   value={formData["Amount Requested"]}
                   onChange={handleChange}
-                  className={`focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg ${
-                    !isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
-                  }`}
+                  className={`focus:ring-green-500 focus:border-green-500 block w-full pl-10 pr-12 py-2 sm:text-xs border border-gray-300 rounded-lg ${!isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+                    }`}
                   placeholder="0.00"
                   required
                   min="0"
@@ -1852,9 +1852,8 @@ const SalaryAdvanceForm = () => {
               rows={4}
               value={formData["Reason for Advance"]}
               onChange={handleChange}
-              className={`w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
-                !isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
-              }`}
+              className={`w-full px-4 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${!isApplicationPeriod || hasAppliedThisMonth ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
               placeholder="Please explain why you need this salary advance"
               required
               minLength={10}
@@ -1911,13 +1910,13 @@ const LoanRequestForm = () => {
   const generateRepaymentSchedule = (months: number) => {
     const schedule = [];
     const today = new Date();
-    
+
     for (let i = 1; i <= months; i++) {
       const paymentDate = new Date(today);
       paymentDate.setMonth(today.getMonth() + i);
       schedule.push(paymentDate.toISOString().split('T')[0]);
     }
-    
+
     return schedule;
   };
 
@@ -1926,7 +1925,7 @@ const LoanRequestForm = () => {
 
     const fetchEmployeeData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user?.email) {
         try {
           const { data, error } = await supabase
@@ -1936,10 +1935,10 @@ const LoanRequestForm = () => {
             .single();
 
           if (error) throw error;
-          
+
           if (data) {
             const basicSalary = data["Basic Salary"] || '0';
-            
+
             setFormData(prev => ({
               ...prev,
               "Employee Number": data["Employee Number"] || '',
@@ -1989,7 +1988,7 @@ const LoanRequestForm = () => {
     if (formData["Loan Amount"]) {
       const calculatedDeduction = calculateMonthlyDeduction();
       const newSchedule = generateRepaymentSchedule(formData["Number of Months"]);
-      
+
       setFormData(prev => ({
         ...prev,
         "Monthly Deduction": calculatedDeduction,
@@ -2022,7 +2021,7 @@ const LoanRequestForm = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    
+
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData(prev => ({
@@ -2054,7 +2053,7 @@ const LoanRequestForm = () => {
     }
 
     // Validate custom deduction if enabled
-    const finalMonthlyDeduction = formData["Use Custom Deduction"] 
+    const finalMonthlyDeduction = formData["Use Custom Deduction"]
       ? formData["Custom Monthly Deduction"]
       : formData["Monthly Deduction"];
 
@@ -2062,13 +2061,13 @@ const LoanRequestForm = () => {
       const customAmount = parseFloat(formData["Custom Monthly Deduction"]);
       const loanAmount = parseFloat(formData["Loan Amount"]);
       const totalCustomPayment = customAmount * formData["Number of Months"];
-      
+
       if (customAmount <= 0) {
         toast.error('Custom monthly deduction must be greater than 0');
         setIsSubmitting(false);
         return;
       }
-      
+
       if (totalCustomPayment < loanAmount) {
         toast.error('Total custom payments must cover the full loan amount');
         setIsSubmitting(false);
@@ -2097,9 +2096,9 @@ const LoanRequestForm = () => {
       if (error) throw error;
 
       toast.success('Loan application submitted successfully!');
-      
+
       setView('list');
-      
+
       setFormData(prev => ({
         ...prev,
         "Loan Amount": '',
@@ -2222,7 +2221,7 @@ const LoanRequestForm = () => {
     );
   }
 
-  const finalMonthlyDeduction = formData["Use Custom Deduction"] 
+  const finalMonthlyDeduction = formData["Use Custom Deduction"]
     ? formData["Custom Monthly Deduction"]
     : formData["Monthly Deduction"];
 
@@ -2235,7 +2234,7 @@ const LoanRequestForm = () => {
           <p className="text-xs text-green-600">Submit your request for a staff loan with flexible payment terms</p>
         </div>
       </div>
-      
+
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2322,7 +2321,7 @@ const LoanRequestForm = () => {
           {/* Monthly Deduction Section */}
           <div className="bg-gray-50 p-4 rounded-lg space-y-4">
             <h3 className="text-lg font-medium text-gray-800">Monthly Deduction Settings</h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-gray-700">Calculated Monthly Deduction</label>
@@ -2349,7 +2348,7 @@ const LoanRequestForm = () => {
                   />
                   <span className="ml-2 text-xs font-medium text-gray-700">Use Custom Monthly Deduction</span>
                 </label>
-                
+
                 {formData["Use Custom Deduction"] && (
                   <div className="space-y-1">
                     <div className="relative rounded-lg shadow-sm">
@@ -2429,9 +2428,8 @@ const LoanRequestForm = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${
-                isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
-              }`}
+              className={`px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''
+                }`}
             >
               {isSubmitting ? (
                 <>
@@ -2456,11 +2454,11 @@ const LoanRequestForm = () => {
 };
 
 // Document Upload Form Component
-const DocumentUploadForm = ({ 
-  onUpload, 
-  availableTypes, 
-  uploading 
-}: { 
+const DocumentUploadForm = ({
+  onUpload,
+  availableTypes,
+  uploading
+}: {
   onUpload: (file: File, type: string) => Promise<boolean>;
   availableTypes: string[];
   uploading: boolean;
@@ -2477,7 +2475,7 @@ const DocumentUploadForm = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!selectedFile || !documentType) {
       toast.error('Please select a file and document type');
       return;
@@ -2514,7 +2512,7 @@ const DocumentUploadForm = ({
             <p className="text-xs text-orange-600">All document types have been uploaded</p>
           )}
         </div>
-        
+
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-700">Choose File</label>
           <input
@@ -2539,9 +2537,8 @@ const DocumentUploadForm = ({
       <button
         type="submit"
         disabled={uploading || !selectedFile || !documentType || availableTypes.length === 0}
-        className={`w-full px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center justify-center ${
-          uploading || !selectedFile || !documentType || availableTypes.length === 0 ? 'opacity-70 cursor-not-allowed' : ''
-        }`}
+        className={`w-full px-4 py-2 border border-transparent rounded-lg text-xs font-medium text-white bg-green-600 hover:bg-green-700 flex items-center justify-center ${uploading || !selectedFile || !documentType || availableTypes.length === 0 ? 'opacity-70 cursor-not-allowed' : ''
+          }`}
       >
         {uploading ? (
           <>
@@ -2569,61 +2566,73 @@ const DashboardHome = ({ setActiveTab }: { setActiveTab: (tab: string) => void }
       <h2 className="text-2xl font-light text-gray-800 mb-1">Staff Dashboard</h2>
       <p className="text-xs text-gray-500">Access all staff services and resources</p>
     </div>
-    
+
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <PortalCard 
+      <PortalCard
         icon={<Wallet className="w-5 h-5 text-gray-600" />}
         title="Salary Advance"
         description="Request salary advance"
         onClick={() => setActiveTab('salary-advance')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<Banknote className="w-5 h-5 text-gray-600" />}
         title="Loan Request"
         description="Apply for a staff loan"
         onClick={() => setActiveTab('loan')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<FileText className="w-5 h-5 text-gray-600" />}
         title="Payslips"
         description="View your payslips"
         onClick={() => setActiveTab('payslips')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<PhoneCall className="w-5 h-5 text-gray-600" />}
         title="Communication Hub"
         description="Chat and video calls"
         onClick={() => setActiveTab('VideoConf')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<Calendar className="w-5 h-5 text-gray-600" />}
         title="Leave Request"
         description="Submit time off requests"
         onClick={() => setActiveTab('leave')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<Calendar className="w-5 h-5 text-gray-600" />}
         title="Leave History"
         description="View your leave applications"
         onClick={() => setActiveTab('leave-history')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<FileSignature className="w-5 h-5 text-gray-600" />}
         title="Contracts"
         description="Review documents"
         onClick={() => setActiveTab('contract')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<UserCog className="w-5 h-5 text-gray-600" />}
         title="Profile"
         description="Update your details"
         onClick={() => setActiveTab('details')}
       />
-      <PortalCard 
+      <PortalCard
         icon={<UploadCloud className="w-5 h-5 text-gray-600" />}
         title="Documents"
         description="Upload files"
         onClick={() => setActiveTab('documents')}
+      />
+      <PortalCard
+        icon={<Shield className="w-5 h-5 text-gray-600" />}
+        title="Report Incident"
+        description="Submit confidential reports"
+        onClick={() => setActiveTab('incident-report')}
+      />
+      <PortalCard
+        icon={<Briefcase className="w-5 h-5 text-gray-600" />}
+        title="Job Opportunities"
+        description="Browse internal positions"
+        onClick={() => setActiveTab('job-applications')}
       />
     </div>
   </div>
@@ -2644,8 +2653,8 @@ const UserProfileHeader = ({ userName, setActiveTab }: UserProfileHeaderProps) =
       <UserProfileDropdown
         onPasswordReset={() => setIsModalOpen(true)}
         loginStatus={{ isLoggedIn: true, lastLogin: "2025-08-21" }}
-        userName={userName} 
-        setActiveTab={setActiveTab} 
+        userName={userName}
+        setActiveTab={setActiveTab}
       />
       <PasswordResetModal
         isOpen={isModalOpen}
@@ -2722,7 +2731,7 @@ const StaffPortal = () => {
 
       if (error) throw error;
 
-      const notificationItems = (warnings || []).map(warning => 
+      const notificationItems = (warnings || []).map(warning =>
         createNotificationItem(warning)
       );
 
@@ -2793,7 +2802,7 @@ const StaffPortal = () => {
       if (employeeData) {
         setUserName(`${employeeData["First Name"]} ${employeeData["Last Name"]}`);
         setEmployeeNumber(employeeData["Employee Number"]);
-        
+
         // Fetch notifications after we have the employee number
         fetchNotifications();
       }
@@ -2844,7 +2853,7 @@ const StaffPortal = () => {
 
     try {
       const result = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-      
+
       if (result.state === 'granted') {
         setGeolocationStatus('granted');
       } else if (result.state === 'denied') {
@@ -2915,12 +2924,12 @@ const StaffPortal = () => {
 
   const handleGeolocationConfirm = async () => {
     setShowGeolocationWarning(false);
-    
+
     try {
       // Try to get current position to trigger permission prompt
       await getCurrentPosition();
       setGeolocationStatus('granted');
-      
+
       // Log login time after permission is granted
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
@@ -2958,8 +2967,8 @@ const StaffPortal = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <GeolocationWarningModal 
-        isOpen={showGeolocationWarning} 
+      <GeolocationWarningModal
+        isOpen={showGeolocationWarning}
         onConfirm={handleGeolocationConfirm}
       />
 
@@ -2971,7 +2980,7 @@ const StaffPortal = () => {
       {/* Sidebar */}
       <div className={`fixed sidebar-scroll inset-y-0 left-0 z-30 w-64 bg-gray-200 border-r border-gray-200 transform ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 transition-transform duration-200 ease-in-out`}>
         <div className="flex items-center space-x-3 h-16 px-6 px-y-3 border-b border-gray-300">
-          <motion.div 
+          <motion.div
             className="w-10 h-10 flex-shrink-0 rounded-xl bg-gray-600 flex items-center justify-center shadow-inner"
             whileHover={{ rotate: 5, scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 10 }}
@@ -2979,44 +2988,44 @@ const StaffPortal = () => {
             <img src={solo} alt="Logo" className="w-8 h-8 filter brightness-110" />
           </motion.div>
           <h1 className="text-lg font-semibold text-gray-900">Staff Portal</h1>
-          <button 
+          <button
             className="md:hidden text-gray-500 hover:text-gray-600"
             onClick={() => setSidebarOpen(false)}
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        
+
         <div className="h-full  ">
           <div className="p-4 space-y-3.5 text-xs">
-            <SidebarNavItem 
+            <SidebarNavItem
               icon={<Home className="h-4 w-4" />}
               label="Dashboard"
               active={activeTab === 'home'}
               onClick={() => setActiveTab('home')}
             />
-            
-            <SidebarNavItem 
+
+            <SidebarNavItem
               icon={<BookOpen className="h-4 w-4" />}
               label="Training"
               active={activeTab === 'training'}
               onClick={() => setActiveTab('training')}
             />
-             <SidebarNavItem 
+            <SidebarNavItem
               icon={<User className="h-4 w-4" />}
               label="Bio Data"
               active={activeTab === 'biodata'}
               onClick={() => setActiveTab('biodata')}
             />
-            <SidebarNavItem 
+            <SidebarNavItem
               icon={<FileText className="h-4 w-4" />}
               label="Payslips"
               active={activeTab === 'payslips'}
               onClick={() => setActiveTab('payslips')}
             />
-            
+
             <div>
-              <SidebarNavItem 
+              <SidebarNavItem
                 icon={<Wallet className="h-4 w-4" />}
                 label="Financial"
                 active={activeTab === 'salary-advance' || activeTab === 'loan'}
@@ -3026,13 +3035,13 @@ const StaffPortal = () => {
               />
               {expandedMenu === 'financial' && (
                 <div className="ml-4 mt-1 space-y-1">
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Salary Advance"
                     active={activeTab === 'salary-advance'}
                     onClick={() => setActiveTab('salary-advance')}
                   />
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Loan Request"
                     active={activeTab === 'loan'}
@@ -3041,9 +3050,9 @@ const StaffPortal = () => {
                 </div>
               )}
             </div>
-            
+
             <div>
-              <SidebarNavItem 
+              <SidebarNavItem
                 icon={<PhoneCall className="h-4 w-4" />}
                 label="Communication"
                 active={activeTab === 'chat' || activeTab === 'VideoConf'}
@@ -3053,13 +3062,13 @@ const StaffPortal = () => {
               />
               {expandedMenu === 'communication' && (
                 <div className="ml-4 mt-1 space-y-1">
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Chat"
                     active={activeTab === 'chat'}
                     onClick={() => window.location.href = "/teams"}
                   />
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Video Conference"
                     active={activeTab === 'VideoConf'}
@@ -3068,9 +3077,9 @@ const StaffPortal = () => {
                 </div>
               )}
             </div>
-            
+
             <div>
-              <SidebarNavItem 
+              <SidebarNavItem
                 icon={<Calendar className="h-4 w-4" />}
                 label="Leave"
                 active={activeTab === 'leave' || activeTab === 'leave-history'}
@@ -3080,13 +3089,13 @@ const StaffPortal = () => {
               />
               {expandedMenu === 'leave' && (
                 <div className="ml-4 mt-1 space-y-1">
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Apply for Leave"
                     active={activeTab === 'leave'}
                     onClick={() => setActiveTab('leave')}
                   />
-                  <SidebarNavItem 
+                  <SidebarNavItem
                     icon={<ChevronRight className="h-3 w-3" />}
                     label="Leave History"
                     active={activeTab === 'leave-history'}
@@ -3095,26 +3104,40 @@ const StaffPortal = () => {
                 </div>
               )}
             </div>
-            
-            <SidebarNavItem 
+
+            <SidebarNavItem
               icon={<FileSignature className="h-4 w-4" />}
               label="Contracts"
               active={activeTab === 'contract'}
               onClick={() => setActiveTab('contract')}
             />
-            
-            <SidebarNavItem 
+
+            <SidebarNavItem
               icon={<UserCog className="h-4 w-4" />}
               label="Profile"
               active={activeTab === 'details'}
               onClick={() => setActiveTab('details')}
             />
-            
-            <SidebarNavItem 
+
+            <SidebarNavItem
               icon={<UploadCloud className="h-4 w-4" />}
               label="Documents"
               active={activeTab === 'documents'}
               onClick={() => setActiveTab('documents')}
+            />
+
+            <SidebarNavItem
+              icon={<Shield className="h-4 w-4" />}
+              label="Report Incident"
+              active={activeTab === 'incident-report'}
+              onClick={() => setActiveTab('incident-report')}
+            />
+
+            <SidebarNavItem
+              icon={<Briefcase className="h-4 w-4" />}
+              label="Job Opportunities"
+              active={activeTab === 'job-applications'}
+              onClick={() => setActiveTab('job-applications')}
             />
           </div>
         </div>
@@ -3125,7 +3148,7 @@ const StaffPortal = () => {
         {/* Mobile header */}
         <header className="bg-white border-b border-gray-200 md:hidden">
           <div className="flex items-center justify-between h-16 px-4">
-            <button 
+            <button
               className="text-gray-500 hover:text-gray-600"
               onClick={() => setSidebarOpen(true)}
             >
@@ -3141,9 +3164,9 @@ const StaffPortal = () => {
           {/* Company Logo and Name */}
           <div className="flex items-center space-x-3">
             {companyProfile?.image_url ? (
-              <img 
-                src={companyProfile.image_url} 
-                alt="Company Logo" 
+              <img
+                src={companyProfile.image_url}
+                alt="Company Logo"
                 className="w-10 h-10 rounded-lg object-cover shadow-md"
               />
             ) : (
@@ -3183,13 +3206,13 @@ const StaffPortal = () => {
               )}
             </motion.button>
 
-            <HeaderStatus 
-              isLoggedIn={loginStatus.isLoggedIn} 
+            <HeaderStatus
+              isLoggedIn={loginStatus.isLoggedIn}
               lastLogin={loginStatus.lastLogin}
               geolocationStatus={geolocationStatus}
               userName={userName}
             />
-            <UserProfileHeader userName={userName} setActiveTab={setActiveTab}/>
+            <UserProfileHeader userName={userName} setActiveTab={setActiveTab} />
           </div>
         </header>
 
@@ -3203,7 +3226,7 @@ const StaffPortal = () => {
               onClick={() => setNotificationSidebarOpen(false)}
               className="fixed inset-0 bg-black bg-opacity-50 z-40"
             />
-            
+
             <motion.div
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -3258,9 +3281,8 @@ const StaffPortal = () => {
                         key={notification.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors relative ${
-                          !notification.isRead ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                        }`}
+                        className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors relative ${!notification.isRead ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                          }`}
                         onClick={() => handleNotificationClick(notification)}
                       >
                         <button
@@ -3272,12 +3294,12 @@ const StaffPortal = () => {
                         >
                           <X className="w-4 h-4" />
                         </button>
-                        
+
                         <div className="flex items-start space-x-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-yellow-100 text-yellow-600">
                             <AlertCircle className="w-4 h-4" />
                           </div>
-                          
+
                           <div className="flex-1 min-w-0">
                             <h3 className="text-xs font-medium text-gray-900 truncate">
                               {notification.title}
@@ -3289,7 +3311,7 @@ const StaffPortal = () => {
                               {notification.timestamp.toLocaleDateString()} {notification.timestamp.toLocaleTimeString()}
                             </p>
                           </div>
-                          
+
                           {!notification.isRead && (
                             <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></div>
                           )}
@@ -3336,24 +3358,26 @@ const StaffPortal = () => {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'home' && <DashboardHome setActiveTab={setActiveTab} />}
-{activeTab === 'salary-advance' && (
-  <div className="p-6">
-    {/* YOUR UPDATED SALARY ADVANCE FORM - IT NOW HANDLES THE SCHEDULE AUTOMATICALLY */}
-    <SalaryAdvanceForm />
-  </div>
-)}
-              {activeTab === 'biodata' && <EmployeeBioPage/>}
+              {activeTab === 'salary-advance' && (
+                <div className="p-6">
+                  {/* YOUR UPDATED SALARY ADVANCE FORM - IT NOW HANDLES THE SCHEDULE AUTOMATICALLY */}
+                  <SalaryAdvanceForm />
+                </div>
+              )}
+              {activeTab === 'biodata' && <EmployeeBioPage />}
               {activeTab === 'payslips' && <PayslipViewer />}
               {activeTab === 'loan' && <LoanRequestForm />}
               {activeTab === 'training' && <TrainingModule />}
               {activeTab === 'leave' && <LeaveApplicationForm />}
               {activeTab === 'leave-history' && <LeaveApplicationsList />}
               {activeTab === 'contract' && <ComingSoon title="Contracts" />}
-              {activeTab === 'details' && <Profile/>}
+              {activeTab === 'details' && <Profile />}
               {activeTab === 'documents' && <DocumentsUploadPage />}
+              {activeTab === 'incident-report' && <IncidentReport />}
+              {activeTab === 'job-applications' && <JobApplications />}
               {activeTab === 'chat' && (
                 <div className="relative h-screen">
-                  <ChatComponent chatUrl="https://zira.zulipchat.com/"/>
+                  <ChatComponent chatUrl="https://zira.zulipchat.com/" />
                 </div>
               )}
               {activeTab === 'VideoConf' && <VideoConferenceComponent />}
