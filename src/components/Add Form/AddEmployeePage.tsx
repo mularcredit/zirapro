@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Plus, ArrowLeft, SendToBackIcon, User, Briefcase, Phone, CreditCard, MapPin, Upload, AlertCircle, Users, Check } from 'lucide-react';
+import { useUser } from '../ProtectedRoutes/UserContext';
+import { X, Plus, ArrowLeft, User, Briefcase, Phone, CreditCard, MapPin, Upload, AlertCircle, Users, Check } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
@@ -57,6 +58,8 @@ const nssfRegex = /^[0-9]{9}$/;
 
 const AddEmployeePage = () => {
   const navigate = useNavigate();
+  const { user } = useUser();
+  const isAdmin = user?.role === 'ADMIN';
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -71,7 +74,6 @@ const AddEmployeePage = () => {
     jobTitles: [],
     supervisors: []
   });
-  const [fetchingOptions, setFetchingOptions] = useState(true);
   const [activeTab, setActiveTab] = useState('personal');
   const [emergencyContacts, setEmergencyContacts] = useState<EmergencyContact[]>([{ name: '', relationship: '', phone: '' }]);
   const [dependents, setDependents] = useState<Dependent[]>([{ name: '', relationship: '' }]);
@@ -95,8 +97,7 @@ const AddEmployeePage = () => {
     const fetchDropdownOptions = async () => {
       try {
         setLoading(true);
-        setFetchingOptions(true);
-        
+
         const { data: empTypes } = await supabase
           .from('employees')
           .select('"Employee Type"')
@@ -150,7 +151,6 @@ const AddEmployeePage = () => {
       } catch (err) {
         console.error('Error fetching dropdown options:', err);
       } finally {
-        setFetchingOptions(false);
         setLoading(false);
       }
     };
@@ -162,7 +162,7 @@ const AddEmployeePage = () => {
 
   const validateField = (name: string, value: string | number | null | undefined) => {
     let error = '';
-    
+
     if (typeof value === 'string' && !value.trim() && ['First Name', 'Last Name', 'Employee Type', 'Start Date', 'Job Title', 'Job Level', 'Mobile Number', 'Personal Email', 'Work Email'].includes(name)) {
       error = 'This field is required';
     } else if (name === 'profileImage' && !profileImage) {
@@ -210,7 +210,7 @@ const AddEmployeePage = () => {
         //   break;
       }
     }
-    
+
     setErrors(prev => ({ ...prev, [name]: error }));
     return !error;
   };
@@ -218,7 +218,7 @@ const AddEmployeePage = () => {
   const validateForm = () => {
     let isValid = true;
     const newErrors: Record<string, string> = {};
-    
+
     // Required fields validation
     if (!profileImage) {
       newErrors.profileImage = 'Profile image is required';
@@ -254,7 +254,7 @@ const AddEmployeePage = () => {
       newErrors['Personal Email'] = 'Invalid email format';
       isValid = false;
     }
-    
+
     // Emergency contacts validation
     emergencyContacts.forEach((contact, index) => {
       if (!contact.name) {
@@ -277,7 +277,7 @@ const AddEmployeePage = () => {
         isValid = false;
       }
     });
-    
+
     // Statutory deductions validation
     statutoryDeductions.forEach((deduction) => {
       if (deduction.isActive && !deduction.number) {
@@ -306,7 +306,7 @@ const AddEmployeePage = () => {
         }
       }
     });
-    
+
     setErrors(newErrors);
     return isValid;
   };
@@ -334,7 +334,7 @@ const AddEmployeePage = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Validate on change
     validateField(name, value);
   };
@@ -346,7 +346,7 @@ const AddEmployeePage = () => {
       [field]: value
     };
     setEmergencyContacts(updatedContacts);
-    
+
     // Validate on change
     if (field === 'phone') {
       validateField(`emergencyContactPhone${index}`, value);
@@ -371,7 +371,7 @@ const AddEmployeePage = () => {
       [field]: value
     };
     setStatutoryDeductions(updatedDeductions);
-    
+
     // Update the newEmployee state with the deduction value
     if (field === 'number' && updatedDeductions[index].isActive) {
       setNewEmployee(prev => ({
@@ -379,7 +379,7 @@ const AddEmployeePage = () => {
         [updatedDeductions[index].columnName]: value as string
       }));
     }
-    
+
     // Validate on change if it's the number field
     if (field === 'number' && updatedDeductions[index].isActive) {
       validateField(updatedDeductions[index].columnName, String(value));
@@ -395,7 +395,7 @@ const AddEmployeePage = () => {
       const updatedContacts = [...emergencyContacts];
       updatedContacts.splice(index, 1);
       setEmergencyContacts(updatedContacts);
-      
+
       // Remove any errors for this contact
       const newErrors = { ...errors };
       delete newErrors[`emergencyContactName${index}`];
@@ -422,7 +422,7 @@ const AddEmployeePage = () => {
     if (!validateForm()) {
       // Group errors by tab
       const errorsByTab: Record<string, string[]> = {};
-      
+
       Object.keys(errors).forEach(fieldName => {
         if (errors[fieldName]) {
           const tab = getTabForField(fieldName);
@@ -432,12 +432,12 @@ const AddEmployeePage = () => {
           errorsByTab[tab].push(`${getFieldLabel(fieldName)}: ${errors[fieldName]}`);
         }
       });
-      
+
       // Set the first tab with errors as active
       const firstErrorTab = Object.keys(errorsByTab)[0];
       if (firstErrorTab) {
         setActiveTab(firstErrorTab);
-        
+
         // Scroll to the first error field
         const firstErrorField = Object.keys(errors).find(field => errors[field]);
         if (firstErrorField) {
@@ -449,14 +449,14 @@ const AddEmployeePage = () => {
           }
         }
       }
-      
+
       return;
     }
 
     try {
       setLoading(true);
       setErrors({});
-      
+
       let imageUrl = null;
       if (profileImage) {
         const fileExt = profileImage.name.split('.').pop();
@@ -480,7 +480,7 @@ const AddEmployeePage = () => {
       const employeeDeductions: Partial<Employee> = {};
       statutoryDeductions.forEach(deduction => {
         if (deduction.isActive && deduction.number) {
-          employeeDeductions[deduction.columnName as keyof Employee] = deduction.number;
+          employeeDeductions[deduction.columnName as keyof Employee] = deduction.number as any;
         }
       });
 
@@ -493,9 +493,9 @@ const AddEmployeePage = () => {
           'Profile Image': imageUrl
         }])
         .select();
-      
+
       if (employeeError) throw employeeError;
-      
+
       const employeeId = employeeData?.[0]?.["Employee Number"];
       if (!employeeId) throw new Error('Failed to get employee Number after creation');
 
@@ -529,15 +529,15 @@ const AddEmployeePage = () => {
 
         if (dependentsError) throw dependentsError;
       }
-      
-      navigate('/employee-added', { 
-        state: { 
+
+      navigate('/employee-added', {
+        state: {
           success: true,
           employeeNumber: employeeId,
           employeeName: `${newEmployee['First Name']} ${newEmployee['Last Name']}`,
           workEmail: newEmployee['Work Email'],
           personalEmail: newEmployee['Personal Email']
-        } 
+        }
       });
 
     } catch (err) {
@@ -551,30 +551,30 @@ const AddEmployeePage = () => {
   // Helper functions
   const getTabForField = (fieldName: string): string => {
     if (fieldName === 'profileImage') return 'personal';
-    
-    const personalFields = ['First Name', 'Last Name', 'Middle Name', 'Date of Birth', 'Gender', 
-      'ID Number', 'passport_number', 'Marital Status', 'blood_group', 'Disability Cert No', 
+
+    const personalFields = ['First Name', 'Last Name', 'Middle Name', 'Date of Birth', 'Gender',
+      'ID Number', 'passport_number', 'Marital Status', 'blood_group', 'Disability Cert No',
       'religion', 'Country'];
     if (personalFields.includes(fieldName)) return 'personal';
-    
-    const employmentFields = ['Employee Type', 'Start Date', 'Job Level', 'Job Title', 'Branch', 
-      'Town', 'Manager', 'Work Email', 'Leave Approver', 'Alternate Approver', 
+
+    const employmentFields = ['Employee Type', 'Start Date', 'Job Level', 'Job Title', 'Branch',
+      'Town', 'Manager', 'Work Email', 'Leave Approver', 'Alternate Approver',
       'second_level_leave_approver', 'alternate_second_level_approver', 'internship_start_date',
       'Internship End Date', 'Probation Start Date', 'Probation End Date', 'Contract Start Date',
       'Contract End Date', 'Job Group'];
     if (employmentFields.includes(fieldName)) return 'employment';
-    
-    const contactFields = ['Personal Email', 'Mobile Number', 'Work Mobile', 'Personal Mobile', 
+
+    const contactFields = ['Personal Email', 'Mobile Number', 'Work Mobile', 'Personal Mobile',
       'Alternative Mobile Number', 'Area', 'City', 'Postal Code'];
     if (contactFields.includes(fieldName)) return 'contact';
-    
-    const financialFields = ['Bank', 'Account Number', 'account_number_name', 'Bank Branch', 
+
+    const financialFields = ['Bank', 'Account Number', 'account_number_name', 'Bank Branch',
       'payment_method', 'Basic Salary', 'Currency', 'Tax PIN', 'SHIF Number', 'NSSF Number', 'HELB', 'NITA'];
     if (financialFields.includes(fieldName)) return 'financial';
-    
+
     if (fieldName.startsWith('emergencyContact')) return 'emergency';
     if (fieldName.startsWith('dependent')) return 'dependents';
-    
+
     return 'personal';
   };
 
@@ -604,11 +604,11 @@ const AddEmployeePage = () => {
     return (
       <div className="flex items-center justify-center h-screen">
         <motion.div
-          animate={{ 
+          animate={{
             rotate: 360,
             scale: [1, 1.2, 1]
           }}
-          transition={{ 
+          transition={{
             duration: 1,
             repeat: Infinity,
             ease: "linear"
@@ -627,7 +627,7 @@ const AddEmployeePage = () => {
       className="p-4 md:p-6 max-w-6xl mx-auto text-xs"
     >
       <div className="flex items-center justify-between mb-6">
-        <button 
+        <button
           onClick={() => navigate('/employees')}
           className="flex items-center text-gray-600 hover:text-gray-900 transition-colors group"
         >
@@ -649,9 +649,9 @@ const AddEmployeePage = () => {
         <div className="bg-green-500 p-6 border-b border-gray-200">
           <div className="flex items-center">
             <div className="mr-4">
-              <img 
-                src="/avatar.png" 
-                alt="avatar" 
+              <img
+                src="/avatar.png"
+                alt="avatar"
                 className="w-16 h-16 rounded-full border-2 border-white shadow-sm"
               />
             </div>
@@ -714,30 +714,30 @@ const AddEmployeePage = () => {
           {/* Modern Profile Image Section - Only shown on personal tab */}
           {activeTab === 'personal' && (
             <div className="mb-8">
-              <SectionHeader 
-                title="Profile Image" 
-                icon={User} 
+              <SectionHeader
+                title="Profile Image"
+                icon={User}
               />
               <div className="mt-4 flex flex-col md:flex-row items-start gap-8">
                 {/* Photo Upload Card */}
                 <div className="w-full md:w-auto">
                   <div className="relative group">
-                    <div 
+                    <div
                       className="relative w-40 h-40 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden border-2 border-gray-200 shadow-sm cursor-pointer transition-all duration-300 hover:border-emerald-300 hover:shadow-md"
                       onClick={triggerFileInput}
                     >
                       {previewImage ? (
-                        <img 
-                          src={previewImage} 
-                          alt="Profile preview" 
+                        <img
+                          src={previewImage}
+                          alt="Profile preview"
                           className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <div className="relative">
-                            <img 
-                              src="/avat.png" 
-                              alt="Default avatar" 
+                            <img
+                              src="/avat.png"
+                              alt="Default avatar"
                               className="w-50 h-50 opacity-70"
                             />
                             <div className="absolute inset-0 bg-gradient-to-br from-transparent to-white opacity-20 rounded-full" />
@@ -753,17 +753,17 @@ const AddEmployeePage = () => {
                         </div>
                       </div>
                     </div>
-                    <input 
+                    <input
                       ref={fileInputRef}
-                      type="file" 
-                      className="hidden" 
+                      type="file"
+                      className="hidden"
                       accept="image/*"
                       onChange={handleImageUpload}
                     />
                   </div>
-                  
+
                   <div className="mt-4 flex flex-col sm:flex-row gap-3">
-                    <button 
+                    <button
                       onClick={triggerFileInput}
                       className="flex-1 flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
                     >
@@ -771,7 +771,7 @@ const AddEmployeePage = () => {
                       <span className="text-xs">{previewImage ? 'Change' : 'Upload'}</span>
                     </button>
                     {previewImage && (
-                      <button 
+                      <button
                         onClick={() => {
                           setPreviewImage(null);
                           setProfileImage(null);
@@ -831,9 +831,9 @@ const AddEmployeePage = () => {
             {activeTab === 'personal' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <SectionHeader 
-                    title="Personal Information" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Personal Information"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -863,7 +863,7 @@ const AddEmployeePage = () => {
                           ...prev,
                           "ID Number": numValue
                         }));
-                        
+
                         validateField('ID Number', e.target.value);
                       }}
                       error={errors['ID Number']}
@@ -878,9 +878,9 @@ const AddEmployeePage = () => {
                   </div>
                 </div>
                 <div>
-                  <SectionHeader 
-                    title="Additional Details" 
-                    icon={User} 
+                  <SectionHeader
+                    title="Additional Details"
+                    icon={User}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -920,9 +920,9 @@ const AddEmployeePage = () => {
                       value={newEmployee.Country || ''}
                       onChange={handleInputChange}
                       options={[
-                        'Kenyan Citizen', 
-                        'East African Community', 
-                        'Other African', 
+                        'Kenyan Citizen',
+                        'East African Community',
+                        'Other African',
                         'International'
                       ]}
                     />
@@ -934,11 +934,11 @@ const AddEmployeePage = () => {
             {/* Employment Information Tab */}
             {activeTab === 'employment' && (
               <div className="grid grid-cols-1 gap-6">
-                <SectionHeader 
-                  title="Employment Information" 
-                  icon={Briefcase} 
+                <SectionHeader
+                  title="Employment Information"
+                  icon={Briefcase}
                 />
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <FormField
                     label="Employee Type"
@@ -977,7 +977,7 @@ const AddEmployeePage = () => {
                     options={dropdownOptions.jobTitles}
                     error={errors['Job Title']}
                   />
-                  
+
                   <FormField
                     label="Branch"
                     name="Branch"
@@ -1015,9 +1015,9 @@ const AddEmployeePage = () => {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                   <div>
-                    <SectionHeader 
-                      title="Leave Approvers" 
-                      icon={User} 
+                    <SectionHeader
+                      title="Leave Approvers"
+                      icon={User}
                     />
                     <div className="grid grid-cols-1 gap-6 mt-4">
                       <FormField
@@ -1062,9 +1062,9 @@ const AddEmployeePage = () => {
                     </div>
                   </div>
                   <div>
-                    <SectionHeader 
-                      title="Contract Dates" 
-                      icon={Briefcase} 
+                    <SectionHeader
+                      title="Contract Dates"
+                      icon={Briefcase}
                     />
                     <div className="grid grid-cols-1 gap-6 mt-4">
                       <FormField
@@ -1112,9 +1112,9 @@ const AddEmployeePage = () => {
             {activeTab === 'contact' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <SectionHeader 
-                    title="Contact Information" 
-                    icon={Phone} 
+                  <SectionHeader
+                    title="Contact Information"
+                    icon={Phone}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1167,9 +1167,9 @@ const AddEmployeePage = () => {
                   </div>
                 </div>
                 <div>
-                  <SectionHeader 
-                    title="Address Information" 
-                    icon={MapPin} 
+                  <SectionHeader
+                    title="Address Information"
+                    icon={MapPin}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     <FormField
@@ -1205,9 +1205,9 @@ const AddEmployeePage = () => {
             {activeTab === 'financial' && (
               <div className="space-y-8">
                 <div>
-                  <SectionHeader 
-                    title="Banking Information" 
-                    icon={CreditCard} 
+                  <SectionHeader
+                    title="Banking Information"
+                    icon={CreditCard}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
                     <FormField
@@ -1245,48 +1245,50 @@ const AddEmployeePage = () => {
                   </div>
                 </div>
 
-                <div>
-                  <SectionHeader 
-                    title="Salary Information" 
-                    icon={CreditCard} 
-                  />
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                    <FormField
-                      label="Job Group"
-                      name="Job Group"
-                      type="select"
-                      value={newEmployee['Job Group'] || ''}
-                      onChange={handleInputChange}
-                      options={dropdownOptions.jobGroup}
+                {isAdmin && (
+                  <div>
+                    <SectionHeader
+                      title="Salary Information"
+                      icon={CreditCard}
                     />
-                    <FormField
-                      label="Basic Salary"
-                      name="Basic Salary"
-                      type="number"
-                      value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
-                      onChange={(e) => {
-                        const numValue = e.target.value ? parseFloat(e.target.value) : null;
-                        setNewEmployee(prev => ({
-                          ...prev,
-                          "Basic Salary": numValue
-                        }));
-                      }}
-                    />
-                    <FormField
-                      label="Currency"
-                      name="Currency"
-                      type="select"
-                      value={newEmployee['Currency'] || 'KES'}
-                      onChange={handleInputChange}
-                      options={['KES', 'USD', 'EUR', 'GBP']}
-                    />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                      <FormField
+                        label="Job Group"
+                        name="Job Group"
+                        type="select"
+                        value={newEmployee['Job Group'] || ''}
+                        onChange={handleInputChange}
+                        options={dropdownOptions.jobGroup}
+                      />
+                      <FormField
+                        label="Basic Salary"
+                        name="Basic Salary"
+                        type="number"
+                        value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
+                        onChange={(e) => {
+                          const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                          setNewEmployee(prev => ({
+                            ...prev,
+                            "Basic Salary": numValue
+                          }));
+                        }}
+                      />
+                      <FormField
+                        label="Currency"
+                        name="Currency"
+                        type="select"
+                        value={newEmployee['Currency'] || 'KES'}
+                        onChange={handleInputChange}
+                        options={['KES', 'USD', 'EUR', 'GBP']}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div>
-                  <SectionHeader 
-                    title="Statutory Deductions" 
-                    icon={CreditCard} 
+                  <SectionHeader
+                    title="Statutory Deductions"
+                    icon={CreditCard}
                   />
                   <div className="grid grid-cols-1 gap-6 mt-4">
                     {statutoryDeductions.map((deduction, index) => (
@@ -1326,12 +1328,12 @@ const AddEmployeePage = () => {
             {/* Emergency Contacts Tab */}
             {activeTab === 'emergency' && (
               <div>
-                <SectionHeader 
-                  title="Emergency Contacts" 
-                  icon={AlertCircle} 
+                <SectionHeader
+                  title="Emergency Contacts"
+                  icon={AlertCircle}
                 />
                 <p className="text-gray-600 mb-6">Add at least one emergency contact for this employee</p>
-                
+
                 <div className="space-y-6">
                   {emergencyContacts.map((contact, index) => (
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -1423,7 +1425,7 @@ const AddEmployeePage = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 <button
                   onClick={addEmergencyContact}
                   className="mt-4 flex items-center text-emerald-600 hover:text-emerald-800 transition-colors"
@@ -1437,12 +1439,12 @@ const AddEmployeePage = () => {
             {/* Dependents Tab */}
             {activeTab === 'dependents' && (
               <div>
-                <SectionHeader 
-                  title="Dependents" 
-                  icon={Users} 
+                <SectionHeader
+                  title="Dependents"
+                  icon={Users}
                 />
                 <p className="text-gray-600 mb-6">Add dependents for this employee (spouse, children, etc.)</p>
-                
+
                 <div className="space-y-6">
                   {dependents.map((dependent, index) => (
                     <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -1483,7 +1485,7 @@ const AddEmployeePage = () => {
                     </div>
                   ))}
                 </div>
-                
+
                 <button
                   onClick={addDependent}
                   className="mt-4 flex items-center text-emerald-600 hover:text-emerald-800 transition-colors"
@@ -1533,14 +1535,14 @@ const AddEmployeePage = () => {
           )}
 
           <div className="flex justify-end space-x-3 mt-8 pt-6 border-t border-gray-100">
-            <GlowButton 
-              variant="secondary" 
+            <GlowButton
+              variant="secondary"
               onClick={() => navigate('/employees')}
               disabled={loading}
             >
               Cancel
             </GlowButton>
-            <GlowButton 
+            <GlowButton
               onClick={handleAddEmployee}
               icon={Plus}
               className="bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white"
@@ -1555,8 +1557,8 @@ const AddEmployeePage = () => {
 };
 
 // Reusable Section Header Component
-const SectionHeader = ({ title, icon: Icon }: { 
-  title: string; 
+const SectionHeader = ({ title, icon: Icon }: {
+  title: string;
   icon: React.ComponentType<{ className?: string }>;
 }) => (
   <div className="flex items-center mb-2">

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
-import { 
-  CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users, 
+import {
+  CheckCircle2, XCircle, Clock, Search, ChevronDown, Send, Users,
   CheckSquare, Square, ChevronLeft, ChevronRight, UserCheck, ShieldCheck,
   Eye, AlertTriangle, Loader, CheckCircle, XCircle as XCircleIcon,
   User, UserCog, Settings, MapPin, Filter, X, Edit3, DollarSign,
@@ -10,6 +10,7 @@ import {
   Download, Upload, Calendar
 } from 'lucide-react';
 import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
+import AdvanceApplicationManager from './staffSetting';
 
 // SMS Service Configuration
 const CELCOM_AFRICA_CONFIG = {
@@ -28,12 +29,12 @@ const SMSService = {
       console.warn('Empty phone number provided');
       return '';
     }
-    
+
     // Remove all non-numeric characters
     let cleaned = String(phone).replace(/\D/g, '');
-    
+
     console.log('Formatting phone:', phone, '-> cleaned:', cleaned);
-    
+
     // Handle different formats
     if (cleaned.startsWith('254')) {
       // Already in 254 format
@@ -60,7 +61,7 @@ const SMSService = {
         return '254' + cleaned.substring(1);
       }
     }
-    
+
     // If we reach here, the format is invalid
     console.error('Invalid phone number format:', phone, 'cleaned:', cleaned);
     return '';
@@ -70,7 +71,7 @@ const SMSService = {
   async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
     try {
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
-      
+
       if (!formattedPhone) {
         const errorMsg = `Invalid phone number format: ${phoneNumber}`;
         console.error('❌ SMS Error:', errorMsg);
@@ -95,7 +96,7 @@ const SMSService = {
 
       // Log the SMS to database as sent
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       await this.logSMS(
         formattedPhone,
         message,
@@ -113,10 +114,10 @@ const SMSService = {
         cost: 0,
         recipient: formattedPhone
       };
-      
+
     } catch (error) {
       console.error('❌ SMS sending error:', error);
-      
+
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       if (formattedPhone) {
         await this.logSMS(
@@ -127,9 +128,9 @@ const SMSService = {
           error.message
         );
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: error.message,
         originalNumber: phoneNumber
       };
@@ -162,7 +163,7 @@ const SMSService = {
   // Send disbursement notification
   async sendDisbursementNotification(employeeName, phoneNumber, amount, transactionId) {
     const message = `Dear ${employeeName}, thank you for being an invaluable team member. Your salary advance of KES ${amount.toLocaleString()} is now in your M-Pesa account. We're here to support you. Keep up the great work! - Mular Credit`;
-    
+
     return await this.sendSMS(phoneNumber, message);
   }
 };
@@ -348,7 +349,7 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading, filterOptions }) =>
           <Download className="h-5 w-5 text-green-600" />
           Export Salary Advances
         </h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -464,7 +465,7 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading, filterOptions }) =>
 
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-xs text-blue-800">
-              <strong>Exporting Columns:</strong> 
+              <strong>Exporting Columns:</strong>
             </p>
             <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
               <li>Employee Name & Number</li>
@@ -479,7 +480,7 @@ const ExportModal = ({ isOpen, onClose, onExport, isLoading, filterOptions }) =>
             </ul>
           </div>
         </div>
-        
+
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
@@ -524,12 +525,12 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
       // Validate file type
       const validTypes = ['.csv', '.xlsx', '.xls'];
       const fileExtension = '.' + selectedFile.name.toLowerCase().split('.').pop();
-      
+
       if (!validTypes.includes(fileExtension)) {
         toast.error('Please select a CSV or Excel file');
         return;
       }
-      
+
       setFile(selectedFile);
     }
   };
@@ -539,7 +540,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
       toast.error('Please select a file');
       return;
     }
-    
+
     onImport(file, importType);
   };
 
@@ -550,7 +551,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
           <Upload className="h-5 w-5 text-blue-600" />
           Import Salary Advance Data
         </h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -565,7 +566,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
               <option value="new">Import New Applications</option>
             </select>
             <p className="text-xs text-gray-500 mt-1">
-              {importType === 'updates' 
+              {importType === 'updates'
                 ? 'Update existing applications with employee number matching'
                 : 'Create new salary advance applications'
               }
@@ -601,7 +602,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
 
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-xs text-blue-800">
-              <strong>Required Columns:</strong> 
+              <strong>Required Columns:</strong>
             </p>
             <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
               <li>Employee (Full Name)</li>
@@ -619,7 +620,7 @@ const ImportModal = ({ isOpen, onClose, onImport, isLoading }) => {
             </p>
           </div>
         </div>
-        
+
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
@@ -834,7 +835,7 @@ const EnhancedFilter = ({
             {/* Town/Region Filter */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                {isRegionalManager ? 'Region' : 'Town'} 
+                {isRegionalManager ? 'Region' : 'Town'}
                 {isManager && <span className="text-gray-500"> (Auto-filtered)</span>}
               </label>
               <select
@@ -907,11 +908,11 @@ const ManagerBadge = ({ isBranchManager, isRegionalManager }) => {
 };
 
 // Comment Modal Component for Regional Managers
-const CommentModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  application 
+const CommentModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  application
 }) => {
   const [comment, setComment] = useState('');
 
@@ -935,7 +936,7 @@ const CommentModal = ({
           <Smartphone className="h-5 w-5 text-blue-600" />
           Add Comment
         </h3>
-        
+
         <p className="text-sm text-gray-600 mb-4">
           Provide advisory comments for this application (Regional Manager only)
         </p>
@@ -962,7 +963,7 @@ const CommentModal = ({
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -1045,7 +1046,7 @@ const PaymentRequestCard = ({ request, onApprove, onReject, onViewDetails, userR
           <Eye className="w-4 h-4" />
           View Details
         </button>
-        
+
         {isChecker && request.status === 'pending' && (
           <>
             <button
@@ -1148,7 +1149,7 @@ const PaymentDetailsModal = ({ payment, isOpen, onClose, onApprove, onReject, us
 
           <div className="mb-6">
             <h3 className="font-semibold text-gray-900 mb-3">Salary Advances to be Paid</h3>
-            
+
             {payment.advances_data && (
               <div className="max-h-60 overflow-y-auto">
                 <table className="w-full text-xs">
@@ -1235,7 +1236,7 @@ const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
           <XCircleIcon className="h-5 w-5 text-red-600" />
           Reject Payment Request
         </h3>
-        
+
         <div className="mb-4">
           <label className="block text-xs font-medium text-gray-700 mb-2">
             Reason for rejection <span className="text-red-500">*</span>
@@ -1248,7 +1249,7 @@ const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500"
           />
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -1270,13 +1271,13 @@ const RejectionModal = ({ isOpen, onClose, onConfirm }) => {
 };
 
 // Recommendation Modal Component for BM and RM
-const RecommendationModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  application, 
+const RecommendationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  application,
   actionType,
-  currentAmount 
+  currentAmount
 }) => {
   const [notes, setNotes] = useState('');
   const [adjustedAmount, setAdjustedAmount] = useState(currentAmount?.toString() || '');
@@ -1352,7 +1353,7 @@ const RecommendationModal = ({
           <CheckCircle className="h-5 w-5 text-blue-600" />
           {getActionTitle()}
         </h3>
-        
+
         <p className="text-sm text-gray-600 mb-4">
           {getActionDescription()}
         </p>
@@ -1405,7 +1406,7 @@ const RecommendationModal = ({
             className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -1468,9 +1469,9 @@ const UserRoleDisplay = ({ userRole, userEmail, actualRole, userTown, userRegion
 };
 
 // Town Filter Component
-const TownFilter = ({ 
-  selectedTown, 
-  onTownChange, 
+const TownFilter = ({
+  selectedTown,
+  onTownChange,
   allTowns,
   userRole,
   userTown,
@@ -1513,7 +1514,7 @@ const TownFilter = ({
           {isManager && selectedTown && (
             <div className="mb-3 p-2 bg-blue-50 rounded-md">
               <p className="text-xs text-blue-700">
-                {isRegionalManager 
+                {isRegionalManager
                   ? `Viewing applications for your region: ${selectedTown}`
                   : `Viewing applications for your town: ${selectedTown}`
                 }
@@ -1524,7 +1525,7 @@ const TownFilter = ({
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
-                {isRegionalManager ? 'Region' : 'Town'} 
+                {isRegionalManager ? 'Region' : 'Town'}
                 {isManager && <span className="text-gray-500"> (Auto-filtered)</span>}
               </label>
               <select
@@ -1586,6 +1587,7 @@ const MpesaCallbacks = () => {
   const [itemsPerPage] = useState(10);
   const [isExporting, setIsExporting] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
   // Enhanced function to match M-Pesa transactions with employees
   const enhanceCallbackWithEmployeeData = async (callbacks) => {
@@ -1607,7 +1609,7 @@ const MpesaCallbacks = () => {
       const { data: employees, error } = await supabase
         .from('employees')
         .select('"Employee Number", "Full Name", "Mobile Number"')
-        .or(phoneNumbers.map(phone => 
+        .or(phoneNumbers.map(phone =>
           `"Mobile Number".ilike.%${phone}%`
         ).join(','));
 
@@ -1638,9 +1640,9 @@ const MpesaCallbacks = () => {
         const transactionData = extractTransactionData(callback);
         const receiverParty = transactionData?.ReceiverPartyPublicName || '';
         const cleanReceiverPhone = receiverParty.replace(/\D/g, '').slice(-9);
-        
+
         const employeeData = employeeMap[cleanReceiverPhone];
-        
+
         // If we found employee data, use it. Otherwise keep existing data or set to N/A
         const enhancedCallback = {
           ...callback,
@@ -1668,7 +1670,7 @@ const MpesaCallbacks = () => {
     try {
       setIsLoading(true);
       console.log('🔄 Fetching M-Pesa callbacks from Supabase...');
-      
+
       let query = supabase
         .from('mpesa_callbacks')
         .select(`
@@ -1703,18 +1705,18 @@ const MpesaCallbacks = () => {
       }
 
       console.log(`✅ Loaded ${data?.length || 0} M-Pesa callbacks`);
-      
+
       // Remove duplicates based on transaction_id
       const uniqueCallbacks = removeDuplicateCallbacks(data || []);
       console.log(`🔄 Removed duplicates, showing ${uniqueCallbacks.length} unique records`);
-      
+
       // Enhance callbacks with employee data
       console.log('🔍 Enhancing callbacks with employee data...');
       const enhancedCallbacks = await enhanceCallbackWithEmployeeData(uniqueCallbacks);
-      
+
       setCallbacks(enhancedCallbacks);
       setLastRefresh(new Date());
-      
+
     } catch (error) {
       console.error('❌ Error fetching M-Pesa callbacks:', error);
       toast.error('Failed to load M-Pesa callbacks');
@@ -1730,7 +1732,7 @@ const MpesaCallbacks = () => {
 
     callbacks.forEach(callback => {
       const transactionId = callback.transaction_id;
-      
+
       if (!transactionId) {
         // Include records without transaction_id (they might be important)
         uniqueCallbacks.push(callback);
@@ -1752,22 +1754,22 @@ const MpesaCallbacks = () => {
   const extractTransactionData = (callback: any) => {
     try {
       if (!callback.raw_response) return null;
-      
-      const rawResponse = typeof callback.raw_response === 'string' 
-        ? JSON.parse(callback.raw_response) 
+
+      const rawResponse = typeof callback.raw_response === 'string'
+        ? JSON.parse(callback.raw_response)
         : callback.raw_response;
-      
+
       if (!rawResponse.Result?.ResultParameters?.ResultParameter) return null;
-      
+
       const parameters = rawResponse.Result.ResultParameters.ResultParameter;
       const transactionData: any = {};
-      
+
       parameters.forEach((param: any) => {
         if (param.Key && param.Value !== undefined) {
           transactionData[param.Key] = param.Value;
         }
       });
-      
+
       return transactionData;
     } catch (error) {
       console.error('Error extracting transaction data:', error);
@@ -1778,7 +1780,7 @@ const MpesaCallbacks = () => {
   // Auto-refresh every 30 seconds
   useEffect(() => {
     fetchCallbacks();
-    
+
     const interval = setInterval(() => {
       console.log('🔄 Auto-refreshing M-Pesa callbacks...');
       fetchCallbacks();
@@ -1797,9 +1799,9 @@ const MpesaCallbacks = () => {
   const filteredCallbacks = callbacks.filter(callback => {
     const transactionData = extractTransactionData(callback);
     const receiverParty = transactionData?.ReceiverPartyPublicName || '';
-    
+
     const searchLower = searchTerm.toLowerCase();
-    
+
     return (
       callback.transaction_id?.toLowerCase().includes(searchLower) ||
       callback.conversation_id?.toLowerCase().includes(searchLower) ||
@@ -1826,7 +1828,7 @@ const MpesaCallbacks = () => {
       processed: { bg: 'bg-green-100', text: 'text-green-800', label: 'Processed' },
       failed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Failed' }
     };
-    
+
     const config = statusConfig[status] || statusConfig.received;
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
@@ -1883,7 +1885,7 @@ const MpesaCallbacks = () => {
             <Download className="h-5 w-5 text-green-600" />
             Export M-Pesa Statements
           </h3>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-2">
@@ -1947,7 +1949,7 @@ const MpesaCallbacks = () => {
 
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
               <p className="text-xs text-blue-800">
-                <strong>Exporting Columns:</strong> 
+                <strong>Exporting Columns:</strong>
               </p>
               <ul className="text-xs text-blue-700 mt-1 list-disc list-inside">
                 <li>Transaction Date & Time</li>
@@ -1961,7 +1963,7 @@ const MpesaCallbacks = () => {
               </ul>
             </div>
           </div>
-          
+
           <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={onClose}
@@ -1997,7 +1999,7 @@ const MpesaCallbacks = () => {
   const handleExportWithFilters = async (exportConfig) => {
     try {
       setIsExporting(true);
-      
+
       let query = supabase
         .from('mpesa_callbacks')
         .select(`
@@ -2028,7 +2030,7 @@ const MpesaCallbacks = () => {
       if (exportConfig.dateRange !== 'all') {
         const today = new Date();
         let startDate = new Date();
-        
+
         switch (exportConfig.dateRange) {
           case 'today':
             startDate.setHours(0, 0, 0, 0);
@@ -2074,16 +2076,16 @@ const MpesaCallbacks = () => {
 
       // Enhance data with employee information
       const enhancedData = await enhanceCallbackWithEmployeeData(data || []);
-      
+
       // Remove duplicates
       const uniqueCallbacks = removeDuplicateCallbacks(enhancedData);
-      
+
       // Prepare data for export
       const exportData = uniqueCallbacks.map(callback => {
         const transactionData = extractTransactionData(callback);
         const transactionAmount = transactionData?.TransactionAmount || callback.amount;
         const receiverParty = transactionData?.ReceiverPartyPublicName || 'N/A';
-        
+
         return {
           'Transaction Date': callback.callback_date ? new Date(callback.callback_date).toLocaleString() : 'N/A',
           'Transaction ID': callback.transaction_id || 'N/A',
@@ -2103,10 +2105,10 @@ const MpesaCallbacks = () => {
       if (exportConfig.format === 'csv') {
         // Convert to CSV
         const headers = Object.keys(exportData[0] || {});
-        
+
         const csvContent = [
           headers.join(','),
-          ...exportData.map(row => 
+          ...exportData.map(row =>
             headers.map(header => {
               const value = row[header];
               return `"${String(value || '').replace(/"/g, '""')}"`;
@@ -2128,7 +2130,7 @@ const MpesaCallbacks = () => {
         const headers = Object.keys(exportData[0] || {});
         const excelContent = [
           headers.join('\t'),
-          ...exportData.map(row => 
+          ...exportData.map(row =>
             headers.map(header => {
               const value = row[header];
               return String(value || '');
@@ -2149,12 +2151,52 @@ const MpesaCallbacks = () => {
 
       toast.success(`Exported ${exportData.length} M-Pesa transactions successfully`);
       setShowExportModal(false);
-      
+
     } catch (error) {
       console.error('Export error:', error);
       toast.error('Failed to export M-Pesa statements');
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const checkTransactionStatus = async (transactionID: string) => {
+    if (!transactionID) {
+      toast.error('No Transaction ID available');
+      return;
+    }
+
+    try {
+      setIsCheckingStatus(true);
+      const toastId = toast.loading('Checking M-Pesa transaction status...');
+
+      // Call the external M-Pesa Service API
+      const response = await fetch('https://mpesa-22p0.onrender.com/api/mpesa/check-transaction-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transactionID: transactionID,
+          remarks: 'Status check from Admin Portal',
+          occasion: 'AdminStatusCheck'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Status check initiated. Please wait for update.', { id: toastId });
+        // Optionally trigger a refresh after a delay
+        setTimeout(() => fetchCallbacks(), 5000);
+      } else {
+        toast.error('Failed: ' + (result.message || 'Unknown error'), { id: toastId });
+      }
+    } catch (error) {
+      console.error('Error checking status:', error);
+      toast.error('Error checking status');
+    } finally {
+      setIsCheckingStatus(false);
     }
   };
 
@@ -2211,7 +2253,7 @@ const MpesaCallbacks = () => {
             <option value="processed">Processed</option>
             <option value="failed">Failed</option>
           </select>
-          
+
           <button
             onClick={handleManualRefresh}
             className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
@@ -2234,7 +2276,7 @@ const MpesaCallbacks = () => {
             {searchTerm ? 'No matching M-Pesa callbacks found' : 'No M-Pesa callbacks found'}
           </h3>
           <p className="text-gray-600 mb-4">
-            {searchTerm 
+            {searchTerm
               ? 'No callback results match your search criteria.'
               : 'No callback results found in the database.'
             }
@@ -2288,7 +2330,7 @@ const MpesaCallbacks = () => {
                   const transactionData = extractTransactionData(callback);
                   const transactionAmount = transactionData?.TransactionAmount || callback.amount;
                   const receiverParty = transactionData?.ReceiverPartyPublicName || 'N/A';
-                  
+
                   return (
                     <tr key={callback.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
@@ -2298,7 +2340,7 @@ const MpesaCallbacks = () => {
                         <div className="flex items-center gap-1">
                           {callback.transaction_id || 'N/A'}
                           {callback.transaction_id && (
-                            <span 
+                            <span
                               className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
                               title="Unique Transaction ID"
                             >
@@ -2315,9 +2357,8 @@ const MpesaCallbacks = () => {
                       </td>
                       <td className="px-4 py-3 text-xs max-w-xs">
                         {/* Enhanced Receiver Party display with better styling */}
-                        <div className={`line-clamp-2 font-semibold text-xs ${
-                          receiverParty !== 'N/A' ? 'text-green-600' : 'text-gray-500'
-                        }`}>
+                        <div className={`line-clamp-2 font-semibold text-xs ${receiverParty !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                          }`}>
                           {receiverParty}
                         </div>
                         {receiverParty !== 'N/A' && (
@@ -2331,14 +2372,12 @@ const MpesaCallbacks = () => {
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-600">
                         <div>
-                          <div className={`font-medium ${
-                            callback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
-                          }`}>
+                          <div className={`font-medium ${callback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
+                            }`}>
                             {callback.full_name}
                           </div>
-                          <div className={`text-xs ${
-                            callback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
-                          }`}>
+                          <div className={`text-xs ${callback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                            }`}>
                             {callback.employee_number}
                           </div>
                         </div>
@@ -2347,12 +2386,25 @@ const MpesaCallbacks = () => {
                         {getStatusBadge(callback.status)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs">
-                        <button
-                          onClick={() => viewCallbackDetails(callback)}
-                          className="text-blue-600 hover:text-blue-900 font-medium"
-                        >
-                          View Details
-                        </button>
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => viewCallbackDetails(callback)}
+                            className="text-blue-600 hover:text-blue-900 font-medium text-left"
+                          >
+                            View Details
+                          </button>
+                          {callback.transaction_id && (
+                            <button
+                              onClick={() => checkTransactionStatus(callback.transaction_id)}
+                              disabled={isCheckingStatus}
+                              className="text-green-600 hover:text-green-900 font-medium text-left flex items-center gap-1"
+                              title="Query M-Pesa for live status"
+                            >
+                              <RefreshCw className={`w-3 h-3 ${isCheckingStatus ? 'animate-spin' : ''}`} />
+                              Check Status
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2400,7 +2452,7 @@ const MpesaCallbacks = () => {
                       <span className="sr-only">Previous</span>
                       <ChevronLeft className="h-5 w-5" />
                     </button>
-                    
+
                     {/* Page numbers */}
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
                       .filter(page => {
@@ -2421,18 +2473,17 @@ const MpesaCallbacks = () => {
                             )}
                             <button
                               onClick={() => paginate(page)}
-                              className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
-                                currentPage === page
-                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                  : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                              } border`}
+                              className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${currentPage === page
+                                ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                } border`}
                             >
                               {page}
                             </button>
                           </div>
                         );
                       })}
-                    
+
                     <button
                       onClick={() => paginate(currentPage + 1)}
                       disabled={currentPage === totalPages}
@@ -2501,17 +2552,15 @@ const MpesaCallbacks = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs text-gray-600">Employee Name</p>
-                      <p className={`font-semibold text-sm ${
-                        selectedCallback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
-                      }`}>
+                      <p className={`font-semibold text-sm ${selectedCallback.full_name !== 'N/A' ? 'text-blue-600' : 'text-gray-500'
+                        }`}>
                         {selectedCallback.full_name}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-600">Employee Number</p>
-                      <p className={`font-semibold text-sm ${
-                        selectedCallback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
-                      }`}>
+                      <p className={`font-semibold text-sm ${selectedCallback.employee_number !== 'N/A' ? 'text-green-600' : 'text-gray-500'
+                        }`}>
                         {selectedCallback.employee_number}
                       </p>
                     </div>
@@ -2547,12 +2596,11 @@ const MpesaCallbacks = () => {
                             return (
                               <div key={key}>
                                 <p className="text-xs text-gray-600">{label}</p>
-                                <p className={`font-semibold text-sm mt-1 ${
-                                  key === 'ReceiverPartyPublicName' ? 'text-green-600 font-bold' :
+                                <p className={`font-semibold text-sm mt-1 ${key === 'ReceiverPartyPublicName' ? 'text-green-600 font-bold' :
                                   key.includes('Amount') || key.includes('Funds') ? 'text-blue-600' :
-                                  'text-gray-900'
-                                }`}>
-                                  {key.includes('Amount') || key.includes('Funds') 
+                                    'text-gray-900'
+                                  }`}>
+                                  {key.includes('Amount') || key.includes('Funds')
                                     ? formatAmount(Number(transactionData[key]))
                                     : String(transactionData[key])
                                   }
@@ -2577,6 +2625,13 @@ const MpesaCallbacks = () => {
 
               <div className="flex justify-end pt-4 border-t border-gray-200">
                 <button
+                  onClick={() => checkTransactionStatus(selectedCallback.transaction_id)}
+                  disabled={isCheckingStatus}
+                  className="mr-3 px-4 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isCheckingStatus ? 'Checking...' : 'Check Live Status'}
+                </button>
+                <button
                   onClick={() => setShowDetails(false)}
                   className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
                 >
@@ -2600,16 +2655,16 @@ const MpesaCallbacks = () => {
 };
 
 // Enhanced Bulk Payment Modal with Search
-const BulkPaymentModal = ({ 
-  isOpen, 
-  onClose, 
-  onProcess, 
-  isLoading, 
-  applications, 
-  selectedStaff, 
-  onToggleStaff, 
-  onSelectAll, 
-  onDeselectAll, 
+const BulkPaymentModal = ({
+  isOpen,
+  onClose,
+  onProcess,
+  isLoading,
+  applications,
+  selectedStaff,
+  onToggleStaff,
+  onSelectAll,
+  onDeselectAll,
   employeeMobileNumbers,
   isBranchManagerMap,
   justification,
@@ -2617,15 +2672,15 @@ const BulkPaymentModal = ({
   userRole
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   if (!isOpen) return null;
 
   const isMaker = userRole === 'maker';
-  const fullyApprovedApplications = applications.filter(app => 
+  const fullyApprovedApplications = applications.filter(app =>
     app.status?.toLowerCase() === 'approved'
   );
 
-  const filteredApplications = fullyApprovedApplications.filter(app => 
+  const filteredApplications = fullyApprovedApplications.filter(app =>
     app["Full Name"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     employeeMobileNumbers[app["Employee Number"]]?.includes(searchTerm)
@@ -2659,15 +2714,15 @@ const BulkPaymentModal = ({
           <Users className="h-5 w-5 text-green-600" />
           {isMaker ? 'Create Payment Request' : 'Process M-Pesa Bulk Payment'}
         </h3>
-        
+
         <div className="mb-4 p-3 bg-gray-50 rounded-md">
           <p className="text-xs text-gray-600">
-            {isMaker 
+            {isMaker
               ? `You are creating a payment request for ${getSelectedStaffCount()} selected staff members. This will require approval before processing.`
               : `You are about to process M-Pesa B2C payments for ${getSelectedStaffCount()} selected staff members.`
             }
           </p>
-          
+
           <div className="mt-3 flex gap-2">
             <button
               onClick={onSelectAll}
@@ -2682,7 +2737,7 @@ const BulkPaymentModal = ({
               Deselect All
             </button>
           </div>
-          
+
           <div className="mt-3 border-t pt-3">
             <div className="flex justify-between text-xs">
               <span className="font-medium">Total Amount:</span>
@@ -2714,7 +2769,7 @@ const BulkPaymentModal = ({
             value={justification}
             onChange={(e) => onJustificationChange(e.target.value)}
             placeholder={
-              isMaker 
+              isMaker
                 ? "Please provide justification for this payment request..."
                 : "Please provide notes for this payment processing..."
             }
@@ -2722,13 +2777,13 @@ const BulkPaymentModal = ({
             className="w-full p-3 border border-gray-300 rounded-md text-xs focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
           />
           <p className="text-xs text-gray-500 mt-1">
-            {isMaker 
+            {isMaker
               ? 'This payment request will be submitted for approval before processing.'
               : 'These notes will be recorded in the payment history.'
             }
           </p>
         </div>
-        
+
         <div className="mb-4 max-h-60 overflow-y-auto">
           <p className="text-xs font-medium mb-2">Staff to be paid ({filteredApplications.length} found):</p>
           <ul className="text-xs divide-y divide-gray-200">
@@ -2754,7 +2809,7 @@ const BulkPaymentModal = ({
                         {employeeMobileNumbers[app["Employee Number"]] || 'No mobile number'}
                       </div>
                     </div>
-                    <ManagerBadge 
+                    <ManagerBadge
                       isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
                       isRegionalManager={false}
                     />
@@ -2767,7 +2822,7 @@ const BulkPaymentModal = ({
             ))}
           </ul>
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -2789,7 +2844,7 @@ const BulkPaymentModal = ({
             ) : (
               <>
                 <Send size={16} />
-                {isMaker 
+                {isMaker
                   ? `Submit Request (${getSelectedStaffCount()})`
                   : `Process Payments (${getSelectedStaffCount()})`
                 }
@@ -2816,8 +2871,8 @@ const SalaryAdvanceAdmin = () => {
   const [employeeMobileNumbers, setEmployeeMobileNumbers] = useState<Record<string, string>>({});
   const [selectedStaff, setSelectedStaff] = useState<Record<string, boolean>>({});
   const [justification, setJustification] = useState('');
-  
-  
+
+
   const [currentTown, setCurrentTown] = useState<string>('');
   const [allTowns, setAllTowns] = useState<string[]>([]);
   const [userTown, setUserTown] = useState<string>('');
@@ -2924,7 +2979,7 @@ const SalaryAdvanceAdmin = () => {
         .eq('id', applicationId);
 
       if (error) throw error;
-      
+
       toast.success(`Status updated to ${newStatus}`);
       return true;
     } catch (error) {
@@ -2941,12 +2996,12 @@ const SalaryAdvanceAdmin = () => {
         const { data: employeesData, error: employeesError } = await supabase
           .from('employees')
           .select('Branch, Town');
-        
+
         if (employeesError) {
           console.error("Error loading area-town mapping:", employeesError);
           return;
         }
-        
+
         const mapping = {};
         employeesData?.forEach(item => {
           if (item.Branch && item.Town) {
@@ -2956,27 +3011,27 @@ const SalaryAdvanceAdmin = () => {
             mapping[item.Branch].push(item.Town);
           }
         });
-        
+
         setAreaTownMapping(mapping);
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('kenya_branches')
           .select('"Branch Office", "Area"');
-        
+
         if (branchesError) {
           console.error("Error loading branch-area mapping:", branchesError);
           return;
         }
-        
+
         const branchMapping = {};
         branchesData?.forEach(item => {
           if (item['Branch Office'] && item['Area']) {
             branchMapping[item['Branch Office']] = item['Area'];
           }
         });
-        
+
         setBranchAreaMapping(branchMapping);
-        
+
         const savedTown = localStorage.getItem('selectedTown');
         if (savedTown) {
           setCurrentTown(savedTown);
@@ -3008,7 +3063,7 @@ const SalaryAdvanceAdmin = () => {
   const fetchUserProfile = async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         console.warn('User not authenticated');
         return;
@@ -3050,7 +3105,7 @@ const SalaryAdvanceAdmin = () => {
           console.log('📍 Branch Manager assigned to Town:', userTown);
         } else {
           console.log('❌ User email not found in regional_manager or manager_email columns');
-          
+
           const { data: employeeData, error: employeeError } = await supabase
             .from('employees')
             .select('Town, Branch')
@@ -3136,11 +3191,11 @@ const SalaryAdvanceAdmin = () => {
         ...employeesData.map(item => item.Town).filter(Boolean),
         ...employeesData.map(item => item.Branch).filter(Boolean)
       ])].sort();
-      
+
       console.log('📍 Available locations for filter:', allLocations);
       console.log('📍 Current user town:', userTown);
       console.log('📍 Current user region:', userRegion);
-      
+
       setAllTowns(allLocations);
     } catch (error) {
       console.error('❌ Error fetching towns:', error);
@@ -3158,7 +3213,7 @@ const SalaryAdvanceAdmin = () => {
     setIsLoading(true);
     try {
       console.log('🔍 Fetching applications - Role:', userRole, 'Current Town:', currentTown);
-      
+
       let query = supabase
         .from('salary_advance')
         .select('*')
@@ -3167,7 +3222,7 @@ const SalaryAdvanceAdmin = () => {
       if (currentTown && currentTown.trim() !== '') {
         if (isRegionalManager) {
           console.log('🌍 Regional Manager - Getting towns for region:', currentTown);
-          
+
           const { data: regionTowns, error: townsError } = await supabase
             .from('employees')
             .select('Town')
@@ -3210,7 +3265,7 @@ const SalaryAdvanceAdmin = () => {
       }
 
       console.log('✅ Fetched applications:', data?.length);
-      
+
       if (data && data.length > 0) {
         console.log('📊 First application sample:', {
           id: data[0].id,
@@ -3226,11 +3281,11 @@ const SalaryAdvanceAdmin = () => {
         ...app,
         isBranchManager: isBranchManagerMap[app["Employee Number"]] || false
       })) || [];
-      
+
       setApplications(enhancedApplications);
-      
+
       await fetchJobTitles(enhancedApplications);
-      
+
       const initialNotes: Record<string, string> = {};
       enhancedApplications.forEach(app => {
         initialNotes[app.id] = app.admin_notes || '';
@@ -3246,7 +3301,7 @@ const SalaryAdvanceAdmin = () => {
       setSelectedStaff(initialSelected);
 
       await fetchMobileNumbers(enhancedApplications);
-      
+
     } catch (error) {
       console.error('❌ Error fetching applications:', error);
       toast.error('Failed to load applications');
@@ -3272,11 +3327,11 @@ const SalaryAdvanceAdmin = () => {
   // BORROWED FROM LEAVE MANAGEMENT: Get display name for current selection
   const getDisplayName = (currentTown: string, isArea: boolean) => {
     if (!currentTown) return "All Towns";
-    
+
     if (isArea) {
       return `${currentTown} Region`;
     }
-    
+
     return currentTown;
   };
 
@@ -3284,7 +3339,7 @@ const SalaryAdvanceAdmin = () => {
   const fetchJobTitles = async (apps: any[]) => {
     try {
       const employeeNumbers = apps.map(app => app["Employee Number"]).filter(Boolean);
-      
+
       if (employeeNumbers.length === 0) return;
 
       const { data, error } = await supabase
@@ -3299,13 +3354,13 @@ const SalaryAdvanceAdmin = () => {
 
       data?.forEach(emp => {
         jobTitleMap[emp["Employee Number"]] = emp["Job Title"] || '';
-        
+
         const jobTitle = emp["Job Title"]?.toLowerCase() || '';
-        const isManager = jobTitle.includes('branch manager') || 
-                         jobTitle.includes('manager') || 
-                         jobTitle.includes('bm') ||
-                         jobTitle.includes('head of');
-        
+        const isManager = jobTitle.includes('branch manager') ||
+          jobTitle.includes('manager') ||
+          jobTitle.includes('bm') ||
+          jobTitle.includes('head of');
+
         branchManagerMap[emp["Employee Number"]] = isManager;
       });
 
@@ -3320,7 +3375,7 @@ const SalaryAdvanceAdmin = () => {
   const fetchMobileNumbers = async (apps: any[]) => {
     try {
       const employeeNumbers = apps.map(app => app["Employee Number"]).filter(Boolean);
-      
+
       if (employeeNumbers.length === 0) return;
 
       const { data, error } = await supabase
@@ -3344,7 +3399,7 @@ const SalaryAdvanceAdmin = () => {
 
   // Get fully approved applications
   const getFullyApprovedApplications = () => {
-    return applications.filter(app => 
+    return applications.filter(app =>
       app.status?.toLowerCase() === 'approved'
     );
   };
@@ -3360,9 +3415,9 @@ const SalaryAdvanceAdmin = () => {
 
   // Format phone number for M-Pesa (254 format) - FIXED VERSION
   // Format phone number for M-Pesa (254 format)
-const formatPhoneNumber = (phone: string) => {
-  return SMSService.formatPhoneNumberForSMS(phone);
-};
+  const formatPhoneNumber = (phone: string) => {
+    return SMSService.formatPhoneNumberForSMS(phone);
+  };
 
   // Calculate total amount for selected applications
   const calculateTotalAmount = () => {
@@ -3421,7 +3476,7 @@ const formatPhoneNumber = (phone: string) => {
         .eq('id', id);
 
       if (error) throw error;
-      
+
       toast.success('Amount updated!');
       setEditingId(null);
       fetchApplications();
@@ -3434,18 +3489,18 @@ const formatPhoneNumber = (phone: string) => {
   // Check if user is approving themselves
   const checkIfSelfApproval = (application: any) => {
     if (!currentUser || !application) return false;
-    
+
     const userEmployeeNumber = currentUser.user_metadata?.employee_number;
     if (userEmployeeNumber && application["Employee Number"] === userEmployeeNumber) {
       return true;
     }
-    
+
     const userEmail = currentUser.email?.toLowerCase();
     const applicationEmail = application["Email"]?.toLowerCase();
     if (userEmail && applicationEmail && userEmail === applicationEmail) {
       return true;
     }
-    
+
     return false;
   };
 
@@ -3465,7 +3520,7 @@ const formatPhoneNumber = (phone: string) => {
   // Enhanced recommendation handler with proper status updates
   const handleRecommendation = async (recommendationData: any) => {
     const { action, notes, adjustedAmount } = recommendationData;
-    
+
     try {
       let updateData: any = {
         admin_notes: notes,
@@ -3482,7 +3537,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.branch_manager_approval_date = new Date().toISOString();
           newStatus = 'pending-regional-manager';
           break;
-        
+
         case 'bm-recommend-adjusted':
           updateData.branch_manager_recommendation = 'recommend_adjusted';
           updateData.branch_manager_notes = notes;
@@ -3494,14 +3549,14 @@ const formatPhoneNumber = (phone: string) => {
             updateData["Amount Requested"] = adjustedAmount;
           }
           break;
-        
+
         case 'bm-recommend-reject':
           updateData.branch_manager_recommendation = 'recommend_reject';
           updateData.branch_manager_notes = notes;
           updateData.branch_manager_approval = false;
           newStatus = 'rejected';
           break;
-        
+
         case 'rm-recommend-current':
           updateData.regional_manager_recommendation = 'recommend_current';
           updateData.regional_manager_notes = notes;
@@ -3509,7 +3564,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.regional_manager_approval_date = new Date().toISOString();
           newStatus = 'pending-admin';
           break;
-        
+
         case 'rm-recommend-adjusted':
           updateData.regional_manager_recommendation = 'recommend_adjusted';
           updateData.regional_manager_notes = notes;
@@ -3521,14 +3576,14 @@ const formatPhoneNumber = (phone: string) => {
             updateData["Amount Requested"] = adjustedAmount;
           }
           break;
-        
+
         case 'rm-recommend-reject':
           updateData.regional_manager_recommendation = 'recommend_reject';
           updateData.regional_manager_notes = notes;
           updateData.regional_manager_approval = false;
           newStatus = 'rejected';
           break;
-        
+
         case 'admin-approve-current':
           updateData.admin_approval = true;
           updateData.admin_approval_date = new Date().toISOString();
@@ -3537,7 +3592,7 @@ const formatPhoneNumber = (phone: string) => {
           updateData.approved_by = currentUser?.id;
           updateData.approved_by_email = currentUser?.email;
           break;
-        
+
         case 'admin-approve-adjusted':
           updateData.admin_approval = true;
           updateData.admin_approval_date = new Date().toISOString();
@@ -3550,7 +3605,7 @@ const formatPhoneNumber = (phone: string) => {
             updateData["Amount Requested"] = adjustedAmount;
           }
           break;
-        
+
         case 'admin-reject':
           updateData.admin_approval = false;
           updateData.admin_rejection_date = new Date().toISOString();
@@ -3581,7 +3636,7 @@ const formatPhoneNumber = (phone: string) => {
 
       if (action.includes('recommend-reject') || action.includes('admin-reject')) {
         setSelectedStaff(prev => {
-          const newSelection = {...prev};
+          const newSelection = { ...prev };
           delete newSelection[selectedApplication.id];
           return newSelection;
         });
@@ -3643,111 +3698,111 @@ const formatPhoneNumber = (phone: string) => {
   };
 
   // Enhanced M-Pesa payment function with SMS notifications
-// Enhanced M-Pesa payment function with SMS notifications
-const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
-  try {
-    const mobileNumber = employeeMobileNumbers[employeeNumber];
-    if (!mobileNumber) {
-      throw new Error(`Mobile number not found for employee ${employeeNumber}`);
-    }
+  // Enhanced M-Pesa payment function with SMS notifications
+  const processMpesaPayment = async (employeeNumber: string, amount: number, fullName: string) => {
+    try {
+      const mobileNumber = employeeMobileNumbers[employeeNumber];
+      if (!mobileNumber) {
+        throw new Error(`Mobile number not found for employee ${employeeNumber}`);
+      }
 
-    const formattedPhone = formatPhoneNumber(mobileNumber);
-    
-    if (!formattedPhone) {
-      throw new Error(`Invalid phone number format for ${employeeNumber}: ${mobileNumber}`);
-    }
+      const formattedPhone = formatPhoneNumber(mobileNumber);
 
-    console.log(`💰 Processing M-Pesa payment:`, {
-      employee: fullName,
-      employeeNumber,
-      amount,
-      originalPhone: mobileNumber,
-      formattedPhone
-    });
-    
-    const MPESA_API_BASE = process.env.NODE_ENV === 'production' 
-      ? 'https://mpesa-22p0.onrender.com/api'
-      : 'http://localhost:3001/api';
-    
-    const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        phoneNumber: formattedPhone,
-        amount: amount,
-        employeeNumber: employeeNumber,
-        fullName: fullName
-      }),
-    });
+      if (!formattedPhone) {
+        throw new Error(`Invalid phone number format for ${employeeNumber}: ${mobileNumber}`);
+      }
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to process payment');
-    }
+      console.log(`💰 Processing M-Pesa payment:`, {
+        employee: fullName,
+        employeeNumber,
+        amount,
+        originalPhone: mobileNumber,
+        formattedPhone
+      });
 
-    const result = await response.json();
-    
-    console.log('✅ M-Pesa payment processed:', result);
-    
-    // Send SMS notification after successful payment
-    if (result.success) {
-      try {
-        const smsResult = await SMSService.sendDisbursementNotification(
-          fullName,
-          mobileNumber,
-          amount,
-          result.transactionId || 'N/A'
-        );
-        
-        if (smsResult.success) {
-          console.log(`✅ SMS notification sent to ${fullName} (${smsResult.recipient})`);
-        } else {
-          console.error(`❌ SMS failed for ${fullName}:`, smsResult.error);
+      const MPESA_API_BASE = process.env.NODE_ENV === 'production'
+        ? 'https://mpesa-22p0.onrender.com/api'
+        : 'http://localhost:3001/api';
+
+      const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          amount: amount,
+          employeeNumber: employeeNumber,
+          fullName: fullName
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to process payment');
+      }
+
+      const result = await response.json();
+
+      console.log('✅ M-Pesa payment processed:', result);
+
+      // Send SMS notification after successful payment
+      if (result.success) {
+        try {
+          const smsResult = await SMSService.sendDisbursementNotification(
+            fullName,
+            mobileNumber,
+            amount,
+            result.transactionId || 'N/A'
+          );
+
+          if (smsResult.success) {
+            console.log(`✅ SMS notification sent to ${fullName} (${smsResult.recipient})`);
+          } else {
+            console.error(`❌ SMS failed for ${fullName}:`, smsResult.error);
+          }
+        } catch (smsError) {
+          console.error('❌ Failed to send SMS notification:', smsError);
+          // Don't throw error - payment was successful, just SMS failed
         }
-      } catch (smsError) {
-        console.error('❌ Failed to send SMS notification:', smsError);
-        // Don't throw error - payment was successful, just SMS failed
       }
-    }
-    
-    return result;
-  } catch (error) {
-    console.error('❌ M-Pesa payment error:', error);
-    
-    if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
-      console.warn('⚠️ Backend unavailable, using mock mode');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Mock SMS notification in development
-      try {
-        const mockTransactionId = 'MOCK_' + Date.now();
-        await SMSService.sendDisbursementNotification(
-          fullName,
-          employeeMobileNumbers[employeeNumber],
-          amount,
-          mockTransactionId
-        );
-      } catch (smsError) {
-        console.error('❌ Failed to send mock SMS:', smsError);
+
+      return result;
+    } catch (error) {
+      console.error('❌ M-Pesa payment error:', error);
+
+      if (process.env.NODE_ENV === 'development' && error.message.includes('Failed to fetch')) {
+        console.warn('⚠️ Backend unavailable, using mock mode');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Mock SMS notification in development
+        try {
+          const mockTransactionId = 'MOCK_' + Date.now();
+          await SMSService.sendDisbursementNotification(
+            fullName,
+            employeeMobileNumbers[employeeNumber],
+            amount,
+            mockTransactionId
+          );
+        } catch (smsError) {
+          console.error('❌ Failed to send mock SMS:', smsError);
+        }
+
+        return {
+          success: true,
+          message: 'Mock payment processed successfully',
+          transactionId: 'MOCK_' + Date.now()
+        };
       }
-      
-      return {
-        success: true,
-        message: 'Mock payment processed successfully',
-        transactionId: 'MOCK_' + Date.now()
-      };
+
+      throw error;
     }
-    
-    throw error;
-  }
-};
+  };
   // Create payment request function for maker-checker flow
   const createPaymentRequest = async (selectedAdvances, justification) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         throw new Error('User not authenticated');
       }
@@ -3787,19 +3842,19 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
     }
 
     const results = [];
-    
+
     for (const advance of advancesData) {
       try {
         console.log(`💰 Processing payment for ${advance.full_name}, amount: ${advance.amount_requested}`);
-        
+
         const result = await processMpesaPayment(
           advance.employee_number,
           advance.amount_requested,
           advance.full_name
         );
-        
+
         results.push({ success: true, advance, result });
-        
+
         // Use the enhanced status update function
         const updateSuccess = await updateApplicationStatus(
           advance.id,
@@ -3816,16 +3871,16 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
 
         console.log(`✅ Successfully updated ${advance.full_name} status to 'paid'`);
         toast.success(`Payment sent to ${advance.full_name} and status updated to Paid`);
-        
+
       } catch (error) {
         console.error(`❌ Failed to pay ${advance.full_name}:`, error);
         results.push({ success: false, advance, error });
         toast.error(`Failed to pay ${advance.full_name}: ${error.message}`);
       }
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
+
     return results;
   };
 
@@ -3833,7 +3888,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   const approvePayment = async (payment) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         toast.error('User not authenticated');
         return;
@@ -3871,14 +3926,14 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           })
           .eq('id', payment.id);
 
-        setPaymentRequests(prev => 
+        setPaymentRequests(prev =>
           prev.map(req => req.id === payment.id ? { ...req, status: 'completed' } : req)
         );
 
         await fetchApplications();
-        
+
         toast.success('Payment approved and processed successfully! Applications updated to Paid status.');
-        
+
       } catch (error) {
         await supabase
           .from('salary_advance_payment_flows')
@@ -3889,10 +3944,10 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           })
           .eq('id', payment.id);
 
-        setPaymentRequests(prev => 
+        setPaymentRequests(prev =>
           prev.map(req => req.id === payment.id ? { ...req, status: 'failed' } : req)
         );
-        
+
         console.error('Payment processing error:', error);
         toast.error('Payment approved but failed to process: ' + error.message);
       }
@@ -3906,23 +3961,23 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   const rejectPayment = async (payment, reason) => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         toast.error('User not authenticated');
         return;
       }
 
-      setPaymentRequests(prev => 
-        prev.map(req => 
-          req.id === payment.id 
-            ? { 
-                ...req, 
-                status: 'rejected',
-                rejected_by: user.id,
-                rejected_at: new Date().toISOString(),
-                rejection_reason: reason,
-                rejected_by_email: user.email
-              }
+      setPaymentRequests(prev =>
+        prev.map(req =>
+          req.id === payment.id
+            ? {
+              ...req,
+              status: 'rejected',
+              rejected_by: user.id,
+              rejected_at: new Date().toISOString(),
+              rejection_reason: reason,
+              rejected_by_email: user.email
+            }
             : req
         )
       );
@@ -3958,7 +4013,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
 
   const handleBulkPayment = async () => {
     const selectedApps = getFullyApprovedApplications().filter(app => selectedStaff[app.id]);
-    
+
     if (selectedApps.length === 0) {
       toast.error('No staff members selected for payment');
       return;
@@ -3984,25 +4039,25 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
       try {
         await createPaymentRequest(advancesData, justification);
         toast.success('Payment request submitted for approval!');
-        
+
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
         fetchPaymentRequests();
-        
+
       } catch (error) {
         console.error('Error creating payment request:', error);
         toast.error('Failed to submit payment request');
       }
-    } 
+    }
     else if (userRole === 'checker' || userRole === 'credit_analyst_officer') {
       setIsProcessingBulkPayment(true);
       try {
         const results = await processBulkMpesaPayment(advancesData);
-        
+
         const successCount = results.filter(r => r.success).length;
         const totalCount = selectedApps.length;
-        
+
         if (successCount === totalCount) {
           toast.success(`All ${totalCount} payments processed successfully! Status updated to Paid.`);
         } else if (successCount > 0) {
@@ -4010,16 +4065,16 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
         } else {
           toast.error('All payments failed. Please check your payment service configuration.');
         }
-        
+
         setSelectedStaff({});
         setJustification('');
         setShowBulkPaymentModal(false);
-        
+
         setTimeout(() => {
           fetchApplications();
           fetchPaymentRequests();
         }, 1000);
-        
+
       } catch (error) {
         console.error('Error processing bulk payments:', error);
         toast.error(`Failed to process payments: ${error.message}`);
@@ -4047,7 +4102,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
     if (app.status?.toLowerCase() === 'paid') {
       return 'Paid';
     }
-    
+
     if (app.status?.toLowerCase() === 'rejected') {
       return 'Rejected';
     }
@@ -4070,7 +4125,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           return 'BM: Recommend Reject';
       }
     }
-    
+
     if (app.regional_manager_recommendation) {
       switch (app.regional_manager_recommendation) {
         case 'recommend_current':
@@ -4133,44 +4188,44 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   // Check if branch manager can approve this application
   const canBranchManagerApprove = (app: any) => {
     if (!isBranchManager) return false;
-    
+
     const isSelfApproval = checkIfSelfApproval(app);
-    
+
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
-    
+
     const hasBranchApproval = app.branch_manager_approval;
-    
+
     return !isSelfApproval && !isEmployeeBranchManager && !hasBranchApproval;
   };
 
   // Check if regional manager can approve this application
   const canRegionalManagerApprove = (app: any) => {
     if (!isRegionalManager && !isAdmin) return false;
-    
+
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
     const canApproveThisUser = isAdmin || isEmployeeBranchManager;
-    
+
     const isSelfApproval = checkIfSelfApproval(app);
-    
+
     const hasRegionalApproval = app.regional_manager_approval;
-    
+
     return canApproveThisUser && !isSelfApproval && !hasRegionalApproval;
   };
 
   // Check if regional manager can comment on regular employees
   const canRegionalManagerComment = (app: any) => {
     if (!isRegionalManager) return false;
-    
+
     const isEmployeeBranchManager = isBranchManagerMap[app["Employee Number"]] || false;
     const hasBranchApproval = app.branch_manager_approval;
-    
+
     return !isEmployeeBranchManager && !hasBranchApproval;
   };
 
   // Check if admin can approve this application
   const canAdminApprove = (app: any) => {
     if (!isAdmin) return false;
-    
+
     return app.status === 'pending-admin';
   };
 
@@ -4178,7 +4233,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   const handleExport = async (exportConfig) => {
     try {
       setIsExporting(true);
-      
+
       let query = supabase
         .from('salary_advance')
         .select('*')
@@ -4188,7 +4243,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
       if (exportConfig.dateRange !== 'all') {
         const today = new Date();
         let startDate = new Date();
-        
+
         switch (exportConfig.dateRange) {
           case 'today':
             startDate.setHours(0, 0, 0, 0);
@@ -4241,9 +4296,9 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
         const startDate = new Date(year, month, 1);
         const endDate = new Date(year, month + 1, 0);
         endDate.setHours(23, 59, 59, 999);
-        
+
         query = query.gte('time_added', startDate.toISOString())
-                 .lte('time_added', endDate.toISOString());
+          .lte('time_added', endDate.toISOString());
       }
 
       const { data, error } = await query;
@@ -4269,10 +4324,10 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
       // Convert to CSV or Excel
       if (exportConfig.format === 'csv') {
         const headers = Object.keys(exportData[0] || {});
-        
+
         const csvContent = [
           headers.join(','),
-          ...exportData.map(row => 
+          ...exportData.map(row =>
             headers.map(header => {
               const value = row[header];
               // Handle special characters and formatting
@@ -4298,7 +4353,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
         const headers = Object.keys(exportData[0] || {});
         const excelContent = [
           headers.join('\t'),
-          ...exportData.map(row => 
+          ...exportData.map(row =>
             headers.map(header => {
               const value = row[header];
               if (header === 'Amount Requested') {
@@ -4334,21 +4389,21 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   const handleImport = async (file, importType) => {
     try {
       setIsImporting(true);
-      
+
       const reader = new FileReader();
-      
+
       reader.onload = async (e) => {
         try {
           const content = e.target?.result;
-          
+
           if (!content || typeof content !== 'string') {
             toast.error('Failed to read file content');
             return;
           }
-          
+
           // Parse CSV content
           const lines = content.split('\n').filter(line => line.trim() !== '');
-          
+
           if (lines.length === 0) {
             toast.error('File is empty');
             return;
@@ -4357,7 +4412,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           // Parse headers
           const firstLine = lines[0];
           let headers = [];
-          
+
           // Handle different CSV formats
           if (firstLine.includes('","')) {
             // Standard CSV with quotes
@@ -4374,15 +4429,15 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           }
 
           console.log('Detected headers:', headers);
-          
+
           // Normalize header names for comparison
-          const normalizedHeaders = headers.map(header => 
+          const normalizedHeaders = headers.map(header =>
             header.toLowerCase().replace(/\s+/g, '_')
           );
 
           // Check for required columns
           const requiredColumns = ['employee', 'mobile_number', 'branch', 'amount'];
-          const missingColumns = requiredColumns.filter(required => 
+          const missingColumns = requiredColumns.filter(required =>
             !normalizedHeaders.includes(required)
           );
 
@@ -4395,10 +4450,10 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           const updates = [];
           for (let i = 1; i < lines.length; i++) {
             if (!lines[i].trim()) continue;
-            
+
             let values = [];
             const currentLine = lines[i];
-            
+
             // Parse values using the same method as headers
             if (currentLine.includes('","')) {
               values = currentLine.split('","').map(v => v.replace(/"/g, '').trim());
@@ -4407,17 +4462,17 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
             } else if (currentLine.includes('\t')) {
               values = currentLine.split('\t').map(v => v.trim());
             }
-            
+
             if (values.length !== headers.length) {
               console.warn(`Skipping row ${i} - column count mismatch`);
               continue;
             }
-            
+
             const row = {};
             headers.forEach((header, index) => {
               row[header] = values[index] || '';
             });
-            
+
             updates.push(row);
           }
 
@@ -4426,10 +4481,10 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           if (importType === 'updates') {
             // Update existing records
             let updatedCount = 0;
-            
+
             for (const update of updates) {
               const updateData = {};
-              
+
               // Map imported fields to database fields
               if (update['Mobile Number']) updateData['Mobile Number'] = update['Mobile Number'];
               if (update['Branch']) updateData['Office Branch'] = update['Branch'];
@@ -4437,31 +4492,31 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                 const cleanAmount = update['Amount'].replace(/[^\d.-]/g, '');
                 updateData['Amount Requested'] = parseFloat(cleanAmount) || 0;
               }
-              
+
               if (Object.keys(updateData).length > 0) {
                 updateData.last_updated = new Date().toISOString();
-                
+
                 // Try to find by employee number first, then by name
                 let query = supabase.from('salary_advance');
-                
+
                 if (update['Employee Number']) {
                   // Update by employee number
                   const { error } = await query
                     .update(updateData)
                     .eq('Employee Number', update['Employee Number']);
-                  
+
                   if (!error) updatedCount++;
                 } else if (update['Employee']) {
                   // Update by employee name (fuzzy match)
                   const { error } = await query
                     .update(updateData)
                     .ilike('Full Name', `%${update['Employee']}%`);
-                  
+
                   if (!error) updatedCount++;
                 }
               }
             }
-            
+
             toast.success(`Successfully updated ${updatedCount} records`);
           } else {
             // Import new applications
@@ -4484,7 +4539,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                 console.error('Insert error:', error);
                 throw error;
               }
-              
+
               toast.success(`Successfully imported ${newApplications.length} new applications`);
             }
           }
@@ -4496,14 +4551,14 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
           toast.error(`Failed to process import file: ${error.message}`);
         }
       };
-      
+
       reader.onerror = () => {
         toast.error('Failed to read file');
       };
-      
+
       // Read the file as text
       reader.readAsText(file);
-      
+
     } catch (error) {
       console.error('Import error:', error);
       toast.error('Failed to import data');
@@ -4515,19 +4570,19 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
   // Enhanced filtering function
   const getFilteredApplications = () => {
     let filtered = applications.filter(app => {
-      const matchesSearch = 
+      const matchesSearch =
         app["Employee Number"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         app["Full Name"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         app["Office Branch"]?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         employeeMobileNumbers[app["Employee Number"]]?.includes(searchTerm);
-      
+
       if (!matchesSearch) return false;
 
       // Status filter
       if (selectedStatus !== 'all') {
         const appStatus = app.status?.toLowerCase();
         const approvalStatus = getApprovalStatus(app).toLowerCase();
-        
+
         if (selectedStatus === 'pending') {
           if (!appStatus.includes('pending') && !approvalStatus.includes('pending')) {
             return false;
@@ -4587,7 +4642,15 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
       return true;
     });
 
-    return filtered;
+    return filtered.sort((a, b) => {
+      const dateA = new Date(a.time_added).getTime();
+      const dateB = new Date(b.time_added).getTime();
+
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateB - dateA; // Sort by date descending
+      }
+      return b.id - a.id; // Fallback to ID descending
+    });
   };
 
   // Update the filtered applications to use enhanced filtering
@@ -4614,35 +4677,48 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('applications')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'applications'
-                ? 'border-green-500 text-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'applications'
+              ? 'border-green-500 text-green-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
           >
             Salary Advance Applications
           </button>
-                    <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
-          
-          <button
-            onClick={() => setActiveTab('callbacks')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'callbacks'
+          <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
+
+            <button
+              onClick={() => setActiveTab('callbacks')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'callbacks'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-blue-500 text-xs hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-               <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
-          </button>
+                }`}
+            >
+              <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
+            </button>
+          </RoleButtonWrapper>
+
+          <RoleButtonWrapper allowedRoles={['ADMIN']}>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'settings'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              <Settings className="w-4 h-4 inline-block mr-1" />
+              Settings
+            </button>
           </RoleButtonWrapper>
         </nav>
       </div>
 
-      {activeTab === 'applications' ? (
+      {activeTab === 'settings' ? (
+        <AdvanceApplicationManager />
+      ) : activeTab === 'applications' ? (
         <div>
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            
-            
+
+
             <div className="flex items-center gap-3 flex-wrap">
               {/* Enhanced Filter Component */}
               <EnhancedFilter
@@ -4677,15 +4753,15 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                   onClick={() => setShowImportModal(true)}
                   className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
-                  
+
                   <img src='stats.png' className='w-5'></img>
                   Import
                 </button>
               </div>
 
               {/* User Role Display */}
-              <UserRoleDisplay 
-                userRole={userRole} 
+              <UserRoleDisplay
+                userRole={userRole}
                 userEmail={userEmail}
                 actualRole={actualUserRole}
                 userTown={userTown}
@@ -4711,11 +4787,11 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                   onClick={() => setShowBulkPaymentModal(true)}
                   className="flex items-center gap-2 bg-green-800 hover:bg-green-900 text-white px-4 py-2 rounded-md text-xs font-medium"
                 >
-                  <img src='M-PESA_LOGO-01.svg.png' className='w-12'></img> 
+                  <img src='M-PESA_LOGO-01.svg.png' className='w-12'></img>
                   {isMaker ? 'Create Payment Request' : 'Process Payments'} ({getSelectedStaffCount()})
                 </button>
               )}
-              
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -4734,7 +4810,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
             <div className="flex items-center gap-2 text-xs text-blue-800">
               <Key className="w-4 h-4" />
               <span>
-                <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} | 
+                <strong>Role:</strong> {userRole.replace(/_/g, ' ').toUpperCase()} |
                 <strong> Actual Role:</strong> {actualUserRole} |
                 <strong> Email:</strong> {userEmail}
                 {userTown && ` | ${isRegionalManager ? 'Region' : 'Town'}: ${userTown}`}
@@ -4775,7 +4851,7 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
               <div className="flex items-center gap-2 text-xs text-blue-800">
                 <MapPin className="w-4 h-4" />
                 <span>
-                  {isRegionalManager 
+                  {isRegionalManager
                     ? `Viewing applications for your region: ${currentTown}`
                     : `Viewing applications for your town: ${currentTown}`
                   }
@@ -4826,21 +4902,21 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                   {paymentRequests
                     .filter(payment => payment.status === 'pending')
                     .map((payment) => (
-                    <PaymentRequestCard
-                      key={payment.id}
-                      request={payment}
-                      userRole={userRole}
-                      onApprove={() => approvePayment(payment)}
-                      onReject={() => {
-                        setPaymentToReject(payment);
-                        setShowRejectionModal(true);
-                      }}
-                      onViewDetails={() => {
-                        setSelectedPaymentForDetails(payment);
-                        setShowPaymentDetails(true);
-                      }}
-                    />
-                  ))}
+                      <PaymentRequestCard
+                        key={payment.id}
+                        request={payment}
+                        userRole={userRole}
+                        onApprove={() => approvePayment(payment)}
+                        onReject={() => {
+                          setPaymentToReject(payment);
+                          setShowRejectionModal(true);
+                        }}
+                        onViewDetails={() => {
+                          setSelectedPaymentForDetails(payment);
+                          setShowPaymentDetails(true);
+                        }}
+                      />
+                    ))}
                 </div>
               ) : (
                 <div className="text-center py-12">
@@ -4902,364 +4978,369 @@ const processMpesaPayment = async (employeeNumber: string, amount: number, fullN
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.map((app) => (
-                      <tr key={app.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
-                              <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
-                            </div>
-                            <ManagerBadge 
-                              isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
-                              isRegionalManager={false}
-                            />
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                          {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
-                        </td>
-                       <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-  {app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A'}
-</td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {editingId === app.id ? (
+                    {currentItems.map((app) => {
+                      const appDate = new Date(app.time_added);
+                      const now = new Date();
+                      const isCurrentMonth = appDate.getMonth() === now.getMonth() && appDate.getFullYear() === now.getFullYear();
+
+                      return (
+                        <tr key={app.id} className={!isCurrentMonth ? "bg-gray-50 opacity-60 grayscale pointer-events-none" : ""}>
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={editedAmount}
-                                onChange={(e) => setEditedAmount(e.target.value)}
-                                className="w-24 p-1 border rounded text-xs"
-                              />
-                              <button 
-                                onClick={() => handleAmountSave(app.id)}
-                                className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
-                              >
-                                Save
-                              </button>
-                              <button 
-                                onClick={() => setEditingId(null)}
-                                className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <div 
-                              className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
-                              onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
-                            >
-                              {formatKES(Number(app["Amount Requested"]))}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
-                          {app["Reason for Advance"]}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getApprovalBadgeColor(getApprovalStatus(app))}`}>
-                              {getApprovalStatus(app)}
-                            </span>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <UserCheck className="h-3 w-3" />
-                              <span>BM: {app.branch_manager_approval ? '✓' : (app.branch_manager_recommendation ? 'Recommended' : 'Pending')}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <ShieldCheck className="h-3 w-3" />
-                              <span>RM: {app.regional_manager_approval ? '✓' : (app.regional_manager_recommendation ? 'Recommended' : 'Pending')}</span>
-                            </div>
-                            {app.regional_manager_comment && (
-                              <div className="flex items-center gap-2 text-xs text-blue-600">
-                                <Smartphone className="h-3 w-3" />
-                                <span>RM Comment: {app.regional_manager_comment}</span>
+                              <div>
+                                <div className="text-xs font-medium text-gray-900">{app["Full Name"]}</div>
+                                <div className="text-xs text-gray-500">{app["Employee Number"]}</div>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap relative">
-                          <div className="flex items-center">
-                            <button 
-                              onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
-                              className="flex items-center text-xs text-gray-500 hover:text-gray-700"
-                            >
-                              Notes <ChevronDown className="h-4 w-4 ml-1" />
-                            </button>
-                          </div>
-                          {showNotesDropdown === app.id && (
-                            <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
-                              <textarea
-                                value={notes[app.id] || ''}
-                                onChange={(e) => handleNoteChange(app.id, e.target.value)}
-                                placeholder="Add admin notes..."
-                                className="w-full p-2 border rounded text-xs mb-2"
-                                rows={3}
+                              <ManagerBadge
+                                isBranchManager={isBranchManagerMap[app["Employee Number"]] || false}
+                                isRegionalManager={false}
                               />
-                              <div className="flex justify-end space-x-2">
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                            {employeeMobileNumbers[app["Employee Number"]] || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                            {app['Office Branch'] || app.Office_Branch || app.office_branch || 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {editingId === app.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={editedAmount}
+                                  onChange={(e) => setEditedAmount(e.target.value)}
+                                  className="w-24 p-1 border rounded text-xs"
+                                />
                                 <button
-                                  onClick={() => setShowNotesDropdown(null)}
-                                  className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={() => saveNotes(app.id)}
+                                  onClick={() => handleAmountSave(app.id)}
                                   className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
                                 >
                                   Save
                                 </button>
-                              </div>
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                          {new Date(app.time_added).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
-                          <div className="flex flex-col gap-1">
-                            {/* Branch Manager Actions */}
-                            {canBranchManagerApprove(app) && (
-                              <div className="flex flex-col gap-1">
                                 <button
-                                  onClick={() => openRecommendationModal(app, 'bm-recommend-current')}
-                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                  onClick={() => setEditingId(null)}
+                                  className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
                                 >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Recommend Current
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'bm-recommend-adjusted')}
-                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  Recommend Adjusted
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'bm-recommend-reject')}
-                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                                >
-                                  <XCircleIcon className="w-3 h-3" />
-                                  Recommend Reject
+                                  Cancel
                                 </button>
                               </div>
-                            )}
-
-                            {/* Regional Manager Actions */}
-                            {canRegionalManagerApprove(app) && (
-                              <div className="flex flex-col gap-1">
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'rm-recommend-current')}
-                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Recommend Current
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'rm-recommend-adjusted')}
-                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  Recommend Adjusted
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'rm-recommend-reject')}
-                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                                >
-                                  <XCircleIcon className="w-3 h-3" />
-                                  Recommend Reject
-                                </button>
-                              </div>
-                            )}
-
-                            {/* Regional Manager Comment Action */}
-                            {canRegionalManagerComment(app) && (
-                              <button
-                                onClick={() => openCommentModal(app)}
-                                className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                            ) : (
+                              <div
+                                className="text-xs font-medium text-gray-900 cursor-pointer hover:underline"
+                                onClick={() => handleAmountEdit(app.id, app["Amount Requested"])}
                               >
-                                <Smartphone className="w-3 h-3" />
-                                Add Comment
-                              </button>
-                            )}
-
-                            {/* Admin Final Approval Action */}
-                            {canAdminApprove(app) && (
-                              <div className="flex flex-col gap-1">
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'admin-approve-current')}
-                                  className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
-                                >
-                                  <CheckCircle className="w-3 h-3" />
-                                  Approve Current
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'admin-approve-adjusted')}
-                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
-                                >
-                                  <Edit3 className="w-3 h-3" />
-                                  Approve Adjusted
-                                </button>
-                                <button
-                                  onClick={() => openRecommendationModal(app, 'admin-reject')}
-                                  className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
-                                >
-                                  <XCircleIcon className="w-3 h-3" />
-                                  Reject
-                                </button>
+                                {formatKES(Number(app["Amount Requested"]))}
                               </div>
                             )}
-
-                            {/* Self-approval warning */}
-                            {checkIfSelfApproval(app) && (
-                              <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
-                                Cannot approve own request
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-500 max-w-xs truncate">
+                            {app["Reason for Advance"]}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col gap-1">
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getApprovalBadgeColor(getApprovalStatus(app))}`}>
+                                {getApprovalStatus(app)}
                               </span>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <UserCheck className="h-3 w-3" />
+                                <span>BM: {app.branch_manager_approval ? '✓' : (app.branch_manager_recommendation ? 'Recommended' : 'Pending')}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <ShieldCheck className="h-3 w-3" />
+                                <span>RM: {app.regional_manager_approval ? '✓' : (app.regional_manager_recommendation ? 'Recommended' : 'Pending')}</span>
+                              </div>
+                              {app.regional_manager_comment && (
+                                <div className="flex items-center gap-2 text-xs text-blue-600">
+                                  <Smartphone className="h-3 w-3" />
+                                  <span>RM Comment: {app.regional_manager_comment}</span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap relative">
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => setShowNotesDropdown(showNotesDropdown === app.id ? null : app.id)}
+                                className="flex items-center text-xs text-gray-500 hover:text-gray-700"
+                              >
+                                Notes <ChevronDown className="h-4 w-4 ml-1" />
+                              </button>
+                            </div>
+                            {showNotesDropdown === app.id && (
+                              <div className="absolute z-10 mt-2 w-64 bg-white shadow-lg rounded-md p-2 border border-gray-200">
+                                <textarea
+                                  value={notes[app.id] || ''}
+                                  onChange={(e) => handleNoteChange(app.id, e.target.value)}
+                                  placeholder="Add admin notes..."
+                                  className="w-full p-2 border rounded text-xs mb-2"
+                                  rows={3}
+                                />
+                                <div className="flex justify-end space-x-2">
+                                  <button
+                                    onClick={() => setShowNotesDropdown(null)}
+                                    className="text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => saveNotes(app.id)}
+                                    className="text-xs bg-green-500 text-white px-2 py-1 rounded hover:bg-green-600"
+                                  >
+                                    Save
+                                  </button>
+                                </div>
+                              </div>
                             )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                            {new Date(app.time_added).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
+                            <div className="flex flex-col gap-1">
+                              {/* Branch Manager Actions */}
+                              {canBranchManagerApprove(app) && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'bm-recommend-current')}
+                                    className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                    Recommend Current
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'bm-recommend-adjusted')}
+                                    className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    Recommend Adjusted
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'bm-recommend-reject')}
+                                    className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                  >
+                                    <XCircleIcon className="w-3 h-3" />
+                                    Recommend Reject
+                                  </button>
+                                </div>
+                              )}
 
-                            {/* No actions available message */}
-                            {!canBranchManagerApprove(app) && !canRegionalManagerApprove(app) && !canRegionalManagerComment(app) && !canAdminApprove(app) && !checkIfSelfApproval(app) && (
-                              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200">
-                                Awaiting approval
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {/* Regional Manager Actions */}
+                              {canRegionalManagerApprove(app) && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'rm-recommend-current')}
+                                    className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                    Recommend Current
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'rm-recommend-adjusted')}
+                                    className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    Recommend Adjusted
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'rm-recommend-reject')}
+                                    className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                  >
+                                    <XCircleIcon className="w-3 h-3" />
+                                    Recommend Reject
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Regional Manager Comment Action */}
+                              {canRegionalManagerComment(app) && (
+                                <button
+                                  onClick={() => openCommentModal(app)}
+                                  className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                >
+                                  <Smartphone className="w-3 h-3" />
+                                  Add Comment
+                                </button>
+                              )}
+
+                              {/* Admin Final Approval Action */}
+                              {canAdminApprove(app) && (
+                                <div className="flex flex-col gap-1">
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'admin-approve-current')}
+                                    className="text-green-600 hover:text-green-900 text-xs border border-green-200 px-2 py-1 rounded bg-green-50 flex items-center gap-1"
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                    Approve Current
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'admin-approve-adjusted')}
+                                    className="text-blue-600 hover:text-blue-900 text-xs border border-blue-200 px-2 py-1 rounded bg-blue-50 flex items-center gap-1"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                    Approve Adjusted
+                                  </button>
+                                  <button
+                                    onClick={() => openRecommendationModal(app, 'admin-reject')}
+                                    className="text-red-600 hover:text-red-900 text-xs border border-red-200 px-2 py-1 rounded bg-red-50 flex items-center gap-1"
+                                  >
+                                    <XCircleIcon className="w-3 h-3" />
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* Self-approval warning */}
+                              {checkIfSelfApproval(app) && (
+                                <span className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                  Cannot approve own request
+                                </span>
+                              )}
+
+                              {/* No actions available message */}
+                              {!canBranchManagerApprove(app) && !canRegionalManagerApprove(app) && !canRegionalManagerComment(app) && !canAdminApprove(app) && !checkIfSelfApproval(app) && (
+                                <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                  Awaiting approval
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
 
               {/* Pagination Controls */}
-             {/* Pagination Controls */}
-{totalPages > 1 && (
-  <div className="flex items-center justify-center mt-6 px-4 py-4">
-    {/* Mobile pagination */}
-    <div className="flex items-center justify-between w-full sm:hidden">
-      <button
-        onClick={() => paginate(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <ChevronLeft className="h-4 w-4 mr-1" />
-        Previous
-      </button>
-      <span className="text-xs text-gray-700">
-        Page {currentPage} of {totalPages}
-      </span>
-      <button
-        onClick={() => paginate(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        Next
-        <ChevronRight className="h-4 w-4 ml-1" />
-      </button>
-    </div>
-    
-    {/* Desktop pagination */}
-    <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-3">
-      <p className="text-xs text-gray-700">
-        Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
-        <span className="font-medium">
-          {Math.min(indexOfLastItem, filteredApplications.length)}
-        </span>{' '}
-        of <span className="font-medium">{filteredApplications.length}</span> results
-      </p>
-      <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-        <button
-          onClick={() => paginate(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="sr-only">Previous</span>
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        
-        {/* Page numbers - show limited set for better layout */}
-        {(() => {
-          const maxVisible = 5;
-          let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-          let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-          
-          if (endPage - startPage < maxVisible - 1) {
-            startPage = Math.max(1, endPage - maxVisible + 1);
-          }
-          
-          const pages = [];
-          
-          // First page
-          if (startPage > 1) {
-            pages.push(
-              <button
-                key={1}
-                onClick={() => paginate(1)}
-                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
-              >
-                1
-              </button>
-            );
-            if (startPage > 2) {
-              pages.push(
-                <span key="dots1" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
-                  ...
-                </span>
-              );
-            }
-          }
-          
-          // Visible pages
-          for (let i = startPage; i <= endPage; i++) {
-            pages.push(
-              <button
-                key={i}
-                onClick={() => paginate(i)}
-                className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${
-                  currentPage === i
-                    ? 'z-10 bg-green-50 border-green-500 text-green-600'
-                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                } border`}
-              >
-                {i}
-              </button>
-            );
-          }
-          
-          // Last page
-          if (endPage < totalPages) {
-            if (endPage < totalPages - 1) {
-              pages.push(
-                <span key="dots2" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
-                  ...
-                </span>
-              );
-            }
-            pages.push(
-              <button
-                key={totalPages}
-                onClick={() => paginate(totalPages)}
-                className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
-              >
-                {totalPages}
-              </button>
-            );
-          }
-          
-          return pages;
-        })()}
-        
-        <button
-          onClick={() => paginate(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="sr-only">Next</span>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </nav>
-    </div>
-  </div>
-)}
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center mt-6 px-4 py-4">
+                  {/* Mobile pagination */}
+                  <div className="flex items-center justify-between w-full sm:hidden">
+                    <button
+                      onClick={() => paginate(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </button>
+                    <span className="text-xs text-gray-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => paginate(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </button>
+                  </div>
+
+                  {/* Desktop pagination */}
+                  <div className="hidden sm:flex sm:flex-col sm:items-center sm:gap-3">
+                    <p className="text-xs text-gray-700">
+                      Showing <span className="font-medium">{indexOfFirstItem + 1}</span> to{' '}
+                      <span className="font-medium">
+                        {Math.min(indexOfLastItem, filteredApplications.length)}
+                      </span>{' '}
+                      of <span className="font-medium">{filteredApplications.length}</span> results
+                    </p>
+                    <nav className="inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                      <button
+                        onClick={() => paginate(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Previous</span>
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+
+                      {/* Page numbers - show limited set for better layout */}
+                      {(() => {
+                        const maxVisible = 5;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+                        if (endPage - startPage < maxVisible - 1) {
+                          startPage = Math.max(1, endPage - maxVisible + 1);
+                        }
+
+                        const pages = [];
+
+                        // First page
+                        if (startPage > 1) {
+                          pages.push(
+                            <button
+                              key={1}
+                              onClick={() => paginate(1)}
+                              className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+                            >
+                              1
+                            </button>
+                          );
+                          if (startPage > 2) {
+                            pages.push(
+                              <span key="dots1" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                                ...
+                              </span>
+                            );
+                          }
+                        }
+
+                        // Visible pages
+                        for (let i = startPage; i <= endPage; i++) {
+                          pages.push(
+                            <button
+                              key={i}
+                              onClick={() => paginate(i)}
+                              className={`relative inline-flex items-center px-3 py-2 text-xs font-medium ${currentPage === i
+                                ? 'z-10 bg-green-50 border-green-500 text-green-600'
+                                : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                } border`}
+                            >
+                              {i}
+                            </button>
+                          );
+                        }
+
+                        // Last page
+                        if (endPage < totalPages) {
+                          if (endPage < totalPages - 1) {
+                            pages.push(
+                              <span key="dots2" className="relative inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300">
+                                ...
+                              </span>
+                            );
+                          }
+                          pages.push(
+                            <button
+                              key={totalPages}
+                              onClick={() => paginate(totalPages)}
+                              className="relative inline-flex items-center px-3 py-2 text-xs font-medium bg-white border-gray-300 text-gray-500 hover:bg-gray-50 border"
+                            >
+                              {totalPages}
+                            </button>
+                          );
+                        }
+
+                        return pages;
+                      })()}
+
+                      <button
+                        onClick={() => paginate(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className="relative inline-flex items-center px-2 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <span className="sr-only">Next</span>
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </nav>
+                  </div>
+                </div>
+              )}
             </>
           )}
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Eye, Download, Edit, Briefcase, X, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { GlowButton } from './GlowButton';
 import { StatusBadge } from './StatusBadge';
-import { sendScheduleEmail } from '../../../services/email';
+import { sendEmail } from '../../../services/email';
 import toast from 'react-hot-toast';
 
 interface ApplicationsTableProps {
@@ -79,7 +79,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
     setIsSending(true);
-    
+
     try {
       const emailContent = `
         <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
@@ -90,31 +90,21 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
           <div style="background-color: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0;">
             <p><strong>Date:</strong> ${scheduleData.date}</p>
             <p><strong>Time:</strong> ${scheduleData.time}</p>
-            ${scheduleData.interviewType === 'virtual' ? 
-              `<p><strong>Meeting Link:</strong> ${scheduleData.meetingLink}</p>` : 
-              `<p><strong>Location:</strong> ${scheduleData.location}</p>`}
+            ${scheduleData.interviewType === 'virtual' ?
+          `<p><strong>Meeting Link:</strong> ${scheduleData.meetingLink}</p>` :
+          `<p><strong>Location:</strong> ${scheduleData.location}</p>`}
             ${scheduleData.notes ? `<p><strong>Notes:</strong> ${scheduleData.notes}</p>` : ''}
             <p> follow this link to do interview https://recruit-11b6.onrender.com </p>
           </div>
         </div>
       `;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTION_URL}/dynamic-api`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          to_email: selectedApplicationForSchedule.email,
-          subject: `Interview Scheduled for ${selectedApplicationForSchedule.position}`,
-          html_content: emailContent,
-          from_email: 'noreply@zirahrapp.com' // Use your verified domain
-        })
+      await sendEmail({
+        to: selectedApplicationForSchedule.email,
+        subject: `Interview Scheduled for ${selectedApplicationForSchedule.position}`,
+        html: emailContent,
       });
 
-      if (!response.ok) throw new Error('Failed to send email');
-      
       toast.success('Interview scheduled and email sent!');
       setShowScheduleModal(false);
     } catch (error) {
@@ -128,19 +118,19 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
   const getPageNumbers = () => {
     const pages = [];
     const maxVisiblePages = 5;
-    
+
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
     let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-    
+
     // Adjust if we're at the beginning
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   };
 
@@ -162,7 +152,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
             </div>
           </div>
         </div>
-        
+
         {/* Table Container - Scrollable */}
         <div className="flex-1 overflow-auto min-h-0">
           <table className="w-full text-xs sm:text-xs min-w-[800px]">
@@ -244,9 +234,9 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                   </td>
                   <td className="py-3 sm:py-4 px-2 sm:px-4">
                     <div className="flex justify-center gap-1 flex-col sm:flex-row">
-                      <GlowButton 
-                        variant="secondary" 
-                        icon={Edit} 
+                      <GlowButton
+                        variant="secondary"
+                        icon={Edit}
                         size="sm"
                         onClick={() => setSelectedApplication(application)}
                         className="text-xs whitespace-nowrap"
@@ -254,9 +244,9 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                         <span className="hidden sm:inline">Review</span>
                         <span className="sm:hidden">Rev</span>
                       </GlowButton>
-                      <GlowButton 
-                        variant="secondary" 
-                        icon={Briefcase} 
+                      <GlowButton
+                        variant="secondary"
+                        icon={Briefcase}
                         size="sm"
                         onClick={() => handleOpenScheduleModal(application)}
                         className="text-xs whitespace-nowrap"
@@ -270,7 +260,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
               ))}
             </tbody>
           </table>
-          
+
           {/* Empty state for small tables */}
           {applications.length === 0 && (
             <div className="flex items-center justify-center py-8 sm:py-12">
@@ -288,17 +278,16 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                 <span className="font-medium">{Math.min(endIndex, applications.length)}</span> of{' '}
                 <span className="font-medium">{applications.length}</span> results
               </div>
-              
+
               <div className="flex items-center space-x-1">
                 {/* Previous Button */}
                 <button
                   onClick={goToPreviousPage}
                   disabled={currentPage === 1}
-                  className={`relative inline-flex items-center px-2 py-2 text-xs font-medium rounded-md ${
-                    currentPage === 1
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
-                  }`}
+                  className={`relative inline-flex items-center px-2 py-2 text-xs font-medium rounded-md ${currentPage === 1
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
+                    }`}
                 >
                   <span className="sr-only">Previous</span>
                   <ChevronLeft className="h-4 w-4" />
@@ -309,11 +298,10 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                   <button
                     key={page}
                     onClick={() => goToPage(page)}
-                    className={`relative inline-flex items-center px-3 py-2 text-xs font-medium rounded-md ${
-                      currentPage === page
-                        ? 'z-10 bg-[#47d475] text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#47d475]'
-                        : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
-                    }`}
+                    className={`relative inline-flex items-center px-3 py-2 text-xs font-medium rounded-md ${currentPage === page
+                      ? 'z-10 bg-[#47d475] text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#47d475]'
+                      : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
+                      }`}
                   >
                     {page}
                   </button>
@@ -323,11 +311,10 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                 <button
                   onClick={goToNextPage}
                   disabled={currentPage === totalPages}
-                  className={`relative inline-flex items-center px-2 py-2 text-xs font-medium rounded-md ${
-                    currentPage === totalPages
-                      ? 'text-gray-300 cursor-not-allowed'
-                      : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
-                  }`}
+                  className={`relative inline-flex items-center px-2 py-2 text-xs font-medium rounded-md ${currentPage === totalPages
+                    ? 'text-gray-300 cursor-not-allowed'
+                    : 'text-gray-500 hover:bg-gray-50 focus:z-20 focus:outline-none focus:ring-2 focus:ring-[#47d475]'
+                    }`}
                 >
                   <span className="sr-only">Next</span>
                   <ChevronRight className="h-4 w-4" />
@@ -348,7 +335,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                 <h3 className="text-lg font-semibold text-gray-900">
                   Schedule Interview
                 </h3>
-                <button 
+                <button
                   onClick={() => setShowScheduleModal(false)}
                   className="text-gray-400 hover:text-gray-500 p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
@@ -378,7 +365,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                       type="date"
                       className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475]"
                       value={scheduleData.date}
-                      onChange={(e) => setScheduleData({...scheduleData, date: e.target.value})}
+                      onChange={(e) => setScheduleData({ ...scheduleData, date: e.target.value })}
                       required
                     />
                   </div>
@@ -390,7 +377,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                       type="time"
                       className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475]"
                       value={scheduleData.time}
-                      onChange={(e) => setScheduleData({...scheduleData, time: e.target.value})}
+                      onChange={(e) => setScheduleData({ ...scheduleData, time: e.target.value })}
                       required
                     />
                   </div>
@@ -403,7 +390,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                   <select
                     className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475]"
                     value={scheduleData.duration}
-                    onChange={(e) => setScheduleData({...scheduleData, duration: e.target.value})}
+                    onChange={(e) => setScheduleData({ ...scheduleData, duration: e.target.value })}
                   >
                     <option value="30">30 minutes</option>
                     <option value="45">45 minutes</option>
@@ -424,7 +411,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                         type="radio"
                         className="h-4 w-4 text-[#47d475] focus:ring-[#47d475] border-gray-300"
                         checked={scheduleData.interviewType === 'virtual'}
-                        onChange={() => setScheduleData({...scheduleData, interviewType: 'virtual'})}
+                        onChange={() => setScheduleData({ ...scheduleData, interviewType: 'virtual' })}
                       />
                       <label htmlFor="virtual" className="ml-2 block text-xs text-gray-700">
                         Virtual
@@ -437,7 +424,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                         type="radio"
                         className="h-4 w-4 text-[#47d475] focus:ring-[#47d475] border-gray-300"
                         checked={scheduleData.interviewType === 'in-person'}
-                        onChange={() => setScheduleData({...scheduleData, interviewType: 'in-person'})}
+                        onChange={() => setScheduleData({ ...scheduleData, interviewType: 'in-person' })}
                       />
                       <label htmlFor="in-person" className="ml-2 block text-xs text-gray-700">
                         In-person
@@ -456,7 +443,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                       className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475]"
                       placeholder="Office address or meeting room"
                       value={scheduleData.location}
-                      onChange={(e) => setScheduleData({...scheduleData, location: e.target.value})}
+                      onChange={(e) => setScheduleData({ ...scheduleData, location: e.target.value })}
                       required={scheduleData.interviewType === 'in-person'}
                     />
                   </div>
@@ -470,7 +457,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                       className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475]"
                       placeholder="Zoom, Google Meet, etc."
                       value={scheduleData.meetingLink}
-                      onChange={(e) => setScheduleData({...scheduleData, meetingLink: e.target.value})}
+                      onChange={(e) => setScheduleData({ ...scheduleData, meetingLink: e.target.value })}
                       required={scheduleData.interviewType === 'virtual'}
                     />
                   </div>
@@ -485,7 +472,7 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                     className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#47d475] focus:border-[#47d475] resize-none"
                     placeholder="Any special instructions or agenda items"
                     value={scheduleData.notes}
-                    onChange={(e) => setScheduleData({...scheduleData, notes: e.target.value})}
+                    onChange={(e) => setScheduleData({ ...scheduleData, notes: e.target.value })}
                   />
                 </div>
 
@@ -498,22 +485,21 @@ export const ApplicationsTable = ({ applications, setSelectedApplication }: Appl
                   >
                     Cancel
                   </button>
-                 <button
-                        type="submit"
-                        disabled={isSending}
-                        className={`w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-[#47d475] hover:bg-[#58cc8b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#47d475] transition-colors ${
-                          isSending ? 'opacity-70 cursor-not-allowed' : ''
-                        }`}
-                      >
-                        {isSending ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
-                            Sending...
-                          </>
-                        ) : (
-                          'Schedule Interview'
-                        )}
-                      </button>
+                  <button
+                    type="submit"
+                    disabled={isSending}
+                    className={`w-full sm:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-xs font-medium text-white bg-[#47d475] hover:bg-[#58cc8b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#47d475] transition-colors ${isSending ? 'opacity-70 cursor-not-allowed' : ''
+                      }`}
+                  >
+                    {isSending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                        Sending...
+                      </>
+                    ) : (
+                      'Schedule Interview'
+                    )}
+                  </button>
                 </div>
               </form>
             </div>

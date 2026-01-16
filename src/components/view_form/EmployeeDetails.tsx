@@ -64,21 +64,21 @@ const ViewEmployeePage = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserId(user.id);
-          
+
           // Get user profile with role
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
-          
+
           if (profileError) throw profileError;
-          
+
           if (profile) {
             setUserProfile(profile);
             setUserRole(profile.role || 'employee');
           }
-          
+
           // Check Gmail authorization status
           await checkGmailAuthorization();
         }
@@ -86,7 +86,7 @@ const ViewEmployeePage = () => {
         console.error('Error checking user:', err);
       }
     };
-    
+
     checkUser();
   }, []);
 
@@ -96,7 +96,7 @@ const ViewEmployeePage = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         const { data, error } = await supabase
           .from('employees')
           .select('*')
@@ -105,9 +105,9 @@ const ViewEmployeePage = () => {
 
         if (error) throw error;
         if (!data) throw new Error('Employee not found');
-        
+
         setEmployee(data);
-        
+
         // If employee is already terminated, pre-fill the form
         if (data['Termination Date']) {
           setTerminationDate(data['Termination Date']);
@@ -151,9 +151,9 @@ const ViewEmployeePage = () => {
         .eq('employee_id', id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
-      
+
       setPendingTerminationRequests(data || []);
     } catch (err) {
       console.error('Error fetching termination requests:', err);
@@ -171,10 +171,10 @@ const ViewEmployeePage = () => {
 
       if (settings?.gmail_access_token) {
         // Check if token is expired
-        const isExpired = settings.gmail_token_expiry 
+        const isExpired = settings.gmail_token_expiry
           ? new Date(settings.gmail_token_expiry).getTime() < Date.now()
           : true;
-        
+
         if (!isExpired) {
           setGmailAuthorized(true);
         } else if (settings.gmail_refresh_token) {
@@ -208,7 +208,7 @@ const ViewEmployeePage = () => {
       if (!response.ok) throw new Error('Failed to refresh token');
 
       const data = await response.json();
-      
+
       // Save new token
       const { error } = await supabase
         .from('system_settings')
@@ -232,16 +232,16 @@ const ViewEmployeePage = () => {
   // Check if termination requires approval
   const requiresApproval = () => {
     if (!employee) return false;
-    
+
     // If user is admin, no approval needed
     if (userRole === 'admin') return false;
-    
+
     // Managers require admin approval
-    const isManager = employee['Employee Type']?.toLowerCase().includes('manager') || 
-                      employee['Job Title']?.toLowerCase().includes('manager') ||
-                      employee['Employee Type']?.toLowerCase().includes('director') ||
-                      employee['Job Title']?.toLowerCase().includes('director');
-    
+    const isManager = employee['Employee Type']?.toLowerCase().includes('manager') ||
+      employee['Job Title']?.toLowerCase().includes('manager') ||
+      employee['Employee Type']?.toLowerCase().includes('director') ||
+      employee['Job Title']?.toLowerCase().includes('director');
+
     return isManager;
   };
 
@@ -261,10 +261,10 @@ const ViewEmployeePage = () => {
       setError('User or employee information missing');
       return;
     }
-    
+
     try {
       setIsTerminating(true);
-      
+
       const { data, error } = await supabase
         .from('termination_requests')
         .insert({
@@ -280,16 +280,16 @@ const ViewEmployeePage = () => {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
-      
+
       // Notify admins about pending request
       await notifyAdminsOfPendingRequest(data);
-      
+
       setTerminationSuccess(true);
       setTimeout(() => setTerminationSuccess(false), 3000);
       await fetchTerminationRequests();
-      
+
       // Show success message
       setError(null);
     } catch (err) {
@@ -308,11 +308,11 @@ const ViewEmployeePage = () => {
         .from('profiles')
         .select('email')
         .eq('role', 'admin');
-      
+
       if (admins && admins.length > 0) {
         // Send email notifications to admins
         const adminEmails = admins.map(admin => admin.email).filter(Boolean);
-        
+
         // You can implement email sending to admins here
         console.log('Notifying admins:', adminEmails, 'about request:', request.id);
       }
@@ -325,17 +325,17 @@ const ViewEmployeePage = () => {
   const approveTerminationRequest = async (requestId: string) => {
     try {
       setIsTerminating(true);
-      
+
       // Get the termination request
       const { data: request, error: fetchError } = await supabase
         .from('termination_requests')
         .select('*')
         .eq('id', requestId)
         .single();
-      
+
       if (fetchError) throw fetchError;
       if (!request) throw new Error('Request not found');
-      
+
       // Execute termination
       const { error: updateError } = await supabase
         .from('employees')
@@ -347,9 +347,9 @@ const ViewEmployeePage = () => {
           'updated_at': new Date().toISOString()
         })
         .eq('Employee Number', request.employee_id);
-      
+
       if (updateError) throw updateError;
-      
+
       // Update request status
       const { error: requestError } = await supabase
         .from('termination_requests')
@@ -360,16 +360,16 @@ const ViewEmployeePage = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId);
-      
+
       if (requestError) throw requestError;
-      
+
       // Send termination email
       await sendTerminationEmail(request);
-      
+
       // Refresh data
       await fetchEmployee();
       await fetchTerminationRequests();
-      
+
       setTerminationSuccess(true);
       setTimeout(() => setTerminationSuccess(false), 3000);
       setError(null);
@@ -392,9 +392,9 @@ const ViewEmployeePage = () => {
           updated_at: new Date().toISOString()
         })
         .eq('id', requestId);
-      
+
       if (error) throw error;
-      
+
       await fetchTerminationRequests();
       setTerminationSuccess(true);
       setTimeout(() => setTerminationSuccess(false), 3000);
@@ -406,10 +406,10 @@ const ViewEmployeePage = () => {
   // Direct termination (no approval needed)
   const handleDirectTermination = async () => {
     if (!employee) return;
-    
+
     try {
       setIsTerminating(true);
-      
+
       const { error } = await supabase
         .from('employees')
         .update({
@@ -420,9 +420,9 @@ const ViewEmployeePage = () => {
           'updated_at': new Date().toISOString()
         })
         .eq('Employee Number', employee['Employee Number']);
-      
+
       if (error) throw error;
-      
+
       // Create termination request record for audit trail
       await supabase
         .from('termination_requests')
@@ -439,7 +439,7 @@ const ViewEmployeePage = () => {
           employee_email: employee['Email Address'],
           employee_position: employee['Job Title']
         });
-      
+
       // Send termination email
       await sendTerminationEmail({
         employee_id: employee['Employee Number'],
@@ -450,7 +450,7 @@ const ViewEmployeePage = () => {
         employee_email: employee['Email Address'],
         employee_position: employee['Job Title']
       } as TerminationRequest);
-      
+
       // Update local state
       setEmployee({
         ...employee,
@@ -459,7 +459,7 @@ const ViewEmployeePage = () => {
         'Exit Interview Notes': exitInterview,
         'Status': 'Terminated'
       });
-      
+
       setTerminationSuccess(true);
       setTimeout(() => setTerminationSuccess(false), 3000);
       setError(null);
@@ -477,20 +477,20 @@ const ViewEmployeePage = () => {
       console.warn('Cannot send email: Gmail not authorized or employee not found');
       return;
     }
-    
+
     try {
       setSendingEmail(true);
-      
+
       // Get Gmail access token
       const { data: settings } = await supabase
         .from('system_settings')
         .select('gmail_access_token')
         .single();
-      
+
       if (!settings?.gmail_access_token) {
         throw new Error('Gmail access token not found');
       }
-      
+
       // Create email content
       const terminationLetter = generateTerminationLetter();
       const emailBody = `
@@ -498,7 +498,7 @@ ${emailContent.body}
 
 ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationLetter : ''}
       `.trim();
-      
+
       // Create email message
       const email = [
         'Content-Type: text/plain; charset="UTF-8"\n',
@@ -510,13 +510,13 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
         '\n',
         emailBody
       ].join('');
-      
+
       // Encode email in base64
       const encodedEmail = btoa(email)
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
-      
+
       // Send email using Gmail API
       const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
         method: 'POST',
@@ -528,12 +528,12 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
           raw: encodedEmail
         })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Gmail API error: ${errorData.error?.message || 'Unknown error'}`);
       }
-      
+
       // Log email sent
       await supabase
         .from('email_logs')
@@ -546,16 +546,16 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
           sent_at: new Date().toISOString(),
           sent_by: userId
         });
-      
+
       setEmailSent(true);
       setTimeout(() => {
         setEmailSent(false);
         setShowEmailOptions(false);
       }, 3000);
-      
+
     } catch (err) {
       console.error('Failed to send email:', err);
-      
+
       // Log failed email attempt
       await supabase
         .from('email_logs')
@@ -569,7 +569,7 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
           sent_at: new Date().toISOString(),
           sent_by: userId
         });
-      
+
       setError('Failed to send termination email. Please check Gmail authorization.');
     } finally {
       setSendingEmail(false);
@@ -581,9 +581,9 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
     const redirectUri = `${window.location.origin}/auth/gmail/callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.send';
-    
+
     const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&access_type=offline&prompt=consent`;
-    
+
     window.location.href = authUrl;
   };
 
@@ -608,10 +608,10 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
       if (!response.ok) throw new Error('Failed to get access token');
 
       const data = await response.json();
-      
+
       // Decode token to get expiry
       const decodedToken = jwtDecode(data.id_token);
-      
+
       // Save tokens to database
       const { error } = await supabase
         .from('system_settings')
@@ -624,7 +624,7 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
         });
 
       if (error) throw error;
-      
+
       setGmailAuthorized(true);
       return true;
     } catch (err) {
@@ -636,7 +636,7 @@ ${emailContent.includeLetter ? '\n\n--- Termination Letter ---\n' + terminationL
   // Generate termination letter
   const generateTerminationLetter = () => {
     if (!employee) return '';
-    
+
     const letter = `
 TERMINATION LETTER
 
@@ -665,7 +665,7 @@ Sincerely,
 Human Resources Department
 Company Name
     `;
-    
+
     return letter.trim();
   };
 
@@ -714,10 +714,10 @@ Company Name
   // Reverse termination
   const handleReverseTermination = async () => {
     if (!employee) return;
-    
+
     try {
       setIsTerminating(true);
-      
+
       const { error } = await supabase
         .from('employees')
         .update({
@@ -728,9 +728,9 @@ Company Name
           'updated_at': new Date().toISOString()
         })
         .eq('Employee Number', employee['Employee Number']);
-      
+
       if (error) throw error;
-      
+
       // Update termination request status
       await supabase
         .from('termination_requests')
@@ -742,7 +742,7 @@ Company Name
         })
         .eq('employee_id', employee['Employee Number'])
         .eq('status', 'approved');
-      
+
       // Update local state
       setEmployee({
         ...employee,
@@ -751,7 +751,7 @@ Company Name
         'Exit Interview Notes': null,
         'Status': 'Active'
       });
-      
+
       setTerminationSuccess(true);
       setTimeout(() => setTerminationSuccess(false), 3000);
       setError(null);
@@ -768,7 +768,7 @@ Company Name
       setError('Please fill in all required fields');
       return;
     }
-    
+
     if (requiresApproval()) {
       await submitTerminationRequest();
     } else {
@@ -878,7 +878,7 @@ Company Name
           </div>
           <span className="ml-2 font-medium hidden sm:inline">Back to Employees</span>
         </button>
-        
+
         <div className="flex items-center space-x-4">
           {terminationSuccess && (
             <div className="bg-green-100 text-green-800 px-4 py-2 rounded-md flex items-center">
@@ -886,28 +886,27 @@ Company Name
               {employee['Termination Date'] ? 'Employee terminated successfully' : 'Termination reversed successfully'}
             </div>
           )}
-          
+
           {emailSent && (
             <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-md flex items-center">
               <Mail className="w-4 h-4 mr-2" />
               Termination email sent successfully
             </div>
           )}
-          
+
           {error && (
             <div className="bg-red-100 text-red-800 px-4 py-2 rounded-md">
               {error}
             </div>
           )}
-          
+
           {/* User role badge */}
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-            userRole === 'admin' 
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${userRole === 'admin'
               ? 'bg-purple-100 text-purple-800 border border-purple-200'
               : userRole === 'manager'
-              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-              : 'bg-gray-100 text-gray-800 border border-gray-200'
-          }`}>
+                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                : 'bg-gray-100 text-gray-800 border border-gray-200'
+            }`}>
             {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
           </div>
         </div>
@@ -918,11 +917,10 @@ Company Name
         <div className={`p-6 md:p-8 border-b border-gray-300 ${employee['Termination Date'] ? 'bg-red-50' : 'bg-gradient-to-r from-green-50 to-emerald-50'}`}>
           <div className="flex flex-col md:flex-row md:items-start justify-between">
             <div className="flex items-start space-x-4">
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold ${
-                employee['Termination Date'] 
-                  ? 'bg-red-100 text-red-800' 
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold ${employee['Termination Date']
+                  ? 'bg-red-100 text-red-800'
                   : 'bg-gradient-to-br from-green-100 to-emerald-200 text-emerald-800'
-              }`}>
+                }`}>
                 {employee['First Name']?.[0]}{employee['Last Name']?.[0]}
               </div>
               <div>
@@ -939,11 +937,10 @@ Company Name
                 )}
               </div>
             </div>
-            <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${
-              employee['Termination Date'] 
-                ? 'bg-red-100 text-red-800 border border-red-200' 
+            <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${employee['Termination Date']
+                ? 'bg-red-100 text-red-800 border border-red-200'
                 : 'bg-green-100 text-green-800 border border-green-200'
-            }`}>
+              }`}>
               {employee['Termination Date'] ? 'Inactive' : 'Active'}
             </div>
           </div>
@@ -967,13 +964,13 @@ Company Name
                   </>
                 )}
               </h3>
-              
+
               {employee['Termination Date'] ? (
                 <div className="space-y-4">
                   <DetailRow label="Termination Date" value={format(new Date(employee['Termination Date']), 'MMMM d, yyyy')} />
                   <DetailRow label="Termination Reason" value={employee['Termination Reason'] || 'Not specified'} />
                   <DetailRow label="Exit Interview Notes" value={employee['Exit Interview Notes'] || 'Not conducted'} />
-                  
+
                   <div className="pt-4 mt-4 border-t border-gray-200">
                     <GlowButton
                       onClick={handlePrintTerminationLetter}
@@ -983,7 +980,7 @@ Company Name
                     >
                       Print Termination Letter
                     </GlowButton>
-                    
+
                     {canApproveTerminations() && (
                       <GlowButton
                         onClick={() => setShowConfirm(true)}
@@ -1012,7 +1009,7 @@ Company Name
                       </div>
                     </div>
                   )}
-                  
+
                   {canTerminateEmployees() && (
                     <>
                       <div className="space-y-2">
@@ -1025,7 +1022,7 @@ Company Name
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label className="block text-xs font-medium text-gray-700">Termination Reason *</label>
                         <select
@@ -1045,7 +1042,7 @@ Company Name
                           <option value="Other">Other</option>
                         </select>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label className="block text-xs font-medium text-gray-700">Exit Interview Notes</label>
                         <textarea
@@ -1056,7 +1053,7 @@ Company Name
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         />
                       </div>
-                      
+
                       {/* Approval Required Notice */}
                       {requiresApproval() && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -1071,7 +1068,7 @@ Company Name
                           </div>
                         </div>
                       )}
-                      
+
                       <GlowButton
                         onClick={() => setShowConfirm(true)}
                         icon={Trash2}
@@ -1092,7 +1089,7 @@ Company Name
                 <User className="mr-3 text-emerald-600" size={18} />
                 <span>Employee Summary</span>
               </h3>
-              
+
               <div className="space-y-3">
                 <DetailRow label="Full Name" value={`${employee['First Name']} ${employee['Middle Name'] || ''} ${employee['Last Name']}`.trim()} />
                 <DetailRow label="Job Title" value={employee['Job Title'] || 'N/A'} />
@@ -1100,7 +1097,9 @@ Company Name
                 <DetailRow label="Start Date" value={employee['Start Date'] ? format(new Date(employee['Start Date']), 'MMMM d, yyyy') : 'N/A'} />
                 <DetailRow label="Email" value={employee['Email Address'] || 'N/A'} />
                 <DetailRow label="Phone" value={employee['Phone Number'] || 'N/A'} />
-                <DetailRow label="Basic Salary" value={employee['Basic Salary'] ? `KSh ${Number(employee['Basic Salary']).toLocaleString()}` : 'N/A'} />
+                {userRole === 'admin' && (
+                  <DetailRow label="Basic Salary" value={employee['Basic Salary'] ? `KSh ${Number(employee['Basic Salary']).toLocaleString()}` : 'N/A'} />
+                )}
               </div>
             </div>
 
@@ -1111,7 +1110,7 @@ Company Name
                   <UserCheck className="mr-3 text-yellow-600" size={18} />
                   <span>Pending Approval Requests</span>
                 </h3>
-                
+
                 <div className="space-y-4">
                   {pendingTerminationRequests.map(request => (
                     <div key={request.id} className="bg-white rounded-lg p-4 border border-yellow-100">
@@ -1123,13 +1122,13 @@ Company Name
                             {format(new Date(request.created_at), 'MMM d, yyyy h:mm a')}
                           </p>
                         </div>
-                        
+
                         <div>
                           <p className="text-sm font-medium text-gray-700">Termination Details:</p>
                           <p className="text-sm">Date: {format(new Date(request.termination_date), 'MMM d, yyyy')}</p>
                           <p className="text-sm">Reason: {request.termination_reason}</p>
                         </div>
-                        
+
                         <div>
                           {userRole === 'admin' ? (
                             <div className="flex space-x-2">
@@ -1168,34 +1167,34 @@ Company Name
                 <FileText className="mr-3 text-emerald-600" size={18} />
                 <span>Termination Checklist</span>
               </h3>
-              
+
               <div className="space-y-3">
-                <ChecklistItem 
-                  label="Process final paycheck and benefits" 
+                <ChecklistItem
+                  label="Process final paycheck and benefits"
                   checked={employee['Termination Date'] !== null}
                 />
-                <ChecklistItem 
-                  label="Collect company property (laptop, badge, etc.)" 
+                <ChecklistItem
+                  label="Collect company property (laptop, badge, etc.)"
                   checked={employee['Termination Date'] !== null}
                 />
-                <ChecklistItem 
-                  label="Revoke system access" 
+                <ChecklistItem
+                  label="Revoke system access"
                   checked={employee['Termination Date'] !== null}
                 />
-                <ChecklistItem 
-                  label="Conduct exit interview" 
+                <ChecklistItem
+                  label="Conduct exit interview"
                   checked={!!employee['Exit Interview Notes']}
                 />
-                <ChecklistItem 
-                  label="Complete termination documentation" 
+                <ChecklistItem
+                  label="Complete termination documentation"
                   checked={employee['Termination Date'] !== null}
                 />
-                <ChecklistItem 
-                  label="Send termination email" 
+                <ChecklistItem
+                  label="Send termination email"
                   checked={emailSent}
                 />
               </div>
-              
+
               {/* Gmail Integration Section */}
               {!employee['Termination Date'] && canTerminateEmployees() && (
                 <div className="mt-6 pt-4 border-t border-gray-200">
@@ -1208,7 +1207,7 @@ Company Name
                       {showEmailOptions ? 'Hide Options' : 'Customize'}
                     </button>
                   </div>
-                  
+
                   {showEmailOptions && (
                     <div className="space-y-3 mb-4">
                       <div>
@@ -1216,7 +1215,7 @@ Company Name
                         <input
                           type="text"
                           value={emailContent.subject}
-                          onChange={(e) => setEmailContent({...emailContent, subject: e.target.value})}
+                          onChange={(e) => setEmailContent({ ...emailContent, subject: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs"
                         />
                       </div>
@@ -1225,7 +1224,7 @@ Company Name
                         <textarea
                           rows={4}
                           value={emailContent.body}
-                          onChange={(e) => setEmailContent({...emailContent, body: e.target.value})}
+                          onChange={(e) => setEmailContent({ ...emailContent, body: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-xs"
                         />
                       </div>
@@ -1234,7 +1233,7 @@ Company Name
                           type="checkbox"
                           id="include-letter"
                           checked={emailContent.includeLetter}
-                          onChange={(e) => setEmailContent({...emailContent, includeLetter: e.target.checked})}
+                          onChange={(e) => setEmailContent({ ...emailContent, includeLetter: e.target.checked })}
                           className="mr-2"
                         />
                         <label htmlFor="include-letter" className="text-xs text-gray-700">
@@ -1243,7 +1242,7 @@ Company Name
                       </div>
                     </div>
                   )}
-                  
+
                   {!gmailAuthorized ? (
                     <div className="space-y-3">
                       <div className="text-sm text-gray-600 mb-2">
@@ -1284,11 +1283,11 @@ Company Name
                   <FileText className="mr-3 text-emerald-600" size={18} />
                   <span>Termination Letter Preview</span>
                 </h3>
-                
+
                 <div className="bg-white p-4 rounded border border-gray-200 text-xs whitespace-pre-line h-64 overflow-y-auto">
                   {generateTerminationLetter()}
                 </div>
-                
+
                 <div className="flex space-x-3 mt-4">
                   <GlowButton
                     onClick={handlePrintTerminationLetter}
@@ -1298,7 +1297,7 @@ Company Name
                   >
                     Print Letter
                   </GlowButton>
-                  
+
                   {gmailAuthorized && !emailSent && (
                     <GlowButton
                       onClick={() => sendTerminationEmail({
@@ -1333,9 +1332,8 @@ Company Name
             className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full"
           >
             <div className="text-center">
-              <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${
-                employee['Termination Date'] ? 'bg-blue-100' : 'bg-red-100'
-              }`}>
+              <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${employee['Termination Date'] ? 'bg-blue-100' : 'bg-red-100'
+                }`}>
                 {employee['Termination Date'] ? (
                   <Clock className="h-6 w-6 text-blue-600" />
                 ) : (
@@ -1343,14 +1341,14 @@ Company Name
                 )}
               </div>
               <h3 className="mt-3 text-lg font-medium text-gray-900">
-                {employee['Termination Date'] 
-                  ? 'Reverse Termination?' 
-                  : requiresApproval() 
+                {employee['Termination Date']
+                  ? 'Reverse Termination?'
+                  : requiresApproval()
                     ? 'Submit for Approval?'
                     : 'Confirm Employee Termination'}
               </h3>
               <div className="mt-2 text-xs text-gray-500">
-                {employee['Termination Date'] 
+                {employee['Termination Date']
                   ? 'Are you sure you want to reverse this termination and reinstate the employee?'
                   : requiresApproval()
                     ? `This termination requires admin approval. A request will be submitted for review.`
@@ -1367,11 +1365,10 @@ Company Name
               </button>
               <button
                 type="button"
-                className={`inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:text-xs ${
-                  employee['Termination Date'] 
+                className={`inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:text-xs ${employee['Termination Date']
                     ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
                     : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                }`}
+                  }`}
                 onClick={employee['Termination Date'] ? handleReverseTermination : handleTerminateEmployee}
                 disabled={isTerminating}
               >
@@ -1383,8 +1380,8 @@ Company Name
                     </svg>
                     Processing...
                   </span>
-                ) : employee['Termination Date'] 
-                  ? 'Reverse Termination' 
+                ) : employee['Termination Date']
+                  ? 'Reverse Termination'
                   : requiresApproval()
                     ? 'Submit for Approval'
                     : 'Confirm Termination'}
@@ -1409,9 +1406,8 @@ const DetailRow = ({ label, value }: { label: string; value: string | number | n
 
 const ChecklistItem = ({ label, checked }: { label: string; checked: boolean }) => (
   <div className="flex items-start">
-    <div className={`flex-shrink-0 h-5 w-5 rounded border flex items-center justify-center mt-0.5 mr-2 ${
-      checked ? 'bg-green-100 border-green-500 text-green-600' : 'bg-gray-100 border-gray-300'
-    }`}>
+    <div className={`flex-shrink-0 h-5 w-5 rounded border flex items-center justify-center mt-0.5 mr-2 ${checked ? 'bg-green-100 border-green-500 text-green-600' : 'bg-gray-100 border-gray-300'
+      }`}>
       {checked && (
         <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />

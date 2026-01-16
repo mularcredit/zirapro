@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { 
-  Users, 
-  FileText, 
-  Clock, 
-  Building, 
-  CheckCircle, 
-  XCircle, 
+import { sendEmail } from '../services/email';
+import {
+  Users,
+  FileText,
+  Clock,
+  Building,
+  CheckCircle,
+  XCircle,
   Loader2,
   UserPlus,
   Mail,
@@ -95,38 +96,40 @@ export default function StaffSignupRequests() {
         },
         (payload) => {
           console.log('Real-time email log update:', payload);
-          
+
           // Update local email logs state
           const updatedLogs = new Map(emailLogs);
-          const emailKey = payload.new.email.toLowerCase();
-          
-          updatedLogs.set(emailKey, {
-            ...payload.new,
-            request_id: payload.new.request_id ? payload.new.request_id.toString() : null
-          });
-          
-          setEmailLogs(updatedLogs);
-          
-          // Update webhook stats
-          updateWebhookStats(updatedLogs);
-          
-          // Show notification for new bounces
-          if (payload.new.status === 'bounced' && payload.eventType === 'UPDATE') {
-            toast.error(`Email bounced for ${payload.new.email}: ${payload.new.bounce_reason || 'Unknown reason'}`, {
-              duration: 6000,
-              icon: '🚫'
+          const rawSentTo = payload.new ? (payload.new.sent_to || payload.new.email) : null;
+
+          if (rawSentTo) {
+            const emailKey = rawSentTo.toLowerCase();
+
+            updatedLogs.set(emailKey, {
+              ...payload.new,
+              request_id: payload.new.request_id ? payload.new.request_id.toString() : null
             });
-            
-            // Refresh requests to update UI
-            fetchRequests();
-          }
-          
-          // Show notification for deliveries
-          if (payload.new.status === 'delivered' && payload.eventType === 'UPDATE') {
-            toast.success(`Email delivered to ${payload.new.email}`, {
-              duration: 3000,
-              icon: '✅'
-            });
+
+            setEmailLogs(updatedLogs);
+            updateWebhookStats(updatedLogs);
+
+            // Show notification for new bounces
+            if (payload.new.status === 'bounced' && payload.eventType === 'UPDATE') {
+              toast.error(`Email bounced for ${rawSentTo}: ${payload.new.bounce_reason || 'Unknown reason'}`, {
+                duration: 6000,
+                icon: '🚫'
+              });
+
+              // Refresh requests to update UI
+              fetchRequests();
+            }
+
+            // Show notification for deliveries
+            if (payload.new.status === 'delivered' && payload.eventType === 'UPDATE') {
+              toast.success(`Email delivered to ${rawSentTo}`, {
+                duration: 3000,
+                icon: '✅'
+              });
+            }
           }
         }
       )
@@ -161,11 +164,13 @@ export default function StaffSignupRequests() {
 
       const logsMap = new Map();
       data.forEach(log => {
-        const emailKey = log.email.toLowerCase();
-        logsMap.set(emailKey, {
-          ...log,
-          request_id: log.request_id ? log.request_id.toString() : null
-        });
+        const emailKey = (log.sent_to || log.email || '').toLowerCase();
+        if (emailKey) {
+          logsMap.set(emailKey, {
+            ...log,
+            request_id: log.request_id ? log.request_id.toString() : null
+          });
+        }
       });
       setEmailLogs(logsMap);
       updateWebhookStats(logsMap);
@@ -213,16 +218,16 @@ export default function StaffSignupRequests() {
         .range(from, to);
 
       if (error) throw error;
-      
+
       const requestsWithStringIds = (data || []).map(request => ({
         ...request,
         id: request.id.toString()
       }));
-      
+
       setRequests(requestsWithStringIds);
       setTotalCount(count || 0);
       setSelectedRequests(new Set());
-      
+
       await fetchEmailLogs();
     } catch (error) {
       console.error('Fetch error:', error);
@@ -236,15 +241,15 @@ export default function StaffSignupRequests() {
   const trackEmailSend = async (email, subject, requestId = null, resendId = null) => {
     try {
       const requestIdBigInt = requestId ? parseInt(requestId, 10) : null;
-      
+
       const { data, error } = await supabase
         .from('email_logs')
         .insert([
           {
-            email: email,
+            sent_to: email,
             subject: subject,
             request_id: requestIdBigInt,
-            resend_id: resendId,
+            message_id: resendId,
             status: 'sent',
             sent_at: new Date().toISOString()
           }
@@ -252,7 +257,7 @@ export default function StaffSignupRequests() {
         .select();
 
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         const newLog = data[0];
         const updatedLogs = new Map(emailLogs);
@@ -263,7 +268,7 @@ export default function StaffSignupRequests() {
         setEmailLogs(updatedLogs);
         updateWebhookStats(updatedLogs);
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error tracking email:', error);
@@ -280,13 +285,13 @@ export default function StaffSignupRequests() {
           bounce_reason: bounceReason,
           bounced_at: status === 'bounced' ? new Date().toISOString() : null
         })
-        .eq('email', email)
+        .eq('sent_to', email)
         .order('sent_at', { ascending: false })
         .limit(1)
         .select();
 
       if (error) throw error;
-      
+
       if (data && data.length > 0) {
         const updatedLog = data[0];
         const updatedLogs = new Map(emailLogs);
@@ -297,7 +302,7 @@ export default function StaffSignupRequests() {
         setEmailLogs(updatedLogs);
         updateWebhookStats(updatedLogs);
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error updating email status:', error);
@@ -326,7 +331,7 @@ export default function StaffSignupRequests() {
         if (users && users.users.length > 0) {
           allUsers = [...allUsers, ...users.users];
           page++;
-          
+
           if (users.users.length < perPage) {
             hasMore = false;
           }
@@ -361,10 +366,10 @@ export default function StaffSignupRequests() {
       }
 
       const normalizedEmail = email.toLowerCase();
-      const existingAuthUser = allAuthUsers.find(user => 
+      const existingAuthUser = allAuthUsers.find(user =>
         user.email && user.email.toLowerCase() === normalizedEmail
       );
-      
+
       if (existingAuthUser) {
         return {
           exists: true,
@@ -373,7 +378,7 @@ export default function StaffSignupRequests() {
           message: 'User already has an auth account'
         };
       }
-      
+
       return {
         exists: false,
         type: null,
@@ -396,10 +401,10 @@ export default function StaffSignupRequests() {
     setCheckingExistingUsers(true);
     try {
       setExistingUsersCache(new Map());
-      
+
       const results = [];
       let foundCount = 0;
-      
+
       const allAuthUsers = await getAllAuthUsers();
       const authUserEmails = new Set(
         allAuthUsers
@@ -410,7 +415,7 @@ export default function StaffSignupRequests() {
       for (const request of requests) {
         const normalizedEmail = request.email.toLowerCase();
         const exists = authUserEmails.has(normalizedEmail);
-        const existingUser = allAuthUsers.find(user => 
+        const existingUser = allAuthUsers.find(user =>
           user.email && user.email.toLowerCase() === normalizedEmail
         );
 
@@ -423,14 +428,14 @@ export default function StaffSignupRequests() {
             message: exists ? 'User already has an auth account' : 'User does not exist in system'
           }
         });
-        
+
         if (exists) {
           foundCount++;
         }
       }
-      
+
       setRequests(results);
-      
+
       if (foundCount > 0) {
         toast.success(`Found ${foundCount} users already in the system`);
       } else {
@@ -450,9 +455,9 @@ export default function StaffSignupRequests() {
     try {
       await fetchEmailLogs();
       await fetchRequests();
-      
+
       const bounceCount = webhookStats.bounced;
-      
+
       if (bounceCount > 0) {
         toast.info(`Webhooks detected ${bounceCount} bounced emails`);
       } else {
@@ -472,27 +477,27 @@ export default function StaffSignupRequests() {
     const numbers = '0123456789';
     const symbols = '!@#$%&*';
     const allChars = lowercase + uppercase + numbers + symbols;
-    
+
     let password = '';
-    
+
     password += lowercase[Math.floor(Math.random() * lowercase.length)];
     password += uppercase[Math.floor(Math.random() * uppercase.length)];
     password += numbers[Math.floor(Math.random() * numbers.length)];
     password += symbols[Math.floor(Math.random() * symbols.length)];
-    
+
     for (let i = 4; i < 12; i++) {
       password += allChars[Math.floor(Math.random() * allChars.length)];
     }
-    
+
     return password.split('').sort(() => 0.5 - Math.random()).join('');
   };
 
   const sendWelcomeEmail = async (email, tempPassword, branch, isResend = false, requestId = null) => {
-    try {
-      const subject = isResend 
-        ? `Your Zira HR Login Credentials - Resent`
-        : `Welcome to Zira HR - Staff Account Approved`;
+    const subject = isResend
+      ? `Your Zira HR Login Credentials - Resent`
+      : `Welcome to Zira HR - Staff Account Approved`;
 
+    try {
       const htmlContent = isResend ? `
         <div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #2563eb; text-align: center;">Your Zira HR Login Credentials</h2>
@@ -531,33 +536,16 @@ export default function StaffSignupRequests() {
         </div>
       `;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_FUNCTION_URL}/dynamic-api`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          to_email: email,
-          subject: subject,
-          html_content: htmlContent,
-          from_email: 'zirahr@zirahrapp.com',
-          track_opens: true,
-          track_clicks: true
-        })
+      const result = await sendEmail({
+        to: email,
+        subject: subject,
+        html: htmlContent
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-
-      const result = await response.json();
-      
       await trackEmailSend(
-        email, 
-        subject, 
-        requestId, 
+        email,
+        subject,
+        requestId,
         result.id || null
       );
 
@@ -572,14 +560,14 @@ export default function StaffSignupRequests() {
   const handleProcessRequest = async (requestId, email, branch) => {
     setProcessingId(requestId);
     const tempPassword = generateRandomPassword();
-    
+
     try {
       const existingUserCheck = await checkExistingUser(email);
-      
+
       if (existingUserCheck.exists) {
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
           existingUserCheck.user.id,
-          { 
+          {
             password: tempPassword,
             user_metadata: {
               ...existingUserCheck.user.user_metadata,
@@ -601,7 +589,7 @@ export default function StaffSignupRequests() {
 
         await sendWelcomeEmail(email, tempPassword, branch || 'Main Branch', true, requestId);
         toast.success(`Credentials updated and resent to ${email}`);
-        
+
       } else {
         const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
           email,
@@ -635,7 +623,7 @@ export default function StaffSignupRequests() {
       fetchRequests();
       fetchBranches();
       setExistingUsersCache(new Map());
-      
+
     } catch (error) {
       console.error('Process request error:', error);
       toast.error(`Failed to process request: ${error.message}`);
@@ -677,7 +665,7 @@ export default function StaffSignupRequests() {
           if (existingUser) {
             const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
               existingUser.id,
-              { 
+              {
                 password: tempPassword,
                 user_metadata: {
                   ...existingUser.user_metadata,
@@ -732,9 +720,9 @@ export default function StaffSignupRequests() {
       if (updatedExistingCount > 0) {
         message += ` - ${updatedExistingCount} existing accounts updated`;
       }
-      
+
       toast.success(message);
-      
+
       if (errorCount > 0) {
         toast.error(`Failed to process ${errorCount} request(s)`);
       }
@@ -773,7 +761,7 @@ export default function StaffSignupRequests() {
 
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(templateData);
-    
+
     const colWidths = [
       { wch: 25 },
       { wch: 20 },
@@ -800,7 +788,7 @@ export default function StaffSignupRequests() {
       ['john.doe@company.com', 'Main Branch', 'HR Manager'],
       ['jane.smith@company.com', 'New York Office', 'Sales Executive']
     ];
-    
+
     const wsInstructions = XLSX.utils.aoa_to_sheet(instructionsData);
     const instructionColWidths = [
       { wch: 50 }
@@ -819,31 +807,31 @@ export default function StaffSignupRequests() {
   const parseExcelFile = (file) => {
     setParsingExcel(true);
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
-        
+
         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
-        
+
         const validatedData = jsonData
           .map((row, index) => {
             const email = row['Email'] || row['email'];
             const branch = row['Branch'] || row['branch'] || bulkBranch;
-            
+
             if (!email) {
               console.warn(`Row ${index + 2}: Missing email address`);
               return null;
             }
-            
+
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             if (!emailRegex.test(email)) {
               console.warn(`Row ${index + 2}: Invalid email format - ${email}`);
               return null;
             }
-            
+
             return {
               email: email.trim(),
               branch: branch ? branch.trim() : bulkBranch,
@@ -851,10 +839,10 @@ export default function StaffSignupRequests() {
             };
           })
           .filter(row => row !== null);
-        
+
         setParsedData(validatedData);
         setExcelFile(file);
-        
+
         if (validatedData.length === 0) {
           toast.error('No valid email addresses found in the Excel file');
         } else {
@@ -867,12 +855,12 @@ export default function StaffSignupRequests() {
         setParsingExcel(false);
       }
     };
-    
+
     reader.onerror = () => {
       toast.error('Error reading file');
       setParsingExcel(false);
     };
-    
+
     reader.readAsArrayBuffer(file);
   };
 
@@ -927,7 +915,7 @@ export default function StaffSignupRequests() {
       for (const record of parsedData) {
         try {
           const finalBranch = record.branch || bulkBranch;
-          
+
           if (existingEmails.has(record.email.toLowerCase())) {
             duplicateCount++;
             continue;
@@ -1086,7 +1074,7 @@ export default function StaffSignupRequests() {
   const getEmailStatus = (email) => {
     const log = emailLogs.get(email.toLowerCase());
     if (!log) return null;
-    
+
     return {
       status: log.status,
       bounceReason: log.bounce_reason,
@@ -1181,7 +1169,7 @@ export default function StaffSignupRequests() {
   };
 
   // Filter requests based on bounce filter
-  const filteredRequests = filterBounced 
+  const filteredRequests = filterBounced
     ? requests.filter(request => getEmailStatus(request.email)?.status === 'bounced')
     : requests;
 
@@ -1284,11 +1272,10 @@ export default function StaffSignupRequests() {
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => setFilterBounced(!filterBounced)}
-                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterBounced 
-                    ? 'bg-red-100 text-red-800 border border-red-300' 
-                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-                }`}
+                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterBounced
+                  ? 'bg-red-100 text-red-800 border border-red-300'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                  }`}
               >
                 <AlertCircle className="w-4 h-4" />
                 <span>Show Bounced Only</span>
@@ -1325,7 +1312,7 @@ export default function StaffSignupRequests() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-              
+
               <div className="p-6 space-y-6">
                 {/* Upload Method Selection */}
                 <div>
@@ -1335,11 +1322,10 @@ export default function StaffSignupRequests() {
                   <div className="grid grid-cols-2 gap-4">
                     <button
                       onClick={() => setUploadMethod('excel')}
-                      className={`p-4 border-2 rounded-lg text-center transition-all ${
-                        uploadMethod === 'excel'
-                          ? 'border-purple-500 bg-purple-50 text-purple-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'excel'
+                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
                     >
                       <Table className="w-8 h-8 mx-auto mb-2" />
                       <div className="font-medium">Excel Template</div>
@@ -1347,11 +1333,10 @@ export default function StaffSignupRequests() {
                     </button>
                     <button
                       onClick={() => setUploadMethod('manual')}
-                      className={`p-4 border-2 rounded-lg text-center transition-all ${
-                        uploadMethod === 'manual'
-                          ? 'border-purple-500 bg-purple-50 text-purple-700'
-                          : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                      }`}
+                      className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'manual'
+                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                        }`}
                     >
                       <FileText className="w-8 h-8 mx-auto mb-2" />
                       <div className="font-medium">Manual Entry</div>
@@ -1500,7 +1485,7 @@ mike.wilson@company.com"
                       Download Excel Template
                     </button>
                   </div>
-                  
+
                   <div className="flex items-center space-x-3">
                     <button
                       onClick={() => {
@@ -1516,7 +1501,7 @@ mike.wilson@company.com"
                     <button
                       onClick={uploadMethod === 'excel' ? handleBulkUploadFromExcel : handleManualBulkUpload}
                       disabled={
-                        uploadingBulk || 
+                        uploadingBulk ||
                         parsingExcel ||
                         (uploadMethod === 'excel' && parsedData.length === 0) ||
                         (uploadMethod === 'manual' && !bulkEmails.trim()) ||
@@ -1579,7 +1564,7 @@ mike.wilson@company.com"
                 {selectedBranch === 'all' ? 'Showing all branches' : `Filtered by: ${selectedBranch}`}
               </span>
             </div>
-            
+
             <div className="relative">
               <button
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -1591,10 +1576,9 @@ mike.wilson@company.com"
                     {getSelectedBranchLabel()}
                   </span>
                 </div>
-                <ChevronDown 
-                  className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${
-                    isDropdownOpen ? 'transform rotate-180' : ''
-                  }`} 
+                <ChevronDown
+                  className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
+                    }`}
                 />
               </button>
 
@@ -1616,9 +1600,8 @@ mike.wilson@company.com"
                   <div className="max-h-60 overflow-y-auto">
                     <button
                       onClick={() => handleBranchSelect('all')}
-                      className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${
-                        selectedBranch === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
-                      }`}
+                      className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                        }`}
                     >
                       <div className="flex items-center space-x-2">
                         <Building className="w-4 h-4" />
@@ -1631,9 +1614,8 @@ mike.wilson@company.com"
                         <button
                           key={branch}
                           onClick={() => handleBranchSelect(branch)}
-                          className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${
-                            selectedBranch === branch ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
-                      }`}
+                          className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === branch ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                            }`}
                         >
                           <div className="flex items-center space-x-2">
                             <Building className="w-4 h-4" />
@@ -1685,7 +1667,7 @@ mike.wilson@company.com"
                     {selectedRequests.size === filteredRequests.length ? 'Deselect All' : 'Select All'}
                   </span>
                 </button>
-                
+
                 {selectedRequests.size > 0 && (
                   <span className="text-sm text-gray-600">
                     {selectedRequests.size} request(s) selected
@@ -1725,18 +1707,18 @@ mike.wilson@company.com"
               <FileText className="w-6 h-6 text-gray-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {filterBounced 
-                ? 'No bounced emails found' 
-                : selectedBranch === 'all' 
-                  ? 'No pending requests' 
+              {filterBounced
+                ? 'No bounced emails found'
+                : selectedBranch === 'all'
+                  ? 'No pending requests'
                   : `No pending requests for ${selectedBranch}`
               }
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              {filterBounced 
+              {filterBounced
                 ? 'All emails have been delivered successfully or are still in transit.'
-                : selectedBranch === 'all' 
-                  ? 'All staff signup requests have been processed.' 
+                : selectedBranch === 'all'
+                  ? 'All staff signup requests have been processed.'
                   : `There are no pending requests for the ${selectedBranch} branch.`
               }
             </p>
@@ -1764,19 +1746,18 @@ mike.wilson@company.com"
             {filteredRequests.map((request) => {
               const emailStatus = getEmailStatus(request.email);
               const hasBounced = emailStatus?.status === 'bounced';
-              
+
               return (
-                <div 
-                  key={request.id} 
-                  className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${
-                    selectedRequests.has(request.id) 
-                      ? 'border-blue-500 ring-2 ring-blue-100' 
-                      : hasBounced
+                <div
+                  key={request.id}
+                  className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${selectedRequests.has(request.id)
+                    ? 'border-blue-500 ring-2 ring-blue-100'
+                    : hasBounced
                       ? 'border-red-300 ring-1 ring-red-100'
                       : request.existingUser?.exists
-                      ? 'border-amber-300 ring-1 ring-amber-100'
-                      : 'border-gray-200 hover:shadow-sm'
-                  }`}
+                        ? 'border-amber-300 ring-1 ring-amber-100'
+                        : 'border-gray-200 hover:shadow-sm'
+                    }`}
                 >
                   <div className="p-5">
                     <div className="flex items-start justify-between">
@@ -1793,13 +1774,12 @@ mike.wilson@company.com"
                               <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
                             )}
                           </button>
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0 ${
-                            hasBounced
-                              ? 'bg-gradient-to-r from-red-500 to-pink-600'
-                              : request.existingUser?.exists 
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0 ${hasBounced
+                            ? 'bg-gradient-to-r from-red-500 to-pink-600'
+                            : request.existingUser?.exists
                               ? 'bg-gradient-to-r from-amber-500 to-orange-600'
                               : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                          }`}>
+                            }`}>
                             {hasBounced ? (
                               <AlertCircle className="w-6 h-6 text-white" />
                             ) : request.existingUser?.exists ? (
@@ -1813,13 +1793,12 @@ mike.wilson@company.com"
                           <div className="flex-1">
                             <div className="flex items-center space-x-3">
                               <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                hasBounced
-                                  ? 'bg-red-100 text-red-800 border border-red-200'
-                                  : request.existingUser?.exists
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${hasBounced
+                                ? 'bg-red-100 text-red-800 border border-red-200'
+                                : request.existingUser?.exists
                                   ? 'bg-amber-100 text-amber-800 border border-amber-200'
                                   : 'bg-blue-100 text-blue-800 border border-blue-200'
-                              }`}>
+                                }`}>
                                 {hasBounced ? 'Email Bounced' : request.existingUser?.exists ? 'User Exists' : 'Pending'}
                               </span>
                               {emailStatus && (
@@ -1861,7 +1840,7 @@ mike.wilson@company.com"
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Bounce Details */}
                             {hasBounced && (
                               <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -1903,7 +1882,7 @@ mike.wilson@company.com"
                             </>
                           )}
                         </button>
-                        
+
                         <button
                           onClick={() => handleProcessRequest(request.id, request.email, request.branch)}
                           disabled={processingId === request.id || bulkProcessing || hasBounced}

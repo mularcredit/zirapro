@@ -1,35 +1,64 @@
 // src/hooks/useAppUpdate.ts
 import { useEffect, useState, useCallback } from 'react';
 
-// CHANGE THIS ON EVERY DEPLOYMENT
-// In useAppUpdate.ts
+// CHANGE THIS ON EVERY DEPLOYMENT if not using environment variables
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 
-export function useAppUpdate(): { 
-  updateAvailable: boolean; 
+export function useAppUpdate(): {
+  updateAvailable: boolean;
   refreshApp: () => void;
+  checkForUpdates: () => Promise<void>;
 } {
   const [updateAvailable, setUpdateAvailable] = useState<boolean>(false);
   const VERSION_KEY = 'app_version';
 
-  // 1. Check version on initial load
-  useEffect(() => {
-    const storedVersion = localStorage.getItem(VERSION_KEY);
-    
-    console.log('Version check:', {
-      stored: storedVersion,
-      current: APP_VERSION,
-      match: storedVersion === APP_VERSION
-    });
+  const checkForUpdates = useCallback(async () => {
+    try {
+      // Fetch version.json from the server with a cache-buster
+      const response = await fetch(`/version.json?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
 
-    if (storedVersion !== APP_VERSION) {
-      console.log('Version mismatch - update required');
-      setUpdateAvailable(true);
-      localStorage.setItem(VERSION_KEY, APP_VERSION);
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const remoteVersion = data.version;
+      const storedVersion = localStorage.getItem(VERSION_KEY);
+
+      console.log('Update Check:', {
+        remote: remoteVersion,
+        local: APP_VERSION,
+        stored: storedVersion
+      });
+
+      // If remote version is different from what we are currently running
+      // or what we have stored, an update is available
+      if (remoteVersion && (remoteVersion !== APP_VERSION || remoteVersion !== storedVersion)) {
+        console.log('New version detected:', remoteVersion);
+        setUpdateAvailable(true);
+        // We don't update VERSION_KEY in localStorage yet, 
+        // until the user actually refreshes or we force it
+      }
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
     }
   }, []);
 
-  // 2. Service Worker update detection (your existing code)
+  // 1. Initial check
+  useEffect(() => {
+    checkForUpdates();
+
+    // Also store current version if not set
+    if (!localStorage.getItem(VERSION_KEY)) {
+      localStorage.setItem(VERSION_KEY, APP_VERSION);
+    }
+  }, [checkForUpdates]);
+
+  // 2. Service Worker update detection
   useEffect(() => {
     const handleControllerChange = () => {
       setUpdateAvailable(true);
@@ -37,33 +66,41 @@ export function useAppUpdate(): {
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
-      
-      // Check for updates every 2 minutes
+
+      // Check for updates every 5 minutes
       const interval = setInterval(() => {
+        checkForUpdates();
         navigator.serviceWorker.ready.then((registration) => {
           registration.update();
         });
-      }, 2 * 60 * 1000);
+      }, 5 * 60 * 1000);
 
       return () => {
         clearInterval(interval);
         navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       };
     }
+  }, [checkForUpdates]);
+
+  const refreshApp = useCallback((): void => {
+    console.log('Performing hard refresh...');
+
+    // Update stored version before refresh
+    fetch(`/version.json?t=${Date.now()}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.version) {
+          localStorage.setItem(VERSION_KEY, data.version);
+        }
+      })
+      .catch(() => { })
+      .finally(() => {
+        // Force refresh from server
+        if (typeof window !== 'undefined') {
+          window.location.reload();
+        }
+      });
   }, []);
 
-  const refreshApp = (): void => {
-    console.log('Refreshing app...');
-    // Clear cache for this app
-    if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => caches.delete(name));
-      });
-    }
-    
-    // Force reload without cache
-    window.location.href = window.location.origin + window.location.pathname;
-  };
-
-  return { updateAvailable, refreshApp };
+  return { updateAvailable, refreshApp, checkForUpdates };
 }

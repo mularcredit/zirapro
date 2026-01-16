@@ -1,15 +1,15 @@
 // components/AdvanceApplicationManager.tsx
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Lock, 
-  AlertCircle, 
-  CheckCircle2, 
-  Calendar, 
+import {
+  Lock,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
   Clock,
   Settings,
   Bell,
-  Schedule
+  CalendarClock as Schedule // Using CalendarClock as Schedule replacement
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
@@ -51,7 +51,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
         .single();
 
       if (error) throw error;
-      
+
       if (data) {
         setCurrentSettings(data);
         setIsOpen(data.applications_active);
@@ -69,7 +69,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
 
   const closeAdvanceApplications = async () => {
     setIsClosing(true);
-    
+
     try {
       // 1. Update application status
       const { error: updateError } = await supabase
@@ -94,7 +94,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
       setIsOpen(false);
       await fetchCurrentSettings();
       toast.success('Salary advance applications closed successfully');
-      
+
       if (onStatusChange) {
         onStatusChange();
       }
@@ -109,7 +109,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
 
   const reopenAdvanceApplications = async () => {
     setIsClosing(true);
-    
+
     try {
       const { error: updateError } = await supabase
         .from('salary_advance_settings')
@@ -132,7 +132,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
       setIsOpen(true);
       await fetchCurrentSettings();
       toast.success('Salary advance applications reopened successfully');
-      
+
       if (onStatusChange) {
         onStatusChange();
       }
@@ -241,9 +241,8 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
               <span>{scheduleStatus}</span>
             </div>
           )}
-          <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${
-            isOpen ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}>
+          <div className={`flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium ${isOpen ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
             {isOpen ? (
               <>
                 <CheckCircle2 className="h-3 w-3" />
@@ -267,7 +266,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
             <div className="flex-1">
               <h4 className="text-sm font-medium text-gray-900">Current Status</h4>
               <p className="text-xs text-gray-600 mt-1">
-                {isOpen 
+                {isOpen
                   ? 'Salary advance applications are currently being accepted from staff members.'
                   : 'Salary advance applications are temporarily suspended until the next calendar month.'
                 }
@@ -326,7 +325,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
               )}
             </button>
           )}
-          
+
           <button
             onClick={() => setShowSchedulePanel(!showSchedulePanel)}
             className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 flex items-center"
@@ -347,7 +346,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
               <Schedule className="h-4 w-4 mr-2" />
               Schedule Settings
             </h4>
-            
+
             <div className="space-y-4">
               {/* Schedule Type */}
               <div>
@@ -450,7 +449,7 @@ const AdvanceApplicationManager = ({ onStatusChange }: AdvanceApplicationManager
 
         <div className="text-xs text-gray-500">
           <p>
-            {isOpen 
+            {isOpen
               ? 'Closing applications will prevent staff from submitting new salary advance requests and notify all staff members.'
               : 'Reopening applications will allow staff to submit new salary advance requests immediately.'
             }

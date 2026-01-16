@@ -37,7 +37,9 @@ import {
   LifeBuoy,
   Sparkles,
   TrendingUp,
-  History
+  History,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
@@ -1209,20 +1211,57 @@ const SalaryAdvanceForm = () => {
   const [hasAppliedThisMonth, setHasAppliedThisMonth] = useState(false);
   const [currentMonthApplication, setCurrentMonthApplication] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // Check if current date is between 13th-16th of the month
+  const [advanceSettings, setAdvanceSettings] = useState({
+    isOpen: false,
+    message: ''
+  });
+  // Check if advance applications are open based on settings
   const isAdvancePeriod = () => {
-    const today = new Date();
-    const day = today.getDate();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-
-    // Define application period: 13th to 16th
-    const applicationStart = new Date(currentYear, currentMonth, 13);
-    const applicationEnd = new Date(currentYear, currentMonth, 16);
-
-    return today >= applicationStart && today <= applicationEnd;
+    return advanceSettings.isOpen;
   };
+
+  useEffect(() => {
+    const fetchAdvanceSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('salary_advance_settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+
+        if (data) {
+          setAdvanceSettings({
+            isOpen: data.applications_active,
+            message: data.custom_message || 'Salary advance applications are currently unavailable. The application window will reopen at the beginning of the next calendar month.'
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching advance settings:', error);
+      }
+    };
+
+    fetchAdvanceSettings();
+
+    // Subscribe to settings changes
+    const subscription = supabase
+      .channel('salary_advance_settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'salary_advance_settings'
+        },
+        () => {
+          fetchAdvanceSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
 
   // Get the next application period
   const getNextApplicationPeriod = () => {
@@ -1592,10 +1631,9 @@ const SalaryAdvanceForm = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Check if within application period (13th-16th)
+    // Check if within application period
     if (!isAdvancePeriod()) {
-      const nextPeriod = getNextApplicationPeriod();
-      toast.error(`Salary advance applications are only accepted from 13th to 16th of each month. Next application period: ${nextPeriod.start.toLocaleDateString()} to ${nextPeriod.end.toLocaleDateString()}`);
+      toast.error(advanceSettings.message || 'Salary advance applications are currently closed.');
       setIsSubmitting(false);
       return;
     }
@@ -1841,30 +1879,28 @@ const SalaryAdvanceForm = () => {
         </div>
 
         {/* Application Schedule Information */}
-        {isApplicationPeriod ? (
-          <div className="mt-3 bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
-            <div className="flex">
-              <Calendar className="h-5 w-5 text-green-500" />
-              <div className="ml-3">
-                <p className="text-xs text-green-700">
-                  <strong>Application Period Active:</strong> You can submit salary advance applications from <strong>13th to 16th</strong> of each month.
-                </p>
-              </div>
+        <div className={`mt-3 border-l-4 p-4 rounded-r-lg ${isApplicationPeriod ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`}>
+          <div className="flex">
+            {isApplicationPeriod ? (
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            ) : (
+              <Lock className="h-5 w-5 text-red-500" />
+            )}
+            <div className="ml-3">
+              <p className={`text-xs ${isApplicationPeriod ? 'text-green-700' : 'text-red-700'}`}>
+                {isApplicationPeriod ? (
+                  <>
+                    <strong>Applications Open:</strong> You can currently submit salary advance applications.
+                  </>
+                ) : (
+                  <>
+                    <strong>Applications Closed:</strong> {advanceSettings.message}
+                  </>
+                )}
+              </p>
             </div>
           </div>
-        ) : (
-          <div className="mt-3 bg-white border-l-4 border-blue-500 p-4 rounded-r-lg">
-            <div className="flex">
-              <Calendar className="h-5 w-5 text-blue-500" />
-              <div className="ml-3">
-                <p className="text-xs text-blue-700">
-                  <strong>Application Schedule:</strong> Salary advance applications are only accepted from <strong>13th to 16th</strong> of each month.
-                  {` Next application period: ${nextPeriod.start.toLocaleDateString()} to ${nextPeriod.end.toLocaleDateString()}`}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         {/* Monthly Application Restriction Warning */}
         {hasAppliedThisMonth && (

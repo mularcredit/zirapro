@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Select from 'react-select';
+import { useAppUpdate } from '../sw';
 
 interface LoginProps {
   onLoginSuccess: (selectedTown: string, userRole: string) => void;
@@ -220,11 +221,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     return ADMIN_EMAILS.includes(email.toLowerCase());
   };
 
+  const { checkForUpdates } = useAppUpdate();
+
   // Clear any existing toasts when login page loads
   useEffect(() => {
     // Dismiss all toasts to prevent stale messages from showing
     toast.dismiss();
-  }, []);
+    // Check for updates on login page load
+    checkForUpdates();
+  }, [checkForUpdates]);
 
   // Check for email confirmation redirect
   useEffect(() => {

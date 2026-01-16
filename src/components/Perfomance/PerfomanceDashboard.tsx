@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import toast from 'react-hot-toast';
+import { sendEmail } from '../../services/email';
 //import { TownProps } from '../../lib/supabase';
 // Import table components
 import {
@@ -137,28 +138,28 @@ const GlowButton: React.FC<{
   onClick,
   disabled = false
 }) => {
-  const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
-  const sizeClasses = {
-    sm: "px-3 py-1.5 text-xs",
-    md: "px-4 py-2 text-xs",
-    lg: "px-6 py-3 text-base"
+    const baseClasses = "inline-flex items-center gap-2 rounded-lg font-medium transition-all duration-300 border";
+    const sizeClasses = {
+      sm: "px-3 py-1.5 text-xs",
+      md: "px-4 py-2 text-xs",
+      lg: "px-6 py-3 text-base"
+    };
+    const variantClasses = {
+      primary: "bg-green-100 border-green-300 text-green-600 hover:bg-green-200 hover:border-green-600 hover:text-green-700 hover:shadow-[0_0_20px_rgba(34,197,94,0.5)] focus:shadow-[0_0_25px_rgba(34,197,94,0.6)]",
+      secondary: "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300 hover:border-gray-400",
+      danger: "bg-red-50 border-red-500 text-red-600 hover:bg-red-100 hover:border-red-600 hover:text-red-700 hover:shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+    };
+    return (
+      <button
+        className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={onClick}
+        disabled={disabled}
+      >
+        {Icon && <Icon className="w-4 h-4" />}
+        {children}
+      </button>
+    );
   };
-  const variantClasses = {
-    primary: "bg-green-100 border-green-300 text-green-600 hover:bg-green-200 hover:border-green-600 hover:text-green-700 hover:shadow-[0_0_20px_rgba(34,197,94,0.5)] focus:shadow-[0_0_25px_rgba(34,197,94,0.6)]",
-    secondary: "bg-gray-50 hover:bg-gray-100 text-gray-700 border-gray-300 hover:border-gray-400",
-    danger: "bg-red-50 border-red-500 text-red-600 hover:bg-red-100 hover:border-red-600 hover:text-red-700 hover:shadow-[0_0_20px_rgba(239,68,68,0.5)]"
-  };
-  return (
-    <button
-      className={`${baseClasses} ${sizeClasses[size]} ${variantClasses[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {Icon && <Icon className="w-4 h-4" />}
-      {children}
-    </button>
-  );
-};
 const StatusBadge: React.FC<{ status: string; value?: number }> = ({ status, value }) => {
   const statusClasses = {
     'Excellent': 'bg-green-100 text-green-800',
@@ -195,28 +196,28 @@ const SummaryCard: React.FC<{
   isPercentage = false,
   unit = ''
 }) => {
-  const colorClasses = {
-    red: 'bg-red-100 text-red-600',
-    orange: 'bg-orange-100 text-orange-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600'
-  };
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-2 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
-          <Icon className="w-5 h-5" />
+    const colorClasses = {
+      red: 'bg-red-100 text-red-600',
+      orange: 'bg-orange-100 text-orange-600',
+      green: 'bg-green-100 text-green-600',
+      purple: 'bg-purple-100 text-purple-600'
+    };
+    return (
+      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-3">
+          <div className={`p-2 rounded-lg ${colorClasses[color as keyof typeof colorClasses]}`}>
+            <Icon className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">{label}</p>
+          <p className="text-gray-900 text-xl font-bold">
+            {Math.round(value)}{isPercentage ? '%' : ''}{unit ? ` ${unit}` : ''}
+          </p>
         </div>
       </div>
-      <div className="space-y-1">
-        <p className="text-gray-600 text-xs font-semibold uppercase tracking-wide">{label}</p>
-        <p className="text-gray-900 text-xl font-bold">
-          {Math.round(value)}{isPercentage ? '%' : ''}{unit ? ` ${unit}` : ''}
-        </p>
-      </div>
-    </div>
-  );
-};
+    );
+  };
 const Pagination: React.FC<{
   currentPage: number;
   totalPages: number;
@@ -250,11 +251,11 @@ const Pagination: React.FC<{
         >
           <ChevronLeft className="w-4 h-4" />
         </button>
-       
+
         {startPage > 1 && (
           <span className="px-2 py-1">...</span>
         )}
-       
+
         {pages.map(page => (
           <button
             key={page}
@@ -264,11 +265,11 @@ const Pagination: React.FC<{
             {page}
           </button>
         ))}
-       
+
         {endPage < totalPages && (
           <span className="px-2 py-1">...</span>
         )}
-       
+
         <button
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages}
@@ -298,12 +299,12 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
   const [showFilters, setShowFilters] = useState(false);
   const [expandedEmployee, setExpandedEmployee] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'summary' | 'detailed'>('summary');
- 
+
   // Pagination states
   const [employeePage, setEmployeePage] = useState(1);
   const [branchPage, setBranchPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(9);
- 
+
   // Data states
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -335,11 +336,11 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
   const [emailRecipientType, setEmailRecipientType] = useState<'all' | 'specific'>('all');
   const [selectedEmailRecipient, setSelectedEmailRecipient] = useState<string>('');
   const [emailFrequency, setEmailFrequency] = useState<'once' | 'daily' | 'weekly' | 'monthly'>('once');
-  const [emailOptions, setEmailOptions] = useState<{individual: any[], branch: any[]}>({
+  const [emailOptions, setEmailOptions] = useState<{ individual: any[], branch: any[] }>({
     individual: [],
     branch: []
   });
- 
+
   // Modal states
   const [showEmployeePerfModal, setShowEmployeePerfModal] = useState(false);
   const [showBranchPerfModal, setShowBranchPerfModal] = useState(false);
@@ -353,23 +354,23 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
   // Enhanced string matching function with stricter matching
   const isStringMatch = (str1: string, str2: string): boolean => {
     if (!str1 || !str2) return false;
-   
+
     const normalized1 = normalizeString(str1);
     const normalized2 = normalizeString(str2);
-   
+
     // Direct match
     if (normalized1 === normalized2) return true;
-   
+
     // Check without common suffixes/prefixes
     const cleanStr1 = normalized1.replace(/(branch|office|hq|headquarters)$/, '').trim();
     const cleanStr2 = normalized2.replace(/(branch|office|hq|headquarters)$/, '').trim();
-   
+
     if (cleanStr1 === cleanStr2) return true;
-   
+
     // More specific contains check - only if one string is significantly longer
     if (normalized1.length > normalized2.length + 3 && normalized1.includes(normalized2)) return true;
     if (normalized2.length > normalized1.length + 3 && normalized2.includes(normalized1)) return true;
-   
+
     return false;
   };
   // Load comprehensive area-town and branch mappings
@@ -381,17 +382,17 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
         const { data: employeesData, error: employeesError } = await supabase
           .from('employees')
           .select('Branch, Town, Office');
-       
+
         if (employeesError) {
           console.error("Error loading employees data:", employeesError);
           setDebugInfo(`Error loading employee data: ${employeesError.message}`);
         }
-       
+
         // Load kenya_branches data for official branch-area mapping
         const { data: branchesData, error: branchesError } = await supabase
           .from('kenya_branches')
           .select('"Branch Office", "Area", "Town"');
-       
+
         if (branchesError) {
           console.error("Error loading kenya_branches data:", branchesError);
           setDebugInfo(`Error loading branch data: ${branchesError.message}`);
@@ -413,10 +414,10 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
               if (!areaToTowns[item.Branch].includes(item.Town)) {
                 areaToTowns[item.Branch].push(item.Town);
               }
-             
+
               // Town -> Area mapping
               townToArea[item.Town] = item.Branch;
-             
+
               // Town -> Branches mapping (including Office if different)
               if (!townToBranches[item.Town]) {
                 townToBranches[item.Town] = [];
@@ -427,7 +428,7 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
               if (item.Office && item.Office !== item.Branch && !townToBranches[item.Town].includes(item.Office)) {
                 townToBranches[item.Town].push(item.Office);
               }
-             
+
               // Branch -> Towns mapping
               if (!branchToTowns[item.Branch]) {
                 branchToTowns[item.Branch] = [];
@@ -435,7 +436,7 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
               if (!branchToTowns[item.Branch].includes(item.Town)) {
                 branchToTowns[item.Branch].push(item.Town);
               }
-             
+
               if (item.Office && item.Office !== item.Branch) {
                 if (!branchToTowns[item.Office]) {
                   branchToTowns[item.Office] = [];
@@ -453,10 +454,10 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
             const branchOffice = item['Branch Office'];
             const area = item['Area'];
             const town = item['Town'];
-           
+
             if (branchOffice && area) {
               branchToArea[branchOffice] = area;
-             
+
               // Cross-reference with existing data
               if (town) {
                 if (!areaToTowns[area]) {
@@ -465,16 +466,16 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
                 if (!areaToTowns[area].includes(town)) {
                   areaToTowns[area].push(town);
                 }
-               
+
                 townToArea[town] = area;
-               
+
                 if (!townToBranches[town]) {
                   townToBranches[town] = [];
                 }
                 if (!townToBranches[town].includes(branchOffice)) {
                   townToBranches[town].push(branchOffice);
                 }
-               
+
                 if (!branchToTowns[branchOffice]) {
                   branchToTowns[branchOffice] = [];
                 }
@@ -491,15 +492,15 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
         setTownBranchMapping(townToBranches);
         setBranchTownMapping(branchToTowns);
         setBranchAreaMapping(branchToArea);
-       
+
         setDebugInfo(`Mappings loaded: ${Object.keys(areaToTowns).length} areas, ${Object.keys(townToArea).length} towns, ${Object.keys(branchToArea).length} branches`);
-       
+
         console.log('Area to Towns mapping:', areaToTowns);
         console.log('Town to Area mapping:', townToArea);
         console.log('Town to Branches mapping:', townToBranches);
         console.log('Branch to Towns mapping:', branchToTowns);
         console.log('Branch to Area mapping:', branchToArea);
-       
+
       } catch (error) {
         console.error("Error in loadMappings:", error);
         setDebugInfo(`Error loading mappings: ${error.message}`);
@@ -554,7 +555,7 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
       setIsArea(true);
       const townsInCurrentArea = areaTownMapping[currentTown];
       selectedTownsList.push(...townsInCurrentArea);
-     
+
       // Get all branches that serve towns in this area
       townsInCurrentArea.forEach(town => {
         const branchesForTown = townBranchMapping[town] || [];
@@ -564,30 +565,30 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
           }
         });
       });
-     
+
       // Also add the area itself as a potential branch
       if (!eligibleBranchesList.includes(currentTown)) {
         eligibleBranchesList.push(currentTown);
       }
-     
+
       debugMessage = `"${currentTown}" is an area containing towns: ${townsInCurrentArea.join(', ')}. Eligible branches: ${eligibleBranchesList.join(', ')}`;
     }
     // FIXED: Handle specific town selection - only include the selected town, not siblings
     else {
       setIsArea(false);
-     
+
       // Add ONLY the selected town (not sibling towns)
       selectedTownsList.push(currentTown);
-     
+
       // Get branches that serve this specific town
       const branchesForTown = townBranchMapping[currentTown] || [];
       eligibleBranchesList.push(...branchesForTown);
-     
+
       // Also add the town itself as a potential branch (direct match)
       if (!eligibleBranchesList.includes(currentTown)) {
         eligibleBranchesList.push(currentTown);
       }
-     
+
       // If the town belongs to an area, also include the area as a potential branch
       // But DO NOT include sibling towns - that was the bug!
       if (townAreaMapping[currentTown]) {
@@ -604,16 +605,16 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
     setSelectedTowns(selectedTownsList);
     setEligibleBranches(eligibleBranchesList);
     setDebugInfo(debugMessage);
-   
+
     console.log('Selected towns:', selectedTownsList);
     console.log('Eligible branches:', eligibleBranchesList);
     console.log('=== END TOWN SELECTION DEBUG ===');
-   
+
   }, [currentTown, areaTownMapping, townAreaMapping, townBranchMapping]);
   // Enhanced display name function
   const getDisplayName = () => {
     if (!currentTown || currentTown === '' || currentTown === 'ADMIN_ALL') return "All Towns";
-   
+
     if (isArea) {
       return `${currentTown} Region (${selectedTowns.length} towns)`;
     } else {
@@ -656,7 +657,7 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
     const fetchData = async () => {
       try {
         setLoading(true);
-       
+
         const [
           { data: employeesData },
           { data: branchesData },
@@ -699,7 +700,7 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
   const refreshData = async () => {
     try {
       setLoading(true);
-     
+
       const [
         { data: clientsData },
         { data: loansData },
@@ -734,48 +735,36 @@ const PerformanceDashboard: React.FC<TownProps> = ({ selectedTown, onTownChange,
   // Email sending function using Supabase edge function (same as admin)
   const sendPerformanceEmail = async (email: string, subject: string, htmlContent: string) => {
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dynamic-api`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
-          to_email: email,
-          subject: subject,
-          html_content: htmlContent,
-          from_email: 'performance@zirahrapp.com'
-        })
+      await sendEmail({
+        to: email,
+        subject: subject,
+        html: htmlContent
       });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-      return await response.json();
+      return { success: true };
     } catch (error) {
       console.error('Email sending error:', error);
       throw error;
     }
   };
   // Generate HTML email template
-const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
-  const colors = {
-    primary: '#2563eb',
-    primaryLight: '#dbeafe',
-    secondary: '#4f46e5',
-    success: '#059669',
-    successLight: '#d1fae5',
-    warning: '#d97706',
-    warningLight: '#fef3c7',
-    info: '#0891b2',
-    infoLight: '#cffafe',
-    dark: '#1f2937',
-    light: '#f9fafb',
-    gray: '#6b7280',
-    white: '#ffffff'
-  };
+  const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
+    const colors = {
+      primary: '#2563eb',
+      primaryLight: '#dbeafe',
+      secondary: '#4f46e5',
+      success: '#059669',
+      successLight: '#d1fae5',
+      warning: '#d97706',
+      warningLight: '#fef3c7',
+      info: '#0891b2',
+      infoLight: '#cffafe',
+      dark: '#1f2937',
+      light: '#f9fafb',
+      gray: '#6b7280',
+      white: '#ffffff'
+    };
 
-  const cardStyle = `
+    const cardStyle = `
     background: ${colors.white};
     border-radius: 12px;
     padding: 24px;
@@ -783,7 +772,7 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
     margin-bottom: 24px;
   `;
 
-  const metricRow = `
+    const metricRow = `
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -791,7 +780,7 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
     border-bottom: 1px solid #f3f4f6;
   `;
 
-  const headerStyle = `
+    const headerStyle = `
     font-size: 28px;
     font-weight: 700;
     color: ${colors.dark};
@@ -799,15 +788,15 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
     letter-spacing: -0.025em;
   `;
 
-  const subheaderStyle = `
+    const subheaderStyle = `
     font-size: 18px;
     font-weight: 500;
     color: ${colors.gray};
     margin: 0 0 24px 0;
   `;
 
-  if (type === 'individual') {
-    return `
+    if (type === 'individual') {
+      return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -941,8 +930,8 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
       </body>
       </html>
     `;
-  } else {
-    return `
+    } else {
+      return `
       <!DOCTYPE html>
       <html>
       <head>
@@ -1068,8 +1057,8 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
       </body>
       </html>
     `;
-  }
-};
+    }
+  };
   // Updated email sending function using the same approach as admin
   const handleSendEmails = async () => {
     setEmailSending(true);
@@ -1109,7 +1098,7 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
             const branchManagers = employees.filter(e =>
               e.Branch === perf.branch && e["Job Title"] === "Branch Manager" && e["Work Email"]
             );
-           
+
             for (const manager of branchManagers) {
               const htmlContent = generateEmailTemplate('branch', perf);
               await sendPerformanceEmail(
@@ -1125,7 +1114,7 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
           const branchManager = employees.find(e =>
             e.Branch === selectedEmailRecipient && e["Job Title"] === "Branch Manager" && e["Work Email"]
           );
-         
+
           if (perf && branchManager) {
             const htmlContent = generateEmailTemplate('branch', perf);
             await sendPerformanceEmail(
@@ -1136,7 +1125,7 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
           }
         }
       }
-     
+
       toast.success('Performance reports sent successfully!');
       setShowEmailModal(false);
     } catch (error) {
@@ -1147,32 +1136,32 @@ const generateEmailTemplate = (type: 'individual' | 'branch', data: any) => {
     }
   };
   // Enhanced filtering for employees based on town selection
- // Enhanced filtering for employees based on town selection
-const filteredEmployeesByTown = React.useMemo(() => {
-  console.log('=== EMPLOYEE FILTERING DEBUG ===');
-  console.log('currentTown:', currentTown);
-  console.log('Total employees before filter:', employees.length);
-  // If no town is selected or ADMIN_ALL is selected, show all employees
-  if (!currentTown || currentTown === 'ADMIN_ALL' || currentTown === '') {
-    console.log('Showing all employees (no town filter)');
-    return employees;
-  }
-  // SIMPLIFIED: Direct filtering by employee's Branch or Town
-  const filtered = employees.filter(employee => {
-    // Check if employee's branch or town matches the selected town
-    const branchMatch = employee.Branch &&
-                       normalizeString(employee.Branch) === normalizeString(currentTown);
-    const townMatch = employee.Town &&
-                     normalizeString(employee.Town) === normalizeString(currentTown);
-   
-    return branchMatch || townMatch;
-  });
- 
-  console.log(`Filtered ${employees.length} employees down to ${filtered.length} for town "${currentTown}"`);
-  console.log('=== END EMPLOYEE FILTERING DEBUG ===');
- 
-  return filtered;
-}, [employees, currentTown]);
+  // Enhanced filtering for employees based on town selection
+  const filteredEmployeesByTown = React.useMemo(() => {
+    console.log('=== EMPLOYEE FILTERING DEBUG ===');
+    console.log('currentTown:', currentTown);
+    console.log('Total employees before filter:', employees.length);
+    // If no town is selected or ADMIN_ALL is selected, show all employees
+    if (!currentTown || currentTown === 'ADMIN_ALL' || currentTown === '') {
+      console.log('Showing all employees (no town filter)');
+      return employees;
+    }
+    // SIMPLIFIED: Direct filtering by employee's Branch or Town
+    const filtered = employees.filter(employee => {
+      // Check if employee's branch or town matches the selected town
+      const branchMatch = employee.Branch &&
+        normalizeString(employee.Branch) === normalizeString(currentTown);
+      const townMatch = employee.Town &&
+        normalizeString(employee.Town) === normalizeString(currentTown);
+
+      return branchMatch || townMatch;
+    });
+
+    console.log(`Filtered ${employees.length} employees down to ${filtered.length} for town "${currentTown}"`);
+    console.log('=== END EMPLOYEE FILTERING DEBUG ===');
+
+    return filtered;
+  }, [employees, currentTown]);
   // Enhanced filtering for branches based on town selection
   const filteredBranchesByTown = React.useMemo(() => {
     console.log('=== BRANCH FILTERING DEBUG ===');
@@ -1185,7 +1174,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
       console.log('Showing all branches (no town filter)');
       return branches;
     }
-   
+
     if (eligibleBranches.length === 0 && selectedTowns.length === 0) {
       console.log('No eligible branches or towns found, returning empty result');
       return [];
@@ -1198,7 +1187,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         console.log('Branch has no office or town:', branch.id);
         return false;
       }
-     
+
       // Check if branch office matches any eligible branch
       if (branch["Branch Office"] && eligibleBranches.length > 0) {
         const branchMatches = eligibleBranches.some(eligibleBranch => {
@@ -1211,7 +1200,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         });
         if (branchMatches) shouldInclude = true;
       }
-     
+
       // Check if branch town matches any selected town
       if (branch["Town"] && selectedTowns.length > 0) {
         const townMatches = selectedTowns.some(town => {
@@ -1224,74 +1213,74 @@ const filteredEmployeesByTown = React.useMemo(() => {
         });
         if (townMatches) shouldInclude = true;
       }
-     
+
       if (shouldInclude) {
         console.log(`✓ Including branch: ${branch.id} - ${branch["Branch Office"]} (Reason: ${matchReason})`);
       } else {
         console.log(`✗ Excluding branch: ${branch.id} - ${branch["Branch Office"]} (Branch: ${branch["Branch Office"]}, Town: ${branch["Town"]})`);
       }
-     
+
       return shouldInclude;
     });
-   
+
     console.log(`Filtered ${branches.length} branches down to ${filtered.length} for town "${currentTown}"`);
     console.log('=== END BRANCH FILTERING DEBUG ===');
-   
+
     return filtered;
   }, [branches, currentTown, selectedTowns, eligibleBranches]);
   // Process data to create employee performance objects (now using filtered employees)
   const processedEmployees = filteredEmployeesByTown.map(employee => {
     const employeeClients = clients.filter(client => client.loan_officer === employee["Employee Number"]);
     const employeeLoans = loans.filter(loan => loan.loan_officer === employee["Employee Number"]);
-   
+
     const latestPerformance = employeePerformance
       .filter(perf => perf.employee_id === employee["Employee Number"])
       .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())[0];
-   
+
     const employeeTargets = performanceTargets
       .filter(target => target.employee_id === employee["Employee Number"] && target.is_active);
-   
+
     const disbursementTarget = employeeTargets.find(t => t.target_type === 'disbursement')?.target_value || 0;
     const loansDisbursed = employeeLoans.filter(loan =>
       loan.status === 'Disbursed' || loan.status === 'Active' || loan.status === 'Completed'
     ).length;
-   
+
     const collectionTarget = employeeTargets.find(t => t.target_type === 'collection')?.target_value || 0;
     const totalPortfolio = employeeLoans.reduce((sum, loan) => sum + (loan.amount_disbursed || 0), 0);
     const outstandingBalance = employeeLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
     const collectedAmount = totalPortfolio - outstandingBalance;
     const collectionRate = totalPortfolio > 0 ? (collectedAmount / totalPortfolio) * 100 : 0;
-   
+
     const parLoans = employeeLoans.filter(loan => loan.par_days > 0);
     const parAmount = parLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
     const parRate = totalPortfolio > 0 ? (parAmount / totalPortfolio) * 100 : 0;
-   
+
     const fieldVisitsTarget = employeeTargets.find(t => t.target_type === 'field_visits')?.target_value || 0;
     const fieldVisits = clientVisits
       .filter(visit => visit.employee_id === employee["Employee Number"])
       .length;
-   
+
     const attendanceTarget = employeeTargets.find(t => t.target_type === 'attendance')?.target_value || 0;
     const attendanceDays = latestPerformance?.attendance_days || 0;
     const workingDays = latestPerformance?.working_days || 1;
     const attendanceRate = (attendanceDays / workingDays) * 100;
-   
+
     const tatAverage = latestPerformance?.tat_average || 0;
-   
+
     // Use employee's branch/town information directly instead of trying to match with filtered branches
-    const employeeBranch =  employee.Town || employee.Branch || 'Unknown';
+    const employeeBranch = employee.Town || employee.Branch || 'Unknown';
     const dailyDisbursementTarget = employeeTargets
       .find(t => t.target_type === 'disbursement' && t.period === 'daily')?.target_value || 0;
     const weeklyDisbursementTarget = employeeTargets
       .find(t => t.target_type === 'disbursement' && t.period === 'weekly')?.target_value || 0;
-   
+
     const today = new Date().toISOString().split('T')[0];
     const todayDisbursements = employeeLoans.filter(loan =>
       loan.disbursement_date === today
     ).length;
-   
+
     const thisWeekDisbursements = Math.floor(employeeLoans.length / 4);
-   
+
     return {
       id: employee["Employee Number"],
       name: `${employee["First Name"]} ${employee["Last Name"]}`,
@@ -1337,43 +1326,43 @@ const filteredEmployeesByTown = React.useMemo(() => {
     const branchEmployees = filteredEmployeesByTown.filter(employee => {
       // Use the same matching logic as the town filtering
       return isStringMatch(employee.Branch || '', branch["Branch Office"] || '') ||
-             isStringMatch(employee.Town || '', branch["Town"] || '');
+        isStringMatch(employee.Town || '', branch["Town"] || '');
     }).map(employee => {
       // Calculate performance metrics for each employee
       const employeeClients = clients.filter(client => client.loan_officer === employee["Employee Number"]);
       const employeeLoans = loans.filter(loan => loan.loan_officer === employee["Employee Number"]);
-     
+
       const loansDisbursed = employeeLoans.filter(loan =>
         loan.status === 'Disbursed' || loan.status === 'Active' || loan.status === 'Completed'
       ).length;
-     
+
       const totalPortfolio = employeeLoans.reduce((sum, loan) => sum + (loan.amount_disbursed || 0), 0);
       const outstandingBalance = employeeLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
       const collectedAmount = totalPortfolio - outstandingBalance;
       const collectionRate = totalPortfolio > 0 ? (collectedAmount / totalPortfolio) * 100 : 0;
-     
+
       const parLoans = employeeLoans.filter(loan => loan.par_days > 0);
       const parAmount = parLoans.reduce((sum, loan) => sum + (loan.outstanding_balance || 0), 0);
       const parRate = totalPortfolio > 0 ? (parAmount / totalPortfolio) * 100 : 0;
-     
+
       const fieldVisits = clientVisits
         .filter(visit => visit.employee_id === employee["Employee Number"])
         .length;
-     
+
       const latestPerformance = employeePerformance
         .filter(perf => perf.employee_id === employee["Employee Number"])
         .sort((a, b) => new Date(b.month).getTime() - new Date(a.month).getTime())[0];
-     
+
       const attendanceDays = latestPerformance?.attendance_days || 0;
       const workingDays = latestPerformance?.working_days || 1;
       const attendanceRate = (attendanceDays / workingDays) * 100;
-     
+
       const tatAverage = latestPerformance?.tat_average || 0;
-     
+
       const employeeTargets = performanceTargets
         .filter(target => target.employee_id === employee["Employee Number"] && target.is_active);
       const disbursementTarget = employeeTargets.find(t => t.target_type === 'disbursement')?.target_value || 0;
-     
+
       return {
         loansDisbursed,
         target: disbursementTarget,
@@ -1385,7 +1374,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
       };
     });
     const count = branchEmployees.length;
-   
+
     if (count === 0) return {
       branch: branch["Branch Office"] || branch.id,
       loansDisbursed: 0,
@@ -1412,26 +1401,26 @@ const filteredEmployeesByTown = React.useMemo(() => {
     const matchesBranch = selectedBranch === 'all' || isStringMatch(employee.branch, selectedBranch);
     const matchesRole = selectedRole === 'All Roles' || isStringMatch(employee.role, selectedRole);
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase());
-   
+
     return matchesBranch && matchesRole && matchesSearch;
   });
- const filteredBranches = filteredBranchesByTown.filter(branch => {
-  const branchName = branch["Branch Office"] || '';
-  const matchesBranch = selectedBranch === 'all' || isStringMatch(branchName, selectedBranch);
-  const matchesSearch = branchName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                       branch["Area"]?.toLowerCase().includes(searchTerm.toLowerCase());
-  
-  return matchesBranch && matchesSearch;
-});
+  const filteredBranches = filteredBranchesByTown.filter(branch => {
+    const branchName = branch["Branch Office"] || '';
+    const matchesBranch = selectedBranch === 'all' || isStringMatch(branchName, selectedBranch);
+    const matchesSearch = branchName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      branch["Area"]?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    return matchesBranch && matchesSearch;
+  });
   // Pagination calculations
   const totalEmployeePages = Math.ceil(filteredEmployees.length / rowsPerPage);
   const totalBranchPages = Math.ceil(filteredBranches.length / rowsPerPage);
- 
+
   const paginatedEmployees = filteredEmployees.slice(
     (employeePage - 1) * rowsPerPage,
     employeePage * rowsPerPage
   );
- 
+
   const paginatedBranches = filteredBranches.slice(
     (branchPage - 1) * rowsPerPage,
     branchPage * rowsPerPage
@@ -1459,17 +1448,17 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('clients')
         .update(updatedClient)
         .eq('client_id', updatedClient.client_id);
-     
+
       if (error) throw error;
       setClients(prevClients =>
         prevClients.map(c =>
           c.client_id === updatedClient.client_id ? updatedClient : c
         )
       );
-     
+
       await refreshData();
       handleCloseModal();
-     
+
     } catch (error) {
       console.error('Error saving client:', error);
     }
@@ -1480,7 +1469,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('clients')
         .delete()
         .eq('client_id', id);
-     
+
       if (error) throw error;
       setClients(clients.filter(c => c.client_id !== id));
       await refreshData();
@@ -1495,7 +1484,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('loans')
         .update(updatedLoan)
         .eq('loan_id', updatedLoan.loan_id);
-     
+
       if (error) throw error;
       setLoans(loans.map(l => l.loan_id === updatedLoan.loan_id ? updatedLoan : l));
       await refreshData();
@@ -1509,7 +1498,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('loans')
         .delete()
         .eq('loan_id', id);
-     
+
       if (error) throw error;
       setLoans(loans.filter(l => l.loan_id !== id));
       await refreshData();
@@ -1524,7 +1513,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('loan_payments')
         .update(updatedPayment)
         .eq('payment_id', updatedPayment.payment_id);
-     
+
       if (error) throw error;
       setLoanPayments(loanPayments.map(p => p.payment_id === updatedPayment.payment_id ? updatedPayment : p));
       await refreshData();
@@ -1538,7 +1527,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('loan_payments')
         .delete()
         .eq('payment_id', id);
-     
+
       if (error) throw error;
       setLoanPayments(loanPayments.filter(p => p.payment_id !== id));
       await refreshData();
@@ -1580,7 +1569,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         overdue_loans: Number(updatedPerf.overdue_loans) || 0,
       };
       console.log('Updating performance with ID:', stringId);
-     
+
       const { error } = await supabase
         .from('employee_performance')
         .update(safePerf)
@@ -1593,7 +1582,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
       setEmployeePerformance(
         employeePerformance.map(p => p.id === stringId ? safePerf : p)
       );
-     
+
       await refreshData();
       console.log('Performance updated successfully');
     } catch (error) {
@@ -1612,7 +1601,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('employee_performance')
         .delete()
         .eq('id', id);
-     
+
       if (error) throw error;
       setEmployeePerformance(employeePerformance.filter(p => p.id !== id));
       await refreshData();
@@ -1628,7 +1617,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('branch_performance')
         .update(updatedPerf)
         .eq('id', updatedPerf.id);
-     
+
       if (error) throw error;
       setBranchPerformance(branchPerformance.map(p => p.id === updatedPerf.id ? updatedPerf : p));
       await refreshData();
@@ -1642,7 +1631,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('branch_performance')
         .delete()
         .eq('id', id);
-     
+
       if (error) throw error;
       setBranchPerformance(branchPerformance.filter(p => p.id !== id));
       await refreshData();
@@ -1657,7 +1646,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('performance_targets')
         .update(updatedTarget)
         .eq('id', updatedTarget.id);
-     
+
       if (error) throw error;
       setPerformanceTargets(performanceTargets.map(t => t.id === updatedTarget.id ? updatedTarget : t));
       await refreshData();
@@ -1671,7 +1660,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('performance_targets')
         .delete()
         .eq('id', id);
-     
+
       if (error) throw error;
       setPerformanceTargets(performanceTargets.filter(t => t.id !== id));
       await refreshData();
@@ -1686,7 +1675,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('client_visits')
         .update(updatedVisit)
         .eq('visit_id', updatedVisit.visit_id);
-     
+
       if (error) throw error;
       setClientVisits(clientVisits.map(v => v.visit_id === updatedVisit.visit_id ? updatedVisit : v));
       await refreshData();
@@ -1701,7 +1690,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
         .from('client_visits')
         .delete()
         .eq('visit_id', numericId);
-     
+
       if (error) throw error;
       setClientVisits(clientVisits.filter(v => v.visit_id !== numericId));
       await refreshData();
@@ -1709,7 +1698,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
       console.error('Error deleting client visit:', error);
     }
   };
- 
+
   if (loading) {
     return (
       <div className="p-4 flex justify-center items-center h-screen">
@@ -1731,11 +1720,11 @@ const filteredEmployeesByTown = React.useMemo(() => {
                 {getDisplayName()}
               </span>
             </p>
-           
+
             {/* Enhanced Debug info with branch coverage */}
             <div className="text-xs text-gray-400 mt-2 space-y-1">
               <div>Coverage: {filteredEmployees.length} employees, {filteredBranches.length} branches</div>
-             
+
             </div>
           </div>
           <div className="flex flex-wrap gap-2 w-full md:w-auto">
@@ -1752,88 +1741,88 @@ const filteredEmployeesByTown = React.useMemo(() => {
       </div>
       {/* Filters Section */}
       {showFilters && (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h2 className="text-lg font-semibold text-gray-900 mb-4">Performance Filters</h2>
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Branch Location</label>
-        <select
-          value={selectedBranch}
-          onChange={(e) => {
-            setSelectedBranch(e.target.value);
-            setEmployeePage(1);
-          }}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
-        >
-          <option value="all">All Branches</option>
-          {filteredBranchesByTown.map(branch => {
-            const branchName = branch["Branch Office"] || '';
-            return (
-              <option
-                key={branch.id}
-                value={branchName} // Use the actual branch name instead of lowercase
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Performance Filters</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Branch Location</label>
+              <select
+                value={selectedBranch}
+                onChange={(e) => {
+                  setSelectedBranch(e.target.value);
+                  setEmployeePage(1);
+                }}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
               >
-                {branchName}
-              </option>
-            );
-          })}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Employee Role</label>
-        <select
-          value={selectedRole}
-          onChange={(e) => {
-            setSelectedRole(e.target.value);
-            setEmployeePage(1);
-          }}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
-        >
-          {roles.map(role => (
-            <option key={role} value={role}>{role}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Rows per page</label>
-        <select
-          value={rowsPerPage}
-          onChange={handleRowsPerPageChange}
-          className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
-        >
-          {[5, 10, 20, 50].map(num => (
-            <option key={num} value={num}>{num}</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search</label>
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
+                <option value="all">All Branches</option>
+                {filteredBranchesByTown.map(branch => {
+                  const branchName = branch["Branch Office"] || '';
+                  return (
+                    <option
+                      key={branch.id}
+                      value={branchName} // Use the actual branch name instead of lowercase
+                    >
+                      {branchName}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Employee Role</label>
+              <select
+                value={selectedRole}
+                onChange={(e) => {
+                  setSelectedRole(e.target.value);
+                  setEmployeePage(1);
+                }}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              >
+                {roles.map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Rows per page</label>
+              <select
+                value={rowsPerPage}
+                onChange={handleRowsPerPageChange}
+                className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-green-100 focus:border-green-500"
+              >
+                {[5, 10, 20, 50].map(num => (
+                  <option key={num} value={num}>{num}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wide">Search</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder={selectedTab === 'individual' ? "Search employees..." : "Search branches..."}
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setEmployeePage(1);
+                    setBranchPage(1);
+                  }}
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-100 focus:border-green-500 text-xs"
+                />
+              </div>
+            </div>
           </div>
-          <input
-            type="text"
-            placeholder={selectedTab === 'individual' ? "Search employees..." : "Search branches..."}
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setEmployeePage(1);
-              setBranchPage(1);
-            }}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-100 focus:border-green-500 text-xs"
-          />
         </div>
-      </div>
-    </div>
-  </div>
-)}
+      )}
       {/* Email Modal */}
       {showEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4">Send Performance Report</h2>
-           
+
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-medium mb-1">Report Type</label>
@@ -1862,7 +1851,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                   <option value="all">All {emailType === 'individual' ? 'Employees' : 'Branches'}</option>
                   <option value="specific">Specific {emailType === 'individual' ? 'Employee' : 'Branch'}</option>
                 </select>
-               
+
                 {emailRecipientType === 'specific' && (
                   <Select
                     options={emailOptions[emailType]}
@@ -1935,21 +1924,19 @@ const filteredEmployeesByTown = React.useMemo(() => {
                 <div className="inline-flex rounded-full bg-gray-100 p-1">
                   <button
                     onClick={() => setViewMode("summary")}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
-                      viewMode === "summary"
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${viewMode === "summary"
                         ? "bg-white text-green-600 shadow-sm"
                         : "text-gray-600 hover:text-gray-800"
-                    }`}
+                      }`}
                   >
                     Summary
                   </button>
                   <button
                     onClick={() => setViewMode("detailed")}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${
-                      viewMode === "detailed"
+                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all duration-200 ${viewMode === "detailed"
                         ? "bg-white text-green-600 shadow-sm"
                         : "text-gray-600 hover:text-gray-800"
-                    }`}
+                      }`}
                   >
                     Detailed
                   </button>
@@ -1982,7 +1969,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
               Send Reports
             </GlowButton>
           </div>
-         
+
           {viewMode === 'summary' ? (
             <>
               <div className="overflow-x-auto">
@@ -2003,7 +1990,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                     {paginatedEmployees.map((employee) => {
                       const activeClients = employee.clients.filter(c => c.status === 'active').length;
                       const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
-                     
+
                       return (
                         <React.Fragment key={employee.id}>
                           <tr className="border-b border-gray-300 hover:bg-gray-50">
@@ -2077,7 +2064,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                               </div>
                             </td>
                           </tr>
-                         
+
                           {expandedEmployee === employee.id && (
                             <tr className="bg-gray-50">
                               <td colSpan={8} className="px-4 py-4">
@@ -2133,7 +2120,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                       </div>
                                     </div>
                                   </div>
-                                 
+
                                   {/* Client Portfolio Card */}
                                   <div className="border border-gray-200 rounded-lg p-4">
                                     <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
@@ -2159,7 +2146,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                       </div>
                                     </div>
                                   </div>
-                                 
+
                                   {/* Collection Metrics Card */}
                                   <div className="border border-gray-200 rounded-lg p-4">
                                     <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
@@ -2228,7 +2215,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                   );
                   const activeClients = employee.clients.filter(c => c.status === 'active').length;
                   const clientRatio = employee.clients.length > 0 ? Math.round((activeClients / employee.clients.length) * 100) : 0;
-                 
+
                   return (
                     <div key={employee.id} className="border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
                       <div className="p-5 bg-white">
@@ -2242,7 +2229,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                           </div>
                           <StatusBadge status="PAR" value={employee.par} />
                         </div>
-                       
+
                         <div className="space-y-4">
                           {/* Disbursement Targets */}
                           <div>
@@ -2264,7 +2251,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                               </div>
                             </div>
                           </div>
-                         
+
                           {/* Client Portfolio */}
                           <div>
                             <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
@@ -2282,7 +2269,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                               </div>
                             </div>
                           </div>
-                         
+
                           {/* Collection Metrics */}
                           <div>
                             <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1">
@@ -2323,7 +2310,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                           </div>
                         </div>
                       </div>
-                     
+
                       <div className="bg-gray-50 px-5 py-3 border-t border-gray-200 flex justify-between items-center">
                         <div className="text-xs text-gray-600">
                           Last updated: Today
@@ -2380,7 +2367,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                   collection: 0,
                   tat: 0
                 };
-               
+
                 return (
                   <div key={branch.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-2">
@@ -2389,7 +2376,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                       </h3>
                       <p className="text-gray-600 text-xs">{branch["Area"]}</p>
                     </div>
-                   
+
                     <div className="space-y-3 mt-4">
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Loan Disbursement Rate</p>
@@ -2400,17 +2387,17 @@ const filteredEmployeesByTown = React.useMemo(() => {
                           </span>
                         </div>
                       </div>
-                     
+
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Portfolio at Risk (PAR)</p>
                         <StatusBadge status="PAR" value={branchData.par} />
                       </div>
-                     
+
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Collection Efficiency</p>
                         <StatusBadge status="Collection" value={branchData.collection} />
                       </div>
-                     
+
                       <div>
                         <p className="text-xs text-gray-600 mb-1">Average TAT</p>
                         <div className={`text-xs font-medium ${branchData.tat < 36 ? 'text-green-600' : branchData.tat < 48 ? 'text-yellow-600' : 'text-red-600'}`}>
@@ -2418,7 +2405,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                         </div>
                       </div>
                     </div>
-                   
+
                     <div className="mt-4 pt-4 border-t border-gray-200 flex justify-end">
                       <GlowButton variant="secondary" size="sm">View Details</GlowButton>
                     </div>
@@ -2465,7 +2452,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                     };
                     const disbursementRate = branchData.target > 0 ?
                       Math.round(branchData.loansDisbursed / branchData.target * 100) : 0;
-                   
+
                     return (
                       <React.Fragment key={branch["Branch Office"] || branch.id}>
                         <tr className="border-b border-gray-300 hover:bg-gray-50">
@@ -2516,7 +2503,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                             </div>
                           </td>
                         </tr>
-                       
+
                         {expandedBranch === (branch["Branch Office"] || branch.id) && (
                           <tr className="bg-gray-50">
                             <td colSpan={8} className="px-4 py-4">
@@ -2552,7 +2539,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                     </div>
                                   </div>
                                 </div>
-                               
+
                                 {/* Staff Metrics Card */}
                                 <div className="border border-gray-200 rounded-lg p-4">
                                   <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
@@ -2584,7 +2571,7 @@ const filteredEmployeesByTown = React.useMemo(() => {
                                     </div>
                                   </div>
                                 </div>
-                               
+
                                 {/* Portfolio Metrics Card */}
                                 <div className="border border-gray-200 rounded-lg p-4">
                                   <h3 className="font-semibold text-xs flex items-center gap-2 mb-3">
@@ -2638,23 +2625,23 @@ const filteredEmployeesByTown = React.useMemo(() => {
         </div>
       )}
       {/* Data Management Tabs */}
-     {selectedTab === 'employeePerformance' && (
-  <EmployeePerformanceTable
-    performance={employeePerformance.filter(perf =>
-      filteredEmployeesByTown.some(emp => emp["Employee Number"] === perf.employee_id)
-    )}
-    employees={filteredEmployeesByTown}
-    onUpdate={handleUpdateEmployeePerformance}
-    onDelete={handleDeleteEmployeePerformance}
-  />
-)}
+      {selectedTab === 'employeePerformance' && (
+        <EmployeePerformanceTable
+          performance={employeePerformance.filter(perf =>
+            filteredEmployeesByTown.some(emp => emp["Employee Number"] === perf.employee_id)
+          )}
+          employees={filteredEmployeesByTown}
+          onUpdate={handleUpdateEmployeePerformance}
+          onDelete={handleDeleteEmployeePerformance}
+        />
+      )}
       {selectedTab === 'branchPerformance' && (
         <BranchPerformanceTable
           employeePerformance={employeePerformance}
           employees={filteredEmployeesByTown}
         />
       )}
-      <ChatFloater/>
+      <ChatFloater />
     </div>
   );
 };

@@ -3,12 +3,13 @@ import cors from "cors";
 import dotenv from "dotenv";
 import jwt from "jsonwebtoken";
 import path from "path";
+import nodemailer from "nodemailer";
 import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load .env from backend folder
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+// Load .env from root folder
+dotenv.config({ path: path.join(process.cwd(), ".env") });
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,8 +27,8 @@ app.use(express.json());
 const requiredEnvVars = ["ZOOM_SDK_KEY", "ZOOM_SDK_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 if (missingEnvVars.length > 0) {
-  console.error("❌ Missing required environment variables:", missingEnvVars.join(", "));
-  process.exit(1);
+  console.warn("⚠️ Missing Zoom environment variables:", missingEnvVars.join(", "));
+  console.warn("Zoom signature generation will not work, but other services remain active.");
 }
 
 interface GenerateSignatureRequest {
@@ -74,6 +75,41 @@ app.post("/api/zoom/signature", (req, res) => {
   } catch (err) {
     console.error("❌ Error generating signature:", err);
     res.status(500).json({ error: "Failed to generate JWT signature" });
+  }
+});
+
+// Nodemailer Transporter configuration
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: parseInt(process.env.SMTP_PORT || "587"),
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASSWORD,
+  },
+});
+
+// Email sending endpoint
+app.post("/api/email/send", async (req, res) => {
+  try {
+    const { to, subject, html } = req.body;
+
+    if (!to || !subject || !html) {
+      return res.status(400).json({ error: "to, subject, and html are required" });
+    }
+
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM || `"Zira HR" <${process.env.SMTP_USER}>`,
+      to,
+      subject,
+      html,
+    });
+
+    console.log("✅ Message sent: %s", info.messageId);
+    res.json({ message: "Email sent successfully", messageId: info.messageId });
+  } catch (error) {
+    console.error("❌ Error sending email:", error);
+    res.status(500).json({ error: "Failed to send email" });
   }
 });
 

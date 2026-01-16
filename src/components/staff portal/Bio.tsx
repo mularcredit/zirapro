@@ -1477,41 +1477,43 @@ const EmployeeBioPage = () => {
                 </div>
               </div>
 
-              <div>
-                <SectionHeader
-                  title="Salary Information"
-                  icon={CreditCard}
-                />
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                  <FormField
-                    label="Basic Salary"
-                    name="Basic Salary"
-                    type="number"
-                    value={employee['Basic Salary'] ? String(employee['Basic Salary']) : ''}
-                    onChange={(e) => {
-                      const numValue = e.target.value ? parseFloat(e.target.value) : null;
-                      setEmployee(prev => ({
-                        ...prev,
-                        "Basic Salary": numValue
-                      }));
-                    }}
-                    disabled={!isEditMode || !canEditField('Basic Salary')}
-                    readOnly={!canEditField('Basic Salary')}
-                    isReadOnly={!canEditField('Basic Salary')}
+              {userRole === 'admin' && (
+                <div>
+                  <SectionHeader
+                    title="Salary Information"
+                    icon={CreditCard}
                   />
-                  <FormField
-                    label="Currency"
-                    name="Currency"
-                    type={isEditMode ? "select" : "text"}
-                    value={employee['Currency'] || 'KES'}
-                    onChange={handleInputChange}
-                    options={['KES', 'USD', 'EUR', 'GBP']}
-                    disabled={!isEditMode || !canEditField('Currency')}
-                    readOnly={!canEditField('Currency')}
-                    isReadOnly={!canEditField('Currency')}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
+                    <FormField
+                      label="Basic Salary"
+                      name="Basic Salary"
+                      type="number"
+                      value={employee['Basic Salary'] ? String(employee['Basic Salary']) : ''}
+                      onChange={(e) => {
+                        const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                        setEmployee(prev => ({
+                          ...prev,
+                          "Basic Salary": numValue
+                        }));
+                      }}
+                      disabled={!isEditMode || !canEditField('Basic Salary')}
+                      readOnly={!canEditField('Basic Salary')}
+                      isReadOnly={!canEditField('Basic Salary')}
+                    />
+                    <FormField
+                      label="Currency"
+                      name="Currency"
+                      type={isEditMode ? "select" : "text"}
+                      value={employee['Currency'] || 'KES'}
+                      onChange={handleInputChange}
+                      options={['KES', 'USD', 'EUR', 'GBP']}
+                      disabled={!isEditMode || !canEditField('Currency')}
+                      readOnly={!canEditField('Currency')}
+                      isReadOnly={!canEditField('Currency')}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div>
                 <SectionHeader
