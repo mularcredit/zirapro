@@ -13,6 +13,12 @@ export function useAppUpdate(): {
   const VERSION_KEY = 'app_version';
 
   const checkForUpdates = useCallback(async () => {
+    // Skip update checks in development mode
+    if (import.meta.env.DEV) {
+      console.log('Update checks disabled in development mode');
+      return;
+    }
+
     try {
       // Fetch version.json from the server with a cache-buster
       const response = await fetch(`/version.json?t=${Date.now()}`, {
