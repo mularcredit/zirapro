@@ -35,13 +35,13 @@ export function useAppUpdate(): {
         stored: storedVersion
       });
 
-      // If remote version is different from what we are currently running
-      // or what we have stored, an update is available
-      if (remoteVersion && (remoteVersion !== APP_VERSION || remoteVersion !== storedVersion)) {
+      // Only show update if remote version is different from current app version
+      if (remoteVersion && remoteVersion !== APP_VERSION) {
         console.log('New version detected:', remoteVersion);
         setUpdateAvailable(true);
-        // We don't update VERSION_KEY in localStorage yet, 
-        // until the user actually refreshes or we force it
+      } else if (remoteVersion === APP_VERSION && storedVersion !== APP_VERSION) {
+        // Sync stored version if it's out of date but matches remote
+        localStorage.setItem(VERSION_KEY, APP_VERSION);
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
