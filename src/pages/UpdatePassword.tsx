@@ -60,9 +60,10 @@ const UpdatePasswordPage = () => {
       }
 
       // Wait for session to be established (Supabase auto-login takes a moment)
+      // Check for session more persistently (wait up to 10s)
       let session = null;
       let attempts = 0;
-      const maxAttempts = 10; // Try for up to 2 seconds
+      const maxAttempts = 50; // Try for up to 10 seconds
 
       while (!session && attempts < maxAttempts) {
         const { data } = await supabase.auth.getSession();
@@ -84,7 +85,11 @@ const UpdatePasswordPage = () => {
       }
 
       // Allow access if EITHER URL shows recovery OR sessionStorage flag is set
-      if (!isRecoveryFromURL && !isPasswordRecovery) {
+      const isPasswordRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
+
+      console.log('UpdatePasswordPage - Final Check - Recovery from URL:', isRecoveryFromURL, 'Flag:', isPasswordRecoveryFlag);
+
+      if (!isRecoveryFromURL && !isPasswordRecovery && !isPasswordRecoveryFlag) {
         // User navigated here directly without password recovery, redirect to dashboard
         toast.error('Access denied. Please use the password reset link from your email.');
         const userRole = session.user.user_metadata?.role || 'STAFF';

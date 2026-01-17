@@ -158,7 +158,11 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedTown, setSelectedTown] = useState<string>('');
-  const [selectedRegion, setSelectedRegion] = useState<string>('All Regions');
+  const [selectedRegion, setSelectedRegion] = useState('All Regions');
+
+
+  // Capture initial URL to detect auth params even if Supabase clears them
+  const initialUrl = useRef(window.location.href);
   const [branches, setBranches] = useState<string[]>([]);
   const [regions, setRegions] = useState<string[]>([]);
   const [filteredTowns, setFilteredTowns] = useState<string[]>([]);
@@ -537,18 +541,49 @@ function App() {
   // Handle email confirmation redirect
   useEffect(() => {
     const handleEmailConfirmation = async () => {
-      const type = searchParams.get('type');
-      const token = searchParams.get('token');
-      const accessToken = searchParams.get('access_token');
+      // Parse initial URL to ensure we don't miss params due to Supabase clearing them
+      let type: string | null = searchParams.get('type');
+      let token: string | null = searchParams.get('token');
+      let accessToken: string | null = searchParams.get('access_token');
+      let code: string | null = searchParams.get('code');
+
+      try {
+        const urlObj = new URL(initialUrl.current);
+        if (!type) type = urlObj.searchParams.get('type') || new URLSearchParams(urlObj.hash.substring(1)).get('type');
+        if (!token) token = urlObj.searchParams.get('token');
+        if (!accessToken) accessToken = urlObj.searchParams.get('access_token') || new URLSearchParams(urlObj.hash.substring(1)).get('access_token');
+        if (!code) code = urlObj.searchParams.get('code');
+      } catch (e) {
+        console.error('Error parsing initial URL:', e);
+      }
 
       // Handle password recovery - this runs AFTER Supabase auto-login
-      if (type === 'recovery' && (token || accessToken)) {
+      if (type === 'recovery' && (token || accessToken || code)) {
         console.log('🔐 Password recovery detected in confirmation effect');
+        sessionStorage.setItem('isPasswordRecovery', 'true');
 
-        // Navigating to the page directly helps prevent other effects from interfering
-        if (location.pathname !== '/update-password') {
-          navigate('/update-password', { replace: true });
+        // Manual exchange for PKCE flow to ensure session is established
+        if (code) {
+          try {
+            // First check if session was already established by auto-detection
+            const { data: { session: existingSession } } = await supabase.auth.getSession();
+            if (existingSession) {
+              console.log('✅ Session already established via Auto-Exchange');
+            } else {
+              console.log('Testing manual exchange...');
+              const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+              if (error) {
+                console.error('Manual code exchange failed:', error);
+              } else if (data.session) {
+                console.log('✅ Manual code exchange successful');
+              }
+            }
+          } catch (err) {
+            console.error('Error during manual code exchange:', err);
+          }
         }
+
+        // We let onAuthStateChange handle the navigation to ensure session is fully established first
         return;
       }
 
@@ -625,9 +660,13 @@ function App() {
         // FIRST: Check if this is a password recovery - do this BEFORE any session checks
         const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
           window.location.hash.includes('type=recovery');
+        const isRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
 
-        if (currentPath === '/update-password' || urlHasRecoveryToken) {
+        if (currentPath === '/update-password' || urlHasRecoveryToken || isRecoveryFlag) {
           console.log('🔐 Password recovery detected - allowing UpdatePassword page to handle auth');
+          if (urlHasRecoveryToken) {
+            sessionStorage.setItem('isPasswordRecovery', 'true');
+          }
           setAuthChecked(true);
           setIsInitializing(false);
           return; // Exit early, let UpdatePassword page handle everything
@@ -683,8 +722,9 @@ function App() {
 
           const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
             window.location.hash.includes('type=recovery');
+          const isRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
 
-          if (currentPath === '/update-password' || urlHasRecoveryToken) {
+          if (currentPath === '/update-password' || urlHasRecoveryToken || isRecoveryFlag) {
             console.log('🔐 Recovery flow active - staying on update-password');
             // Don't redirect, let UpdatePassword page handle it
           } else if (!publicPaths.includes(currentPath) && currentPath !== '/') {
@@ -706,15 +746,27 @@ function App() {
       const currentPath = location.pathname;
       const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
         window.location.hash.includes('type=recovery');
+      const isRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
 
-      if (currentPath === '/update-password' || urlHasRecoveryToken) {
+      if (currentPath === '/update-password' || urlHasRecoveryToken || isRecoveryFlag) {
         console.log('🔐 Auth state change ignored - in password recovery mode');
+        if (urlHasRecoveryToken) {
+          sessionStorage.setItem('isPasswordRecovery', 'true');
+        }
+
+        if ((urlHasRecoveryToken || isRecoveryFlag) && currentPath !== '/update-password') {
+          navigate('/update-password' + location.search + location.hash, { replace: true });
+        }
         return; // Exit early, let UpdatePassword handle everything
       }
 
       const isMFAProcess = sessionStorage.getItem('isMFAProcess') === 'true';
 
       console.log('Auth state change:', event, 'Is MFA process:', isMFAProcess);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        sessionStorage.setItem('isPasswordRecovery', 'true');
+      }
 
       // Prevent duplicate handling of the same event
       if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
