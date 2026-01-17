@@ -125,7 +125,9 @@ const SMSService = {
           message,
           'failed',
           shortcode,
-          error.message
+          error.message || 'Unknown error',
+          `err-${Date.now()}`,
+          0
         );
       }
 
@@ -1575,7 +1577,7 @@ const TownFilter = ({
 // MpesaCallbacks Component
 // MpesaCallbacks Component
 // Complete MpesaCallbacks Component with Export Functionality
-const MpesaCallbacks = () => {
+const MpesaCallbacks = ({ filterType = 'all' }: { filterType?: 'payments' | 'status' | 'all' }) => {
   const [callbacks, setCallbacks] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -1596,6 +1598,13 @@ const MpesaCallbacks = () => {
       const phoneNumbers = callbacks.map(callback => {
         const transactionData = extractTransactionData(callback);
         const receiverParty = transactionData?.ReceiverPartyPublicName || '';
+
+        // Try to find a phone number in the string (Kenyan format)
+        const match = receiverParty.match(/(?:254|0)[17]\d{8}/);
+        if (match) {
+          return match[0].replace(/^0/, '254').slice(-9);
+        }
+
         // Clean phone number - remove non-digits and get last 9 digits
         const cleanPhone = receiverParty.replace(/\D/g, '').slice(-9);
         return cleanPhone;
@@ -1633,27 +1642,25 @@ const MpesaCallbacks = () => {
         }
       });
 
-      console.log('🗺️ Employee map:', employeeMap);
-
       // Enhance callbacks with employee data
       const enhancedCallbacks = callbacks.map(callback => {
         const transactionData = extractTransactionData(callback);
         const receiverParty = transactionData?.ReceiverPartyPublicName || '';
-        const cleanReceiverPhone = receiverParty.replace(/\D/g, '').slice(-9);
+
+        // Extract phone for lookup
+        const match = receiverParty.match(/(?:254|0)[17]\d{8}/);
+        const cleanReceiverPhone = match
+          ? match[0].replace(/^0/, '254').slice(-9)
+          : receiverParty.replace(/\D/g, '').slice(-9);
 
         const employeeData = employeeMap[cleanReceiverPhone];
 
         // If we found employee data, use it. Otherwise keep existing data or set to N/A
         const enhancedCallback = {
           ...callback,
-          full_name: employeeData?.full_name || callback.full_name || 'N/A',
-          employee_number: employeeData?.employee_number || callback.employee_number || 'N/A'
+          full_name: employeeData?.full_name || (callback.full_name && callback.full_name !== 'N/A' ? callback.full_name : 'N/A'),
+          employee_number: employeeData?.employee_number || (callback.employee_number && callback.employee_number !== 'N/A' ? callback.employee_number : 'N/A')
         };
-
-        // Log matches for debugging
-        if (employeeData && receiverParty) {
-          console.log(`✅ Matched: ${receiverParty} -> ${employeeData.full_name}`);
-        }
 
         return enhancedCallback;
       });
@@ -1673,23 +1680,7 @@ const MpesaCallbacks = () => {
 
       let query = supabase
         .from('mpesa_callbacks')
-        .select(`
-          id,
-          callback_date,
-          raw_response,
-          result_type,
-          result_code,
-          result_desc,
-          originator_conversation_id,
-          conversation_id,
-          transaction_id,
-          employee_number,
-          full_name,
-          amount,
-          status,
-          created_at,
-          processed_at
-        `)
+        .select('*')
         .order('callback_date', { ascending: false });
 
       if (filterStatus !== 'all') {
@@ -1699,15 +1690,24 @@ const MpesaCallbacks = () => {
       const { data, error } = await query;
 
       if (error) {
-        console.error('❌ Error fetching M-Pesa callbacks:', error);
-        console.error('Error details:', error.details, error.hint, error.message);
+        console.error('❌ Supabase Query Error:', error);
+        console.error('Table: mpesa_callbacks');
+        console.error('Query state:', { filterStatus, filterType });
         throw error;
       }
 
-      console.log(`✅ Loaded ${data?.length || 0} M-Pesa callbacks`);
+      // Filter in memory to avoid 404 on restricted columns
+      let processedData = data || [];
+      if (filterType === 'status') {
+        processedData = processedData.filter(c => String(c.result_type || '').toLowerCase().includes('status'));
+      } else if (filterType === 'payments') {
+        processedData = processedData.filter(c => !String(c.result_type || '').toLowerCase().includes('status'));
+      }
+
+      console.log(`✅ Loaded ${processedData.length} M-Pesa records (client-side filtered)`);
 
       // Remove duplicates based on transaction_id
-      const uniqueCallbacks = removeDuplicateCallbacks(data || []);
+      const uniqueCallbacks = removeDuplicateCallbacks(processedData);
       console.log(`🔄 Removed duplicates, showing ${uniqueCallbacks.length} unique records`);
 
       // Enhance callbacks with employee data
@@ -1787,7 +1787,7 @@ const MpesaCallbacks = () => {
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [filterStatus]);
+  }, [filterStatus, filterType]);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -2002,23 +2002,7 @@ const MpesaCallbacks = () => {
 
       let query = supabase
         .from('mpesa_callbacks')
-        .select(`
-          id,
-          callback_date,
-          raw_response,
-          result_type,
-          result_code,
-          result_desc,
-          originator_conversation_id,
-          conversation_id,
-          transaction_id,
-          employee_number,
-          full_name,
-          amount,
-          status,
-          created_at,
-          processed_at
-        `)
+        .select('*')
         .order('callback_date', { ascending: false });
 
       // Apply status filter
@@ -2074,8 +2058,15 @@ const MpesaCallbacks = () => {
         return;
       }
 
+      // Filter in memory to avoid 404 on restricted columns
+      let processedData = data || [];
+      if (filterType === 'status') {
+        processedData = processedData.filter(c => String(c.result_type || '').toLowerCase().includes('status'));
+      } else if (filterType === 'payments') {
+        processedData = processedData.filter(c => !String(c.result_type || '').toLowerCase().includes('status'));
+      }
       // Enhance data with employee information
-      const enhancedData = await enhanceCallbackWithEmployeeData(data || []);
+      const enhancedData = await enhanceCallbackWithEmployeeData(processedData);
 
       // Remove duplicates
       const uniqueCallbacks = removeDuplicateCallbacks(enhancedData);
@@ -2206,7 +2197,7 @@ const MpesaCallbacks = () => {
         <div>
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <img src='M-PESA_LOGO-01.svg.png' className='w-14' alt="M-Pesa Logo" />
-            M-Pesa Callbacks
+            {filterType === 'status' ? 'M-Pesa Transaction Status' : 'M-Pesa Callbacks'}
           </h2>
           <p className="text-xs text-gray-500 mt-1">
             Last refreshed: {lastRefresh.toLocaleTimeString()} | Auto-refreshes every 30 seconds
@@ -3042,7 +3033,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
       try {
         const { data: employeesData, error: employeesError } = await supabase
           .from('employees')
-          .select('Branch, Town');
+          .select('"Branch", "Town"');
 
         if (employeesError) {
           console.error("Error loading area-town mapping:", employeesError);
@@ -3119,6 +3110,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
       }
 
       setCurrentUser(user);
+      console.log('🚀 SalaryAdmin v2.2 - Schema & Query Fixes Applied');
       setUserEmail(user.email || '');
 
       const actualRole = user.user_metadata?.role || 'STAFF';
@@ -3131,7 +3123,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
 
       const { data: regionalManagerData, error: regionalManagerError } = await supabase
         .from('employees')
-        .select('Town, Branch')
+        .select('"Town", "Branch"')
         .eq('regional_manager', user.email)
         .maybeSingle();
 
@@ -3143,7 +3135,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
       } else {
         const { data: branchManagerData, error: branchManagerError } = await supabase
           .from('employees')
-          .select('Town, Branch')
+          .select('"Town", "Branch"')
           .eq('manager_email', user.email)
           .maybeSingle();
 
@@ -3157,8 +3149,8 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
 
           const { data: employeeData, error: employeeError } = await supabase
             .from('employees')
-            .select('Town, Branch')
-            .eq('Email', user.email)
+            .select('"Town", "Branch"')
+            .eq('"Work Email"', user.email)
             .maybeSingle();
 
           if (employeeData) {
@@ -3228,7 +3220,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
       console.log('📍 Fetching towns and regions from database...');
       const { data: employeesData, error: employeesError } = await supabase
         .from('employees')
-        .select('Town, Branch')
+        .select('"Town", "Branch"')
         .not('Town', 'is', null);
 
       if (employeesError) {
@@ -3275,7 +3267,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
 
           const { data: regionTowns, error: townsError } = await supabase
             .from('employees')
-            .select('Town')
+            .select('"Town"')
             .ilike('Branch', `%${selectedRegion}%`)
             .not('Town', 'is', null);
 
@@ -4731,10 +4723,25 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
     });
 
     return filtered.sort((a, b) => {
+      // Prioritize active applications over completed ones (Paid/Rejected)
+      const getPriority = (status) => {
+        const s = status?.toLowerCase() || '';
+        if (s === 'paid' || s === 'rejected') return 0; // Completed - Move to bottom
+        return 1; // Active - Keep at top
+      };
+
+      const priorityA = getPriority(a.status);
+      const priorityB = getPriority(b.status);
+
+      if (priorityA !== priorityB) {
+        return priorityB - priorityA; // Higher priority first
+      }
+
+      // Then sort by date descending
       const dateA = parseApplicationDate(a).getTime();
       const dateB = parseApplicationDate(b).getTime();
 
-      return dateB - dateA; // Sort by date descending
+      return dateB - dateA;
     });
   };
 
@@ -4770,15 +4777,23 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
             Salary Advance Applications
           </button>
           <RoleButtonWrapper allowedRoles={['ADMIN', 'CHECKER']}>
-
             <button
               onClick={() => setActiveTab('callbacks')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'callbacks'
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'callbacks'
                 ? 'border-green-500 text-green-600'
                 : 'border-transparent text-blue-500 text-xs hover:text-gray-700 hover:border-gray-300'
                 }`}
             >
               <img src='M-PESA_LOGO-01.svg.png' className='w-14'></img> M-Pesa Results
+            </button>
+            <button
+              onClick={() => setActiveTab('transaction_status')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${activeTab === 'transaction_status'
+                ? 'border-green-500 text-green-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+            >
+              <RefreshCw className="w-4 h-4" /> Transaction Status
             </button>
           </RoleButtonWrapper>
 
@@ -5190,7 +5205,10 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
                             )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                            {parseApplicationDate(app).toLocaleDateString()}
+                            <div className="flex flex-col">
+                              <span className="text-gray-900 font-medium">{parseApplicationDate(app).toLocaleDateString()}</span>
+                              <span className="text-xs text-gray-500">{parseApplicationDate(app).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-xs font-medium">
                             <div className="flex flex-col gap-1">
@@ -5548,9 +5566,12 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
             isLoading={isImporting}
           />
         </div>
+      ) : activeTab === 'callbacks' ? (
+        <MpesaCallbacks filterType="payments" />
+      ) : activeTab === 'transaction_status' ? (
+        <MpesaCallbacks filterType="status" />
       ) : (
-        // M-Pesa Callbacks Tab
-        <MpesaCallbacks />
+        <MpesaCallbacks filterType="all" />
       )}
     </div>
   );

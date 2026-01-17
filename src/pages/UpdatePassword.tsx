@@ -1,16 +1,15 @@
-// REPLACE your entire UpdatePasswordPage.js file with this:
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Check, X } from 'lucide-react';
+import { Check, X, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
 
 const UpdatePasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
   const [passwordStrength, setPasswordStrength] = useState({
     minLength: false,
     hasUppercase: false,
@@ -20,8 +19,8 @@ const UpdatePasswordPage = () => {
   });
 
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Validate password strength
   const validatePasswordStrength = (pwd: string) => {
     setPasswordStrength({
       minLength: pwd.length >= 8,
@@ -32,7 +31,6 @@ const UpdatePasswordPage = () => {
     });
   };
 
-  // Update password and validate strength
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newPassword = e.target.value;
     setPassword(newPassword);
@@ -40,69 +38,53 @@ const UpdatePasswordPage = () => {
   };
 
   useEffect(() => {
-    // Check if we have a valid session and this is a password recovery
     const checkRecoverySession = async () => {
-      // IMPORTANT: Supabase puts recovery tokens in the URL HASH, not query params
-      const hashParams = new URLSearchParams(window.location.hash.substring(1));
-      const type = hashParams.get('type');
-      const accessToken = hashParams.get('access_token');
-      const isRecoveryFromURL = type === 'recovery' && accessToken;
+      try {
+        setIsValidating(true);
+        console.log('🔄 Validating update password session...');
 
-      // Also check sessionStorage flag as backup
-      const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+        // 1. Force a session refresh to be absolutely sure we have the latest auth state
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-      console.log('UpdatePasswordPage - Hash type:', type, 'Has token:', !!accessToken, 'SessionStorage:', isPasswordRecovery);
-
-      // If this is a recovery link from URL, set the flag
-      if (isRecoveryFromURL) {
-        console.log('✅ Recovery detected from URL hash - setting flag');
-        sessionStorage.setItem('isPasswordRecovery', 'true');
-      }
-
-      // Wait for session to be established (Supabase auto-login takes a moment)
-      // Check for session more persistently (wait up to 10s)
-      let session = null;
-      let attempts = 0;
-      const maxAttempts = 50; // Try for up to 10 seconds
-
-      while (!session && attempts < maxAttempts) {
-        const { data } = await supabase.auth.getSession();
-        session = data.session;
-
-        if (!session) {
-          // Wait 200ms before trying again
-          await new Promise(resolve => setTimeout(resolve, 200));
-          attempts++;
+        if (sessionError) {
+          console.error('❌ Session error:', sessionError.message);
         }
+
+        // 2. Double check URL for PKCE 'code' just in case AuthCallback was skipped
+        const urlParams = new URLSearchParams(window.location.search || window.location.hash.replace('#', '?'));
+        const code = urlParams.get('code');
+        const type = urlParams.get('type') || urlParams.get('error') ? 'error' : null;
+
+        if (code && !session) {
+          console.log('🔑 Found un-exchanged code, attempting recovery exchange...');
+          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (!exchangeError && exchangeData.session) {
+            console.log('✅ Recovery exchange successful');
+            setIsValidSession(true);
+            setIsValidating(false);
+            return;
+          }
+        }
+
+        // 3. Status Check
+        const isRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
+        console.log('👤 Current session:', !!session, 'Recovery flag:', isRecoveryFlag);
+
+        if (session || isRecoveryFlag) {
+          setIsValidSession(true);
+        } else {
+          console.warn('⚠️ No valid recovery session found');
+        }
+
+      } catch (err) {
+        console.error('💥 Unexpected validation error:', err);
+      } finally {
+        setIsValidating(false);
       }
-
-      console.log('UpdatePasswordPage - Session:', !!session, 'Attempts:', attempts);
-
-      if (!session) {
-        toast.error('Invalid or expired reset link');
-        navigate('/login', { replace: true });
-        return;
-      }
-
-      // Allow access if EITHER URL shows recovery OR sessionStorage flag is set
-      const isPasswordRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
-
-      console.log('UpdatePasswordPage - Final Check - Recovery from URL:', isRecoveryFromURL, 'Flag:', isPasswordRecoveryFlag);
-
-      if (!isRecoveryFromURL && !isPasswordRecovery && !isPasswordRecoveryFlag) {
-        // User navigated here directly without password recovery, redirect to dashboard
-        toast.error('Access denied. Please use the password reset link from your email.');
-        const userRole = session.user.user_metadata?.role || 'STAFF';
-        const targetPath = userRole === 'STAFF' ? '/staff' : '/dashboard';
-        navigate(targetPath, { replace: true });
-        return;
-      }
-
-      setIsValidSession(true);
     };
 
     checkRecoverySession();
-  }, [navigate]);
+  }, [location, navigate]);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +94,6 @@ const UpdatePasswordPage = () => {
       return;
     }
 
-    // Check all password strength requirements
     const allRequirementsMet = Object.values(passwordStrength).every(req => req === true);
     if (!allRequirementsMet) {
       toast.error('Please meet all password requirements');
@@ -129,144 +110,151 @@ const UpdatePasswordPage = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        // Clear the recovery flag
         sessionStorage.removeItem('isPasswordRecovery');
+        toast.success('Password successfully updated! Please login.');
 
-        toast.success('Password updated successfully! Please sign in with your new password.');
-
-        // Sign out the user after password update
         await supabase.auth.signOut();
-
-        // Redirect to login
         navigate('/login', { replace: true });
       }
     } catch (error) {
-      console.error('Password update error:', error);
+      console.error('Update error:', error);
       toast.error('Failed to update password');
     } finally {
       setLoading(false);
     }
   };
 
+  if (isValidating) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="text-center p-12 bg-white rounded-3xl shadow-xl border border-gray-100 flex flex-col items-center">
+          <Loader2 className="animate-spin h-12 w-12 text-green-500 mb-6" />
+          <h2 className="text-xl font-bold text-gray-900">Validating Request</h2>
+          <p className="mt-2 text-sm text-gray-500 max-w-[250px]">Setting up a secure channel for your password update...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isValidSession) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Validating session...</p>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md w-full text-center p-10 bg-white rounded-3xl shadow-2xl border border-red-50 border-t-4 border-t-red-500">
+          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
+            <X className="h-10 w-10 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h2>
+          <p className="text-gray-600 mb-8 text-sm leading-relaxed">
+            Your security link has already been used or has expired. For your protection, password reset links are only valid for a single use.
+          </p>
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
+          >
+            <ArrowLeft size={20} />
+            Return to Login
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
-        <div>
-          <h2 className="text-center text-3xl font-extrabold text-gray-900">
-            Update Your Password
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-3xl shadow-2xl border border-gray-100">
+        <div className="text-center">
+          <div className="inline-block p-4 bg-green-50 rounded-2xl mb-4">
+            <ShieldCheck className="h-10 w-10 text-green-600" />
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+            Security Update
           </h2>
-          <p className="mt-2 text-center text-xs text-gray-600">
-            Please enter your new password below
+          <p className="mt-2 text-sm text-gray-500 font-medium font-serif italic">
+            "Your security is our priority"
           </p>
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handlePasswordUpdate}>
-          <div>
-            <label htmlFor="password" className="block text-xs font-medium text-gray-700">
-              New Password
-            </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-              value={password}
-              onChange={handlePasswordChange}
-              placeholder="Enter new password"
-            />
-            <div className="mt-3 space-y-1.5 bg-gray-50 p-3 rounded-md border border-gray-200">
-              <p className="text-[10px] uppercase tracking-wider font-bold text-gray-500 mb-2">Security Requirements</p>
+          <div className="space-y-6">
+            <div>
+              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">
+                New Secure Password
+              </label>
+              <input
+                type="password"
+                required
+                autoFocus
+                className="block w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none font-medium text-gray-900 placeholder-gray-300 shadow-sm"
+                value={password}
+                onChange={handlePasswordChange}
+                placeholder="Enter new password"
+              />
 
-              <div className="space-y-1">
-                <div className={`flex items-center text-[11px] ${passwordStrength.minLength ? 'text-green-600' : 'text-gray-500'}`}>
-                  {passwordStrength.minLength ? <Check size={12} className="mr-1.5" /> : <X size={12} className="mr-1.5 text-gray-300" />}
-                  <span>Minimum 8 characters</span>
-                </div>
-
-                <div className={`flex items-center text-[11px] ${passwordStrength.hasUppercase ? 'text-green-600' : 'text-gray-500'}`}>
-                  {passwordStrength.hasUppercase ? <Check size={12} className="mr-1.5" /> : <X size={12} className="mr-1.5 text-gray-300" />}
-                  <span>Uppercase letter (A-Z)</span>
-                </div>
-
-                <div className={`flex items-center text-[11px] ${passwordStrength.hasLowercase ? 'text-green-600' : 'text-gray-500'}`}>
-                  {passwordStrength.hasLowercase ? <Check size={12} className="mr-1.5" /> : <X size={12} className="mr-1.5 text-gray-300" />}
-                  <span>Lowercase letter (a-z)</span>
-                </div>
-
-                <div className={`flex items-center text-[11px] ${passwordStrength.hasNumber ? 'text-green-600' : 'text-gray-500'}`}>
-                  {passwordStrength.hasNumber ? <Check size={12} className="mr-1.5" /> : <X size={12} className="mr-1.5 text-gray-300" />}
-                  <span>At least one number (0-9)</span>
-                </div>
-
-                <div className={`flex items-center text-[11px] ${passwordStrength.hasSpecial ? 'text-green-600' : 'text-gray-500'}`}>
-                  {passwordStrength.hasSpecial ? <Check size={12} className="mr-1.5" /> : <X size={12} className="mr-1.5 text-gray-300" />}
-                  <span>Special character (!@#$%^&*)</span>
+              <div className="mt-5 p-5 bg-gray-50 rounded-2xl border border-gray-100/50 space-y-3">
+                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-[0.1em] mb-1">Protection Requirements</p>
+                <div className="grid grid-cols-1 gap-2">
+                  <CheckItem label="Minimum 8 characters long" met={passwordStrength.minLength} />
+                  <CheckItem label="Includes uppercase (A-Z)" met={passwordStrength.hasUppercase} />
+                  <CheckItem label="Includes lowercase (a-z)" met={passwordStrength.hasLowercase} />
+                  <CheckItem label="Includes a number (0-9)" met={passwordStrength.hasNumber} />
+                  <CheckItem label="Includes special character (@#$)" met={passwordStrength.hasSpecial} />
                 </div>
               </div>
             </div>
+
+            <div>
+              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">
+                Confirm Password
+              </label>
+              <input
+                type="password"
+                required
+                className="block w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none font-medium text-gray-900 placeholder-gray-300 shadow-sm"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm your password"
+              />
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="confirmPassword" className="block text-xs font-medium text-gray-700">
-              Confirm Password
-            </label>
-            <input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              required
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm new password"
-              minLength={6}
-            />
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Updating...
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-green-200/50 hover:translate-y-[-2px] active:translate-y-[0px]"
+          >
+            {loading ? (
+              <Loader2 className="animate-spin h-5 w-5 text-white" />
+            ) : (
+              'Save & Secure Account'
+            )}
+          </button>
         </form>
 
-        <div className="text-center">
+        <div className="text-center pt-2">
           <button
             onClick={() => navigate('/login')}
-            className="text-xs text-green-600 hover:text-green-500"
+            className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1.5 mx-auto transition-colors"
           >
-            Back to Login
+            <ArrowLeft size={14} />
+            Discard and return to login
           </button>
         </div>
       </div>
     </div>
   );
 };
+
+const CheckItem = ({ label, met }: { label: string, met: boolean }) => (
+  <div className={`flex items-center text-[11px] font-bold transition-all duration-300 ${met ? 'text-green-600 translate-x-1' : 'text-gray-400'}`}>
+    {met ? (
+      <div className="bg-green-100 p-0.5 rounded-full mr-2.5">
+        <Check size={11} strokeWidth={4} />
+      </div>
+    ) : (
+      <div className="w-3.5 h-3.5 border-2 border-gray-200 rounded-full mr-2.5" />
+    )}
+    {label}
+  </div>
+);
 
 export default UpdatePasswordPage;

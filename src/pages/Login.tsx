@@ -501,8 +501,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     setResetLoading(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: `${window.location.origin}/update-password`,
+        redirectTo: `${window.location.origin}/auth/callback`,
       });
+
 
       if (error) throw error;
 

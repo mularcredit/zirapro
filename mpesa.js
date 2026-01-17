@@ -261,7 +261,6 @@ router.post("/check-transaction-status", async (req, res) => {
         await supabase.from('mpesa_callbacks').insert({
           originator_conversation_id: uniqueOriginatorID,
           transaction_id: transactionID,
-          employee_id: employeeId || null, // LINKING EMPLOYEE HERE
           result_type: 'TransactionStatus_Pending',
           status: 'Pending',
           result_desc: 'Request Initiated',
@@ -319,7 +318,6 @@ router.post("/check-transaction-by-receipt", async (req, res) => {
         await supabase.from('mpesa_callbacks').insert({
           originator_conversation_id: uniqueOriginatorID,
           transaction_id: receiptNumber,
-          employee_id: employeeId || null,
           result_type: 'TransactionStatus_Pending',
           status: 'Pending',
           result_desc: 'Receipt Check Initiated',
@@ -626,12 +624,51 @@ router.post("/b2c-result", async (req, res) => {
         Amount: result.TransactionAmount,
         ReceiptNumber: result.ReceiptNumber || null,
       });
+
+      if (supabase) {
+        try {
+          // B2C results often don't have the OriginatorConversationID in the same way,
+          // but we can try to match or just insert.
+          // Better: Upsert by TransactionID or ConversationID if possible.
+          await supabase.from('mpesa_callbacks').insert({
+            transaction_id: result.TransactionID,
+            conversation_id: result.ConversationID,
+            result_type: 'B2C',
+            result_code: result.ResultCode,
+            result_desc: result.ResultDesc,
+            amount: result.TransactionAmount || 0,
+            status: 'Completed',
+            raw_response: JSON.stringify(req.body),
+            callback_date: new Date().toISOString()
+          });
+          console.log("✅ B2C successful payment saved to DB");
+        } catch (dbErr) {
+          console.error("❌ DB Error saving B2C success:", dbErr.message);
+        }
+      }
     } else {
       console.log("❌ B2C payment failed:", {
         ConversationID: result.ConversationID,
         ResultCode: result.ResultCode,
         ResultDesc: result.ResultDesc,
       });
+
+      if (supabase) {
+        try {
+          await supabase.from('mpesa_callbacks').insert({
+            conversation_id: result.ConversationID,
+            result_type: 'B2C',
+            result_code: result.ResultCode,
+            result_desc: result.ResultDesc,
+            status: 'Failed',
+            raw_response: JSON.stringify(req.body),
+            callback_date: new Date().toISOString()
+          });
+          console.log("✅ B2C failed payment saved to DB");
+        } catch (dbErr) {
+          console.error("❌ DB Error saving B2C failure:", dbErr.message);
+        }
+      }
     }
 
     res.json({ ResultCode: 0, ResultDesc: "Service received successfully" });
