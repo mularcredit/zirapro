@@ -10,10 +10,12 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  UserPlus,
-  Mail,
-  UserRound,
-  Shield,
+  AlertCircle,
+  Eye,
+  Table,
+  Radio,
+  Wifi,
+  WifiOff,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -27,13 +29,7 @@ import {
   Upload,
   Download,
   X,
-  AlertCircle,
-  Eye,
-  Table,
-  Radio,
-  Wifi,
-  WifiOff,
-  Bell
+  Mail
 } from 'lucide-react';
 
 // You'll need to install these dependencies:
@@ -42,8 +38,8 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
 export default function StaffSignupRequests() {
-  const [requests, setRequests] = useState([]);
-  const [allBranches, setAllBranches] = useState([]);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [allBranches, setAllBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState(null);
   const [selectedBranch, setSelectedBranch] = useState('all');
@@ -106,7 +102,8 @@ export default function StaffSignupRequests() {
 
             updatedLogs.set(emailKey, {
               ...payload.new,
-              request_id: payload.new.request_id ? payload.new.request_id.toString() : null
+              request_id: payload.new.request_id ? payload.new.request_id.toString() : null,
+              message_id: payload.new.message_id || payload.new.resend_id
             });
 
             setEmailLogs(updatedLogs);
@@ -148,7 +145,7 @@ export default function StaffSignupRequests() {
       bounced: logsArray.filter(log => log.status === 'bounced').length,
       delivered: logsArray.filter(log => log.status === 'delivered').length,
       sent: logsArray.filter(log => log.status === 'sent').length,
-      lastUpdate: new Date()
+      lastUpdate: new Date() as any
     });
   };
 
@@ -168,7 +165,8 @@ export default function StaffSignupRequests() {
         if (emailKey) {
           logsMap.set(emailKey, {
             ...log,
-            request_id: log.request_id ? log.request_id.toString() : null
+            request_id: log.request_id ? log.request_id.toString() : null,
+            message_id: log.message_id || log.resend_id
           });
         }
       });
@@ -238,7 +236,7 @@ export default function StaffSignupRequests() {
   };
 
   // Track email sends in database
-  const trackEmailSend = async (email, subject, requestId = null, resendId = null) => {
+  const trackEmailSend = async (email: any, subject: any, requestId: any = null, resendId: any = null) => {
     try {
       const requestIdBigInt = requestId ? parseInt(requestId, 10) : null;
 
@@ -246,10 +244,10 @@ export default function StaffSignupRequests() {
         .from('email_logs')
         .insert([
           {
-            email: email,
+            sent_to: email,
             subject: subject,
             request_id: requestIdBigInt,
-            resend_id: resendId,
+            message_id: resendId,
             status: 'sent',
             sent_at: new Date().toISOString()
           }
@@ -276,7 +274,7 @@ export default function StaffSignupRequests() {
   };
 
   // Update email status when bounce is detected
-  const updateEmailStatus = async (email, status, bounceReason = null) => {
+  const updateEmailStatus = async (email: any, status: any, bounceReason: any = null) => {
     try {
       const { data, error } = await supabase
         .from('email_logs')
@@ -285,7 +283,7 @@ export default function StaffSignupRequests() {
           bounce_reason: bounceReason,
           bounced_at: status === 'bounced' ? new Date().toISOString() : null
         })
-        .eq('email', email)
+        .eq('sent_to', email)
         .order('sent_at', { ascending: false })
         .limit(1)
         .select();

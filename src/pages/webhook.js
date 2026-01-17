@@ -10,14 +10,14 @@ const supabase = createClient(
 export async function POST(request) {
   try {
     const signature = request.headers.get('resend-signature');
-    
+
     // Verify webhook signature (optional but recommended)
     if (!verifyResendSignature(request)) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
     }
 
     const event = await request.json();
-    
+
     console.log('Resend Webhook Received:', event);
 
     // Handle different event types
@@ -58,7 +58,7 @@ async function handleBouncedEmail(event) {
       last_webhook_event: event.type,
       webhook_received_at: new Date().toISOString()
     })
-    .eq('resend_id', event.data.email_id)
+    .eq('message_id', event.data.email_id || event.data.id)
     .select()
     .single();
 
@@ -68,7 +68,7 @@ async function handleBouncedEmail(event) {
   }
 
   console.log(`Email ${event.data.to} marked as bounced:`, event.data.reason);
-  
+
   // You could also send a notification to admins here
   await sendBounceNotification(emailLog, event.data.reason);
 }
@@ -82,7 +82,7 @@ async function handleDeliveredEmail(event) {
       last_webhook_event: event.type,
       webhook_received_at: new Date().toISOString()
     })
-    .eq('resend_id', event.data.email_id);
+    .eq('message_id', event.data.email_id || event.data.id);
 }
 
 async function handleSentEmail(event) {

@@ -98,6 +98,27 @@ app.post("/api/email/send", async (req, res) => {
       return res.status(400).json({ error: "to, subject, and html are required" });
     }
 
+    // Use Resend if available
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (resendApiKey) {
+      const { Resend } = await import("resend");
+      const resend = new Resend(resendApiKey);
+      const { data, error } = await resend.emails.send({
+        from: process.env.SMTP_FROM || "onboarding@resend.dev",
+        to,
+        subject,
+        html,
+      });
+
+      if (error) {
+        console.error("❌ Resend error:", error);
+        throw error;
+      }
+
+      console.log("✅ Message sent via Resend: %s", data?.id);
+      return res.json({ message: "Email sent successfully", id: data?.id });
+    }
+
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM || `"Zira HR" <${process.env.SMTP_USER}>`,
       to,
@@ -105,8 +126,8 @@ app.post("/api/email/send", async (req, res) => {
       html,
     });
 
-    console.log("✅ Message sent: %s", info.messageId);
-    res.json({ message: "Email sent successfully", messageId: info.messageId });
+    console.log("✅ Message sent via SMTP: %s", info.messageId);
+    res.json({ message: "Email sent successfully", id: info.messageId });
   } catch (error) {
     console.error("❌ Error sending email:", error);
     res.status(500).json({ error: "Failed to send email" });
