@@ -60,6 +60,9 @@ const AddEmployeePage = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const isAdmin = user?.role === 'ADMIN';
+  const isHR = user?.role === 'HR';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'REGIONAL';
+
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -1245,7 +1248,7 @@ const AddEmployeePage = () => {
                   </div>
                 </div>
 
-                {isAdmin && (
+                {(isAdmin || isHR) && (
                   <div>
                     <SectionHeader
                       title="Salary Information"

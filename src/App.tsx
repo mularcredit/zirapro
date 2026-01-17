@@ -996,6 +996,7 @@ function App() {
                                 <Route path="/add-employee" element={<AddEmployeePage />} />
                                 <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                                 <Route path="/view-employee/:employeeId" element={<ViewEmployeePage />} />
+                                 <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                                 <Route path="/assign-managers" element={<ManagerAssignment />} />
                                 <Route path="/employee-added" element={<SuccessPage />} />
                                 <Route path="/loanadmin" element={<LoanRequestsAdmin />} />

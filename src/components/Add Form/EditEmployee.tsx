@@ -1,11 +1,11 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useRef } from 'react';
-import { X, Save, PrinterIcon, Download, ArrowLeft, Plus, Upload, AlertCircle, Users, Check, PencilLine } from 'lucide-react';
+import { X, Save, ArrowLeft, Plus, Upload, AlertCircle, Users, Check, PencilLine } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
-import { User, Briefcase, CreditCard, Phone, Mail, MapPin } from 'lucide-react';
+import { User, Briefcase, CreditCard, Phone, MapPin } from 'lucide-react';
 import RoleButtonWrapper from '../ProtectedRoutes/RoleButton';
 import { useUser } from '../ProtectedRoutes/UserContext';
 
@@ -63,6 +63,9 @@ const EditEmployeePage = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const isAdmin = user?.role === 'ADMIN';
+  const isHR = user?.role === 'HR';
+  const isManager = user?.role === 'MANAGER' || user?.role === 'REGIONAL';
+
   const [employee, setEmployee] = useState<Partial<Employee>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -681,7 +684,7 @@ const EditEmployeePage = () => {
               </GlowButton>
             </>
           ) : (
-            <RoleButtonWrapper allowedRoles={['ADMIN', 'HR']}>
+            <RoleButtonWrapper allowedRoles={['ADMIN', 'HR', 'MANAGER', 'REGIONAL']}>
               <GlowButton
                 onClick={handleEditToggle}
                 icon={PencilLine}
@@ -753,8 +756,8 @@ const EditEmployeePage = () => {
               </div>
             </div>
             <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${employee['Termination Date']
-                ? 'bg-red-100 text-red-800 border border-red-200'
-                : 'bg-green-100 text-green-800 border border-green-200'
+              ? 'bg-red-100 text-red-800 border border-red-200'
+              : 'bg-green-100 text-green-800 border border-green-200'
               }`}>
               {employee['Termination Date'] ? 'Inactive' : 'Active'}
             </div>
@@ -1352,7 +1355,7 @@ const EditEmployeePage = () => {
                 </div>
               </div>
 
-              {isAdmin && (
+              {(isAdmin || isHR) && (
                 <div>
                   <SectionHeader
                     title="Salary Information"

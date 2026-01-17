@@ -1,17 +1,18 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { X, Edit, PrinterIcon, Download, ArrowLeft, Trash2, Clock, Calendar, FileText, AlertTriangle, Mail, Shield, CheckCircle, UserCheck, Loader } from 'lucide-react';
+import { X, ArrowLeft, Clock, FileText, AlertTriangle, Shield, CheckCircle, UserCheck, Loader, Mail, Trash2, PrinterIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
-import { Database } from '../../types/supabase';
 import GlowButton from '../UI/GlowButton';
-import { User, Briefcase, CreditCard, Phone, MapPin } from 'lucide-react';
+import { User } from 'lucide-react';
 import { format } from 'date-fns';
 import { jwtDecode } from 'jwt-decode';
+import { useUser } from '../ProtectedRoutes/UserContext';
 
-type Employee = Database['public']['Tables']['employees']['Row'];
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type TerminationRequest = Database['public']['Tables']['termination_requests']['Row'];
+
+type Employee = any;
+type Profile = any;
+type TerminationRequest = any;
 
 interface GmailToken {
   access_token: string;
@@ -22,7 +23,11 @@ interface GmailToken {
 const ViewEmployeePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user: currentUser } = useUser();
+  const isAdmin = currentUser?.role === 'ADMIN';
+  const isHR = currentUser?.role === 'HR';
   const [employee, setEmployee] = useState<Employee | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [terminationDate, setTerminationDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
@@ -902,10 +907,10 @@ Company Name
 
           {/* User role badge */}
           <div className={`px-3 py-1 rounded-full text-xs font-medium ${userRole === 'admin'
-              ? 'bg-purple-100 text-purple-800 border border-purple-200'
-              : userRole === 'manager'
-                ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                : 'bg-gray-100 text-gray-800 border border-gray-200'
+            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+            : userRole === 'manager'
+              ? 'bg-blue-100 text-blue-800 border border-blue-200'
+              : 'bg-gray-100 text-gray-800 border border-gray-200'
             }`}>
             {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
           </div>
@@ -918,8 +923,8 @@ Company Name
           <div className="flex flex-col md:flex-row md:items-start justify-between">
             <div className="flex items-start space-x-4">
               <div className={`w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold ${employee['Termination Date']
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-gradient-to-br from-green-100 to-emerald-200 text-emerald-800'
+                ? 'bg-red-100 text-red-800'
+                : 'bg-gradient-to-br from-green-100 to-emerald-200 text-emerald-800'
                 }`}>
                 {employee['First Name']?.[0]}{employee['Last Name']?.[0]}
               </div>
@@ -938,8 +943,8 @@ Company Name
               </div>
             </div>
             <div className={`px-3 py-1 rounded-full text-xs font-medium mt-4 md:mt-0 ${employee['Termination Date']
-                ? 'bg-red-100 text-red-800 border border-red-200'
-                : 'bg-green-100 text-green-800 border border-green-200'
+              ? 'bg-red-100 text-red-800 border border-red-200'
+              : 'bg-green-100 text-green-800 border border-green-200'
               }`}>
               {employee['Termination Date'] ? 'Inactive' : 'Active'}
             </div>
@@ -1097,7 +1102,7 @@ Company Name
                 <DetailRow label="Start Date" value={employee['Start Date'] ? format(new Date(employee['Start Date']), 'MMMM d, yyyy') : 'N/A'} />
                 <DetailRow label="Email" value={employee['Email Address'] || 'N/A'} />
                 <DetailRow label="Phone" value={employee['Phone Number'] || 'N/A'} />
-                {userRole === 'admin' && (
+                {(isAdmin || isHR) && (
                   <DetailRow label="Basic Salary" value={employee['Basic Salary'] ? `KSh ${Number(employee['Basic Salary']).toLocaleString()}` : 'N/A'} />
                 )}
               </div>
@@ -1366,8 +1371,8 @@ Company Name
               <button
                 type="button"
                 className={`inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:text-xs ${employee['Termination Date']
-                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-                    : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
+                  ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                  : 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                   }`}
                 onClick={employee['Termination Date'] ? handleReverseTermination : handleTerminateEmployee}
                 disabled={isTerminating}

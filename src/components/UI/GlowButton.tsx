@@ -9,6 +9,7 @@ interface GlowButtonProps {
   size?: 'sm' | 'md' | 'lg' | 'xs';
   icon?: LucideIcon;
   disabled?: boolean;
+  loading?: boolean;
   className?: string;
 }
 
@@ -19,6 +20,7 @@ export default function GlowButton({
   size = 'md',
   icon: Icon,
   disabled = false,
+  loading = false,
   className = ''
 }: GlowButtonProps) {
   const baseClasses = 'inline-flex text-xs items-center justify-center font-medium rounded-lg transition-all duration-200 border backdrop-blur-sm';
@@ -40,14 +42,18 @@ export default function GlowButton({
 
   return (
     <motion.button
-      onClick={disabled ? undefined : onClick}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${disabled ? disabledClasses : ''} ${className}`}
-      whileHover={disabled ? {} : { scale: 1.02 }}
-      whileTap={disabled ? {} : { scale: 0.98 }}
-      disabled={disabled}
+      onClick={(disabled || loading) ? undefined : onClick}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${(disabled || loading) ? disabledClasses : ''} ${className}`}
+      whileHover={(disabled || loading) ? {} : { scale: 1.02 }}
+      whileTap={(disabled || loading) ? {} : { scale: 0.98 }}
+      disabled={disabled || loading}
     >
-      {Icon && <Icon className="w-4 h-4" />}
-      <span>{children}</span>
+      {loading ? (
+        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+      ) : (
+        Icon && <Icon className="w-4 h-4" />
+      )}
+      <span>{loading ? 'Saving...' : children}</span>
     </motion.button>
   );
 }

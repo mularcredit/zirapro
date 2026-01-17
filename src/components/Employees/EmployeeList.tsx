@@ -255,12 +255,14 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange }) => {
           </p>
         </div>
         <div className='flex space-x-3'>
-          <GlowButton
-            icon={Plus}
-            onClick={() => navigate('/add-employee')}
-          >
-            Add Employee
-          </GlowButton>
+          <RoleButtonWrapper allowedRoles={['ADMIN', 'HR', 'MANAGER', 'REGIONAL']}>
+            <GlowButton
+              icon={Plus}
+              onClick={() => navigate('/add-employee')}
+            >
+              Add Employee
+            </GlowButton>
+          </RoleButtonWrapper>
 
 
         </div>
@@ -447,17 +449,19 @@ const EmployeeList: React.FC<TownProps> = ({ selectedTown, onTownChange }) => {
             {/* Footer Actions */}
             <div className="px-5 py-4 bg-gray-50/50 border-t border-gray-100 mt-auto">
               <div className="flex items-center gap-3">
-                <GlowButton
-                  variant="secondary"
-                  size="sm"
-                  className="flex-1 bg-white border-gray-200 text-gray-600 hover:text-green-700 hover:border-green-200 hover:bg-green-50/30 shadow-sm h-9"
-                  icon={Settings}
-                  onClick={() => navigate(`/edit-employee/${employee['Employee Number']}`)}
-                >
-                  Manage
-                </GlowButton>
+                <RoleButtonWrapper allowedRoles={['ADMIN', 'HR', 'MANAGER', 'REGIONAL']}>
+                  <GlowButton
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 bg-white border-gray-200 text-gray-600 hover:text-green-700 hover:border-green-200 hover:bg-green-50/30 shadow-sm h-9"
+                    icon={Settings}
+                    onClick={() => navigate(`/edit-employee/${employee['Employee Number']}`)}
+                  >
+                    Manage
+                  </GlowButton>
+                </RoleButtonWrapper>
 
-                <RoleButtonWrapper allowedRoles={['ADMIN', 'HR']}>
+                <RoleButtonWrapper allowedRoles={['ADMIN', 'HR', 'MANAGER', 'REGIONAL']}>
                   <GlowButton
                     variant="danger"
                     size="sm"
