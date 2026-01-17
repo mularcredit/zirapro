@@ -31,6 +31,7 @@ import UserRolesSettings from './components/Settings/UserRole';
 import AuthRoute from './components/ProtectedRoutes/AuthRoute';
 import NotFound from './components/NOT FOUND/NotFound';
 import UpdatePasswordPage from './pages/UpdatePassword';
+import AuthCallback from './pages/AuthCallback';
 import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
 import IncidentReportsManagement from './components/Settings/IncidentReportsManagement';
 import PhoneNumberApprovals from './components/Settings/PhoneNumberApprovals';
@@ -196,22 +197,6 @@ function App() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // CRITICAL: Detect password recovery IMMEDIATELY on page load
-  // This must run BEFORE any auth state changes to prevent dashboard redirect
-  useEffect(() => {
-    // Supabase puts recovery tokens in the URL HASH, not query params
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const type = hashParams.get('type');
-    const token = hashParams.get('token');
-    const accessToken = hashParams.get('access_token');
-
-    // Set recovery flag IMMEDIATELY if this is a password recovery
-    if (type === 'recovery' && (token || accessToken)) {
-      console.log('🔐 Password recovery detected from URL hash - setting flag immediately');
-      sessionStorage.setItem('isPasswordRecovery', 'true');
-    }
-  }, []); // Run only once on mount, before auth processing
-
   // Inactivity timeout constants
   const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in milliseconds
   const WARNING_TIMEOUT = 60 * 1000; // 1 minute warning before logout
@@ -220,8 +205,7 @@ function App() {
   const shouldExcludeFromInactivityTimer = useCallback(() => {
     const excludedRoutes = ['/login', '/mfa', '/update-password'];
     const isExcludedRoute = excludedRoutes.includes(location.pathname);
-    const isAuthProcess = sessionStorage.getItem('isPasswordRecovery') === 'true' ||
-      sessionStorage.getItem('isMFAProcess') === 'true';
+    const isAuthProcess = sessionStorage.getItem('isMFAProcess') === 'true';
 
     return isExcludedRoute || isAuthProcess || !session || !user;
   }, [location.pathname, session, user]);
@@ -300,7 +284,6 @@ function App() {
         localStorage.removeItem('selectedTown');
 
         // Clear all auth flags
-        sessionStorage.removeItem('isPasswordRecovery');
         sessionStorage.removeItem('isMFAProcess');
         sessionStorage.removeItem('mfaCompleted');
 
@@ -312,7 +295,6 @@ function App() {
         setSelectedTown('');
         setSelectedRegion('All Regions');
         localStorage.removeItem('selectedTown');
-        sessionStorage.removeItem('isPasswordRecovery');
         sessionStorage.removeItem('isMFAProcess');
         sessionStorage.removeItem('mfaCompleted');
         navigate('/login', { replace: true });
@@ -495,9 +477,7 @@ function App() {
       lastAuthEvent.current = '';
       navigationHandled.current = false;
 
-      // Clear MFA and recovery flags
       sessionStorage.removeItem('isMFAProcess');
-      sessionStorage.removeItem('isPasswordRecovery');
       sessionStorage.removeItem('mfaCompleted');
 
       const loadingToast = toast.loading('Signing out...');
@@ -524,6 +504,8 @@ function App() {
       setSelectedTown('');
       setSelectedRegion('All Regions');
       localStorage.removeItem('selectedTown');
+      sessionStorage.removeItem('isMFAProcess');
+      sessionStorage.removeItem('mfaCompleted');
       navigate('/login', { replace: true });
     }
   }, [navigate, clearAllTimers]);
@@ -561,21 +543,12 @@ function App() {
 
       // Handle password recovery - this runs AFTER Supabase auto-login
       if (type === 'recovery' && (token || accessToken)) {
-        console.log('Password recovery detected, setting flag...');
+        console.log('🔐 Password recovery detected in confirmation effect');
 
-        // Set flag to prevent normal auth flow and inactivity timer
-        sessionStorage.setItem('isPasswordRecovery', 'true');
-
-        // Clear the URL parameters to prevent loops
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, '', newUrl);
-
-        // The user is already authenticated by Supabase at this point
-        // Just ensure we stay on the password reset page
+        // Navigating to the page directly helps prevent other effects from interfering
         if (location.pathname !== '/update-password') {
           navigate('/update-password', { replace: true });
         }
-
         return;
       }
 
@@ -647,6 +620,20 @@ function App() {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        const currentPath = location.pathname;
+
+        // FIRST: Check if this is a password recovery - do this BEFORE any session checks
+        const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
+          window.location.hash.includes('type=recovery');
+
+        if (currentPath === '/update-password' || urlHasRecoveryToken) {
+          console.log('🔐 Password recovery detected - allowing UpdatePassword page to handle auth');
+          setAuthChecked(true);
+          setIsInitializing(false);
+          return; // Exit early, let UpdatePassword page handle everything
+        }
+
+        // NOW do normal session checks
         const { data: { session }, error } = await supabase.auth.getSession();
 
         if (error) {
@@ -666,78 +653,46 @@ function App() {
 
           setUser(userData);
 
+          // ... rest of the branch detection and normal navigation logic ...
           const savedTown = localStorage.getItem('selectedTown') ||
             session.user.user_metadata?.town || '';
           if (savedTown && branches.length > 0 && branches.includes(savedTown)) {
             setSelectedTown(savedTown);
-
-            // Find the region for this town
-            try {
-              const { data } = await supabase
-                .from('kenya_branches')
-                .select('"Area"')
-                .eq('"Branch Office"', savedTown)
-                .single();
-
-              if (data) {
-                setSelectedRegion(data.Area);
-              }
-            } catch (error) {
-              console.error('Error finding region for town:', error);
-            }
           }
 
-          const currentPath = location.pathname;
-          const isEmailConfirmation = searchParams.has('type') && searchParams.has('access_token');
+          const isEmailConfirmation = searchParams.has('type') && (searchParams.has('access_token') || searchParams.has('token'));
 
-          // CRITICAL: Check if this is a password recovery session
-          const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
-
-          // If password recovery, ensure we're on the update-password page
-          if (isPasswordRecovery) {
-            console.log('🔐 Password recovery detected in initializeAuth - navigating to update-password');
-            if (currentPath !== '/update-password') {
-              navigate('/update-password', { replace: true });
-              navigationHandled.current = true;
-            }
-            return; // Exit early, don't do normal navigation
-          }
-
-          // Check if MFA is required for this user role
-          const requiresMFA = userData.role === 'ADMIN' || userData.role === 'CHECKER';
-          const mfaCompleted = sessionStorage.getItem('mfaCompleted') === 'true';
-          const mfaInProgress = sessionStorage.getItem('isMFAProcess') === 'true';
-
-          // Only navigate on initial load, not on subsequent auth checks
-          // BUT: Skip navigation if MFA is required and not yet completed
+          // Normal navigation logic
           if ((currentPath === '/' || currentPath === '/login') && !isEmailConfirmation && !navigationHandled.current) {
-            // If MFA is required but not completed, navigate to MFA page ONLY if MFA process is active
+            const requiresMFA = userData.role === 'ADMIN' || userData.role === 'CHECKER';
+            const mfaCompleted = sessionStorage.getItem('mfaCompleted') === 'true';
+            const mfaInProgress = sessionStorage.getItem('isMFAProcess') === 'true';
+
             if (requiresMFA && !mfaCompleted && mfaInProgress) {
               navigate('/mfa', { replace: true });
-              navigationHandled.current = true;
             } else {
-              // Normal navigation for non-MFA users or MFA-completed users
               const targetPath = userData.role === 'STAFF' ? '/staff' : '/dashboard';
               navigate(targetPath, { replace: true });
-              navigationHandled.current = true;
             }
+            navigationHandled.current = true;
           }
         } else {
           setUser(null);
-          setSelectedTown('');
-          setSelectedRegion('All Regions');
-          localStorage.removeItem('selectedTown');
-
-          const publicPaths = ['/login', '/update-password', '/mfa'];
           const currentPath = location.pathname;
+          const publicPaths = ['/login', '/update-password', '/mfa'];
 
-          if (!publicPaths.includes(currentPath)) {
+          const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
+            window.location.hash.includes('type=recovery');
+
+          if (currentPath === '/update-password' || urlHasRecoveryToken) {
+            console.log('🔐 Recovery flow active - staying on update-password');
+            // Don't redirect, let UpdatePassword page handle it
+          } else if (!publicPaths.includes(currentPath) && currentPath !== '/') {
             navigate('/login', { replace: true });
           }
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        toast.error('Authentication error. Please refresh the page.');
       } finally {
         setAuthChecked(true);
         setIsInitializing(false);
@@ -747,11 +702,19 @@ function App() {
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Check if this is a password recovery session
-      const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+      // FIRST: Check if we're in password recovery mode - if so, don't interfere
+      const currentPath = location.pathname;
+      const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
+        window.location.hash.includes('type=recovery');
+
+      if (currentPath === '/update-password' || urlHasRecoveryToken) {
+        console.log('🔐 Auth state change ignored - in password recovery mode');
+        return; // Exit early, let UpdatePassword handle everything
+      }
+
       const isMFAProcess = sessionStorage.getItem('isMFAProcess') === 'true';
 
-      console.log('Auth state change:', event, 'Is password recovery:', isPasswordRecovery, 'Is MFA process:', isMFAProcess);
+      console.log('Auth state change:', event, 'Is MFA process:', isMFAProcess);
 
       // Prevent duplicate handling of the same event
       if (lastAuthEvent.current === event && event !== 'TOKEN_REFRESHED') {
@@ -770,17 +733,6 @@ function App() {
         };
 
         setUser(userData);
-
-        // If this is a password recovery session, don't do normal navigation
-        if (isPasswordRecovery) {
-          console.log('Skipping normal auth flow for password recovery');
-
-          // Make sure we're on the update password page
-          if (location.pathname !== '/update-password') {
-            navigate('/update-password', { replace: true });
-          }
-          return; // Exit early, don't do normal auth flow
-        }
 
         // Handle MFA process for ADMIN and CHECKER roles
         if (isMFAProcess && (userData.role === 'CHECKER' || userData.role === 'ADMIN')) {
@@ -860,13 +812,19 @@ function App() {
         localStorage.removeItem('selectedTown');
 
         if (event === 'SIGNED_OUT') {
+          // Master Guard for recovery flow
+          const urlHasRecoveryToken = window.location.href.includes('type=recovery') ||
+            window.location.hash.includes('type=recovery');
+          if (location.pathname === '/update-password' || urlHasRecoveryToken) {
+            console.log('🛑 Master Guard: Ignoring sign-out during recovery');
+            return;
+          }
+
           hasShownWelcomeToast.current = false;
           lastAuthEvent.current = '';
           navigationHandled.current = false;
-          // Clear all auth flags on sign out
-          sessionStorage.removeItem('isPasswordRecovery');
+
           sessionStorage.removeItem('isMFAProcess');
-          // Clear inactivity timers
           clearAllTimers();
           navigate('/login', { replace: true });
         }
@@ -921,19 +879,19 @@ function App() {
               element={
                 <MFAVerification
                   onSuccess={() => {
-                    // Clear MFA flag and navigate to appropriate page
+                    // This callback will be used if MFAVerification is updated to take props
                     sessionStorage.removeItem('isMFAProcess');
                     const targetPath = user?.role === 'STAFF' ? '/staff' : '/dashboard';
                     navigate(targetPath, { replace: true });
                   }}
                   onFailure={() => {
-                    // Clear MFA flag and redirect to login
                     sessionStorage.removeItem('isMFAProcess');
                     navigate('/login', { replace: true });
                   }}
                 />
               }
             />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/update-password" element={<UpdatePasswordPage />} />
             <Route path="/teams" element={<ChatLayout />} />
             <Route
@@ -996,7 +954,7 @@ function App() {
                                 <Route path="/add-employee" element={<AddEmployeePage />} />
                                 <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                                 <Route path="/view-employee/:employeeId" element={<ViewEmployeePage />} />
-                                 <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
+                                <Route path="/edit-employee/:id" element={<EditEmployeePage />} />
                                 <Route path="/assign-managers" element={<ManagerAssignment />} />
                                 <Route path="/employee-added" element={<SuccessPage />} />
                                 <Route path="/loanadmin" element={<LoanRequestsAdmin />} />

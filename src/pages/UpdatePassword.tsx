@@ -124,8 +124,6 @@ const UpdatePasswordPage = () => {
       if (error) {
         toast.error(error.message);
       } else {
-        console.log('Password updated successfully, clearing recovery flag');
-
         // Clear the recovery flag
         sessionStorage.removeItem('isPasswordRecovery');
 
@@ -255,10 +253,7 @@ const UpdatePasswordPage = () => {
 
         <div className="text-center">
           <button
-            onClick={() => {
-              sessionStorage.removeItem('isPasswordRecovery');
-              navigate('/login');
-            }}
+            onClick={() => navigate('/login')}
             className="text-xs text-green-600 hover:text-green-500"
           >
             Back to Login

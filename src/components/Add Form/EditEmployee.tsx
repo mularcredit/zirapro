@@ -64,7 +64,6 @@ const EditEmployeePage = () => {
   const { user } = useUser();
   const isAdmin = user?.role === 'ADMIN';
   const isHR = user?.role === 'HR';
-  const isManager = user?.role === 'MANAGER' || user?.role === 'REGIONAL';
 
   const [employee, setEmployee] = useState<Partial<Employee>>({});
   const [loading, setLoading] = useState(true);
@@ -1362,20 +1361,22 @@ const EditEmployeePage = () => {
                     icon={CreditCard}
                   />
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-                    <FormField
-                      label="Basic Salary"
-                      name="Basic Salary"
-                      type="number"
-                      value={employee['Basic Salary'] ? String(employee['Basic Salary']) : ''}
-                      onChange={(e) => {
-                        const numValue = e.target.value ? parseFloat(e.target.value) : null;
-                        setEmployee(prev => ({
-                          ...prev,
-                          "Basic Salary": numValue
-                        }));
-                      }}
-                      disabled={!isEditMode}
-                    />
+                    {isAdmin && (
+                      <FormField
+                        label="Basic Salary"
+                        name="Basic Salary"
+                        type="number"
+                        value={employee['Basic Salary'] ? String(employee['Basic Salary']) : ''}
+                        onChange={(e) => {
+                          const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                          setEmployee(prev => ({
+                            ...prev,
+                            "Basic Salary": numValue
+                          }));
+                        }}
+                        disabled={!isEditMode}
+                      />
+                    )}
                     <FormField
                       label="Currency"
                       name="Currency"

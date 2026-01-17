@@ -13,17 +13,26 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // If we are in the middle of password recovery, do NOT redirect to login
+      const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+
       const { data: { user }, error } = await supabase.auth.getUser();
-      
+
       if (error || !user) {
+        if (isPasswordRecovery) {
+          console.log('AuthRoute skipping login redirect during recovery');
+          return;
+        }
         navigate('/login');
         return;
       }
 
       const userRole = user.user_metadata?.role || 'STAFF';
-      
+
       if (allowedRoles && !allowedRoles.includes(userRole)) {
         // Redirect based on role
+        if (isPasswordRecovery) return;
+
         switch (userRole) {
           case 'ADMIN':
             navigate('/dashboard');
@@ -31,13 +40,13 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
           case 'MANAGER':
             navigate('/manager-dashboard');
             break;
-            case 'REGIONAL':
+          case 'REGIONAL':
             navigate('/regional-dashboard');
             break;
-             case 'OPERATIONS':
+          case 'OPERATIONS':
             navigate('/operations-dashboard');
             break;
-            case 'CHECKER':
+          case 'CHECKER':
             navigate('/checker-dashboard');
             break;
           case 'HR':
@@ -53,6 +62,9 @@ export default function AuthRoute({ children, allowedRoles }: AuthRouteProps) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        const isPasswordRecovery = sessionStorage.getItem('isPasswordRecovery') === 'true';
+        if (isPasswordRecovery) return;
+
         navigate('/login');
       }
     });

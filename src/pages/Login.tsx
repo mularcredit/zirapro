@@ -191,6 +191,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [isBranchAutoPopulated, setIsBranchAutoPopulated] = useState(false);
+  const [isRegionalManager, setIsRegionalManager] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -315,6 +316,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     const isValidDomain = lowerEmail.endsWith('@mularcredit.co.ke') || lowerEmail.endsWith('@mularcredit.com');
     if (!isValidDomain || isAdminEmail(lowerEmail)) {
       setIsBranchAutoPopulated(false);
+      setIsRegionalManager(false);
       return;
     }
 
@@ -325,7 +327,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       console.log('1. Checking manager_email column...');
       const { data: managerData, error: managerError } = await supabase
         .from('employees')
-        .select('Town, manager_email')
+        .select('Town, manager_email, "Job Title"')
         .ilike('manager_email', lowerEmail)
         .maybeSingle();
 
@@ -333,6 +335,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         console.log('✅ Found branch manager in manager_email column:', managerData.Town);
         setSelectedBranch(managerData.Town);
         setIsBranchAutoPopulated(true);
+
+        // Check for Regional Manager
+        if (managerData['Job Title']?.toLowerCase().includes('regional')) {
+          setIsRegionalManager(true);
+        } else {
+          setIsRegionalManager(false);
+        }
         return; // Stop here if found
       }
 
@@ -340,7 +349,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       console.log('2. Checking "Work Email" column...');
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
-        .select('Town, "Work Email"')
+        .select('Town, "Work Email", "Job Title"')
         .ilike('"Work Email"', lowerEmail)
         .maybeSingle();
 
@@ -348,6 +357,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         console.log('✅ Found staff in "Work Email" column:', employeeData.Town);
         setSelectedBranch(employeeData.Town);
         setIsBranchAutoPopulated(true);
+
+        // Check for Regional Manager
+        if (employeeData['Job Title']?.toLowerCase().includes('regional')) {
+          setIsRegionalManager(true);
+        } else {
+          setIsRegionalManager(false);
+        }
         return;
       }
 
@@ -446,6 +462,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   useEffect(() => {
     if (!email) {
       setIsBranchAutoPopulated(false);
+      setIsRegionalManager(false);
       setEmailExists(false);
       return;
     }
@@ -538,8 +555,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       // Handle other roles (non-CHECKER, non-ADMIN) normally
       console.log('Non-MFA role, proceeding with normal login...');
 
-      if (userRole === 'ADMIN' || isAdminEmail(email)) {
-        toast.success('Admin login successful!');
+      if (userRole === 'ADMIN' || userRole === 'REGIONAL' || isAdminEmail(email)) {
+        toast.success('Login successful!');
         onLoginSuccess('ADMIN_ALL', userRole);
         navigate('/dashboard');
         return;
@@ -706,8 +723,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
               </div>
             )}
 
-            {/* Show branch selection for both login and signup, except for admin emails */}
-            {!isAdminEmail(email) && (
+            {/* Show branch selection for both login and signup, except for admin emails or regional managers */}
+            {!isAdminEmail(email) && !isRegionalManager && (
               <div className="relative z-20">
                 <label htmlFor="branch" className="block text-xs font-medium text-gray-700">
                   Branch Office

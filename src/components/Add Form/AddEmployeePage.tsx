@@ -61,7 +61,6 @@ const AddEmployeePage = () => {
   const { user } = useUser();
   const isAdmin = user?.role === 'ADMIN';
   const isHR = user?.role === 'HR';
-  const isManager = user?.role === 'MANAGER' || user?.role === 'REGIONAL';
 
   const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1263,19 +1262,21 @@ const AddEmployeePage = () => {
                         onChange={handleInputChange}
                         options={dropdownOptions.jobGroup}
                       />
-                      <FormField
-                        label="Basic Salary"
-                        name="Basic Salary"
-                        type="number"
-                        value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
-                        onChange={(e) => {
-                          const numValue = e.target.value ? parseFloat(e.target.value) : null;
-                          setNewEmployee(prev => ({
-                            ...prev,
-                            "Basic Salary": numValue
-                          }));
-                        }}
-                      />
+                      {isAdmin && (
+                        <FormField
+                          label="Basic Salary"
+                          name="Basic Salary"
+                          type="number"
+                          value={newEmployee['Basic Salary'] ? String(newEmployee['Basic Salary']) : ''}
+                          onChange={(e) => {
+                            const numValue = e.target.value ? parseFloat(e.target.value) : null;
+                            setNewEmployee(prev => ({
+                              ...prev,
+                              "Basic Salary": numValue
+                            }));
+                          }}
+                        />
+                      )}
                       <FormField
                         label="Currency"
                         name="Currency"

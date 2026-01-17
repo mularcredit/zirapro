@@ -25,7 +25,6 @@ const ViewEmployeePage = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useUser();
   const isAdmin = currentUser?.role === 'ADMIN';
-  const isHR = currentUser?.role === 'HR';
   const [employee, setEmployee] = useState<Employee | null>(null);
 
   const [loading, setLoading] = useState(true);
@@ -1102,7 +1101,7 @@ Company Name
                 <DetailRow label="Start Date" value={employee['Start Date'] ? format(new Date(employee['Start Date']), 'MMMM d, yyyy') : 'N/A'} />
                 <DetailRow label="Email" value={employee['Email Address'] || 'N/A'} />
                 <DetailRow label="Phone" value={employee['Phone Number'] || 'N/A'} />
-                {(isAdmin || isHR) && (
+                {isAdmin && (
                   <DetailRow label="Basic Salary" value={employee['Basic Salary'] ? `KSh ${Number(employee['Basic Salary']).toLocaleString()}` : 'N/A'} />
                 )}
               </div>
