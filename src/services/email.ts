@@ -1,4 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
+const RESEND_API_KEY = import.meta.env.VITE_RESEND_API_KEY;
+const RESEND_FROM = import.meta.env.VITE_EMAIL_FROM || "onboarding@resend.dev";
+
+if (!RESEND_API_KEY) {
+  console.warn("VITE_RESEND_API_KEY is missing. Email sending will fail.");
+}
 
 export interface EmailData {
   to: string;
@@ -8,22 +13,29 @@ export interface EmailData {
 
 export const sendEmail = async (data: EmailData) => {
   try {
-    const response = await fetch(`${API_URL}/email/send`, {
+    const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
+        "Authorization": `Bearer ${RESEND_API_KEY}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        from: RESEND_FROM,
+        to: data.to,
+        subject: data.subject,
+        html: data.html,
+      }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || "Failed to send email");
+      throw new Error(errorData.message || "Failed to send email via Resend");
     }
 
-    return await response.json();
+    const result = await response.json();
+    return { ...result, messageId: result.id };
   } catch (error) {
-    console.error("Email service error:", error);
+    console.error("Resend service error:", error);
     throw error;
   }
 };
