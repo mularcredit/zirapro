@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Check, X, ArrowLeft, Loader2, ShieldCheck } from 'lucide-react';
+import { Check, X, ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 const UpdatePasswordPage = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
   const [isValidating, setIsValidating] = useState(true);
+
   const [passwordStrength, setPasswordStrength] = useState({
     minLength: false,
     hasUppercase: false,
@@ -19,72 +21,37 @@ const UpdatePasswordPage = () => {
   });
 
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const validatePasswordStrength = (pwd: string) => {
-    setPasswordStrength({
-      minLength: pwd.length >= 8,
-      hasUppercase: /[A-Z]/.test(pwd),
-      hasLowercase: /[a-z]/.test(pwd),
-      hasNumber: /[0-9]/.test(pwd),
-      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
-    });
-  };
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newPassword = e.target.value;
-    setPassword(newPassword);
-    validatePasswordStrength(newPassword);
-  };
-
+  // 1. Initial Identity Check
   useEffect(() => {
-    const checkRecoverySession = async () => {
+    const validateAccess = async () => {
       try {
         setIsValidating(true);
-        console.log('🔄 Validating update password session...');
+        const { data: { session } } = await supabase.auth.getSession();
 
-        // 1. Force a session refresh to be absolutely sure we have the latest auth state
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          console.error('❌ Session error:', sessionError.message);
-        }
-
-        // 2. Double check URL for PKCE 'code' just in case AuthCallback was skipped
-        const urlParams = new URLSearchParams(window.location.search || window.location.hash.replace('#', '?'));
-        const code = urlParams.get('code');
-        const type = urlParams.get('type') || urlParams.get('error') ? 'error' : null;
-
-        if (code && !session) {
-          console.log('🔑 Found un-exchanged code, attempting recovery exchange...');
-          const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (!exchangeError && exchangeData.session) {
-            console.log('✅ Recovery exchange successful');
-            setIsValidSession(true);
-            setIsValidating(false);
-            return;
-          }
-        }
-
-        // 3. Status Check
-        const isRecoveryFlag = sessionStorage.getItem('isPasswordRecovery') === 'true';
-        console.log('👤 Current session:', !!session, 'Recovery flag:', isRecoveryFlag);
-
-        if (session || isRecoveryFlag) {
+        // If we have a session, we're good to go
+        if (session) {
           setIsValidSession(true);
         } else {
-          console.warn('⚠️ No valid recovery session found');
-        }
+          // Check if we have a recovery code in URL to exchange
+          const params = new URLSearchParams(window.location.search || window.location.hash.replace('#', '?'));
+          const code = params.get('code');
 
+          if (code) {
+            const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+            if (!error && data.session) {
+              setIsValidSession(true);
+            }
+          }
+        }
       } catch (err) {
-        console.error('💥 Unexpected validation error:', err);
+        console.error('Validation error:', err);
       } finally {
         setIsValidating(false);
       }
     };
-
-    checkRecoverySession();
-  }, [location, navigate]);
+    validateAccess();
+  }, []);
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,165 +61,149 @@ const UpdatePasswordPage = () => {
       return;
     }
 
-    const allRequirementsMet = Object.values(passwordStrength).every(req => req === true);
-    if (!allRequirementsMet) {
-      toast.error('Please meet all password requirements');
+    if (!Object.values(passwordStrength).every(v => v)) {
+      toast.error('Please fulfill all security requirements');
       return;
     }
 
     setLoading(true);
-
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      });
+      const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
         toast.error(error.message);
       } else {
+        // SUCCESS!
         sessionStorage.removeItem('isPasswordRecovery');
-        toast.success('Password successfully updated! Please login.');
-
-        await supabase.auth.signOut();
-        navigate('/login', { replace: true });
+        setIsSuccess(true);
+        // Do signout in background without blocking UI
+        supabase.auth.signOut().catch(() => { });
       }
-    } catch (error) {
-      console.error('Update error:', error);
-      toast.error('Failed to update password');
+    } catch (err) {
+      toast.error('An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
+  const validate = (pwd: string) => {
+    setPasswordStrength({
+      minLength: pwd.length >= 8,
+      hasUppercase: /[A-Z]/.test(pwd),
+      hasLowercase: /[a-z]/.test(pwd),
+      hasNumber: /[0-9]/.test(pwd),
+      hasSpecial: /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+    });
+  };
+
+  // --- UI STATES ---
+
+  // SUCCESS STATE
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white p-6">
+        <div className="max-w-md w-full text-center space-y-8">
+          <div className="flex justify-center">
+            <div className="bg-green-100 p-6 rounded-full">
+              <CheckCircle2 className="h-16 w-16 text-green-600" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-black text-gray-900">All Set!</h1>
+            <p className="text-gray-500 font-medium">Your password has been successfully updated. You can now use your new password to sign in.</p>
+          </div>
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full py-4 bg-black text-white rounded-2xl font-bold hover:bg-gray-800 transition-all shadow-xl"
+          >
+            Sign In Now
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // LOADING STATE
   if (isValidating) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="text-center p-12 bg-white rounded-3xl shadow-xl border border-gray-100 flex flex-col items-center">
-          <Loader2 className="animate-spin h-12 w-12 text-green-500 mb-6" />
-          <h2 className="text-xl font-bold text-gray-900">Validating Request</h2>
-          <p className="mt-2 text-sm text-gray-500 max-w-[250px]">Setting up a secure channel for your password update...</p>
-        </div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+        <Loader2 className="animate-spin h-10 w-10 text-green-500 mb-4" />
+        <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Securing Session...</p>
       </div>
     );
   }
 
+  // ERROR STATE
   if (!isValidSession) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-md w-full text-center p-10 bg-white rounded-3xl shadow-2xl border border-red-50 border-t-4 border-t-red-500">
-          <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
-            <X className="h-10 w-10 text-red-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Expired</h2>
-          <p className="text-gray-600 mb-8 text-sm leading-relaxed">
-            Your security link has already been used or has expired. For your protection, password reset links are only valid for a single use.
-          </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="w-full flex items-center justify-center gap-2 py-4 px-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-all active:scale-[0.98] shadow-lg shadow-gray-200"
-          >
-            <ArrowLeft size={20} />
-            Return to Login
+      <div className="min-h-screen flex items-center justify-center bg-white p-6">
+        <div className="max-w-md w-full text-center space-y-6">
+          <X className="h-16 w-16 text-red-500 mx-auto" />
+          <h2 className="text-2xl font-bold">Session Missing</h2>
+          <p className="text-gray-500">Your security link may have expired or was already used. Please request a new one from the login page.</p>
+          <button onClick={() => navigate('/login')} className="text-green-600 font-bold flex items-center justify-center gap-2 mx-auto">
+            <ArrowLeft size={16} /> Back to Login
           </button>
         </div>
       </div>
     );
   }
 
+  // FORM STATE
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white rounded-3xl shadow-2xl border border-gray-100">
-        <div className="text-center">
-          <div className="inline-block p-4 bg-green-50 rounded-2xl mb-4">
-            <ShieldCheck className="h-10 w-10 text-green-600" />
-          </div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-            Security Update
-          </h2>
-          <p className="mt-2 text-sm text-gray-500 font-medium font-serif italic">
-            "Your security is our priority"
-          </p>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+      <div className="max-w-md w-full bg-white p-10 rounded-[2.5rem] shadow-2xl border border-gray-100">
+        <div className="text-center mb-10">
+          <ShieldCheck className="h-12 w-12 text-green-600 mx-auto mb-4" />
+          <h2 className="text-3xl font-black text-gray-900">New Password</h2>
+          <p className="text-sm text-gray-400 mt-2">Enter a secure password for your account</p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handlePasswordUpdate}>
-          <div className="space-y-6">
-            <div>
-              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">
-                New Secure Password
-              </label>
-              <input
-                type="password"
-                required
-                autoFocus
-                className="block w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none font-medium text-gray-900 placeholder-gray-300 shadow-sm"
-                value={password}
-                onChange={handlePasswordChange}
-                placeholder="Enter new password"
-              />
+        <form onSubmit={handlePasswordUpdate} className="space-y-6">
+          <div className="space-y-4">
+            <input
+              type="password"
+              placeholder="Enter new password"
+              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 transition-all outline-none font-medium"
+              value={password}
+              autoFocus
+              onChange={(e) => { setPassword(e.target.value); validate(e.target.value); }}
+              required
+            />
 
-              <div className="mt-5 p-5 bg-gray-50 rounded-2xl border border-gray-100/50 space-y-3">
-                <p className="text-[10px] uppercase font-bold text-gray-400 tracking-[0.1em] mb-1">Protection Requirements</p>
-                <div className="grid grid-cols-1 gap-2">
-                  <CheckItem label="Minimum 8 characters long" met={passwordStrength.minLength} />
-                  <CheckItem label="Includes uppercase (A-Z)" met={passwordStrength.hasUppercase} />
-                  <CheckItem label="Includes lowercase (a-z)" met={passwordStrength.hasLowercase} />
-                  <CheckItem label="Includes a number (0-9)" met={passwordStrength.hasNumber} />
-                  <CheckItem label="Includes special character (@#$)" met={passwordStrength.hasSpecial} />
-                </div>
-              </div>
+            <div className="p-5 bg-gray-50 rounded-2xl space-y-2">
+              <CheckRow met={passwordStrength.minLength} label="At least 8 characters" />
+              <CheckRow met={passwordStrength.hasUppercase} label="Uppercase letter" />
+              <CheckRow met={passwordStrength.hasLowercase} label="Lowercase letter" />
+              <CheckRow met={passwordStrength.hasNumber} label="At least one number" />
+              <CheckRow met={passwordStrength.hasSpecial} label="Special character" />
             </div>
 
-            <div>
-              <label className="block text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 ml-1">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                required
-                className="block w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all outline-none font-medium text-gray-900 placeholder-gray-300 shadow-sm"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm your password"
-              />
-            </div>
+            <input
+              type="password"
+              placeholder="Confirm new password"
+              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl focus:ring-2 focus:ring-green-500 transition-all outline-none font-medium"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
           </div>
 
           <button
-            type="submit"
             disabled={loading}
-            className="group relative w-full flex justify-center py-4 px-4 border border-transparent text-sm font-bold rounded-2xl text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-4 focus:ring-green-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xl shadow-green-200/50 hover:translate-y-[-2px] active:translate-y-[0px]"
+            className="w-full py-5 bg-green-600 text-white rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-green-700 transition-all shadow-xl shadow-green-100"
           >
-            {loading ? (
-              <Loader2 className="animate-spin h-5 w-5 text-white" />
-            ) : (
-              'Save & Secure Account'
-            )}
+            {loading ? 'Processing...' : 'Update Password'}
           </button>
         </form>
-
-        <div className="text-center pt-2">
-          <button
-            onClick={() => navigate('/login')}
-            className="text-xs font-bold text-gray-400 hover:text-gray-600 flex items-center justify-center gap-1.5 mx-auto transition-colors"
-          >
-            <ArrowLeft size={14} />
-            Discard and return to login
-          </button>
-        </div>
       </div>
     </div>
   );
 };
 
-const CheckItem = ({ label, met }: { label: string, met: boolean }) => (
-  <div className={`flex items-center text-[11px] font-bold transition-all duration-300 ${met ? 'text-green-600 translate-x-1' : 'text-gray-400'}`}>
-    {met ? (
-      <div className="bg-green-100 p-0.5 rounded-full mr-2.5">
-        <Check size={11} strokeWidth={4} />
-      </div>
-    ) : (
-      <div className="w-3.5 h-3.5 border-2 border-gray-200 rounded-full mr-2.5" />
-    )}
+const CheckRow = ({ met, label }: { met: boolean, label: string }) => (
+  <div className={`flex items-center gap-3 text-[11px] font-bold ${met ? 'text-green-600' : 'text-gray-300'}`}>
+    {met ? <Check size={14} /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-200" />}
     {label}
   </div>
 );
