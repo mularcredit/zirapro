@@ -6,26 +6,26 @@ import toast from 'react-hot-toast';
 // Format phone number for M-Pesa (254 format)
 const formatPhoneNumber = (phone) => {
   if (!phone) return '';
-  
+
   // Remove any non-digit characters
   let cleaned = phone.replace(/\D/g, '');
-  
+
   // Convert to 254 format if it starts with 0 or 7
   if (cleaned.startsWith('0')) {
     cleaned = '254' + cleaned.substring(1);
   } else if (cleaned.startsWith('7')) {
     cleaned = '254' + cleaned;
   }
-  
+
   return cleaned;
 };
 
 // M-PESA Single Payment Confirmation Modal
-const MpesaSinglePaymentModal = ({ 
-  isOpen, 
-  onClose, 
-  employee, 
-  onConfirm 
+const MpesaSinglePaymentModal = ({
+  isOpen,
+  onClose,
+  employee,
+  onConfirm
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -50,7 +50,7 @@ const MpesaSinglePaymentModal = ({
           <Smartphone className="h-5 w-5 text-green-600" />
           Confirm M-PESA Payment
         </h3>
-        
+
         <div className="mb-4 p-3 bg-gray-50 rounded-md">
           <p className="text-xs text-gray-600 mb-2">
             You are about to send an M-PESA payment to:
@@ -66,7 +66,7 @@ const MpesaSinglePaymentModal = ({
             </p>
           </div>
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -99,11 +99,11 @@ const MpesaSinglePaymentModal = ({
 };
 
 // M-PESA Bulk Payment Modal (similar to your implementation)
-const MpesaBulkPaymentModal = ({ 
-  isOpen, 
-  onClose, 
-  employees, 
-  onConfirm 
+const MpesaBulkPaymentModal = ({
+  isOpen,
+  onClose,
+  employees,
+  onConfirm
 }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState({});
@@ -119,7 +119,7 @@ const MpesaBulkPaymentModal = ({
   }, [employees]);
 
   // Filter employees based on search
-  const filteredEmployees = employees.filter(emp => 
+  const filteredEmployees = employees.filter(emp =>
     emp.employee_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.employee_id.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -183,12 +183,12 @@ const MpesaBulkPaymentModal = ({
           <Users className="h-5 w-5 text-green-600" />
           Confirm M-PESA Bulk Payment
         </h3>
-        
+
         <div className="mb-4 p-3 bg-gray-50 rounded-md">
           <p className="text-xs text-gray-600">
             You are about to process M-PESA B2C payments for {getSelectedStaffCount()} selected staff members.
           </p>
-          
+
           <div className="mt-3 flex gap-2">
             <button
               onClick={selectAllStaff}
@@ -203,7 +203,7 @@ const MpesaBulkPaymentModal = ({
               Deselect All
             </button>
           </div>
-          
+
           <div className="mt-3 border-t pt-3">
             <div className="flex justify-between text-xs">
               <span className="font-medium">Total Amount:</span>
@@ -225,7 +225,7 @@ const MpesaBulkPaymentModal = ({
             className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-xs w-full focus:outline-none focus:ring-1 focus:ring-green-500 focus:border-green-500"
           />
         </div>
-        
+
         <div className="mb-4 max-h-60 overflow-y-auto">
           <p className="text-xs font-medium mb-2">Staff to be paid:</p>
           <ul className="text-xs divide-y divide-gray-200">
@@ -258,7 +258,7 @@ const MpesaBulkPaymentModal = ({
             ))}
           </ul>
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -302,7 +302,7 @@ const MpesaPaymentComponent = ({ payrollRecords }) => {
     const fetchPhoneNumbers = async () => {
       try {
         const employeeNumbers = payrollRecords.map(record => record.employee_id).filter(Boolean);
-        
+
         if (employeeNumbers.length === 0) return;
 
         const { data, error } = await supabase
@@ -338,9 +338,10 @@ const MpesaPaymentComponent = ({ payrollRecords }) => {
       }
 
       const formattedPhone = formatPhoneNumber(phoneNumber);
-      
+      const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
+
       // Call backend API to initiate M-Pesa B2C payment
-      const response = await fetch('http://localhost:3001/api/mpesa/b2c', {
+      const response = await fetch(`${API_URL}/mpesa/b2c`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -371,19 +372,19 @@ const MpesaPaymentComponent = ({ payrollRecords }) => {
   // Process bulk M-PESA payments
   const processBulkMpesaPayment = async (selectedEmployees) => {
     const results = [];
-    
+
     for (const employee of selectedEmployees) {
       try {
         const result = await processSingleMpesaPayment(employee);
         results.push({ success: true, employee, result });
-        
+
         // Add a small delay between payments to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         results.push({ success: false, employee, error });
       }
     }
-    
+
     toast.success(`Payments processed for ${results.filter(r => r.success).length} of ${selectedEmployees.length} employees`);
     return results;
   };

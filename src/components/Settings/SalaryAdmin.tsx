@@ -3810,9 +3810,7 @@ const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
         formattedPhone
       });
 
-      const MPESA_API_BASE = process.env.NODE_ENV === 'production'
-        ? 'https://mpesa-22p0.onrender.com/api'
-        : 'http://localhost:3001/api';
+      const MPESA_API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
 
       const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
         method: 'POST',
