@@ -1030,7 +1030,14 @@ function App() {
                                   path="/salaryadmin"
                                   element={
                                     <AuthRoute allowedRoles={['ADMIN', 'CHECKER', 'MANAGER', 'REGIONAL']}>
-                                      <SalaryAdvanceAdmin selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      <SalaryAdvanceAdmin
+                                        selectedTown={selectedTown}
+                                        selectedRegion={selectedRegion}
+                                        allTowns={branches}
+                                        regions={regions}
+                                        onTownChange={handleTownChange}
+                                        onRegionChange={handleRegionChange}
+                                      />
                                     </AuthRoute>
                                   }
                                 />

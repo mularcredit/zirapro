@@ -246,10 +246,10 @@ export default function StaffSignupRequests() {
         .from('email_logs')
         .insert([
           {
-            sent_to: email,
+            email: email,
             subject: subject,
             request_id: requestIdBigInt,
-            message_id: resendId,
+            resend_id: resendId,
             status: 'sent',
             sent_at: new Date().toISOString()
           }
@@ -285,7 +285,7 @@ export default function StaffSignupRequests() {
           bounce_reason: bounceReason,
           bounced_at: status === 'bounced' ? new Date().toISOString() : null
         })
-        .eq('sent_to', email)
+        .eq('email', email)
         .order('sent_at', { ascending: false })
         .limit(1)
         .select();
@@ -546,7 +546,7 @@ export default function StaffSignupRequests() {
         email,
         subject,
         requestId,
-        result.id || null
+        result.messageId || result.id || null
       );
 
       return result;

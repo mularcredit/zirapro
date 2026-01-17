@@ -2888,8 +2888,23 @@ const BulkPaymentModal = ({
   );
 };
 
+interface SalaryAdvanceAdminProps {
+  selectedTown: string;
+  selectedRegion: string;
+  allTowns: string[];
+  regions: string[];
+  onTownChange?: (town: string) => void;
+  onRegionChange?: (region: string) => void;
+}
+
 // MAIN COMPONENT - SalaryAdvanceAdmin
-const SalaryAdvanceAdmin = () => {
+const SalaryAdvanceAdmin: React.FC<SalaryAdvanceAdminProps> = ({
+  selectedTown,
+  selectedRegion,
+  allTowns: propAllTowns,
+  regions,
+  onTownChange
+}) => {
   const [applications, setApplications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -2904,14 +2919,14 @@ const SalaryAdvanceAdmin = () => {
   const [justification, setJustification] = useState('');
 
 
-  const [currentTown, setCurrentTown] = useState<string>('');
-  const [allTowns, setAllTowns] = useState<string[]>([]);
+  // const [currentTown, setCurrentTown] = useState<string>('');
+  const [allTownsState, setAllTownsState] = useState<string[]>([]);
   const [userTown, setUserTown] = useState<string>('');
   const [userRegion, setUserRegion] = useState<string>('');
   const [areaTownMapping, setAreaTownMapping] = useState<any>({});
   const [branchAreaMapping, setBranchAreaMapping] = useState<any>({});
-  const [isArea, setIsArea] = useState<boolean>(false);
-  const [townsInArea, setTownsInArea] = useState<string[]>([]);
+  // const [isArea, setIsArea] = useState<boolean>(false);
+  // const [townsInArea, setTownsInArea] = useState<string[]>([]);
 
   // Manager data state
   const [employeeJobTitles, setEmployeeJobTitles] = useState<Record<string, string>>({});
@@ -2964,6 +2979,7 @@ const SalaryAdvanceAdmin = () => {
   const isRegionalManager = userRole === 'regional_manager';
   const isChecker = userRole === 'checker';
   const isMaker = userRole === 'maker';
+  const isAdminOrChecker = isAdmin || isChecker;
 
   // Duplicate prevention function
   const checkForDuplicateApplication = async (employeeNumber, month, year) => {
@@ -3063,11 +3079,13 @@ const SalaryAdvanceAdmin = () => {
 
         setBranchAreaMapping(branchMapping);
 
+        /* 
         const savedTown = localStorage.getItem('selectedTown');
-        if (savedTown) {
-          setCurrentTown(savedTown);
+        if (savedTown && onTownChange) {
+          onTownChange(savedTown);
           console.log('🎯 Loaded saved town from storage:', savedTown);
         }
+        */
       } catch (error) {
         console.error("Error in loadMappings:", error);
       }
@@ -3079,16 +3097,16 @@ const SalaryAdvanceAdmin = () => {
   }, []);
 
   // BORROWED FROM LEAVE MANAGEMENT: Check if current selection is an area and get its towns
+  // REMOVED isArea logic as it's handled by props
+  /*
   useEffect(() => {
-    if (currentTown && areaTownMapping[currentTown]) {
-      setIsArea(true);
-      setTownsInArea(areaTownMapping[currentTown]);
-      console.log('📍 Current selection is an area:', currentTown, 'with towns:', areaTownMapping[currentTown]);
+    if (selectedTown && areaTownMapping[selectedTown]) {
+      // setIsArea(true);
     } else {
-      setIsArea(false);
-      setTownsInArea([]);
+      // setIsArea(false);
     }
-  }, [currentTown, areaTownMapping]);
+  }, [selectedTown, areaTownMapping]);
+  */
 
   // Enhanced user profile fetching with manager lookup
   const fetchUserProfile = async () => {
@@ -3164,15 +3182,15 @@ const SalaryAdvanceAdmin = () => {
       setUserTown(userTown);
       setUserRegion(userRegion);
 
+      /*
       if (mappedRole === 'regional_manager' && userRegion) {
-        setCurrentTown(userRegion);
+        // onRegionChange && onRegionChange(userRegion);
         console.log('🎯 Regional Manager - auto-filtering by region:', userRegion);
       } else if (mappedRole === 'branch_manager' && userTown) {
-        setCurrentTown(userTown);
+        // onTownChange && onTownChange(userTown);
         console.log('🎯 Branch Manager - auto-filtering by town:', userTown);
-      } else {
-        setCurrentTown('');
       }
+      */
 
     } catch (error) {
       console.error('❌ Error fetching user profile:', error);
@@ -3227,7 +3245,7 @@ const SalaryAdvanceAdmin = () => {
       console.log('📍 Current user town:', userTown);
       console.log('📍 Current user region:', userRegion);
 
-      setAllTowns(allLocations);
+      setAllTownsState(allLocations);
     } catch (error) {
       console.error('❌ Error fetching towns:', error);
     }
@@ -3243,21 +3261,22 @@ const SalaryAdvanceAdmin = () => {
   const fetchApplications = async () => {
     setIsLoading(true);
     try {
-      console.log('🔍 Fetching applications - Role:', userRole, 'Current Town:', currentTown);
+      console.log('🔍 Fetching applications - Role:', userRole, 'Selected Town:', selectedTown, 'Selected Region:', selectedRegion);
 
       let query = supabase
         .from('salary_advance')
         .select('*')
         .order('time_added', { ascending: false });
 
-      if (currentTown && currentTown.trim() !== '') {
-        if (isRegionalManager) {
-          console.log('🌍 Regional Manager - Getting towns for region:', currentTown);
+      // Role-based filtering
+      if (!isAdminOrChecker) {
+        if (isRegionalManager && selectedRegion && selectedRegion !== 'All Regions') {
+          console.log('🌍 Regional Manager - Filtering by region:', selectedRegion);
 
           const { data: regionTowns, error: townsError } = await supabase
             .from('employees')
             .select('Town')
-            .ilike('Branch', `%${currentTown}%`)
+            .ilike('Branch', `%${selectedRegion}%`)
             .not('Town', 'is', null);
 
           if (townsError) {
@@ -3269,23 +3288,19 @@ const SalaryAdvanceAdmin = () => {
           console.log('🏙️ Towns in region:', uniqueTowns);
 
           if (uniqueTowns.length > 0) {
-            const orConditions = uniqueTowns.map(town => `"Office Branch".ilike.%${town}%`).join(',');
-            query = query.or(orConditions);
+            query = query.in('Office Branch', uniqueTowns);
             console.log('🔍 Filtering by Office Branch with towns:', uniqueTowns);
           } else {
-            console.log('❌ No towns found for region:', currentTown);
+            console.log('❌ No towns found for region:', selectedRegion);
+            query = query.eq('id', '00000000-0000-0000-0000-000000000000'); // Return no results
           }
-
-        } else if (isArea) {
-          console.log('🏙️ Area selected, filtering by Office Branch for towns:', townsInArea);
-          const orConditions = townsInArea.map(town => `"Office Branch".ilike.%${town}%`).join(',');
-          query = query.or(orConditions);
-        } else {
-          console.log('🏙️ Filtering by Office Branch:', currentTown.trim());
-          query = query.ilike('"Office Branch"', `%${currentTown.trim()}%`);
+        } else if (isBranchManager && selectedTown && selectedTown !== 'All Towns') {
+          console.log('🏢 Branch Manager - Filtering by town:', selectedTown);
+          query = query.eq('Office Branch', selectedTown);
+        } else if (userRole === 'maker' && selectedTown && selectedTown !== 'All Towns') {
+          console.log('👤 Maker - Filtering by town:', selectedTown);
+          query = query.eq('Office Branch', selectedTown);
         }
-      } else {
-        console.log('🔓 No filter applied');
       }
 
       const { data, error } = await query;
@@ -3341,25 +3356,27 @@ const SalaryAdvanceAdmin = () => {
     }
   };
 
-  // BORROWED FROM LEAVE MANAGEMENT: Update the useEffect to trigger on currentTown changes
+  // BORROWED FROM LEAVE MANAGEMENT: Update the useEffect to trigger on town/region changes
   useEffect(() => {
-    console.log('🔄 Triggering fetch due to town/region change:', currentTown);
+    console.log('🔄 Triggering fetch due to town/region change:', selectedTown, selectedRegion);
     fetchApplications();
-  }, [currentTown]);
+  }, [selectedTown, selectedRegion, selectedStatus, selectedMonth, selectedDateRange, customStartDate, customEndDate]);
 
   // BORROWED FROM LEAVE MANAGEMENT: Handle town change
   const handleTownChange = (town: string) => {
-    setCurrentTown(town);
+    if (onTownChange) {
+      onTownChange(town);
+    }
     setCurrentPage(1);
-    localStorage.setItem('selectedTown', town);
-    console.log('💾 Saved town to localStorage:', town);
+    console.log('💾 Town change requested:', town);
   };
 
   // BORROWED FROM LEAVE MANAGEMENT: Get display name for current selection
-  const getDisplayName = (currentTown: string, isArea: boolean) => {
+  const getDisplayName = (currentTown: string) => {
     if (!currentTown) return "All Towns";
 
-    if (isArea) {
+    // Check if it's a region
+    if (regions && regions.includes(currentTown)) {
       return `${currentTown} Region`;
     }
 
@@ -4792,9 +4809,9 @@ const SalaryAdvanceAdmin = () => {
             <div className="flex items-center gap-3 flex-wrap">
               {/* Enhanced Filter Component */}
               <EnhancedFilter
-                selectedTown={currentTown}
+                selectedTown={selectedTown}
                 onTownChange={handleTownChange}
-                allTowns={allTowns}
+                allTowns={propAllTowns}
                 userRole={userRole}
                 userTown={userTown}
                 isRegionalManager={isRegionalManager}
@@ -4916,14 +4933,14 @@ const SalaryAdvanceAdmin = () => {
           )}
 
           {/* BORROWED FROM LEAVE MANAGEMENT: Auto-filter Notice for Managers */}
-          {(isBranchManager || isRegionalManager) && currentTown && (
+          {(isBranchManager || isRegionalManager) && selectedTown && (
             <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="flex items-center gap-2 text-xs text-blue-800">
                 <MapPin className="w-4 h-4" />
                 <span>
                   {isRegionalManager
-                    ? `Viewing applications for your region: ${currentTown}`
-                    : `Viewing applications for your town: ${currentTown}`
+                    ? `Viewing applications for your region: ${selectedRegion || selectedTown}`
+                    : `Viewing applications for your town: ${selectedTown}`
                   }
                   <span className="text-blue-600 ml-2">(Auto-filtered)</span>
                 </span>
@@ -4932,12 +4949,12 @@ const SalaryAdvanceAdmin = () => {
           )}
 
           {/* BORROWED FROM LEAVE MANAGEMENT: Manual Filter Display */}
-          {!isBranchManager && !isRegionalManager && currentTown && (
+          {!isBranchManager && !isRegionalManager && selectedTown && (
             <div className="mb-4 flex items-center gap-2">
               <span className="text-xs text-gray-600">Active filter:</span>
               <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                 <MapPin className="w-3 h-3" />
-                {isArea ? 'Region' : 'Town'}: {getDisplayName(currentTown, isArea)}
+                Town/Region: {getDisplayName(selectedTown)}
                 <button
                   onClick={() => handleTownChange('')}
                   className="text-blue-600 hover:text-blue-800 ml-1"
@@ -5017,9 +5034,9 @@ const SalaryAdvanceAdmin = () => {
           ) : filteredApplications.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No salary advance requests found.
-              {currentTown && (
+              {selectedTown && (
                 <p className="text-xs mt-2">
-                  No applications found for {isRegionalManager ? 'region' : isArea ? 'region' : 'town'} "{getDisplayName(currentTown, isArea)}". Try changing your filter or search term.
+                  No applications found for {isRegionalManager ? 'region' : 'town'} "{getDisplayName(selectedTown)}". Try changing your filter or search term.
                 </p>
               )}
             </div>
@@ -5522,7 +5539,7 @@ const SalaryAdvanceAdmin = () => {
             onClose={() => setShowExportModal(false)}
             onExport={handleExport}
             isLoading={isExporting}
-            filterOptions={{ allTowns }}
+            filterOptions={{ allTowns: propAllTowns }}
           />
 
           {/* Import Modal */}

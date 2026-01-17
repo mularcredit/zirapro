@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Users,
   Calendar,
@@ -22,7 +22,7 @@ import {
   UserCog,
   GraduationCap
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import solo from '../../../public/solo.png';
 import RoleButtonWrapper from '../ProtectedRoutes/RoleButton'
@@ -62,7 +62,7 @@ const menuGroups = [
     items: [
       { id: 'payroll', label: 'Payroll', icon: Wallet, path: '/payroll', allowedRoles: ['ADMIN', 'CHECKER'] },
       { id: 'expense', label: 'Expenses', icon: HandCoins, path: '/expenses', allowedRoles: ['ADMIN', 'OPERATIONS', 'MANAGER', 'REGIONAL', 'CHECKER'] },
-      { id: 'advanced', label: 'Salary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN', 'CHECKER'] },
+      { id: 'advanced', label: 'Salary Advance', icon: Wallet, path: '/salaryadmin', allowedRoles: ['ADMIN', 'CHECKER', 'MANAGER', 'REGIONAL'] },
       { id: 'asset', label: 'Assets', icon: Box, path: '/asset' },
     ]
   },
@@ -89,7 +89,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
-  const sidebarVariants = {
+  const sidebarVariants: Variants = {
     expanded: {
       width: 260,
       transition: { type: "spring", stiffness: 300, damping: 30 }
@@ -151,7 +151,7 @@ export default function Sidebar({ user }: SidebarProps) {
 
         {/* Navigation Area - Grows freely */}
         <div className="flex-1 px-3 pb-4 space-y-6">
-          {menuGroups.map((group, groupIndex) => (
+          {menuGroups.map((group) => (
             <div key={group.title}>
               {/* Group Title */}
               <AnimatePresence>
@@ -226,7 +226,7 @@ export default function Sidebar({ user }: SidebarProps) {
                   return (
                     <div key={item.id}>
                       {item.allowedRoles ? (
-                        <RoleButtonWrapper allowedRoles={item.allowedRoles} fallback={null}>
+                        <RoleButtonWrapper allowedRoles={item.allowedRoles}>
                           {NavItem}
                         </RoleButtonWrapper>
                       ) : (
