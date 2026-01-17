@@ -367,6 +367,19 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         return;
       }
 
+      // THIRD: Check if this email is listed as a regional_manager for ANY employee
+      console.log('3. Checking "regional_manager" column...');
+      const { data: rmCheckData } = await supabase
+        .from('employees')
+        .select('regional_manager')
+        .ilike('regional_manager', lowerEmail)
+        .limit(1);
+
+      if (rmCheckData && rmCheckData.length > 0) {
+        console.log('✅ Identified as Regional Manager via regional_manager column');
+        setIsRegionalManager(true);
+      }
+
       // If neither column has the email
       console.log('❌ Email not found in manager_email or "Work Email" columns');
       setIsBranchAutoPopulated(false);
@@ -555,9 +568,22 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       // Handle other roles (non-CHECKER, non-ADMIN) normally
       console.log('Non-MFA role, proceeding with normal login...');
 
-      if (userRole === 'ADMIN' || userRole === 'REGIONAL' || isAdminEmail(email)) {
+      // Check if Regional Manager by email lookup (if role didn't catch it)
+      // This covers the case where "a user is a regional manager if they have a regional manager email"
+      let isRegionalByEmail = false;
+      const { data: rmCheck } = await supabase
+        .from('employees')
+        .select('regional_manager')
+        .ilike('regional_manager', email)
+        .limit(1);
+
+      if (rmCheck && rmCheck.length > 0) {
+        isRegionalByEmail = true;
+      }
+
+      if (userRole === 'ADMIN' || userRole === 'REGIONAL' || isRegionalByEmail || isAdminEmail(email)) {
         toast.success('Login successful!');
-        onLoginSuccess('ADMIN_ALL', userRole);
+        onLoginSuccess('ADMIN_ALL', isRegionalByEmail ? 'REGIONAL' : userRole);
         navigate('/dashboard');
         return;
       }
