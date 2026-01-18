@@ -34,8 +34,9 @@ export default function EmailDashboard() {
     const fetchLogs = async (page: number = 1) => {
         setLoading(true);
         try {
-            // Use relative path - works in both dev (via proxy) and production
-            const url = `/api/email/logs?limit=${itemsPerPage}`;
+            // Use same API URL logic as other components
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
+            const url = `${API_URL}/email/logs?limit=${itemsPerPage}`;
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -77,7 +78,8 @@ export default function EmailDashboard() {
     const fetchEmailDetails = async (emailId: string) => {
         setLoadingDetails(true);
         try {
-            const response = await fetch(`/api/email/logs/${emailId}`);
+            const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
+            const response = await fetch(`${API_URL}/email/logs/${emailId}`);
 
             if (!response.ok) {
                 const errorData = await response.json();
