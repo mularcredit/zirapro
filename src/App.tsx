@@ -31,6 +31,7 @@ import UserRolesSettings from './components/Settings/UserRole';
 import AuthRoute from './components/ProtectedRoutes/AuthRoute';
 import NotFound from './components/NOT FOUND/NotFound';
 import UpdatePasswordPage from './pages/UpdatePassword';
+
 import AuthCallback from './pages/AuthCallback';
 import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
 import IncidentReportsManagement from './components/Settings/IncidentReportsManagement';

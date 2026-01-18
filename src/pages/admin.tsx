@@ -35,7 +35,9 @@ import {
 // You'll need to install these dependencies:
 // npm install xlsx file-saver
 import * as XLSX from 'xlsx';
+
 import { saveAs } from 'file-saver';
+import EmailDashboard from '../components/Email/EmailDashboard';
 
 export default function StaffSignupRequests() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -70,6 +72,7 @@ export default function StaffSignupRequests() {
     lastUpdate: null
   });
   const [filterBounced, setFilterBounced] = useState(false);
+  const [activeTab, setActiveTab] = useState<'requests' | 'emails'>('requests');
 
   const itemsPerPage = 100;
 
@@ -239,8 +242,9 @@ export default function StaffSignupRequests() {
   const trackEmailSend = async (email: any, subject: any, requestId: any = null, resendId: any = null) => {
     try {
       const requestIdBigInt = requestId ? parseInt(requestId, 10) : null;
+      const client = supabaseAdmin || supabase;
 
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from('email_logs')
         .insert([
           {
@@ -544,7 +548,7 @@ export default function StaffSignupRequests() {
         email,
         subject,
         requestId,
-        result.messageId || result.id || null
+        result.id || null
       );
 
       return result;
@@ -1240,251 +1244,93 @@ export default function StaffSignupRequests() {
               </button>
             </div>
           </div>
-        </div>
 
-        {/* Webhook Status Panel */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className={`flex items-center space-x-2 ${webhookEnabled ? 'text-green-600' : 'text-red-600'}`}>
-                {webhookEnabled ? (
-                  <>
-                    <Wifi className="w-5 h-5" />
-                    <span className="font-medium text-sm">Webhook Active</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-5 h-5" />
-                    <span className="font-medium text-sm">Webhook Offline</span>
-                  </>
-                )}
-              </div>
-              <div className="h-4 w-px bg-blue-300"></div>
-              <div className="flex items-center space-x-4 text-xs">
-                <span className="text-gray-600">Total: <strong>{webhookStats.total}</strong></span>
-                <span className="text-green-600">Delivered: <strong>{webhookStats.delivered}</strong></span>
-                <span className="text-red-600">Bounced: <strong>{webhookStats.bounced}</strong></span>
-                <span className="text-blue-600">Sent: <strong>{webhookStats.sent}</strong></span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setFilterBounced(!filterBounced)}
-                className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterBounced
-                  ? 'bg-red-100 text-red-800 border border-red-300'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-                  }`}
-              >
-                <AlertCircle className="w-4 h-4" />
-                <span>Show Bounced Only</span>
-                {filterBounced && webhookStats.bounced > 0 && (
-                  <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {webhookStats.bounced}
-                  </span>
-                )}
-              </button>
-              {webhookStats.lastUpdate && (
-                <span className="text-xs text-gray-500">
-                  Updated: {webhookStats.lastUpdate.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
+          {/* Tab Navigation */}
+          <div className="flex items-center space-x-1 bg-gray-200 p-1 rounded-lg w-fit mt-6">
+            <button
+              onClick={() => setActiveTab('requests')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'requests'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                }`}
+            >
+              Signup Requests
+            </button>
+            <button
+              onClick={() => setActiveTab('emails')}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${activeTab === 'emails'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-300'
+                }`}
+            >
+              Email Logs (Resend)
+            </button>
           </div>
         </div>
 
-        {/* Bulk Upload Modal */}
-        {showBulkUpload && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Bulk Upload Staff Emails</h3>
-                <button
-                  onClick={() => {
-                    setShowBulkUpload(false);
-                    setExcelFile(null);
-                    setParsedData([]);
-                    setBulkEmails('');
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+        {activeTab === 'emails' ? (
+          <EmailDashboard />
+        ) : (
+          <>
 
-              <div className="p-6 space-y-6">
-                {/* Upload Method Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Upload Method
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => setUploadMethod('excel')}
-                      className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'excel'
-                        ? 'border-purple-500 bg-purple-50 text-purple-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
-                    >
-                      <Table className="w-8 h-8 mx-auto mb-2" />
-                      <div className="font-medium">Excel Template</div>
-                      <div className="text-sm text-gray-500">Recommended for large lists</div>
-                    </button>
-                    <button
-                      onClick={() => setUploadMethod('manual')}
-                      className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'manual'
-                        ? 'border-purple-500 bg-purple-50 text-purple-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                        }`}
-                    >
-                      <FileText className="w-8 h-8 mx-auto mb-2" />
-                      <div className="font-medium">Manual Entry</div>
-                      <div className="text-sm text-gray-500">For small lists</div>
-                    </button>
-                  </div>
-                </div>
 
-                {/* Branch Assignment */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Default Branch Assignment
-                  </label>
-                  <input
-                    type="text"
-                    value={bulkBranch}
-                    onChange={(e) => setBulkBranch(e.target.value)}
-                    placeholder="Enter default branch name (e.g., 'Main Branch', 'New York Office')"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    This branch will be used for all uploaded emails unless specified in the Excel file
-                  </p>
-                </div>
 
-                {/* Excel Upload Section */}
-                {uploadMethod === 'excel' && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Upload Excel File
-                      </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                        <input
-                          type="file"
-                          accept=".xlsx,.xls"
-                          onChange={handleExcelUpload}
-                          className="hidden"
-                          id="excel-upload"
-                        />
-                        <label
-                          htmlFor="excel-upload"
-                          className="cursor-pointer block"
-                        >
-                          <Table className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                          <div className="text-sm text-gray-600">
-                            {excelFile ? (
-                              <span className="text-green-600 font-medium">
-                                {excelFile.name} ({parsedData.length} records found)
-                              </span>
-                            ) : (
-                              <>
-                                <span className="font-medium text-purple-600">Click to upload Excel file</span>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  .xlsx or .xls files only, max 5MB
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Preview parsed data */}
-                    {parsedData.length > 0 && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Preview ({parsedData.length} records)
-                        </label>
-                        <div className="border border-gray-200 rounded-lg overflow-hidden">
-                          <div className="max-h-48 overflow-y-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Email
-                                  </th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Branch
-                                  </th>
-                                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                                    Notes
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
-                                {parsedData.slice(0, 10).map((record, index) => (
-                                  <tr key={index}>
-                                    <td className="px-3 py-2 text-sm text-gray-900">
-                                      {record.email}
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-gray-900">
-                                      {record.branch}
-                                    </td>
-                                    <td className="px-3 py-2 text-sm text-gray-500">
-                                      {record.notes}
-                                    </td>
-                                  </tr>
-                                ))}
-                                {parsedData.length > 10 && (
-                                  <tr>
-                                    <td colSpan="3" className="px-3 py-2 text-sm text-gray-500 text-center">
-                                      ... and {parsedData.length - 10} more records
-                                    </td>
-                                  </tr>
-                                )}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
+            {/* Webhook Status Panel */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`flex items-center space-x-2 ${webhookEnabled ? 'text-green-600' : 'text-red-600'}`}>
+                    {webhookEnabled ? (
+                      <>
+                        <Wifi className="w-5 h-5" />
+                        <span className="font-medium text-sm">Webhook Active</span>
+                      </>
+                    ) : (
+                      <>
+                        <WifiOff className="w-5 h-5" />
+                        <span className="font-medium text-sm">Webhook Offline</span>
+                      </>
                     )}
                   </div>
-                )}
-
-                {/* Manual Upload Section */}
-                {uploadMethod === 'manual' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email List
-                    </label>
-                    <textarea
-                      value={bulkEmails}
-                      onChange={(e) => setBulkEmails(e.target.value)}
-                      placeholder="Enter email addresses (one per line, or separated by commas/semicolons)
-john.doe@company.com
-jane.smith@company.com
-mike.wilson@company.com"
-                      rows={8}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Supports: one email per line, comma-separated, or semicolon-separated
-                    </p>
+                  <div className="h-4 w-px bg-blue-300"></div>
+                  <div className="flex items-center space-x-4 text-xs">
+                    <span className="text-gray-600">Total: <strong>{webhookStats.total}</strong></span>
+                    <span className="text-green-600">Delivered: <strong>{webhookStats.delivered}</strong></span>
+                    <span className="text-red-600">Bounced: <strong>{webhookStats.bounced}</strong></span>
+                    <span className="text-blue-600">Sent: <strong>{webhookStats.sent}</strong></span>
                   </div>
-                )}
+                </div>
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => setFilterBounced(!filterBounced)}
+                    className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-xs font-medium transition-all ${filterBounced
+                      ? 'bg-red-100 text-red-800 border border-red-300'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                      }`}
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    <span>Show Bounced Only</span>
+                    {filterBounced && webhookStats.bounced > 0 && (
+                      <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                        {webhookStats.bounced}
+                      </span>
+                    )}
+                  </button>
+                  {webhookStats.lastUpdate && (
+                    <span className="text-xs text-gray-500">
+                      Updated: {webhookStats.lastUpdate.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={downloadExcelTemplate}
-                      className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 font-medium text-sm"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download Excel Template
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
+            {/* Bulk Upload Modal */}
+            {showBulkUpload && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">Bulk Upload Staff Emails</h3>
                     <button
                       onClick={() => {
                         setShowBulkUpload(false);
@@ -1492,456 +1338,645 @@ mike.wilson@company.com"
                         setParsedData([]);
                         setBulkEmails('');
                       }}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
                     >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={uploadMethod === 'excel' ? handleBulkUploadFromExcel : handleManualBulkUpload}
-                      disabled={
-                        uploadingBulk ||
-                        parsingExcel ||
-                        (uploadMethod === 'excel' && parsedData.length === 0) ||
-                        (uploadMethod === 'manual' && !bulkEmails.trim()) ||
-                        !bulkBranch.trim()
-                      }
-                      className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
-                    >
-                      {uploadingBulk || parsingExcel ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {parsingExcel ? 'Parsing...' : 'Uploading...'}
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          {uploadMethod === 'excel' ? `Upload ${parsedData.length} Records` : 'Upload Emails'}
-                        </>
-                      )}
+                      <X className="w-6 h-6" />
                     </button>
                   </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Stats and Filters */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-          {/* Stats Card */}
-          <div className="lg:col-span-1 bg-white rounded-xl shadow-xs border border-gray-200 p-6 transition-all hover:shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Requests</p>
-                <p className="text-3xl font-bold text-gray-900 mt-1">{totalCount}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Page {currentPage} of {totalPages}
-                </p>
-                {selectedRequests.size > 0 && (
-                  <p className="text-xs text-blue-600 font-medium mt-1">
-                    {selectedRequests.size} selected
-                  </p>
-                )}
-                {filterBounced && (
-                  <p className="text-xs text-red-600 font-medium mt-1">
-                    Showing {filteredRequests.length} bounced emails
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
+                  <div className="p-6 space-y-6">
+                    {/* Upload Method Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Upload Method
+                      </label>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          onClick={() => setUploadMethod('excel')}
+                          className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'excel'
+                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            }`}
+                        >
+                          <Table className="w-8 h-8 mx-auto mb-2" />
+                          <div className="font-medium">Excel Template</div>
+                          <div className="text-sm text-gray-500">Recommended for large lists</div>
+                        </button>
+                        <button
+                          onClick={() => setUploadMethod('manual')}
+                          className={`p-4 border-2 rounded-lg text-center transition-all ${uploadMethod === 'manual'
+                            ? 'border-purple-500 bg-purple-50 text-purple-700'
+                            : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                            }`}
+                        >
+                          <FileText className="w-8 h-8 mx-auto mb-2" />
+                          <div className="font-medium">Manual Entry</div>
+                          <div className="text-sm text-gray-500">For small lists</div>
+                        </button>
+                      </div>
+                    </div>
 
-          {/* Branch Filter Dropdown */}
-          <div className="lg:col-span-3 bg-white rounded-xl shadow-xs border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <h3 className="text-sm font-semibold text-gray-900">Filter by Branch</h3>
-              </div>
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                {selectedBranch === 'all' ? 'Showing all branches' : `Filtered by: ${selectedBranch}`}
-              </span>
-            </div>
-
-            <div className="relative">
-              <button
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-              >
-                <div className="flex items-center space-x-2">
-                  <Building className="w-4 h-4 text-gray-500" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {getSelectedBranchLabel()}
-                  </span>
-                </div>
-                <ChevronDown
-                  className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
-                    }`}
-                />
-              </button>
-
-              {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
-                  <div className="p-2 border-b border-gray-200">
-                    <div className="relative">
-                      <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                    {/* Branch Assignment */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Default Branch Assignment
+                      </label>
                       <input
                         type="text"
-                        placeholder="Search branches..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        value={bulkBranch}
+                        onChange={(e) => setBulkBranch(e.target.value)}
+                        placeholder="Enter default branch name (e.g., 'Main Branch', 'New York Office')"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This branch will be used for all uploaded emails unless specified in the Excel file
+                      </p>
+                    </div>
+
+                    {/* Excel Upload Section */}
+                    {uploadMethod === 'excel' && (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Upload Excel File
+                          </label>
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <input
+                              type="file"
+                              accept=".xlsx,.xls"
+                              onChange={handleExcelUpload}
+                              className="hidden"
+                              id="excel-upload"
+                            />
+                            <label
+                              htmlFor="excel-upload"
+                              className="cursor-pointer block"
+                            >
+                              <Table className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                              <div className="text-sm text-gray-600">
+                                {excelFile ? (
+                                  <span className="text-green-600 font-medium">
+                                    {excelFile.name} ({parsedData.length} records found)
+                                  </span>
+                                ) : (
+                                  <>
+                                    <span className="font-medium text-purple-600">Click to upload Excel file</span>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      .xlsx or .xls files only, max 5MB
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Preview parsed data */}
+                        {parsedData.length > 0 && (
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Preview ({parsedData.length} records)
+                            </label>
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                              <div className="max-h-48 overflow-y-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-50">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Email
+                                      </th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Branch
+                                      </th>
+                                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                                        Notes
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {parsedData.slice(0, 10).map((record, index) => (
+                                      <tr key={index}>
+                                        <td className="px-3 py-2 text-sm text-gray-900">
+                                          {record.email}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-900">
+                                          {record.branch}
+                                        </td>
+                                        <td className="px-3 py-2 text-sm text-gray-500">
+                                          {record.notes}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    {parsedData.length > 10 && (
+                                      <tr>
+                                        <td colSpan="3" className="px-3 py-2 text-sm text-gray-500 text-center">
+                                          ... and {parsedData.length - 10} more records
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Manual Upload Section */}
+                    {uploadMethod === 'manual' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Email List
+                        </label>
+                        <textarea
+                          value={bulkEmails}
+                          onChange={(e) => setBulkEmails(e.target.value)}
+                          placeholder="Enter email addresses (one per line, or separated by commas/semicolons)
+john.doe@company.com
+jane.smith@company.com
+mike.wilson@company.com"
+                          rows={8}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Supports: one email per line, comma-separated, or semicolon-separated
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200">
+                      <div className="flex items-center space-x-4">
+                        <button
+                          onClick={downloadExcelTemplate}
+                          className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 font-medium text-sm"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download Excel Template
+                        </button>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => {
+                            setShowBulkUpload(false);
+                            setExcelFile(null);
+                            setParsedData([]);
+                            setBulkEmails('');
+                          }}
+                          className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={uploadMethod === 'excel' ? handleBulkUploadFromExcel : handleManualBulkUpload}
+                          disabled={
+                            uploadingBulk ||
+                            parsingExcel ||
+                            (uploadMethod === 'excel' && parsedData.length === 0) ||
+                            (uploadMethod === 'manual' && !bulkEmails.trim()) ||
+                            !bulkBranch.trim()
+                          }
+                          className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
+                        >
+                          {uploadingBulk || parsingExcel ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              {parsingExcel ? 'Parsing...' : 'Uploading...'}
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2" />
+                              {uploadMethod === 'excel' ? `Upload ${parsedData.length} Records` : 'Upload Emails'}
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
 
-                  <div className="max-h-60 overflow-y-auto">
-                    <button
-                      onClick={() => handleBranchSelect('all')}
-                      className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+            {/* Stats and Filters */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+              {/* Stats Card */}
+              <div className="lg:col-span-1 bg-white rounded-xl shadow-xs border border-gray-200 p-6 transition-all hover:shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Pending Requests</p>
+                    <p className="text-3xl font-bold text-gray-900 mt-1">{totalCount}</p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Page {currentPage} of {totalPages}
+                    </p>
+                    {selectedRequests.size > 0 && (
+                      <p className="text-xs text-blue-600 font-medium mt-1">
+                        {selectedRequests.size} selected
+                      </p>
+                    )}
+                    {filterBounced && (
+                      <p className="text-xs text-red-600 font-medium mt-1">
+                        Showing {filteredRequests.length} bounced emails
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Branch Filter Dropdown */}
+              <div className="lg:col-span-3 bg-white rounded-xl shadow-xs border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Filter className="w-4 h-4 text-gray-500" />
+                    <h3 className="text-sm font-semibold text-gray-900">Filter by Branch</h3>
+                  </div>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
+                    {selectedBranch === 'all' ? 'Showing all branches' : `Filtered by: ${selectedBranch}`}
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Building className="w-4 h-4 text-gray-500" />
+                      <span className="text-sm font-medium text-gray-900">
+                        {getSelectedBranchLabel()}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${isDropdownOpen ? 'transform rotate-180' : ''
                         }`}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Building className="w-4 h-4" />
-                        <span className="font-medium">All Branches</span>
-                      </div>
-                    </button>
+                    />
+                  </button>
 
-                    {filteredBranches.length > 0 ? (
-                      filteredBranches.map((branch) => (
+                  {isDropdownOpen && (
+                    <div className="absolute z-10 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                      <div className="p-2 border-b border-gray-200">
+                        <div className="relative">
+                          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                          <input
+                            type="text"
+                            placeholder="Search branches..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto">
                         <button
-                          key={branch}
-                          onClick={() => handleBranchSelect(branch)}
-                          className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === branch ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                          onClick={() => handleBranchSelect('all')}
+                          className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === 'all' ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
                             }`}
                         >
                           <div className="flex items-center space-x-2">
                             <Building className="w-4 h-4" />
-                            <span>{branch}</span>
+                            <span className="font-medium">All Branches</span>
                           </div>
                         </button>
-                      ))
-                    ) : (
-                      <div className="px-4 py-3 text-sm text-gray-500 text-center">
-                        No branches found matching "{searchTerm}"
+
+                        {filteredBranches.length > 0 ? (
+                          filteredBranches.map((branch) => (
+                            <button
+                              key={branch}
+                              onClick={() => handleBranchSelect(branch)}
+                              className={`w-full flex items-center px-4 py-3 text-sm text-left hover:bg-gray-50 transition-colors ${selectedBranch === branch ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                                }`}
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Building className="w-4 h-4" />
+                                <span>{branch}</span>
+                              </div>
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                            No branches found matching "{searchTerm}"
+                          </div>
+                        )}
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                {selectedBranch !== 'all' && (
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-600">
+                      Showing requests for: <strong>{selectedBranch}</strong>
+                    </span>
+                    <button
+                      onClick={() => handleBranchSelect('all')}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Clear filter
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bulk Actions */}
+            {filteredRequests.length > 0 && (
+              <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 mb-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={toggleSelectAll}
+                      className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                    >
+                      {selectedRequests.size === filteredRequests.length ? (
+                        <CheckSquare className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <Square className="w-5 h-5 text-gray-400" />
+                      )}
+                      <span>
+                        {selectedRequests.size === filteredRequests.length ? 'Deselect All' : 'Select All'}
+                      </span>
+                    </button>
+
+                    {selectedRequests.size > 0 && (
+                      <span className="text-sm text-gray-600">
+                        {selectedRequests.size} request(s) selected
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center space-x-3">
+                    {selectedRequests.size > 0 && (
+                      <button
+                        onClick={handleBulkProcess}
+                        disabled={bulkProcessing}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                      >
+                        {bulkProcessing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processing {selectedRequests.size} Request(s)...
+                          </>
+                        ) : (
+                          <>
+                            <Key className="w-4 h-4 mr-2" />
+                            Process Selected ({selectedRequests.size})
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
-              )}
-            </div>
-
-            {selectedBranch !== 'all' && (
-              <div className="mt-3 flex items-center justify-between">
-                <span className="text-xs text-gray-600">
-                  Showing requests for: <strong>{selectedBranch}</strong>
-                </span>
-                <button
-                  onClick={() => handleBranchSelect('all')}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Clear filter
-                </button>
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Bulk Actions */}
-        {filteredRequests.length > 0 && (
-          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-4 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={toggleSelectAll}
-                  className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  {selectedRequests.size === filteredRequests.length ? (
-                    <CheckSquare className="w-5 h-5 text-blue-600" />
-                  ) : (
-                    <Square className="w-5 h-5 text-gray-400" />
-                  )}
-                  <span>
-                    {selectedRequests.size === filteredRequests.length ? 'Deselect All' : 'Select All'}
-                  </span>
-                </button>
-
-                {selectedRequests.size > 0 && (
-                  <span className="text-sm text-gray-600">
-                    {selectedRequests.size} request(s) selected
-                  </span>
-                )}
-              </div>
-
-              <div className="flex items-center space-x-3">
-                {selectedRequests.size > 0 && (
+            {/* Requests List */}
+            {filteredRequests.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-6 h-6 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {filterBounced
+                    ? 'No bounced emails found'
+                    : selectedBranch === 'all'
+                      ? 'No pending requests'
+                      : `No pending requests for ${selectedBranch}`
+                  }
+                </h3>
+                <p className="text-gray-500 max-w-md mx-auto">
+                  {filterBounced
+                    ? 'All emails have been delivered successfully or are still in transit.'
+                    : selectedBranch === 'all'
+                      ? 'All staff signup requests have been processed.'
+                      : `There are no pending requests for the ${selectedBranch} branch.`
+                  }
+                </p>
+                {filterBounced && (
                   <button
-                    onClick={handleBulkProcess}
-                    disabled={bulkProcessing}
-                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm shadow-sm"
+                    onClick={() => setFilterBounced(false)}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 font-medium text-sm mt-4"
                   >
-                    {bulkProcessing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing {selectedRequests.size} Request(s)...
-                      </>
-                    ) : (
-                      <>
-                        <Key className="w-4 h-4 mr-2" />
-                        Process Selected ({selectedRequests.size})
-                      </>
-                    )}
+                    <Eye className="w-4 h-4 mr-2" />
+                    Show All Requests
+                  </button>
+                )}
+                {!filterBounced && (
+                  <button
+                    onClick={() => setShowBulkUpload(true)}
+                    className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm mt-4"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Bulk Upload Staff Emails
                   </button>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+            ) : (
+              <div className="space-y-3">
+                {filteredRequests.map((request) => {
+                  const emailStatus = getEmailStatus(request.email);
+                  const hasBounced = emailStatus?.status === 'bounced';
 
-        {/* Requests List */}
-        {filteredRequests.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-xs border border-gray-200 p-12 text-center">
-            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-6 h-6 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {filterBounced
-                ? 'No bounced emails found'
-                : selectedBranch === 'all'
-                  ? 'No pending requests'
-                  : `No pending requests for ${selectedBranch}`
-              }
-            </h3>
-            <p className="text-gray-500 max-w-md mx-auto">
-              {filterBounced
-                ? 'All emails have been delivered successfully or are still in transit.'
-                : selectedBranch === 'all'
-                  ? 'All staff signup requests have been processed.'
-                  : `There are no pending requests for the ${selectedBranch} branch.`
-              }
-            </p>
-            {filterBounced && (
-              <button
-                onClick={() => setFilterBounced(false)}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 font-medium text-sm mt-4"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Show All Requests
-              </button>
-            )}
-            {!filterBounced && (
-              <button
-                onClick={() => setShowBulkUpload(true)}
-                className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200 font-medium text-sm mt-4"
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Bulk Upload Staff Emails
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredRequests.map((request) => {
-              const emailStatus = getEmailStatus(request.email);
-              const hasBounced = emailStatus?.status === 'bounced';
-
-              return (
-                <div
-                  key={request.id}
-                  className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${selectedRequests.has(request.id)
-                    ? 'border-blue-500 ring-2 ring-blue-100'
-                    : hasBounced
-                      ? 'border-red-300 ring-1 ring-red-100'
-                      : request.existingUser?.exists
-                        ? 'border-amber-300 ring-1 ring-amber-100'
-                        : 'border-gray-200 hover:shadow-sm'
-                    }`}
-                >
-                  <div className="p-5">
-                    <div className="flex items-start justify-between">
-                      {/* Selection Checkbox and Request Info */}
-                      <div className="flex-1">
-                        <div className="flex items-start space-x-4">
-                          <button
-                            onClick={() => toggleRequestSelection(request.id)}
-                            className="mt-2 flex-shrink-0"
-                          >
-                            {selectedRequests.has(request.id) ? (
-                              <CheckSquare className="w-5 h-5 text-blue-600" />
-                            ) : (
-                              <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
-                            )}
-                          </button>
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0 ${hasBounced
-                            ? 'bg-gradient-to-r from-red-500 to-pink-600'
-                            : request.existingUser?.exists
-                              ? 'bg-gradient-to-r from-amber-500 to-orange-600'
-                              : 'bg-gradient-to-r from-blue-500 to-indigo-600'
-                            }`}>
-                            {hasBounced ? (
-                              <AlertCircle className="w-6 h-6 text-white" />
-                            ) : request.existingUser?.exists ? (
-                              <AlertTriangle className="w-6 h-6 text-white" />
-                            ) : (
-                              <span className="text-white font-semibold text-lg">
-                                {request.email.charAt(0).toUpperCase()}
-                              </span>
-                            )}
-                          </div>
+                  return (
+                    <div
+                      key={request.id}
+                      className={`bg-white rounded-xl shadow-xs border transition-all duration-200 overflow-hidden ${selectedRequests.has(request.id)
+                        ? 'border-blue-500 ring-2 ring-blue-100'
+                        : hasBounced
+                          ? 'border-red-300 ring-1 ring-red-100'
+                          : request.existingUser?.exists
+                            ? 'border-amber-300 ring-1 ring-amber-100'
+                            : 'border-gray-200 hover:shadow-sm'
+                        }`}
+                    >
+                      <div className="p-5">
+                        <div className="flex items-start justify-between">
+                          {/* Selection Checkbox and Request Info */}
                           <div className="flex-1">
-                            <div className="flex items-center space-x-3">
-                              <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${hasBounced
-                                ? 'bg-red-100 text-red-800 border border-red-200'
+                            <div className="flex items-start space-x-4">
+                              <button
+                                onClick={() => toggleRequestSelection(request.id)}
+                                className="mt-2 flex-shrink-0"
+                              >
+                                {selectedRequests.has(request.id) ? (
+                                  <CheckSquare className="w-5 h-5 text-blue-600" />
+                                ) : (
+                                  <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                                )}
+                              </button>
+                              <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-sm mt-1 flex-shrink-0 ${hasBounced
+                                ? 'bg-gradient-to-r from-red-500 to-pink-600'
                                 : request.existingUser?.exists
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                  : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                  ? 'bg-gradient-to-r from-amber-500 to-orange-600'
+                                  : 'bg-gradient-to-r from-blue-500 to-indigo-600'
                                 }`}>
-                                {hasBounced ? 'Email Bounced' : request.existingUser?.exists ? 'User Exists' : 'Pending'}
-                              </span>
-                              {emailStatus && (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(emailStatus.status)}`}>
-                                  {emailStatus.status}
-                                  {emailStatus.lastWebhookEvent && (
-                                    <span className="ml-1 text-xs opacity-75">
-                                      ({emailStatus.lastWebhookEvent})
+                                {hasBounced ? (
+                                  <AlertCircle className="w-6 h-6 text-white" />
+                                ) : request.existingUser?.exists ? (
+                                  <AlertTriangle className="w-6 h-6 text-white" />
+                                ) : (
+                                  <span className="text-white font-semibold text-lg">
+                                    {request.email.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3">
+                                  <h3 className="text-lg font-semibold text-gray-900">{request.email}</h3>
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${hasBounced
+                                    ? 'bg-red-100 text-red-800 border border-red-200'
+                                    : request.existingUser?.exists
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      : 'bg-blue-100 text-blue-800 border border-blue-200'
+                                    }`}>
+                                    {hasBounced ? 'Email Bounced' : request.existingUser?.exists ? 'User Exists' : 'Pending'}
+                                  </span>
+                                  {emailStatus && (
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeColor(emailStatus.status)}`}>
+                                      {emailStatus.status}
+                                      {emailStatus.lastWebhookEvent && (
+                                        <span className="ml-1 text-xs opacity-75">
+                                          ({emailStatus.lastWebhookEvent})
+                                        </span>
+                                      )}
                                     </span>
                                   )}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 mt-2">
-                              <div className="flex items-center space-x-1.5">
-                                <Building className="w-4 h-4 text-gray-400" />
-                                <span>{getBranchDisplayName(request.branch)}</span>
-                              </div>
-                              <div className="flex items-center space-x-1.5">
-                                <Clock className="w-4 h-4 text-gray-400" />
-                                <span>{new Date(request.created_at).toLocaleString()}</span>
-                              </div>
-                              {request.existingUser?.exists && (
-                                <div className="flex items-center space-x-1.5 text-amber-600">
-                                  <AlertTriangle className="w-4 h-4" />
-                                  <span>User already in system</span>
                                 </div>
-                              )}
-                              {emailStatus && emailStatus.sentAt && (
-                                <div className="flex items-center space-x-1.5 text-gray-500">
-                                  <Mail className="w-4 h-4" />
-                                  <span>Sent: {new Date(emailStatus.sentAt).toLocaleDateString()}</span>
+                                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-gray-600 mt-2">
+                                  <div className="flex items-center space-x-1.5">
+                                    <Building className="w-4 h-4 text-gray-400" />
+                                    <span>{getBranchDisplayName(request.branch)}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1.5">
+                                    <Clock className="w-4 h-4 text-gray-400" />
+                                    <span>{new Date(request.created_at).toLocaleString()}</span>
+                                  </div>
+                                  {request.existingUser?.exists && (
+                                    <div className="flex items-center space-x-1.5 text-amber-600">
+                                      <AlertTriangle className="w-4 h-4" />
+                                      <span>User already in system</span>
+                                    </div>
+                                  )}
+                                  {emailStatus && emailStatus.sentAt && (
+                                    <div className="flex items-center space-x-1.5 text-gray-500">
+                                      <Mail className="w-4 h-4" />
+                                      <span>Sent: {new Date(emailStatus.sentAt).toLocaleDateString()}</span>
+                                    </div>
+                                  )}
+                                  {emailStatus && emailStatus.webhookReceivedAt && (
+                                    <div className="flex items-center space-x-1.5 text-green-500">
+                                      <Radio className="w-4 h-4" />
+                                      <span>Webhook: {new Date(emailStatus.webhookReceivedAt).toLocaleTimeString()}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                              {emailStatus && emailStatus.webhookReceivedAt && (
-                                <div className="flex items-center space-x-1.5 text-green-500">
-                                  <Radio className="w-4 h-4" />
-                                  <span>Webhook: {new Date(emailStatus.webhookReceivedAt).toLocaleTimeString()}</span>
-                                </div>
-                              )}
-                            </div>
 
-                            {/* Bounce Details */}
-                            {hasBounced && (
-                              <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                                <div className="flex items-start space-x-2 text-red-700">
-                                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1">
-                                    <p className="font-medium text-sm">Email Delivery Failed</p>
-                                    <p className="text-xs mt-1">{emailStatus.bounceReason || 'Unknown bounce reason'}</p>
-                                    <div className="flex items-center space-x-4 text-xs mt-2 text-red-600">
-                                      <span>Sent: {new Date(emailStatus.sentAt).toLocaleString()}</span>
-                                      {emailStatus.bouncedAt && (
-                                        <span>Bounced: {new Date(emailStatus.bouncedAt).toLocaleString()}</span>
-                                      )}
+                                {/* Bounce Details */}
+                                {hasBounced && (
+                                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                                    <div className="flex items-start space-x-2 text-red-700">
+                                      <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                      <div className="flex-1">
+                                        <p className="font-medium text-sm">Email Delivery Failed</p>
+                                        <p className="text-xs mt-1">{emailStatus.bounceReason || 'Unknown bounce reason'}</p>
+                                        <div className="flex items-center space-x-4 text-xs mt-2 text-red-600">
+                                          <span>Sent: {new Date(emailStatus.sentAt).toLocaleString()}</span>
+                                          {emailStatus.bouncedAt && (
+                                            <span>Bounced: {new Date(emailStatus.bouncedAt).toLocaleString()}</span>
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
+                                )}
                               </div>
-                            )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
+                              onClick={() => handleReject(request.id, request.email)}
+                              disabled={processingId === request.id || bulkProcessing}
+                              className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs"
+                            >
+                              {processingId === request.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Processing
+                                </>
+                              ) : (
+                                <>
+                                  <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                  Reject
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              onClick={() => handleProcessRequest(request.id, request.email, request.branch)}
+                              disabled={processingId === request.id || bulkProcessing || hasBounced}
+                              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
+                            >
+                              {processingId === request.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Processing
+                                </>
+                              ) : hasBounced ? (
+                                <>
+                                  <AlertCircle className="w-4 h-4 mr-2" />
+                                  Email Bounced
+                                </>
+                              ) : (
+                                <>
+                                  <Key className="w-4 h-4 mr-2" />
+                                  {request.existingUser?.exists ? 'Update & Resend' : 'Approve'}
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
                       </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center space-x-2 ml-4">
-                        <button
-                          onClick={() => handleReject(request.id, request.email)}
-                          disabled={processingId === request.id || bulkProcessing}
-                          className="inline-flex items-center px-4 py-2 border border-gray-200 text-gray-700 bg-white rounded-lg hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs"
-                        >
-                          {processingId === request.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Processing
-                            </>
-                          ) : (
-                            <>
-                              <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                              Reject
-                            </>
-                          )}
-                        </button>
-
-                        <button
-                          onClick={() => handleProcessRequest(request.id, request.email, request.branch)}
-                          disabled={processingId === request.id || bulkProcessing || hasBounced}
-                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-xs shadow-sm"
-                        >
-                          {processingId === request.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Processing
-                            </>
-                          ) : hasBounced ? (
-                            <>
-                              <AlertCircle className="w-4 h-4 mr-2" />
-                              Email Bounced
-                            </>
-                          ) : (
-                            <>
-                              <Key className="w-4 h-4 mr-2" />
-                              {request.existingUser?.exists ? 'Update & Resend' : 'Approve'}
-                            </>
-                          )}
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  );
+                })}
+              </div>
+            )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-8 bg-white rounded-xl shadow-xs border border-gray-200 p-4">
-            <div className="text-sm text-gray-700">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-              {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} requests
-              {filterBounced && ` (${filteredRequests.length} bounced)`}
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handlePreviousPage}
-                disabled={currentPage === 1}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                Previous
-              </button>
-              <span className="px-3 py-2 text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
-              </span>
-              <button
-                onClick={handleNextPage}
-                disabled={currentPage === totalPages}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-                <ChevronRight className="w-4 h-4 ml-1" />
-              </button>
-            </div>
-          </div>
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-8 bg-white rounded-xl shadow-xs border border-gray-200 p-4">
+                <div className="text-sm text-gray-700">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
+                  {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} requests
+                  {filterBounced && ` (${filteredRequests.length} bounced)`}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handlePreviousPage}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    Previous
+                  </button>
+                  <span className="px-3 py-2 text-sm text-gray-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={handleNextPage}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

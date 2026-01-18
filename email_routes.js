@@ -2,6 +2,7 @@ import express from "express";
 import nodemailer from "nodemailer";
 import { Resend } from "resend";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 
 dotenv.config();
 
@@ -19,6 +20,84 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASSWORD,
     },
+});
+
+// Get email logs from Resend using REST API
+router.get("/logs", async (req, res) => {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            return res.status(500).json({ error: "Resend API key not configured" });
+        }
+
+        // Get pagination parameters from query string
+        const limit = req.query.limit || 20;
+        const cursor = req.query.cursor || '';
+
+        // Build URL with pagination params
+        let url = `https://api.resend.com/emails?limit=${limit}`;
+        if (cursor) {
+            url += `&cursor=${cursor}`;
+        }
+
+        // Call Resend REST API directly since SDK doesn't expose list method
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ Resend API error:", errorText);
+            return res.status(response.status).json({
+                error: "Failed to fetch emails from Resend",
+                details: errorText
+            });
+        }
+
+        const data = await response.json();
+        console.log("✅ Fetched emails from Resend:", data.data?.length || 0, "emails");
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error fetching email logs:", error);
+        res.status(500).json({ error: "Failed to fetch email logs" });
+    }
+});
+
+// Get single email details from Resend
+router.get("/logs/:id", async (req, res) => {
+    try {
+        if (!process.env.RESEND_API_KEY) {
+            return res.status(500).json({ error: "Resend API key not configured" });
+        }
+
+        const { id } = req.params;
+
+        const response = await fetch(`https://api.resend.com/emails/${id}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("❌ Resend API error:", errorText);
+            return res.status(response.status).json({
+                error: "Failed to fetch email details",
+                details: errorText
+            });
+        }
+
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error fetching email details:", error);
+        res.status(500).json({ error: "Failed to fetch email details" });
+    }
 });
 
 // Email sending endpoint

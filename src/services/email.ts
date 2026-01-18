@@ -1,5 +1,3 @@
-// Point back to the backend service to handle email sending securely (avoid CORS and API key exposure)
-const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.MODE === 'production' ? '/api' : "http://localhost:3001/api");
 
 export interface EmailData {
   to: string;
@@ -7,14 +5,25 @@ export interface EmailData {
   html: string;
 }
 
+// Point to the local proxy which forwards to the backend
+
+
 export const sendEmail = async (data: EmailData) => {
   try {
-    const response = await fetch(`${API_URL}/email/send`, {
+    const response = await fetch(import.meta.env.VITE_SUPABASE_FUNCTION_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        to_email: data.to,
+        subject: data.subject,
+        html_content: data.html,
+        from_email: "support@zirahrapp.com",
+        track_opens: true,
+        track_clicks: true
+      }),
     });
 
     if (!response.ok) {
@@ -23,8 +32,7 @@ export const sendEmail = async (data: EmailData) => {
     }
 
     const result = await response.json();
-    // Normalize response for the tracking logic
-    return { ...result, id: result.id || result.messageId };
+    return { id: result.id || result.messageId || result.resend_id };
   } catch (error) {
     console.error("Email service error:", error);
     throw error;

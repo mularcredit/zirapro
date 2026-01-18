@@ -18,7 +18,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3001',  // Your backend server
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),
+        // rewrite: (path) => path.replace(/^\/api/, ''),
         secure: false,  // For local development with self-signed certificates
       },
     },

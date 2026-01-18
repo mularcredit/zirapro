@@ -1,0 +1,82 @@
+Employee Number
+First Name
+Middle Name
+Last Name
+Entity
+Branch
+Town
+Office
+Employee Type
+Job Title
+Job Group
+Job Level
+Type of Identification
+ID Number
+Payroll Number
+Work Email
+Mobile Number
+Alternative Mobile Number
+Start Date
+Internship End Date
+Probation Start Date
+Probation End Date
+Contract Start Date
+Contract End Date
+Termination Date
+Manager
+Leave Approver
+Alternate Approver
+Personal Email
+Date of Birth
+Gender
+Marital Status
+Country
+Postal Address
+Postal Code
+Postal Location
+City
+Area
+Road
+House Number
+Tax PIN
+NHIF Number
+SHIF Number
+NSSF Number
+WIBA
+Pension Start Date
+Employee AVC
+Employer AVC
+Pension Deduction
+NSSF Deduction
+NHIF Deduction
+Housing Levy Deduction
+Tax Exempted
+Disability Cert No
+Account Number
+Bank
+Bank Branch
+passport_number
+blood_group
+religion
+second_level_leave_approver
+alternate_second_level_approver
+NITA
+NITA Deductions
+HELB
+HELB option
+internship_start_date
+account_number_name
+payment_method
+Basic Salary
+Currency
+Profile Image
+Employee Id
+Work Mobile
+Personal Mobile
+house_allowance
+travel_allowance
+bonus
+overtime
+hardship
+manager_email
+regional_manager
