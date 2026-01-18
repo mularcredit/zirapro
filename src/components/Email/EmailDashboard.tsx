@@ -34,8 +34,8 @@ export default function EmailDashboard() {
     const fetchLogs = async (page: number = 1) => {
         setLoading(true);
         try {
-            // Fetch directly from Resend via our backend API
-            const url = `http://localhost:3001/api/email/logs?limit=${itemsPerPage}`;
+            // Use relative path - works in both dev (via proxy) and production
+            const url = `/api/email/logs?limit=${itemsPerPage}`;
             const response = await fetch(url);
 
             if (!response.ok) {
@@ -77,7 +77,7 @@ export default function EmailDashboard() {
     const fetchEmailDetails = async (emailId: string) => {
         setLoadingDetails(true);
         try {
-            const response = await fetch(`http://localhost:3001/api/email/logs/${emailId}`);
+            const response = await fetch(`/api/email/logs/${emailId}`);
 
             if (!response.ok) {
                 const errorData = await response.json();
@@ -193,8 +193,8 @@ export default function EmailDashboard() {
                                     <button
                                         onClick={() => setFilter('all')}
                                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === 'all'
-                                                ? 'bg-white text-gray-900 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                            ? 'bg-white text-gray-900 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         All
@@ -202,8 +202,8 @@ export default function EmailDashboard() {
                                     <button
                                         onClick={() => setFilter('delivered')}
                                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === 'delivered'
-                                                ? 'bg-white text-green-700 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                            ? 'bg-white text-green-700 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         Delivered
@@ -211,8 +211,8 @@ export default function EmailDashboard() {
                                     <button
                                         onClick={() => setFilter('bounced')}
                                         className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${filter === 'bounced'
-                                                ? 'bg-white text-red-700 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                            ? 'bg-white text-red-700 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700'
                                             }`}
                                     >
                                         Bounced
