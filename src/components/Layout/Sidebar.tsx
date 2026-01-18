@@ -6,7 +6,6 @@ import {
   Settings,
   Bot,
   ChevronLeft,
-  Video,
   Siren,
   LayoutDashboard,
   Wallet,
@@ -42,7 +41,6 @@ const menuGroups = [
       { id: 'task-manager', label: 'Task Manager', icon: Blocks, path: '/tasks' },
       { id: 'teams', label: 'Teams', icon: Slack, path: '/teams' },
       { id: 'messages', label: 'SMS Center', icon: MessageSquareMore, path: '/sms' },
-      { id: 'conferencing', label: 'Conferencing', icon: Video, path: '/videocall' },
     ]
   },
   {

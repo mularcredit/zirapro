@@ -128,9 +128,63 @@ app.post("/api/email/send", async (req, res) => {
 
     console.log("✅ Message sent via SMTP: %s", info.messageId);
     res.json({ message: "Email sent successfully", id: info.messageId });
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error sending email:", error);
-    res.status(500).json({ error: "Failed to send email" });
+    res.status(500).json({ error: error.message || "Failed to send email" });
+  }
+});
+
+// Email logs endpoint
+app.get("/api/email/logs", async (req, res) => {
+  try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      return res.status(500).json({ error: "Resend API key not configured on server" });
+    }
+
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendApiKey);
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    const { data, error } = await resend.emails.list({
+      limit: limit
+    });
+
+    if (error) {
+      console.error("❌ Resend list error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error: any) {
+    console.error("❌ Error fetching email logs:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch email logs" });
+  }
+});
+
+// Email details endpoint
+app.get("/api/email/logs/:id", async (req, res) => {
+  try {
+    const resendApiKey = process.env.RESEND_API_KEY;
+    if (!resendApiKey) {
+      return res.status(500).json({ error: "Resend API key not configured on server" });
+    }
+
+    const { Resend } = await import("resend");
+    const resend = new Resend(resendApiKey);
+    const { id } = req.params;
+
+    const { data, error } = await resend.emails.get(id);
+
+    if (error) {
+      console.error("❌ Resend get error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error: any) {
+    console.error("❌ Error fetching email details:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch email details" });
   }
 });
 

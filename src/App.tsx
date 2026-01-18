@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Routes, Route, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from './lib/supabase';
+import { Session } from '@supabase/supabase-js';
 import toast, { Toaster } from 'react-hot-toast';
 import { CSSProperties } from 'react';
 import { UpdateNotification } from '../src/components/Settings/update';
@@ -36,20 +37,12 @@ import AuthCallback from './pages/AuthCallback';
 import SalaryAdvanceAdmin from './components/Settings/SalaryAdmin';
 import IncidentReportsManagement from './components/Settings/IncidentReportsManagement';
 import PhoneNumberApprovals from './components/Settings/PhoneNumberApprovals';
-import VideoConferenceComponent from '../src/components/staff portal/VideoConf'
-import { ApplicationsTable } from './components/Recruitment/components/ApplicationsTable';
-
 import WarningModule from './components/Warning/StaffCheck'
-import { MeetingRoom } from './components/zoom/MeetingRoom';
-import { useZoomSDK } from '../src/hooks/useZoom';
-import { createMeetingConfig } from '../backend/zoomAuth';
 import React from 'react';
 import { UserProvider } from '../src/components/ProtectedRoutes/UserContext';
 import MFAVerification from './pages/MFAverification';
-import LoanTargetsCalculator from './components/Perfomance/LoanTargetsCalculator';
 import { MicrofinanceTodoList } from './components/Task Manager/TaskManager';
 import { SMSCenter } from './components/SMS/Sms';
-import { ChatArea } from './components/chat/ChatArea';
 import { ChatLayout } from './components/chat/ChatLayout';
 import BaseReport from './components/Reports/BaseReport';
 import ReportsList from './components/Reports/ReportLists';
@@ -65,10 +58,10 @@ interface User {
 }
 
 interface Branch {
-  id: number;
+  id?: number;
   "Branch Office": string;
   "Area": string;
-  created_at: string;
+  created_at?: string;
 }
 
 const Loader = () => {
@@ -156,7 +149,7 @@ const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
 function App() {
   // All hooks at the top level
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedTown, setSelectedTown] = useState<string>('');
   const [selectedRegion, setSelectedRegion] = useState('All Regions');
@@ -173,29 +166,10 @@ function App() {
   // Inactivity timer refs (using refs instead of state for timers)
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-
-  // Zoom meeting state
-  const {
-    isInMeeting,
-    participants,
-    chatMessages,
-    isAudioMuted,
-    isVideoMuted,
-    isScreenSharing,
-    connectionStatus,
-    joinMeeting,
-    leaveMeeting,
-    toggleAudio,
-    toggleVideo,
-    toggleScreenShare,
-    sendChatMessage
-  } = useZoomSDK();
 
   // Refs to track login state and prevent duplicate toasts
   const hasShownWelcomeToast = useRef(false);
   const lastAuthEvent = useRef<string>('');
-  const lastAuthEventTime = useRef<number>(0);
   const navigationHandled = useRef(false);
 
   const location = useLocation();
@@ -225,40 +199,10 @@ function App() {
       clearTimeout(warningTimerRef.current);
       warningTimerRef.current = null;
     }
-    setShowInactivityWarning(false);
 
     // Clear any inactivity warning toast
     toast.dismiss('inactivity-warning');
   }, []);
-
-  // Reset inactivity timer
-  const resetInactivityTimer = useCallback(() => {
-    // Don't set timer if we're on excluded routes or during auth processes
-    if (shouldExcludeFromInactivityTimer()) {
-      clearAllTimers();
-      return;
-    }
-
-    // Clear existing timers first
-    clearAllTimers();
-
-    // Only set timer if user is logged in and not in excluded routes
-    if (session && user) {
-      // Set warning timer (9 minutes)
-      warningTimerRef.current = setTimeout(() => {
-        setShowInactivityWarning(true);
-        toast.error('You will be logged out due to inactivity in 1 minute.', {
-          duration: 60000,
-          id: 'inactivity-warning'
-        });
-      }, INACTIVITY_TIMEOUT - WARNING_TIMEOUT);
-
-      // Set logout timer (10 minutes)
-      inactivityTimerRef.current = setTimeout(() => {
-        handleAutoLogout();
-      }, INACTIVITY_TIMEOUT);
-    }
-  }, [session, user, shouldExcludeFromInactivityTimer, clearAllTimers]);
 
   // Auto logout function
   const handleAutoLogout = useCallback(async () => {
@@ -277,35 +221,45 @@ function App() {
         const { error } = await supabase.auth.signOut();
 
         if (error) {
-          console.error('Auto-logout error:', error);
-        } else {
-          toast.success('Automatically logged out due to inactivity');
+          console.error('Error during auto-logout:', error);
         }
 
-        setUser(null);
-        setSession(null);
-        setSelectedTown('');
-        setSelectedRegion('All Regions');
-        localStorage.removeItem('selectedTown');
-
-        // Clear all auth flags
-        sessionStorage.removeItem('isMFAProcess');
-        sessionStorage.removeItem('mfaCompleted');
-
+        toast.error('You have been logged out due to inactivity.');
         navigate('/login', { replace: true });
-      } catch (error) {
-        console.error('Unexpected auto-logout error:', error);
-        setUser(null);
-        setSession(null);
-        setSelectedTown('');
-        setSelectedRegion('All Regions');
-        localStorage.removeItem('selectedTown');
-        sessionStorage.removeItem('isMFAProcess');
-        sessionStorage.removeItem('mfaCompleted');
+      } catch (err) {
+        console.error('Logout error:', err);
         navigate('/login', { replace: true });
       }
     }
   }, [session, user, clearAllTimers, navigate]);
+
+  // Reset inactivity timer
+  const resetInactivityTimer = useCallback(() => {
+    // Don't set timer if we're on excluded routes or during auth processes
+    if (shouldExcludeFromInactivityTimer()) {
+      clearAllTimers();
+      return;
+    }
+
+    // Clear existing timers first
+    clearAllTimers();
+
+    // Only set timer if user is logged in and not in excluded routes
+    if (session && user) {
+      // Set warning timer (9 minutes)
+      warningTimerRef.current = setTimeout(() => {
+        toast.error('You will be logged out due to inactivity in 1 minute.', {
+          duration: 60000,
+          id: 'inactivity-warning'
+        });
+      }, INACTIVITY_TIMEOUT - WARNING_TIMEOUT);
+
+      // Set logout timer (10 minutes)
+      inactivityTimerRef.current = setTimeout(() => {
+        handleAutoLogout();
+      }, INACTIVITY_TIMEOUT);
+    }
+  }, [session, user, shouldExcludeFromInactivityTimer, clearAllTimers, handleAutoLogout, INACTIVITY_TIMEOUT, WARNING_TIMEOUT]);
 
   // Activity detection event handlers
   const handleUserActivity = useCallback(() => {
@@ -340,15 +294,6 @@ function App() {
       clearAllTimers();
     }
   }, [session, user, handleUserActivity, resetInactivityTimer, shouldExcludeFromInactivityTimer, clearAllTimers]);
-
-  const handleJoinMeeting = async (config: {
-    topic: string;
-    userName: string;
-    userEmail: string;
-  }) => {
-    const meetingConfig = createMeetingConfig(config.topic, config.userName, config.userEmail);
-    await joinMeeting(meetingConfig);
-  };
 
   // Fetch branches and regions from Supabase
   useEffect(() => {
@@ -392,7 +337,7 @@ function App() {
     };
 
     fetchBranchesAndRegions();
-  }, []);
+  }, [isFetchingBranches]);
 
   // Handler for region change
   const handleRegionChange = useCallback(async (regionName: string) => {
@@ -643,7 +588,8 @@ function App() {
           } else {
             navigate('/login', { replace: true });
           }
-        } catch (error) {
+        } catch (err) {
+          console.error('Email confirmation error:', err);
           navigate('/login', { replace: true });
         }
       }
@@ -887,33 +833,12 @@ function App() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate, location.pathname, searchParams, branches, clearAllTimers]);
+  }, [navigate, location.pathname, location.search, location.hash, searchParams, branches, clearAllTimers]);
 
   // Reset navigation flag when location changes
   useEffect(() => {
     navigationHandled.current = false;
   }, [location.pathname]);
-
-  // Early return if in meeting
-  if (isInMeeting) {
-    return (
-      <ErrorBoundary>
-        <MeetingRoom
-          participants={participants}
-          chatMessages={chatMessages}
-          isAudioMuted={isAudioMuted}
-          isVideoMuted={isVideoMuted}
-          isScreenSharing={isScreenSharing}
-          onToggleAudio={toggleAudio}
-          onToggleVideo={toggleVideo}
-          onToggleScreenShare={toggleScreenShare}
-          onLeaveMeeting={leaveMeeting}
-          onSendMessage={sendChatMessage}
-        />
-        <Toaster position="top-right" toastOptions={{ style: { background: '#1f2937', color: '#fff' } }} />
-      </ErrorBoundary>
-    );
-  }
 
   if (!authChecked || isInitializing) {
     return <Loader />;
@@ -930,18 +855,7 @@ function App() {
             <Route
               path="/mfa"
               element={
-                <MFAVerification
-                  onSuccess={() => {
-                    // This callback will be used if MFAVerification is updated to take props
-                    sessionStorage.removeItem('isMFAProcess');
-                    const targetPath = user?.role === 'STAFF' ? '/staff' : '/dashboard';
-                    navigate(targetPath, { replace: true });
-                  }}
-                  onFailure={() => {
-                    sessionStorage.removeItem('isMFAProcess');
-                    navigate('/login', { replace: true });
-                  }}
-                />
+                <MFAVerification />
               }
             />
             <Route path="/auth/callback" element={<AuthCallback />} />
@@ -991,7 +905,7 @@ function App() {
                                     user?.role === 'STAFF' ?
                                       <StaffPortalLanding /> :
                                       <AuthRoute allowedRoles={['ADMIN', 'MANAGER', 'HR', 'CHECKER']}>
-                                        <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                        <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />
                                       </AuthRoute>
                                   }
                                 />
@@ -999,11 +913,11 @@ function App() {
                                   path="/dashboard"
                                   element={
                                     <AuthRoute allowedRoles={['ADMIN', 'MANAGER', 'HR', 'REGIONAL', 'OPERATIONS', 'CHECKER']}>
-                                      <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      <Dashboard selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />
                                     </AuthRoute>
                                   }
                                 />
-                                <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/employees" element={<EmployeeList selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />} />
                                 <Route path="/add-employee" element={<AddEmployeePage />} />
                                 <Route path="/view-employee/:id" element={<ViewEmployeePage />} />
                                 <Route path="/view-employee/:employeeId" element={<ViewEmployeePage />} />
@@ -1013,20 +927,47 @@ function App() {
                                 <Route path="/loanadmin" element={<LoanRequestsAdmin />} />
                                 <Route path="/asset" element={<AssetManagement />} />
                                 <Route path="/asset/scan" element={<QRScanner />} />
-                                <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="/tasks" element={<MicrofinanceTodoList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="/sms" element={<SMSCenter selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="/reports" element={<ReportsList selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="reports/base" element={<BaseReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="reports/staffloan" element={<StaffLoansReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
-                                <Route path="reports/statutory" element={<StatutoryDeductionsReport selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/expenses" element={<ExpenseModule selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />} />
+                                <Route path="/tasks" element={<MicrofinanceTodoList />} />
+                                <Route path="/sms" element={<SMSCenter />} />
+                                <Route path="/reports" element={<ReportsList />} />
+                                <Route path="reports/base" element={<BaseReport
+                                  selectedTown={selectedTown}
+                                  selectedRegion={selectedRegion}
+                                  onTownChange={handleTownChange}
+                                  onRegionChange={handleRegionChange}
+                                  reportTitle="Base Report"
+                                  reportDescription="Base report view"
+                                  onGenerateReport={async () => []}
+                                  renderReportData={() => null}
+                                />} />
+                                <Route path="reports/staffloan" element={<StaffLoansReport
+                                  selectedTown={selectedTown}
+                                  selectedRegion={selectedRegion}
+                                  onTownChange={handleTownChange}
+                                  onRegionChange={handleRegionChange}
+                                  reportTitle="Staff Loan Report"
+                                  reportDescription="Staff loan details"
+                                  onGenerateReport={async () => []}
+                                  renderReportData={() => null}
+                                />} />
+                                <Route path="reports/statutory" element={<StatutoryDeductionsReport
+                                  selectedTown={selectedTown}
+                                  selectedRegion={selectedRegion}
+                                  onTownChange={handleTownChange}
+                                  onRegionChange={handleRegionChange}
+                                  reportTitle="Statutory Deductions"
+                                  reportDescription="Statutory deductions details"
+                                  onGenerateReport={async () => []}
+                                  renderReportData={() => null}
+                                />} />
                                 <Route path="/teams" element={<ChatLayout />} />
                                 <Route path="/staffcheck" element={<WarningModule />} />
                                 <Route
                                   path="/payroll"
                                   element={
                                     <AuthRoute allowedRoles={['ADMIN', 'CHECKER']}>
-                                      <PayrollDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      <PayrollDashboard />
                                     </AuthRoute>
                                   }
                                 />
@@ -1065,33 +1006,36 @@ function App() {
                                   path="/adminconfirm"
                                   element={
                                     <AuthRoute allowedRoles={['ADMIN', 'OPERATIONS', 'CHECKER', 'HR']}>
-                                      <StaffSignupRequests selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      <StaffSignupRequests />
+                                    </AuthRoute>
+                                  }
+                                />
+                                <Route
+                                  path="/phone-approvals"
+                                  element={
+                                    <AuthRoute allowedRoles={['ADMIN', 'CHECKER', 'HR']}>
+                                      <PhoneNumberApprovals />
                                     </AuthRoute>
                                   }
                                 />
                                 <Route path="/recruitment"
                                   element={
                                     <AuthRoute allowedRoles={['ADMIN', 'HR', 'OPERATIONS', 'CHECKER']}>
-                                      <RecruitmentDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                      <RecruitmentDashboard />
                                     </AuthRoute>} />
-                                <Route path="/applications" element={<ApplicationsTable />} />
                                 <Route path="/performance" element={
-                                  <PerformanceDashboard selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />
+                                  <PerformanceDashboard
+                                    selectedTown={selectedTown}
+                                    selectedRegion={selectedRegion}
+                                    onTownChange={handleTownChange}
+                                    onRegionChange={handleRegionChange}
+                                  />
                                 } />
-                                <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/leaves" element={<LeaveManagementSystem selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />} />
                                 <Route path="/training" element={<AdminVideoUpload />} />
-                                <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/ai-assistant" element={<AIAssistantPage selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />} />
 
-                                <Route
-                                  path="/videocall"
-                                  element={
-                                    <VideoConferenceComponent
-                                      onJoinMeeting={handleJoinMeeting}
-                                      isConnecting={connectionStatus === 'connecting'}
-                                    />
-                                  }
-                                />
-                                <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown} selectedRegion={selectedRegion} allTowns={branches} />} />
+                                <Route path="/fogs" element={<EmployeeDataTable selectedTown={selectedTown} selectedRegion={selectedRegion} onTownChange={handleTownChange} onRegionChange={handleRegionChange} />} />
                                 <Route path="/teams" element={<ChatLayout />} />
                                 <Route path="*" element={<NotFound />} />
                               </Routes>
