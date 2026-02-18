@@ -332,24 +332,20 @@ export default function MFAVerification() {
 
       if (storeError) throw storeError;
 
-      // 3. Send SMS via backend (avoids no-cors blind sends, gets real delivery status)
+      // 3. Send SMS via Celcom directly (reverted to original working method)
       const message = `Your Mular Credit verification code is: ${mfaCode}. This code expires in 10 minutes.`;
+      const encodedMessage = encodeURIComponent(message);
+      const url = `https://isms.celcomafrica.com/api/services/sendsms/?apikey=17323514aa8ce2613e358ee029e65d99&partnerID=928&message=${encodedMessage}&shortcode=MularCredit&mobile=${formattedPhone}`;
 
-      console.log(`📡 Sending MFA SMS to ${formattedPhone}...`);
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const smsResponse = await fetch(`${apiUrl}/sms/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone, message }),
+      console.log(`📡 Sending SMS to ${formattedPhone}...`);
+
+      // Use no-cors as before to avoid CORS errors (opaque response)
+      await fetch(url, {
+        method: 'GET',
+        mode: 'no-cors'
       });
 
-      if (!smsResponse.ok) {
-        const errData = await smsResponse.json().catch(() => ({}));
-        console.error('❌ SMS send failed:', errData);
-        throw new Error(errData.error || 'Failed to send verification SMS. Please try again.');
-      }
-
-      console.log(`✅ MFA SMS sent successfully to ${formattedPhone}`);
+      console.log(`✅ MFA SMS sent request initiated to ${formattedPhone}`);
 
       setCountdown(30);
       const countdownInterval = setInterval(() => {
